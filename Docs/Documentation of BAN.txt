@@ -107,21 +107,27 @@ Security Standards
 o	Compliance with online child protection laws (such as COPPA).
 o	A clear and public privacy policy for parents.
 o	Using automatic monitoring systems for chat content or file sharing to combat any inappropriate content.
-Zoom Integration (Zoom API)
-•	Direct link between the class system and Zoom via API.
-•	Automatically generating dedicated login links for each student.
-•	Support for breakout rooms to divide students into groups during memorization or discussion.
-•	Automatically recording classes from zoom will be uploaded by the teacher to youtube. Then it's embedded link will be shared with the students.
+Zoom Integration (Meeting SDK for Web)
+To ensure a seamless, on-platform experience, we will use the Zoom Meeting SDK for Web to embed the virtual classroom directly into our website. This approach eliminates redirection, allowing students and teachers to join classes without ever leaving the platform.
+•	Integrated Virtual Classroom: The full Zoom meeting interface will be embedded into the platform, providing a consistent user experience.
+•	Automated Meeting Management: The Zoom API will be used to automatically generate and manage meeting sessions. Each student will receive a direct, secure link to join their specific class from their dashboard.
+•	Breakout Rooms Support: The platform will support Zoom's built-in breakout room functionality, allowing teachers to create smaller groups for collaborative activities.
+•	Automated Class Recording Workflow: To streamline the process, we will use a server-side script to automate the recording and publishing workflow.
+1.	Teachers will record classes using Zoom's cloud recording feature.
+2.	The platform will automatically retrieve the recorded file and use the YouTube Data API v3 to upload it to a designated YouTube channel.
+3.	The video will be automatically set to "unlisted" or "private" to ensure privacy and compliance.
+4.	The system will then automatically retrieve the video's embed link and make it available to students within the platform's content library.
 External Services Integration
-•	Google Calendar / iCal: To sync class schedules and events.
-•	Mailchimp / Sendinblue: To send weekly newsletters to parents.
-•	Google Analytics / Hotjar: To analyze user experience and identify areas for improvement in the platform's interface.
+To enhance functionality and improve user experience, the platform will integrate with the following external services:
+•	Google Calendar: We will use the Google Calendar API to automatically sync class schedules and important events from the platform to the personal calendars of teachers, students, and parents.
+•	Mailchimp: We will integrate with one of these services to automate the sending of weekly newsletters, educational announcements, and other bulk communications to parents.
+•	Google Analytics: We will use these services to analyze user behavior, track platform usage, and gather feedback to continually improve the user interface and overall experience.
 Financial and Billing System
 •	Multiple payment options (weekly, monthly, quarterly).
 •	An automatic subscription renewal system (Auto-renew).
 •	Issuing printable electronic invoices.
 •	Support for discount coupons and a referral system for new users.
-Future Add ons but not now:
+Future Add ons:
 Smart Assistant for the Child (AI Bot)
 •	Asking review questions.
 •	Sending automatic memorization alerts.
