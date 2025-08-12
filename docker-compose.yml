@@ -1,0 +1,28 @@
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: ban_backend
+    restart: unless-stopped
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      DATABASE_URL: postgresql://baraem:ccydwmbxszD2997s@j2zr.your-database.de:5432/baraem
+      PORT: ${BACKEND_PORT:-8080}
+    ports:
+      - "8080:8080"
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: ban_frontend
+    restart: unless-stopped
+    environment:
+      VITE_API_BASE_URL: http://backend:${BACKEND_PORT:-8080}/api
+    ports:
+      - "5173:4173"
+    depends_on:
+      - backend
+
+
