@@ -111,7 +111,7 @@ Zoom Integration (Zoom API)
 •	Direct link between the class system and Zoom via API.
 •	Automatically generating dedicated login links for each student.
 •	Support for breakout rooms to divide students into groups during memorization or discussion.
-•	Automatically recording classes and saving them to Google Drive or the internal server.
+•	Automatically recording classes from zoom will be uploaded by the teacher to youtube. Then it's embedded link will be shared with the students.
 External Services Integration
 •	Google Calendar / iCal: To sync class schedules and events.
 •	Mailchimp / Sendinblue: To send weekly newsletters to parents.
