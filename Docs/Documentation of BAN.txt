@@ -1,0 +1,133 @@
+Requirements for the "Baraem Al-Noor" Educational Platform
+1. Technological Infrastructure for the Platform
+Content and Student Management System
+•	LMS (Learning Management System): This is the learning management system used to prepare curricula and lessons, organize assignments, provide interactive content, and create assessment tests for each age group.
+•	SIS (Student Information System): This student information system handles the management of personal data for students and teachers, organizes class schedules, stores assessment results, and creates individual achievement portfolios for each student.
+Smart Dashboards
+•	Teacher Dashboard: Allows the teacher to have full control over class management, including recording attendance, assigning homework, evaluating performance, sharing screens or files during class via Zoom, and writing educational notes.
+•	Student Dashboard: Designed with an attractive, child-friendly visual layout. It contains a direct link to join the class, a list of activities, grades, assignment notifications, and an achievement portfolio that shows their progress.
+•	Parent Dashboard: Enables the parent to follow their child's academic performance, memorization and comprehension rates, communicate with the teacher, and receive financial or educational notifications through the platform.
+•	Main Admin Dashboard
+General Interface
+•	A simple and easy-to-use design with an advanced graphical interface (UI/UX) that uses calm colors and smart alerts.
+•	A main screen that contains digital summaries (Widgets) for the most important indicators:
+o	Number of active students
+o	Number of teachers
+o	Number of classes held today
+o	Total attendance rate
+o	Technical failure or report tickets
+o	Monthly revenues
+Educational Content Management
+•	Creating and modifying educational courses for each age group.
+•	Uploading PDF files, PowerPoint presentations, videos, and worksheets.
+•	Linking content directly to a class or adding it to the public library.
+•	Scheduling periodic assessments and tests.
+Teacher Management
+•	Adding a new teacher / modifying their data / suspending an account.
+•	Assigning a teacher to specific levels and classes.
+•	Monitoring parent evaluations of the teacher.
+•	Monitoring their attendance and adherence to the schedule.
+•	Viewing the classes they have managed and the interaction log within them.
+Student Management
+•	Adding students individually or by uploading CSV files.
+•	Assigning students to classes and educational levels.
+•	Viewing the student's academic file:
+o	Attendance rate
+o	Assessment grades
+o	Memorization level
+o	Teacher notes
+•	Sending alerts or private messages to the student or their parent.
+•	Activating / suspending an account.
+Parent Management
+•	Creating parent accounts and linking them to students.
+•	Sending weekly or monthly performance reports.
+•	Managing withdrawal or transfer requests between classes.
+•	Receiving and responding to their messages and inquiries.
+Schedule and Class Management
+•	Scheduling weekly or seasonal classes by:
+o	Subject
+o	Age group
+o	Teacher
+•	Automatically generating Zoom links for each class.
+•	Monitoring the status: completed, ongoing, postponed.
+•	Automatic reports on attendance and discipline for each class.
+Financial and Billing System
+•	Displaying and analyzing revenues by:
+o	Month
+o	Age group
+o	Subscription type
+•	Managing invoices (issued - paid - overdue).
+•	Controlling discount coupons and offers.
+•	Generating downloadable Excel / PDF reports.
+•	Automatic integration with payment gateways.
+General System Settings
+•	Managing language settings, time zone, and interface appearance.
+•	Modifying policies: privacy - terms of use.
+•	Managing administrative users and their permissions:
+o	General Manager
+o	Financial Officer
+o	Educational Supervisor
+o	Technical Support
+Security and Monitoring
+•	Multi-level permissions system (RBAC).
+•	Viewing activity logs:
+o	User logins
+o	Modifications to classes or students
+o	File uploads
+•	Security alerts: suspicious login - data deletion - payment failure.
+Smart Reports and Analytics
+•	Interactive reports with graphical charts on:
+o	Student performance
+o	Attendance and punctuality
+o	Collective memorization progress
+o	Effectiveness of each teacher
+o	Level of class interaction on Zoom (number of words - sounds - time spent)
+•	Export to Excel or PDF.
+Technical Support
+•	Dashboard for viewing open and closed support tickets.
+•	Statistics on reported malfunctions and errors.
+•	An internal notification system for the technical team.
+Message and Notification Management
+•	Sending mass messages to:
+o	All students
+o	A specific age group
+o	Parents only
+o	Teachers only
+•	Internal or external notifications via email and the app.
+•	Event messages (Ramadan - start of the year - end of the program...).
+Recommendation and Personalization System
+•	A system that relies on analyzing student data (age, performance, preferred learning style) to provide personalized content and activities, such as explanatory videos, memorization exercises, or language games.
+Performance Analysis
+•	An analytical mechanism that collects data from Zoom activities and the assignment platform to identify the student's strengths and weaknesses. It then displays the results in smart educational reports that help the teacher adapt their teaching strategy.
+Security Standards
+•	Data encryption using SSL/TLS protocols to protect communications.
+•	Two-factor authentication (2FA) for teachers and administrative users.
+•	Assigning temporary access codes to students instead of traditional passwords to prevent any potential hacking.
+•	Child Safety
+o	Compliance with online child protection laws (such as COPPA).
+o	A clear and public privacy policy for parents.
+o	Using automatic monitoring systems for chat content or file sharing to combat any inappropriate content.
+Zoom Integration (Zoom API)
+•	Direct link between the class system and Zoom via API.
+•	Automatically generating dedicated login links for each student.
+•	Support for breakout rooms to divide students into groups during memorization or discussion.
+•	Automatically recording classes and saving them to Google Drive or the internal server.
+External Services Integration
+•	Google Calendar / iCal: To sync class schedules and events.
+•	Mailchimp / Sendinblue: To send weekly newsletters to parents.
+•	Google Analytics / Hotjar: To analyze user experience and identify areas for improvement in the platform's interface.
+Financial and Billing System
+•	Multiple payment options (weekly, monthly, quarterly).
+•	An automatic subscription renewal system (Auto-renew).
+•	Issuing printable electronic invoices.
+•	Support for discount coupons and a referral system for new users.
+Future Add ons but not now:
+Smart Assistant for the Child (AI Bot)
+•	Asking review questions.
+•	Sending automatic memorization alerts.
+•	Suggesting appropriate videos or exercises for their level.
+Assistant for the Teacher (AI Teacher Assist)
+•	Analyzing interaction data in classes.
+•	Issuing alerts about a decline in student performance.
+•	Suggesting additional activities based on class reports.
+
