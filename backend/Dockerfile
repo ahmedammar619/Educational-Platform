@@ -1,25 +1,28 @@
-# syntax=docker/dockerfile:1
+FROM node:18-alpine
 
-FROM node:20-alpine AS deps
+# Install curl for health checks
+RUN apk add --no-cache curl
+
 WORKDIR /app
-COPY package.json ./
-RUN npm install --no-audit --no-fund
 
-FROM node:20-alpine AS builder
-WORKDIR /app
-COPY --from=deps /app/node_modules ./node_modules
-COPY package.json ./
-COPY tsconfig.json ./
-COPY src ./src
-RUN npm run build
+# Copy package files
+COPY package*.json ./
 
-FROM node:20-alpine AS runner
-WORKDIR /app
-ENV NODE_ENV=production
-COPY --from=deps /app/node_modules ./node_modules
-COPY package.json ./
-COPY --from=builder /app/dist ./dist
-EXPOSE 8080
-CMD ["node", "dist/index.js"]
+# Install dependencies
+RUN npm ci
 
+# Copy source code
+COPY . .
 
+# Create uploads directory
+RUN mkdir -p uploads
+
+# Expose port
+EXPOSE 5000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD curl -f http://localhost:5000/api/health || exit 1
+
+# Start the application
+CMD ["npm", "start"]

@@ -1,0 +1,14 @@
+Key Responsibilities
+•	Develop and implement the core architecture for the platform using Node.js for the backend, React for the frontend, and PostgreSQL for the database. All using Docker. And Tailwind for the styling.
+•	Build and maintain the various user dashboards:
+o	An intuitive, child-friendly Student Dashboard.
+o	A feature-rich Teacher Dashboard for class management.
+o	A Parent Dashboard for monitoring student progress and communication.
+o	A comprehensive Admin Dashboard to manage all aspects of the platform.
+•	Implement and manage features for student and teacher management, including user accounts, permissions, and data integrity.
+•	Develop a content management system to create, upload, and organize educational materials (PDFs, videos, presentations).
+•	Integrate third-party services, including the Zoom API for class scheduling and video conferencing, and other tools like Google Calendar and payment gateways.
+•	Ensure the platform is secure, with proper data encryption and user authentication mechanisms like two-factor authentication (2FA).
+•	Create systems for managing financial transactions, invoices, and discount coupons.
+•	Develop robust reporting and analytics tools to track student performance, attendance, and other key metrics.
+

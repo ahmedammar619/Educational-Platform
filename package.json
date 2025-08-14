@@ -1,0 +1,39 @@
+{
+  "name": "baraem-al-noor-platform",
+  "version": "1.0.0",
+  "description": "Comprehensive Learning Management System for Islamic Education",
+  "main": "index.js",
+  "scripts": {
+    "docker:up": "docker-compose up --build",
+    "docker:down": "docker-compose down",
+    "docker:restart": "docker-compose restart",
+    "docker:logs": "docker-compose logs -f",
+    "docker:clean": "docker-compose down -v --rmi all",
+    "db:init": "docker-compose exec backend ./scripts/init-db.sh",
+    "db:reset": "docker-compose exec backend node src/database/reset.js",
+    "db:migrate": "docker-compose exec backend node src/database/migrate.js",
+    "db:seed": "docker-compose exec backend node src/database/seed.js",
+    "dev:local": "concurrently \"cd backend && npm run dev\" \"cd frontend && npm start\"",
+    "build": "cd frontend && npm run build",
+    "test": "docker-compose exec backend npm test"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  },
+  "keywords": [
+    "education",
+    "lms",
+    "islamic-education",
+    "zoom-integration",
+    "student-management",
+    "react",
+    "nodejs",
+    "postgresql"
+  ],
+  "author": "Baraem Al-Noor Development Team",
+  "license": "PROPRIETARY",
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
+  }
+}

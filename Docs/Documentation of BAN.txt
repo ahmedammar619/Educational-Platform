@@ -127,7 +127,7 @@ Financial and Billing System
 •	An automatic subscription renewal system (Auto-renew).
 •	Issuing printable electronic invoices.
 •	Support for discount coupons and a referral system for new users.
-Future Add ons:
+Future Add ons for far future not now:
 Smart Assistant for the Child (AI Bot)
 •	Asking review questions.
 •	Sending automatic memorization alerts.
