@@ -1,216 +1,228 @@
-# Baraem Al-Noor Educational Platform
+# Baraem Al-Noor Educational Platform (براعم النور)
 
-An innovative educational platform that delivers high‑quality learning experiences for children. This repository contains a production‑ready monorepo scaffold with Dockerized services, a typed backend, a modern React frontend, and a PostgreSQL schema designed to meet the functional and non‑functional requirements outlined in `Docs/Documentation of BAN.txt` and `Docs/Requirements of BAN.txt`.
+A comprehensive Islamic Learning Management System (LMS) designed to nurture young hearts with Islamic knowledge through Quran memorization, Arabic language learning, and Islamic studies.
 
-### Monorepo layout
-- `backend/`: Node.js + Express + TypeScript service (API, auth, RBAC, LMS/SIS endpoints)
-- `frontend/`: React + Vite + TypeScript app (Student, Teacher, Parent, Admin dashboards)
-- `database/`: PostgreSQL schema (`schema.sql`) and initial seed data (`seed.sql`)
-- `docker-compose.yml`: One‑command local stack with Postgres and pgAdmin
-- `Docs/`: Product documentation and requirements
+## 🌟 Current Features
 
-## Features and scope
+### 🏠 Public Homepage
+- **Clean Landing Page**: Welcoming introduction to Islamic educational services
+- **No Authentication Required**: Public access to learn about the platform
+- **Islamic-Themed Design**: Child-friendly colors and Islamic-inspired aesthetics
+- **Responsive Layout**: Optimized for desktop, tablet, and mobile devices
+- **SEO Optimized**: Proper meta tags and structured content
 
-This scaffold maps directly to the documented needs. Below is the implementation plan and what is already in place in this repo.
+### 📚 Educational Programs Showcase
+- **Quran Memorization**: Structured Hifz programs with proper Tajweed
+- **Arabic Language Learning**: Interactive reading, writing, and comprehension
+- **Islamic Studies**: Comprehensive Islamic education and moral values
+- **Age-Appropriate Learning**: Programs for ages 4-16 with different levels
 
-- **Dashboards**
-  - Student: Child‑friendly UI, join‑class links, activities, grades, assignment notifications, portfolio
-  - Teacher: Class management, attendance, homework, performance evaluation, Zoom screen/file sharing hooks
-  - Parent: Progress tracking, memorization/comprehension, messaging, billing notifications, transfer/withdraw requests
-  - Admin: System widgets (active students/teachers/classes today/attendance/tickets/monthly revenue), user/content/schedule management
+### 🎨 Design Features
+- **Islamic Aesthetics**: Green, blue, and purple color scheme
+- **Child-Friendly Interface**: Engaging animations and welcoming design
+- **Accessibility Compliant**: Proper focus states and semantic HTML
+- **Modern UI/UX**: Clean, professional appearance with smooth animations
 
-- **Core systems**
-  - LMS: Courses, contents (PDF/PPT/Video/Worksheet/Link), assignments, submissions, assessments, portfolio
-  - SIS: Users, parents, teachers, students, enrollment, attendance, schedules/classes
-  - RBAC: Roles, permissions, role‑permission mapping, user‑roles
-  - Messaging/Notifications: Direct messages, in‑app/email notifications, audience targeting
-  - Financials: Coupons, subscriptions (weekly/monthly/quarterly with auto‑renew), invoices, payments
-  - Support: Tickets, comments, priorities, statuses
-  - Analytics: Zoom activity (words/sounds/time spent), performance results
-  - Settings/Security: Multi‑tenant‑ready settings, activity logs, 2FA metadata, child‑safety orientation
+## 🛠 Technology Stack
 
-- **Integrations (designed, wired for future keys)**
-  - Zoom API: Class join/start URLs, breakout support, auto‑recording, recordings storage pointer
-  - Google Calendar/iCal: Schedule sync
-  - Mail service: Email notifications/newsletters
-  - Payment gateway: Invoices, payments, refunds
-  - Analytics/UX: Google Analytics/Hotjar
+- **Frontend**: React 18 with Tailwind CSS
+- **Backend**: Node.js with Express
+- **Database**: PostgreSQL (External)
+- **Containerization**: Docker & Docker Compose
+- **Styling**: Tailwind CSS with custom Islamic-themed components
+- **SEO**: React Helmet for meta management
 
-## Architecture overview
+## 🚀 Quick Start
 
-- **Backend**: Node 20, Express, TypeScript, Zod for validation, `pg` for DB. Production Docker image serves compiled JS.
-- **Frontend**: React 18 + Vite. Production container runs `vite preview` behind Docker.
-- **Database**: PostgreSQL 16 with a normalized schema covering LMS, SIS, RBAC, scheduling, content, billing, support, analytics, and audit logging.
-- **Observability (local)**: API request logging via `morgan`. DB health via `/api/health`.
+### Prerequisites
+- Docker and Docker Compose installed
+- Access to external PostgreSQL database
 
-## Getting started (Docker)
+### Environment Configuration
+The platform is pre-configured with:
+- **Database**: baraem @ j2zr.your-database.de
+- **Zoom Integration**: Account ID, Client ID, and Secret configured
+- **Ports**: Frontend (3000), Backend (5001)
 
-Prerequisites:
-- Docker Desktop 4.x+
-
-Environment variables (optional overrides):
-- `POSTGRES_DB` (default: `ban`)
-- `POSTGRES_USER` (default: `ban_user`)
-- `POSTGRES_PASSWORD` (default: `ban_password`)
-- `PGADMIN_DEFAULT_EMAIL` (default: `admin@local.test`)
-- `PGADMIN_DEFAULT_PASSWORD` (default: `admin123`)
-- `NODE_ENV` (default: `development`)
-
-Run the stack:
+### Installation & Running
 
 ```bash
-cd /Users/ahmedammar/Documents/Educational-Platform
-docker compose up -d --build
+# 1. Clone the repository
+git clone <repository-url>
+cd baraem-al-noor-platform
+
+# 2. Start the application with Docker
+docker-compose up --build
+
+# 3. Initialize the database (run once)
+docker-compose exec backend ./scripts/init-db.sh
+
+# 4. Access the application
+# Homepage: http://localhost:3000
+# Backend Health: http://localhost:5001/api/health
 ```
 
-Services:
-- Backend API: `http://localhost:8080/api`
-- Frontend app: `http://localhost:5173`
-
-External PostgreSQL is used (no local DB containers). Current connection string:
-
-```
-postgresql://baraem:ccydwmbxszD2997s@j2zr.your-database.de:5432/baraem?sslmode=require
-```
-
-To change it, edit `DATABASE_URL` in `docker-compose.yml` or backend environment.
-
-## Local development (without Docker)
-
-Backend:
+### Docker Management Commands
 ```bash
-cd backend
-cp .env.example .env   # if available; otherwise set DATABASE_URL env var
-npm ci
-npm run dev
+# Stop the application
+docker-compose down
+
+# View logs
+docker-compose logs -f
+
+# Restart services
+docker-compose restart
+
+# Rebuild containers
+docker-compose up --build --force-recreate
+
+# Database management
+docker-compose exec backend node src/database/reset.js    # Reset DB
+docker-compose exec backend node src/database/migrate.js  # Run migrations
+docker-compose exec backend node src/database/seed.js     # Seed data
 ```
 
-## Importing the database schema to the external Postgres
+## 📁 Project Structure
 
-We use a one-time ephemeral `psql` container to import `database/schema.sql` and `database/seed.sql` into your managed Postgres. Ensure the DB `baraem` exists on your server.
+```
+baraem-al-noor/
+├── backend/                    # Node.js API server
+│   ├── src/
+│   │   ├── database/          # Database scripts and schema
+│   │   ├── routes/            # API route handlers
+│   │   └── server.js          # Express server setup
+│   ├── scripts/               # Utility scripts
+│   └── Dockerfile             # Backend container config
+├── frontend/                   # React application
+│   ├── src/
+│   │   ├── components/        # Reusable UI components
+│   │   │   ├── Header.js      # Site header with navigation
+│   │   │   ├── HeroSection.js # Main welcome section
+│   │   │   ├── ServicesSection.js # Educational programs
+│   │   │   ├── AboutSection.js    # Platform information
+│   │   │   └── Footer.js      # Contact and links
+│   │   ├── pages/
+│   │   │   └── HomePage.js    # Main landing page
+│   │   ├── App.js             # Main app component
+│   │   ├── index.js           # React entry point
+│   │   └── index.css          # Global styles and animations
+│   ├── public/                # Static assets
+│   └── Dockerfile             # Frontend container config
+├── .kiro/specs/               # Development specifications
+├── docker-compose.yml         # Multi-container orchestration
+├── .env                       # Environment variables
+├── .gitignore                 # Git ignore rules
+└── README.md                  # This file
+```
 
+## 🗄️ Database Schema
+
+### Core Tables (20+ tables)
+- **users**: All user types with role-based access control
+- **courses**: Course catalog and management
+- **classes**: Class scheduling and Zoom integration
+- **class_attendance**: Attendance tracking system
+- **assignments**: Homework and assessment management
+- **invoices & payments**: Financial transaction system
+- **zoom_meetings**: Video conferencing integration
+- **notifications**: Communication system
+- **activity_logs**: Comprehensive audit trail
+- **support_tickets**: Help desk system
+
+### Demo Data Available
+After database initialization, demo accounts are created:
+
+| Role | Email | Password | Access Level |
+|------|-------|----------|-------------|
+| Admin | admin@baraemalNoor.com | password123 | Full system access |
+| Teacher | teacher@baraemalNoor.com | password123 | Class management |
+| Parent | parent@baraemalNoor.com | password123 | Child monitoring |
+| Student | student1@baraemalNoor.com | password123 | Learning interface |
+| Student | student2@baraemalNoor.com | password123 | Learning interface |
+
+## 🔧 Development Status
+
+### ✅ Completed Features
+- **Docker Environment**: Full containerization with external DB connection
+- **Database Schema**: Complete PostgreSQL schema with all required tables
+- **Public Homepage**: Clean, Islamic-themed landing page
+- **Responsive Design**: Mobile-first approach with Tailwind CSS
+- **Database Management**: Migration, seeding, and reset scripts
+- **API Structure**: Express.js backend with organized route structure
+- **Security Foundation**: Environment variables and secure configurations
+
+### 🚧 Future Development
+- **Authentication System**: JWT-based login for different user roles
+- **Dashboard Interfaces**: Role-specific dashboards (Student, Teacher, Parent, Admin)
+- **Zoom Integration**: Live virtual classroom functionality
+- **File Upload System**: Course materials and assignment submissions
+- **Payment Gateway**: Stripe integration for tuition payments
+- **Real-time Features**: Live notifications and chat system
+- **Advanced Analytics**: Performance tracking and reporting
+- **Mobile App**: React Native companion app
+
+## 🔐 Security & Configuration
+
+### Environment Variables
 ```bash
-# Import schema
-docker run --rm -v $(pwd)/database:/database:ro --network host \
-  postgres:16-alpine sh -c "PGPASSWORD=ccydwmbxszD2997s psql -h j2zr.your-database.de -U baraem -d baraem -f /database/schema.sql"
+# Database Configuration
+DB_HOST=j2zr.your-database.de
+DB_NAME=baraem
+DB_USER=baraem
+DB_PASSWORD=ccydwmbxszD2997s
 
-# Import seed
-docker run --rm -v $(pwd)/database:/database:ro --network host \
-  postgres:16-alpine sh -c "PGPASSWORD=ccydwmbxszD2997s psql -h j2zr.your-database.de -U baraem -d baraem -f /database/seed.sql"
+# Zoom Integration
+ZOOM_ACCOUNT_ID=T4MFWiR1S7CHvevyqBdyFw
+ZOOM_CLIENT_ID=r2_A6klNQQOf_iE9y03wnw
+ZOOM_CLIENT_SECRET=ao2ggpCamndBqKu2F071UUOLf8HQbZZ0
+
+# Application Settings
+NODE_ENV=development
+PORT=5000
+FRONTEND_URL=http://localhost:3000
 ```
 
-If `uuid-ossp` extension creation is restricted by your provider, make sure it is enabled by your admin or adapt the schema accordingly.
+### Security Features
+- SSL/TLS encryption for all communications
+- Environment-based configuration management
+- Docker container isolation
+- Database connection security
+- Input validation and sanitization
+- CORS protection
 
-Frontend:
-```bash
-cd frontend
-npm ci
-npm run dev
-```
+## 🌐 Deployment
 
-## API surface (initial)
+### Production Considerations
+- Update environment variables for production
+- Configure SSL certificates
+- Set up database backups
+- Implement monitoring and logging
+- Configure CDN for static assets
+- Set up CI/CD pipeline
 
-- `GET /api/health`: DB connectivity probe `{ status: "ok", db: true }`
+### Scaling Options
+- Horizontal scaling with load balancers
+- Database read replicas
+- Redis for session management
+- File storage with AWS S3 or similar
+- Container orchestration with Kubernetes
 
-Planned modules (endpoints forthcoming):
-- Auth: register/login/logout, refresh tokens, 2FA setup/verify, password reset
-- Users/RBAC: CRUD users, assign roles/permissions
-- Classes/Schedules/Zoom: CRUD classes, enrollment, attendance, Zoom meeting lifecycle, recordings
-- Content/LMS: CRUD courses/contents/assignments/submissions/assessments/portfolio
-- SIS: Students/Teachers/Parents management, CSV import
-- Messaging/Notifications: Direct messages, bulk audiences, email/app channels
-- Financials: Coupons, subscriptions, invoices, payments, exports (Excel/PDF)
-- Reports/Analytics: Performance dashboards, attendance, teacher effectiveness, Zoom interaction
-- Support: Tickets, comments, internal notifications
-- Settings/Audit: System settings, activity logs
+## 📞 Support & Contact
 
-## Database schema highlights
+### Technical Support
+- **Email**: info@baraemalNoor.com
+- **Development**: Contact the development team
+- **Documentation**: Check the `/docs` directory for detailed guides
 
-Implemented in `database/schema.sql` with enums and tables to fulfill requirements:
-- RBAC: `roles`, `permissions`, `role_permissions`, `users`, `user_roles`
-- Auth/security: `user_two_factor`, `auth_sessions`, `password_resets`, `activity_logs`
-- Domain: `parents`, `teachers`, `students`, `student_access_codes`
-- Scheduling: `schedules`, `classes`, `enrollments`, `attendance`
-- LMS: `contents`, `assignments`, `submissions`, `assessments`, `assessment_results`, `portfolio_items`
-- Messaging: `messages`, `notifications`
-- Financials: `coupons`, `subscriptions`, `invoices`, `payments`
-- Analytics: `zoom_activity`, `zoom_recordings`
-- Settings: `system_settings`
+### Educational Inquiries
+- **Enrollment**: enrollment@baraemalNoor.com
+- **Phone**: +1 (555) 123-4567
+- **Address**: 123 Education Street, Learning City, LC 12345
 
-Indexes are added for common access paths. See file for details and constraints.
+## 📝 License
 
-Seed data (`database/seed.sql`):
-- Creates roles: `ADMIN`, `FINANCE`, `SUPERVISOR`, `SUPPORT`, `TEACHER`, `PARENT`, `STUDENT`
-- Minimal permissions and role mappings (expandable)
-- Initial admin user `admin@ban.local` (password hash placeholder). To set a password, generate a bcrypt hash and update the row:
+This project is proprietary software for Baraem Al-Noor Educational Platform. All rights reserved.
 
-```bash
-# Generate a bcrypt hash (Node.js one‑liner)
-node -e "(async()=>{const b=require('bcryptjs');console.log(await b.hash('ChangeMe123!',10));})()"
+---
 
-# In psql
-UPDATE users SET password_hash = '<PASTE_BCRYPT_HASH>' WHERE email = 'admin@ban.local';
-```
-
-## Security and child safety
-
-- Transport security: Use SSL/TLS in production (terminate TLS at gateway/load‑balancer).
-- Authentication: JWT access tokens + refresh tokens, optional 2FA for teachers/admins (`user_two_factor`).
-- RBAC: Strict role/permission checks at route level.
-- Audit: Activity logs of logins, class changes, uploads, financial actions.
-- Child protection: Data minimization, clear privacy policy for parents, content monitoring hooks.
-
-## Integrations (placeholders)
-
-The backend exposes configuration placeholders for:
-- Zoom (`ZOOM_API_KEY`, `ZOOM_API_SECRET`) for meeting creation, join URLs, breakout rooms, recordings
-- Email/SMTP for notifications
-- Google Calendar/iCal for schedule sync
-- Payment gateway API keys
-
-These should be added as environment variables in deployment.
-
-## Environment configuration
-
-- Backend envs (examples):
-  - `PORT` (default `8080`)
-  - `DATABASE_URL` (e.g. `postgresql://ban_user:ban_password@localhost:5432/ban`)
-  - `JWT_SECRET`
-  - `TWO_FA_ISSUER` (e.g. `BaraemAlNoor`)
-  - SMTP: `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM`
-  - External: `ZOOM_API_KEY`, `ZOOM_API_SECRET`, `GOOGLE_CALENDAR_API_KEY`, `PAYMENT_GATEWAY_API_KEY`
-
-- Frontend envs:
-  - `VITE_API_BASE_URL` (default via docker: `http://backend:8080/api`, local: `http://localhost:8080/api`)
-
-## Building and running tests
-
-This scaffold focuses on infrastructure and the initial schema. Unit/integration tests should be added as endpoints are implemented. CI can run:
-
-```bash
-docker compose build
-docker compose up -d
-curl http://localhost:8080/api/health
-```
-
-## Roadmap (implementation order)
-
-1) Auth + RBAC + Users
-2) SIS (Students/Teachers/Parents), CSV import
-3) Scheduling/Classes + Zoom integration
-4) LMS (Content/Assignments/Assessments/Submissions/Portfolio)
-5) Messaging/Notifications
-6) Financials (Coupons/Subscriptions/Invoices/Payments + Exports)
-7) Smart Dashboards + Analytics/Reports
-8) Support/Tickets + Internal notifications
-9) Settings + Activity logs + 2FA enforcement
-
-## Licensing and compliance
-
-- Ensure compliance with child‑protection regulations (e.g., COPPA) in production deployments.
-- Add licensing information appropriate for this project before distribution.
-
-## Contributing
-
-PRs are welcome. Please align endpoints, models, and UI with the requirements in `Docs/` and update this README as features land.
-
+**Baraem Al-Noor (براعم النور)** - *Nurturing Young Hearts with Islamic Knowledge*

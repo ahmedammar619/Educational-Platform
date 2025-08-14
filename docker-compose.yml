@@ -1,28 +1,40 @@
+version: '3.8'
+
 services:
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: ban_backend
-    restart: unless-stopped
-    environment:
-      NODE_ENV: ${NODE_ENV:-development}
-      DATABASE_URL: postgresql://baraem:ccydwmbxszD2997s@j2zr.your-database.de:5432/baraem
-      PORT: ${BACKEND_PORT:-8080}
     ports:
-      - "8080:8080"
+      - "5001:5000"
+    env_file:
+      - .env
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+      - ./uploads:/app/uploads
+    networks:
+      - baraem-network
+    restart: unless-stopped
 
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    container_name: ban_frontend
-    restart: unless-stopped
-    environment:
-      VITE_API_BASE_URL: http://backend:${BACKEND_PORT:-8080}/api
     ports:
-      - "5173:4173"
+      - "3000:3000"
+    environment:
+      - REACT_APP_API_URL=http://localhost:5001/api
+      - REACT_APP_ZOOM_SDK_KEY=r2_A6klNQQOf_iE9y03wnw
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
     depends_on:
       - backend
+    networks:
+      - baraem-network
+    restart: unless-stopped
 
-
+networks:
+  baraem-network:
+    driver: bridge
