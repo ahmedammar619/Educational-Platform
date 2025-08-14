@@ -117,8 +117,9 @@ tmp/
 *.bak
 
 # Package lock files (keep only one)
-package-lock.json
 yarn.lock
 
 # Local development
 .local/
+# Allow committing frontend package-lock
+!frontend/package-lock.json
