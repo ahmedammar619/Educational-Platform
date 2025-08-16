@@ -42,10 +42,41 @@ const AdminDashboard = ({ user }) => {
 
     return (
         <div className="space-y-6">
-            {/* Welcome Section */}
-            <div className="bg-gradient-to-r from-red-600 to-red-700 rounded-lg p-6 text-white">
-                <h1 className="text-2xl font-bold mb-2">Welcome back, {user?.name}! ⚡</h1>
-                <p className="text-red-100">Manage and monitor your education platform</p>
+            {/* User Info Card */}
+            <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
+                <div className="bg-gradient-to-r from-green-600 to-green-700 p-6">
+                    <div className="flex items-center space-x-4">
+                        <div className="w-16 h-16 bg-white bg-opacity-20 rounded-full flex items-center justify-center">
+                            <span className="text-2xl font-bold text-white">
+                                {user?.name?.charAt(0) || 'A'}
+                            </span>
+                        </div>
+                        <div className="flex-1">
+                            <h1 className="text-2xl font-bold text-white">{user?.name || 'Administrator'}</h1>
+                            <p className="text-red-100">Administrator • Platform Manager</p>
+                        </div>
+                    </div>
+                </div>
+                <div className="p-6">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                        <div className="text-center">
+                            <p className="text-sm text-gray-600">Email</p>
+                            <p className="font-medium text-gray-900">{user?.email || 'admin@example.com'}</p>
+                        </div>
+                        <div className="text-center">
+                            <p className="text-sm text-gray-600">Role</p>
+                            <p className="font-medium text-gray-900">{user?.role || 'Super Admin'}</p>
+                        </div>
+                        <div className="text-center">
+                            <p className="text-sm text-gray-600">Last Login</p>
+                            <p className="font-medium text-gray-900">{user?.lastLogin || 'Today'}</p>
+                        </div>
+                        <div className="text-center">
+                            <p className="text-sm text-gray-600">Access Level</p>
+                            <p className="font-medium text-gray-900">{user?.accessLevel || 'Full Access'}</p>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             {/* Platform Statistics */}
@@ -357,4 +388,4 @@ const AdminDashboard = ({ user }) => {
     );
 };
 
-export default AdminDashboard;
+export default AdminDashboard; 

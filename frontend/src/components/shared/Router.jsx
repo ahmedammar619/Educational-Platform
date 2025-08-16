@@ -1,7 +1,7 @@
 import { StudentMain } from '../student';
-import { TeacherMain } from '../teacher';
-import { ParentMain } from '../parent';
 import { AdminMain } from '../admin';
+import { ParentMain } from '../parent';
+import TeacherMain from '../teacher/TeacherMain';
 import HomePage from '../home/HomePage';
 
 const Router = ({ user, onLogin, onRegister, onDemo }) => {
@@ -19,12 +19,12 @@ const Router = ({ user, onLogin, onRegister, onDemo }) => {
   switch (user?.role) {
     case 'student':
       return <StudentMain user={user} onLogout={handleLogout} />;
-    case 'teacher':
-      return <TeacherMain user={user} onLogout={handleLogout} />;
-    case 'parent':
-      return <ParentMain user={user} onLogout={handleLogout} />;
     case 'admin':
       return <AdminMain user={user} onLogout={handleLogout} />;
+    case 'parent':
+      return <ParentMain user={user} onLogout={handleLogout} />;
+    case 'teacher':
+      return <TeacherMain user={user} onLogout={handleLogout} />;
     default:
       return <div className="text-center py-12">
         <h2 className="text-2xl font-bold text-gray-900 mb-4">Welcome!</h2>

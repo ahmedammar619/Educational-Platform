@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Users, TrendingUp, Calendar, Award, BookOpen, Clock, CheckCircle, AlertCircle } from 'lucide-react';
-import { format } from 'date-fns';
+import { Users, Calendar, BookOpen, CheckCircle, Plus, ArrowLeft } from 'lucide-react';
+import ChildAccountCreation from './ChildAccountCreation';
 
 const ChildrenManagement = ({ user }) => {
   const [children, setChildren] = useState([]);
@@ -8,6 +8,7 @@ const ChildrenManagement = ({ user }) => {
   const [childProgress, setChildProgress] = useState(null);
   const [loading, setLoading] = useState(true);
   const [progressLoading, setProgressLoading] = useState(false);
+  const [showAddChildForm, setShowAddChildForm] = useState(false);
 
   useEffect(() => {
     fetchChildren();
@@ -22,19 +23,35 @@ const ChildrenManagement = ({ user }) => {
   const fetchChildren = async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('token');
-      const response = await fetch('/api/parent/children', {
-        headers: {
-          'Authorization': `Bearer ${token}`
+      // Use mock data for now
+      const mockChildren = [
+        {
+          id: 1,
+          name: 'Ahmad Al-Noor',
+          email: 'ahmad@student.com',
+          enrolled_courses: 2,
+          avg_progress: 85,
+          attended_sessions: 18,
+          total_sessions: 20,
+          avg_grade_percentage: 88,
+          relationship_type: 'son'
+        },
+        {
+          id: 2,
+          name: 'Fatima Al-Zahra',
+          email: 'fatima@student.com',
+          enrolled_courses: 2,
+          avg_progress: 92,
+          attended_sessions: 19,
+          total_sessions: 20,
+          avg_grade_percentage: 94,
+          relationship_type: 'daughter'
         }
-      });
+      ];
       
-      if (response.ok) {
-        const data = await response.json();
-        setChildren(data.children);
-        if (data.children.length > 0 && !selectedChild) {
-          setSelectedChild(data.children[0]);
-        }
+      setChildren(mockChildren);
+      if (mockChildren.length > 0 && !selectedChild) {
+        setSelectedChild(mockChildren[0]);
       }
     } catch (error) {
       console.error('Failed to fetch children:', error);
@@ -46,17 +63,53 @@ const ChildrenManagement = ({ user }) => {
   const fetchChildProgress = async (childId) => {
     try {
       setProgressLoading(true);
-      const token = localStorage.getItem('token');
-      const response = await fetch(`/api/parent/children/${childId}/progress`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
+      // Mock progress data
+      const mockProgress = {
+        courses: [
+          {
+            id: 1,
+            title: 'Quran Memorization - Juz 1',
+            instructor_name: 'Sheikh Abdullah Al-Mahmoud',
+            progress_percentage: 85,
+            attended_sessions: 18,
+            total_sessions: 20,
+            graded_assignments: 5,
+            total_assignments: 6,
+            avg_grade_percentage: 88
+          },
+          {
+            id: 2,
+            title: 'Arabic Language Basics',
+            instructor_name: 'Ustadha Aisha Al-Zahra',
+            progress_percentage: 92,
+            attended_sessions: 15,
+            total_sessions: 16,
+            graded_assignments: 4,
+            total_assignments: 4,
+            avg_grade_percentage: 94
+          }
+        ],
+        recentGrades: [
+          {
+            id: 1,
+            assignment_title: 'Surah Al-Baqarah Recitation',
+            course_title: 'Quran Memorization - Juz 1',
+            assignment_type: 'Recitation',
+            grade: 88,
+            max_points: 100,
+            feedback: 'Excellent memorization with good tajweed. Keep practicing.',
+            graded_by_name: 'Sheikh Abdullah Al-Mahmoud',
+            graded_at: '2024-02-10T10:00:00Z'
+          }
+        ],
+        attendanceSummary: [
+          { status: 'present', count: 33, percentage: 92 },
+          { status: 'absent', count: 2, percentage: 6 },
+          { status: 'late', count: 1, percentage: 2 }
+        ]
+      };
       
-      if (response.ok) {
-        const data = await response.json();
-        setChildProgress(data);
-      }
+      setChildProgress(mockProgress);
     } catch (error) {
       console.error('Failed to fetch child progress:', error);
     } finally {
@@ -96,12 +149,50 @@ const ChildrenManagement = ({ user }) => {
     );
   }
 
+  // Show Add Child Form as a separate page
+  if (showAddChildForm) {
+    return (
+      <div className="space-y-6">
+        {/* Header for Add Child Page */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-4">
+            <button
+              onClick={() => setShowAddChildForm(false)}
+              className="flex items-center space-x-2 text-purple-600 hover:text-purple-800 font-medium"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              <span>Back to Children</span>
+            </button>
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">Create Child Account</h1>
+              <p className="text-gray-600">Register your child for Baraem Al-Nour Islamic education programs</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Child Account Creation Form */}
+        <div className="bg-white rounded-lg shadow-sm border p-6">
+          <ChildAccountCreation user={user} />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Children's Progress</h1>
-        <p className="text-gray-600">Monitor your children's academic performance and attendance</p>
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-start text-2xl font-bold text-gray-900">Children's Progress</h1>
+          <p className="text-gray-600">Monitor your children's academic performance and attendance</p>
+        </div>
+        <button
+          onClick={() => setShowAddChildForm(true)}
+          className="flex items-center space-x-2 border-2 border-purple-600 text-purple-600 px-4 py-2 rounded-lg hover:bg-purple-600 hover:text-white transition-all duration-200"
+        >
+          <Plus className="h-4 w-4" />
+          <span>Add Children</span>
+        </button>
       </div>
 
       {/* Children Selector */}
@@ -295,7 +386,11 @@ const ChildrenManagement = ({ user }) => {
                           
                           <div className="flex justify-between text-xs text-gray-500">
                             <span>Graded by: {grade.graded_by_name}</span>
-                            <span>Date: {format(new Date(grade.graded_at), 'MMM dd, yyyy')}</span>
+                            <span>Date: {new Date(grade.graded_at).toLocaleDateString('en-US', {
+                              month: 'short',
+                              day: 'numeric',
+                              year: 'numeric'
+                            })}</span>
                           </div>
                         </div>
                       ))}

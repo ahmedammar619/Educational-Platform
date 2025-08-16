@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Calendar, Clock, MapPin, User, Filter, ChevronLeft, ChevronRight } from 'lucide-react';
 import { format, startOfWeek, endOfWeek, eachDayOfInterval, isSameDay, addWeeks, subWeeks, parseISO } from 'date-fns';
 
-const ParentSchedule = ({ user }) => {
+const TeacherCalendar = ({ user }) => {
   const [schedule, setSchedule] = useState([]);
   const [courses, setCourses] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -22,38 +22,7 @@ const ParentSchedule = ({ user }) => {
       const weekStart = startOfWeek(currentWeek, { weekStartsOn: 1 }); // Monday start
       const weekEnd = endOfWeek(currentWeek, { weekStartsOn: 1 });
 
-      // For now, we'll use mock data since the API endpoint might not exist
-      const mockSchedule = [
-        {
-          id: 1,
-          title: "Math Class - Emma",
-          start_time: new Date().toISOString(),
-          end_time: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
-          type: "lecture",
-          description: "Algebra fundamentals",
-          location: "Room 101",
-          instructor_name: "Mr. Johnson",
-          course_title: "Mathematics Grade 8",
-          student_name: "Emma"
-        },
-        {
-          id: 2,
-          title: "Science Lab - Alex",
-          start_time: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(),
-          end_time: new Date(Date.now() + 3 * 60 * 60 * 1000).toISOString(),
-          type: "lab",
-          description: "Chemistry experiments",
-          location: "Science Lab",
-          instructor_name: "Dr. Smith",
-          course_title: "Chemistry Grade 9",
-          student_name: "Alex"
-        }
-      ];
-
-      setSchedule(mockSchedule);
-
-      /* Uncomment when API is ready
-      const response = await fetch(`/api/parent/schedule?start_date=${weekStart.toISOString()}&end_date=${weekEnd.toISOString()}`, {
+      const response = await fetch(`/api/teacher/schedule?start_date=${weekStart.toISOString()}&end_date=${weekEnd.toISOString()}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -61,14 +30,10 @@ const ParentSchedule = ({ user }) => {
       
       if (response.ok) {
         const data = await response.json();
-        setSchedule(data.schedule || []);
-      } else {
-        setSchedule([]);
+        setSchedule(data.schedule);
       }
-      */
     } catch (error) {
       console.error('Failed to fetch schedule:', error);
-      setSchedule([]);
     } finally {
       setLoading(false);
     }
@@ -77,17 +42,7 @@ const ParentSchedule = ({ user }) => {
   const fetchCourses = async () => {
     try {
       const token = localStorage.getItem('token');
-      
-      // For now, we'll use mock data since the API endpoint might not exist
-      const mockCourses = [
-        { id: 1, title: "Mathematics Grade 8", instructor: "Mr. Johnson" },
-        { id: 2, title: "Chemistry Grade 9", instructor: "Dr. Smith" }
-      ];
-      
-      setCourses(mockCourses);
-
-      /* Uncomment when API is ready
-      const response = await fetch('/api/parent/children-courses', {
+      const response = await fetch('/api/teacher/courses', {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -95,14 +50,10 @@ const ParentSchedule = ({ user }) => {
       
       if (response.ok) {
         const data = await response.json();
-        setCourses(data.courses || []);
-      } else {
-        setCourses([]);
+        setCourses(data.courses);
       }
-      */
     } catch (error) {
       console.error('Failed to fetch courses:', error);
-      setCourses([]);
     }
   };
 
@@ -117,7 +68,6 @@ const ParentSchedule = ({ user }) => {
   ];
 
   const getScheduleForDay = (date) => {
-    if (!schedule || !Array.isArray(schedule)) return [];
     return schedule.filter(item => {
       const itemDate = parseISO(item.start_time);
       return isSameDay(itemDate, date);
@@ -134,7 +84,7 @@ const ParentSchedule = ({ user }) => {
 
   const getEventColor = (type) => {
     const colors = {
-      'lecture': 'bg-purple-100 border-purple-300 text-purple-800',
+      'lecture': 'bg-blue-100 border-blue-300 text-blue-800',
       'lab': 'bg-green-100 border-green-300 text-green-800',
       'tutorial': 'bg-purple-100 border-purple-300 text-purple-800',
       'seminar': 'bg-yellow-100 border-yellow-300 text-yellow-800',
@@ -176,8 +126,8 @@ const ParentSchedule = ({ user }) => {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-start text-2xl font-bold text-gray-900">Children's Schedule</h1>
-          <p className="text-gray-600">View your children's class schedule and upcoming events</p>
+          <h1 className="text-start text-2xl font-bold text-gray-900">My Teaching Schedule</h1>
+          <p className="text-gray-600">View your class schedule and teaching sessions</p>
         </div>
         
         <div className="flex items-center space-x-4">
@@ -186,7 +136,7 @@ const ParentSchedule = ({ user }) => {
               onClick={() => setViewMode('week')}
               className={`px-3 py-2 rounded-md text-sm font-medium ${
                 viewMode === 'week' 
-                  ? 'bg-purple-600 text-white' 
+                  ? 'bg-blue-600 text-white' 
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
             >
@@ -196,7 +146,7 @@ const ParentSchedule = ({ user }) => {
               onClick={() => setViewMode('day')}
               className={`px-3 py-2 rounded-md text-sm font-medium ${
                 viewMode === 'day' 
-                  ? 'bg-purple-600 text-white' 
+                  ? 'bg-blue-600 text-white' 
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
             >
@@ -206,7 +156,7 @@ const ParentSchedule = ({ user }) => {
           
           <button
             onClick={goToToday}
-            className="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 text-sm font-medium"
+            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm font-medium"
           >
             Today
           </button>
@@ -249,7 +199,7 @@ const ParentSchedule = ({ user }) => {
       {/* Schedule View */}
       {loading ? (
         <div className="flex items-center justify-center py-12">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
         </div>
       ) : viewMode === 'week' ? (
         <WeekView 
@@ -364,7 +314,7 @@ const DayView = ({ selectedDate, setSelectedDate, weekDays, getScheduleForDay, g
                 onClick={() => setSelectedDate(day)}
                 className={`w-full text-left p-3 rounded-md transition-colors ${
                   isSameDay(day, selectedDate)
-                    ? 'bg-purple-100 text-purple-900 border border-purple-300'
+                    ? 'bg-blue-100 text-blue-900 border border-blue-300'
                     : 'hover:bg-gray-100 text-gray-700'
                 }`}
               >
@@ -483,4 +433,4 @@ const ScheduleEvent = ({ event, getEventColor, getEventIcon, compact }) => {
   );
 };
 
-export default ParentSchedule;
+export default TeacherCalendar;

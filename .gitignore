@@ -21,6 +21,8 @@ build/
 # IDE
 .vscode/
 .kiro/
+.cursor/
+.superdesign/
 .idea/
 *.swp
 *.swo

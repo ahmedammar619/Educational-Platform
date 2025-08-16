@@ -18,7 +18,7 @@ const ParentDashboard = ({ user }) => {
           'Authorization': `Bearer ${token}`
         }
       });
-      
+
       if (response.ok) {
         const data = await response.json();
         setDashboardData(data);
@@ -42,10 +42,41 @@ const ParentDashboard = ({ user }) => {
 
   return (
     <div className="space-y-6">
-      {/* Welcome Section */}
-      <div className="bg-gradient-to-r from-purple-600 to-purple-700 rounded-lg p-6 text-white">
-        <h1 className="text-2xl font-bold mb-2">Welcome back, {user?.name}! 👨‍👩‍👧‍👦</h1>
-        <p className="text-purple-100">Stay connected with your children's educational journey</p>
+      {/* User Info Card */}
+      <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
+        <div className="bg-gradient-to-r from-purple-600 to-purple-700 p-6">
+          <div className="flex items-center space-x-4">
+            <div className="w-16 h-16 bg-white bg-opacity-20 rounded-full flex items-center justify-center">
+              <span className="text-2xl font-bold text-white">
+                {user?.name?.charAt(0) || 'P'}
+              </span>
+            </div>
+            <div className="flex-1">
+              <h1 className="text-2xl font-bold text-white">{user?.name || 'Parent'}</h1>
+              <p className="text-purple-100">Parent • Guardian & Supporter</p>
+            </div>
+          </div>
+        </div>
+        <div className="p-6">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+            <div className="text-center">
+              <p className="text-sm text-gray-600">Email</p>
+              <p className="font-medium text-gray-900">{user?.email || 'parent@example.com'}</p>
+            </div>
+            <div className="text-center">
+              <p className="text-sm text-gray-600">Phone</p>
+              <p className="font-medium text-gray-900">{user?.phone || '+1 (555) 987-6543'}</p>
+            </div>
+            <div className="text-center">
+              <p className="text-sm text-gray-600">Children</p>
+              <p className="font-medium text-gray-900">{children?.length || 0} linked</p>
+            </div>
+            <div className="text-center">
+              <p className="text-sm text-gray-600">Member Since</p>
+              <p className="font-medium text-gray-900">{user?.memberSince || 'Jan 2024'}</p>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Children Overview */}
@@ -63,48 +94,47 @@ const ParentDashboard = ({ user }) => {
                 <p className="text-sm text-gray-600">{child.email}</p>
               </div>
             </div>
-            
+
             <div className="space-y-3">
               <div className="flex justify-between items-center">
                 <span className="text-sm text-gray-600">Enrolled Courses</span>
                 <span className="font-semibold text-gray-900">{child.enrolled_courses}</span>
               </div>
-              
+
               <div className="flex justify-between items-center">
                 <span className="text-sm text-gray-600">Average Progress</span>
                 <span className="font-semibold text-gray-900">
                   {Math.round(child.avg_progress || 0)}%
                 </span>
               </div>
-              
+
               <div className="w-full bg-gray-200 rounded-full h-2">
-                <div 
-                  className="bg-purple-600 h-2 rounded-full" 
+                <div
+                  className="bg-purple-600 h-2 rounded-full"
                   style={{ width: `${child.avg_progress || 0}%` }}
                 ></div>
               </div>
-              
+
               <div className="flex justify-between items-center">
                 <span className="text-sm text-gray-600">Attendance</span>
                 <span className="font-semibold text-gray-900">
                   {child.total_attendance}/{child.total_sessions}
                 </span>
               </div>
-              
+
               <div className="flex justify-between items-center">
                 <span className="text-sm text-gray-600">Attendance Rate</span>
-                <span className={`font-semibold ${
-                  (child.total_attendance / child.total_sessions) > 0.8 
-                    ? 'text-green-600' 
-                    : 'text-orange-600'
-                }`}>
-                  {child.total_sessions > 0 
-                    ? Math.round((child.total_attendance / child.total_sessions) * 100) 
+                <span className={`font-semibold ${(child.total_attendance / child.total_sessions) > 0.8
+                  ? 'text-green-600'
+                  : 'text-orange-600'
+                  }`}>
+                  {child.total_sessions > 0
+                    ? Math.round((child.total_attendance / child.total_sessions) * 100)
                     : 0}%
                 </span>
               </div>
             </div>
-            
+
             <div className="mt-4 pt-4 border-t">
               <button className="w-full text-sm bg-purple-600 text-white py-2 rounded hover:bg-purple-700">
                 View Details
@@ -112,7 +142,7 @@ const ParentDashboard = ({ user }) => {
             </div>
           </div>
         ))}
-        
+
         {children.length === 0 && (
           <div className="col-span-3 text-center py-8">
             <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
@@ -152,7 +182,7 @@ const ParentDashboard = ({ user }) => {
                       <div className="flex items-center space-x-2">
                         <Clock className="h-4 w-4 text-gray-400" />
                         <span className="text-sm text-gray-500">
-                          {format(new Date(session.scheduled_start), 'HH:mm')} - 
+                          {format(new Date(session.scheduled_start), 'HH:mm')} -
                           {format(new Date(session.scheduled_end), 'HH:mm')}
                         </span>
                       </div>
@@ -180,13 +210,12 @@ const ParentDashboard = ({ user }) => {
                       <h3 className="font-medium text-gray-900">{grade.assignment_title}</h3>
                       <div className="flex items-center space-x-2">
                         <Award className="h-4 w-4 text-yellow-500" />
-                        <span className={`font-semibold ${
-                          (grade.grade / grade.max_points) >= 0.8 
-                            ? 'text-green-600' 
-                            : (grade.grade / grade.max_points) >= 0.6 
-                            ? 'text-yellow-600' 
+                        <span className={`font-semibold ${(grade.grade / grade.max_points) >= 0.8
+                          ? 'text-green-600'
+                          : (grade.grade / grade.max_points) >= 0.6
+                            ? 'text-yellow-600'
                             : 'text-red-600'
-                        }`}>
+                          }`}>
                           {grade.grade}/{grade.max_points}
                         </span>
                       </div>
@@ -201,13 +230,12 @@ const ParentDashboard = ({ user }) => {
                       <span className="text-sm text-gray-500">
                         Graded: {format(new Date(grade.graded_at), 'MMM dd, yyyy')}
                       </span>
-                      <span className={`text-sm px-2 py-1 rounded-full ${
-                        (grade.grade / grade.max_points) >= 0.8 
-                          ? 'bg-green-100 text-green-800' 
-                          : (grade.grade / grade.max_points) >= 0.6 
-                          ? 'bg-yellow-100 text-yellow-800' 
+                      <span className={`text-sm px-2 py-1 rounded-full ${(grade.grade / grade.max_points) >= 0.8
+                        ? 'bg-green-100 text-green-800'
+                        : (grade.grade / grade.max_points) >= 0.6
+                          ? 'bg-yellow-100 text-yellow-800'
                           : 'bg-red-100 text-red-800'
-                      }`}>
+                        }`}>
                         {Math.round((grade.grade / grade.max_points) * 100)}%
                       </span>
                     </div>
@@ -267,7 +295,7 @@ const ParentDashboard = ({ user }) => {
                   <p className="text-xs text-gray-500 mt-1">2 hours ago</p>
                 </div>
               </div>
-              
+
               <div className="flex items-start space-x-3 p-3 bg-green-50 rounded-lg">
                 <Award className="h-5 w-5 text-green-600 mt-0.5" />
                 <div>
@@ -280,7 +308,7 @@ const ParentDashboard = ({ user }) => {
                   <p className="text-xs text-gray-500 mt-1">1 day ago</p>
                 </div>
               </div>
-              
+
               <div className="flex items-start space-x-3 p-3 bg-yellow-50 rounded-lg">
                 <Calendar className="h-5 w-5 text-yellow-600 mt-0.5" />
                 <div>
@@ -294,7 +322,7 @@ const ParentDashboard = ({ user }) => {
                 </div>
               </div>
             </div>
-            
+
             <div className="mt-4 pt-4 border-t">
               <button className="w-full text-sm text-purple-600 hover:text-purple-800">
                 View All Notifications

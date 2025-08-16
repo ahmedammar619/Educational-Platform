@@ -84,7 +84,7 @@ const StudentSchedule = ({ user }) => {
 
   const getEventColor = (type) => {
     const colors = {
-      'lecture': 'bg-blue-100 border-blue-300 text-blue-800',
+      'lecture': 'bg-red-100 border-red-300 text-red-800',
       'lab': 'bg-green-100 border-green-300 text-green-800',
       'tutorial': 'bg-purple-100 border-purple-300 text-purple-800',
       'seminar': 'bg-yellow-100 border-yellow-300 text-yellow-800',
@@ -136,7 +136,7 @@ const StudentSchedule = ({ user }) => {
               onClick={() => setViewMode('week')}
               className={`px-3 py-2 rounded-md text-sm font-medium ${
                 viewMode === 'week' 
-                  ? 'bg-blue-600 text-white' 
+                  ? 'bg-red-600 text-white' 
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
             >
@@ -146,7 +146,7 @@ const StudentSchedule = ({ user }) => {
               onClick={() => setViewMode('day')}
               className={`px-3 py-2 rounded-md text-sm font-medium ${
                 viewMode === 'day' 
-                  ? 'bg-blue-600 text-white' 
+                  ? 'bg-red-600 text-white' 
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
             >
@@ -156,7 +156,7 @@ const StudentSchedule = ({ user }) => {
           
           <button
             onClick={goToToday}
-            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm font-medium"
+            className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 text-sm font-medium"
           >
             Today
           </button>
@@ -199,7 +199,7 @@ const StudentSchedule = ({ user }) => {
       {/* Schedule View */}
       {loading ? (
         <div className="flex items-center justify-center py-12">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-600"></div>
         </div>
       ) : viewMode === 'week' ? (
         <WeekView 
@@ -314,7 +314,7 @@ const DayView = ({ selectedDate, setSelectedDate, weekDays, getScheduleForDay, g
                 onClick={() => setSelectedDate(day)}
                 className={`w-full text-left p-3 rounded-md transition-colors ${
                   isSameDay(day, selectedDate)
-                    ? 'bg-blue-100 text-blue-900 border border-blue-300'
+                    ? 'bg-red-100 text-red-900 border border-red-300'
                     : 'hover:bg-gray-100 text-gray-700'
                 }`}
               >

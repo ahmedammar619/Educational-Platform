@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Calendar, Users, BookOpen, CheckCircle, Clock, TrendingUp, FileText, MessageSquare } from 'lucide-react';
-import { format } from 'date-fns';
+import { Calendar, Users, BookOpen, Clock, TrendingUp, FileText, MessageSquare } from 'lucide-react';
+import { mockClasses, mockCalendarEvents, getClassesByTeacher, getCalendarEventsByUser } from '../../data/mockData';
 
 const TeacherDashboard = ({ user }) => {
   const [dashboardData, setDashboardData] = useState(null);
@@ -12,15 +12,20 @@ const TeacherDashboard = ({ user }) => {
 
   const fetchDashboardData = async () => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch('/api/dashboard/teacher', {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
+      // Use mock data instead of API call
+      if (user) {
+        const courses = getClassesByTeacher(user.id);
+        const upcomingSessions = getCalendarEventsByUser(user.id, 'teacher')
+          .filter(event => new Date(event.start) >= new Date())
+          .sort((a, b) => new Date(a.start) - new Date(b.start));
+        
+        const data = {
+          courses,
+          upcomingSessions,
+          pendingGrading: [], // Mock empty for now
+          studentActivity: [] // Mock empty for now
+        };
+        
         setDashboardData(data);
       }
     } catch (error) {
@@ -42,17 +47,48 @@ const TeacherDashboard = ({ user }) => {
 
   return (
     <div className="space-y-6">
-      {/* Welcome Section */}
-      <div className="bg-gradient-to-r from-green-600 to-green-700 rounded-lg p-6 text-white">
-        <h1 className="text-2xl font-bold mb-2">Welcome back, {user?.name}! 👨‍🏫</h1>
-        <p className="text-green-100">Ready to inspire and educate your students?</p>
+      {/* User Info Card */}
+      <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
+        <div className="bg-gradient-to-r from-blue-600 to-blue-700 p-6">
+          <div className="flex items-center space-x-4">
+            <div className="w-16 h-16 bg-white bg-opacity-20 rounded-full flex items-center justify-center">
+              <span className="text-2xl font-bold text-white">
+                {user?.name?.charAt(0) || 'T'}
+              </span>
+            </div>
+            <div className="flex-1">
+              <h1 className="text-2xl font-bold text-white">{user?.name || 'Teacher'}</h1>
+              <p className="text-blue-100">Teacher • Education Professional</p>
+            </div>
+          </div>
+        </div>
+        <div className="p-6">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+            <div className="text-center">
+              <p className="text-sm text-gray-600">Email</p>
+              <p className="font-medium text-gray-900">{user?.email || 'teacher@example.com'}</p>
+            </div>
+            <div className="text-center">
+              <p className="text-sm text-gray-600">Phone</p>
+              <p className="font-medium text-gray-900">{user?.phone || '+1 (555) 123-4567'}</p>
+            </div>
+            <div className="text-center">
+              <p className="text-sm text-gray-600">Department</p>
+              <p className="font-medium text-gray-900">{user?.department || 'Islamic Studies'}</p>
+            </div>
+            <div className="text-center">
+              <p className="text-sm text-gray-600">Experience</p>
+              <p className="font-medium text-gray-900">{user?.experience || '5+ years'}</p>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Stats Overview */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <div className="bg-white p-6 rounded-lg shadow-sm border">
           <div className="flex items-center">
-            <BookOpen className="h-8 w-8 text-green-600" />
+            <BookOpen className="h-8 w-8 text-blue-600" />
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-600">My Courses</p>
               <p className="text-2xl font-bold text-gray-900">{courses.length}</p>
@@ -120,7 +156,7 @@ const TeacherDashboard = ({ user }) => {
                           📊 {Math.round(course.avg_progress || 0)}% avg progress
                         </span>
                       </div>
-                      <button className="text-sm bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700">
+                      <button className="text-sm bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700">
                         Manage
                       </button>
                     </div>
@@ -149,7 +185,13 @@ const TeacherDashboard = ({ user }) => {
                     </div>
                     <p className="text-sm text-gray-600 mb-1">{session.course_title}</p>
                     <p className="text-sm text-gray-500 mb-2">
-                      {format(new Date(session.scheduled_start), 'MMM dd, yyyy - HH:mm')}
+                      {new Date(session.scheduled_start).toLocaleDateString('en-US', {
+                        month: 'short',
+                        day: 'numeric',
+                        year: 'numeric',
+                        hour: 'numeric',
+                        minute: '2-digit'
+                      })}
                     </p>
                     <div className="flex justify-between items-center">
                       <span className="text-xs text-gray-500">
@@ -207,7 +249,12 @@ const TeacherDashboard = ({ user }) => {
                     </p>
                     <div className="flex justify-between items-center">
                       <span className="text-xs text-gray-500">
-                        Submitted: {format(new Date(submission.submitted_at), 'MMM dd, HH:mm')}
+                        Submitted: {new Date(submission.submitted_at).toLocaleDateString('en-US', {
+                          month: 'short',
+                          day: 'numeric',
+                          hour: 'numeric',
+                          minute: '2-digit'
+                        })}
                       </span>
                       <button className="text-sm bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700">
                         Grade Now
@@ -247,11 +294,16 @@ const TeacherDashboard = ({ user }) => {
                         {activity.course_title} - {activity.progress_percentage}% complete
                       </p>
                       <p className="text-xs text-gray-500">
-                        Last active: {format(new Date(activity.last_activity), 'MMM dd, HH:mm')}
+                        Last active: {new Date(activity.last_activity).toLocaleDateString('en-US', {
+                          month: 'short',
+                          day: 'numeric',
+                          hour: 'numeric',
+                          minute: '2-digit'
+                        })}
                       </p>
                     </div>
                     <div className="flex-shrink-0">
-                      <TrendingUp className="h-4 w-4 text-green-500" />
+                      <TrendingUp className="h-4 w-4 text-blue-500" />
                     </div>
                   </div>
                 ))}

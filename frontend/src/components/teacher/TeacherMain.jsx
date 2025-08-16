@@ -1,22 +1,16 @@
 import { useState } from 'react';
-import { Home, BookOpen, Users, FileText, Calendar, BarChart3, FolderOpen, User, Bell, Settings, LogOut } from 'lucide-react';
+import { Home, BookOpen, Users, FileText, Calendar, BarChart3, FolderOpen, User, Bell, LogOut } from 'lucide-react';
 import TeacherDashboard from './TeacherDashboard';
-import CourseManagement from '../shared/CourseManagement';
-import AssignmentManagement from '../shared/AssignmentManagement';
-import SessionManagement from '../shared/SessionManagement';
-import TeacherContentManager from './TeacherContentManager';
+import TeacherCalendar from './TeacherCalendar';
+import TeacherClasses from './TeacherClasses';
 
 const TeacherMain = ({ user, onLogout }) => {
   const [activeTab, setActiveTab] = useState('dashboard');
 
   const navigation = [
     { id: 'dashboard', name: 'Dashboard', icon: Home, component: TeacherDashboard },
-    { id: 'courses', name: 'My Courses', icon: BookOpen, component: CourseManagement },
-    { id: 'content', name: 'Course Materials', icon: FolderOpen, component: TeacherContentManager },
-    { id: 'students', name: 'Students', icon: Users, component: StudentManagement },
-    { id: 'assignments', name: 'Assignments', icon: FileText, component: AssignmentManagement },
-    { id: 'sessions', name: 'Sessions', icon: Calendar, component: SessionManagement },
-    { id: 'analytics', name: 'Analytics', icon: BarChart3, component: TeacherAnalytics },
+    { id: 'classes', name: 'My Classes', icon: BookOpen, component: TeacherClasses },
+    { id: 'calendar', name: 'Calendar', icon: Calendar, component: TeacherCalendar },
   ];
 
   const ActiveComponent = navigation.find(nav => nav.id === activeTab)?.component || TeacherDashboard;
@@ -38,12 +32,12 @@ const TeacherMain = ({ user, onLogout }) => {
                 </div>
               </div>
             </div>
-            
+
             <div className="flex items-center space-x-4">
               <button className="p-2 text-gray-400 hover:text-green-600">
                 <Bell className="h-5 w-5" />
               </button>
-              
+
               <div className="flex items-center space-x-3">
                 <div className="flex items-center space-x-2">
                   <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
@@ -54,7 +48,7 @@ const TeacherMain = ({ user, onLogout }) => {
                     <p className="text-xs text-gray-500">Teacher</p>
                   </div>
                 </div>
-                
+
                 <button
                   onClick={onLogout}
                   className="p-2 text-gray-400 hover:text-green-600"
@@ -80,11 +74,10 @@ const TeacherMain = ({ user, onLogout }) => {
                     <button
                       key={item.id}
                       onClick={() => setActiveTab(item.id)}
-                      className={`w-full flex items-center space-x-3 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                        activeTab === item.id
-                          ? 'bg-blue-100 text-blue-700 border border-blue-200'
-                          : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
-                      }`}
+                      className={`w-full flex items-center space-x-3 px-3 py-2 rounded-md text-sm font-medium transition-colors ${activeTab === item.id
+                        ? 'bg-blue-100 text-blue-700 border border-blue-200'
+                        : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                        }`}
                     >
                       <Icon className="h-5 w-5" />
                       <span>{item.name}</span>
@@ -151,7 +144,7 @@ const StudentManagement = ({ user }) => {
         <h1 className="text-2xl font-bold text-gray-900">Student Management</h1>
         <p className="text-gray-600">Manage your students, track attendance, and monitor progress</p>
       </div>
-      
+
       <div className="text-center py-12">
         <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
         <p className="text-gray-600">Student management feature coming soon!</p>
@@ -169,7 +162,7 @@ const TeacherAnalytics = ({ user }) => {
         <h1 className="text-2xl font-bold text-gray-900">Teaching Analytics</h1>
         <p className="text-gray-600">Analyze your teaching performance and student engagement</p>
       </div>
-      
+
       <div className="text-center py-12">
         <BarChart3 className="h-12 w-12 text-gray-400 mx-auto mb-4" />
         <p className="text-gray-600">Analytics dashboard coming soon!</p>
