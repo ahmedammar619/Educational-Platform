@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { HelmetProvider } from 'react-helmet-async';
-import { LoginForm } from './components/auth';
-import { Router } from './components/shared';
+import { LoginForm } from './pages/auth';
+import { AppRouter } from './routers';
 import './App.css';
 
 function App() {
@@ -10,13 +10,8 @@ function App() {
   const [showLogin, setShowLogin] = useState(false);
 
   useEffect(() => {
-    // Check if user is already logged in
-    const savedToken = localStorage.getItem('token');
-    if (savedToken) {
-      validateToken(savedToken);
-    } else {
-      setLoading(false);
-    }
+    // Always start with home page - no automatic login
+    setLoading(false);
   }, []);
 
   const validateToken = async (savedToken) => {
@@ -47,7 +42,13 @@ function App() {
   };
 
   const handleLoginClick = () => {
-    setShowLogin(true);
+    // Check if user has a saved token before showing login form
+    const savedToken = localStorage.getItem('token');
+    if (savedToken) {
+      validateToken(savedToken);
+    } else {
+      setShowLogin(true);
+    }
   };
 
   if (loading) {
@@ -67,7 +68,7 @@ function App() {
         {showLogin ? (
           <LoginForm onLogin={handleLogin} onClose={() => setShowLogin(false)} />
         ) : (
-          <Router 
+          <AppRouter 
             user={user} 
             onLogin={handleLoginClick}
           />

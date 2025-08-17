@@ -1,8 +1,8 @@
-import { StudentMain } from '../student';
-import { AdminMain } from '../admin';
-import { ParentMain } from '../parent';
-import TeacherMain from '../teacher/TeacherMain';
-import HomePage from '../home/HomePage';
+import { StudentMain } from '../pages/student';
+import { AdminMain } from '../pages/admin';
+import { ParentMain } from '../pages/parent';
+import TeacherMain from '../pages/teacher/TeacherMain';
+import HomePage from '../pages/home/HomePage';
 
 const Router = ({ user, onLogin, onRegister, onDemo }) => {
   // Show HomePage if user is not logged in
