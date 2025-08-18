@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Edit, Trash2, Users, Clock, DollarSign, Calendar, Search, Filter, User, BookOpen } from 'lucide-react';
+import { Plus, Edit, Trash2, Users, Clock, DollarSign, Calendar, Search, Filter, User, BookOpen, X } from 'lucide-react';
 import { mockClasses, mockUsers } from '../../data/mockData';
 
 const ClassManagement = ({ user }) => {
@@ -125,16 +125,16 @@ const ClassManagement = ({ user }) => {
     };
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-4 sm:space-y-6">
             {/* Header */}
-            <div className="flex justify-between items-center">
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-900">Class Management</h1>
-                    <p className="text-gray-600">Manage classes and schedules</p>
+                    <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Class Management</h1>
+                    <p className="text-sm sm:text-base text-gray-600">Manage classes and schedules</p>
                 </div>
                 <button
                     onClick={() => setShowCreateModal(true)}
-                    className="flex items-center space-x-2 border-2 border-green-600 text-green-600 px-4 py-2 rounded-lg hover:bg-green-600 hover:text-white transition-all duration-200"
+                    className="flex items-center justify-center space-x-2 border-2 border-green-600 text-green-600 px-3 sm:px-4 py-2 rounded-lg hover:bg-green-600 hover:text-white transition-all duration-200 text-sm sm:text-base"
                 >
                     <Plus className="h-4 w-4" />
                     <span>Add Class</span>
@@ -142,21 +142,21 @@ const ClassManagement = ({ user }) => {
             </div>
 
             {/* Filters */}
-            <div className="bg-white p-6 rounded-lg shadow-sm border">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="bg-white p-4 sm:p-6 rounded-lg shadow-sm border">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                     <div className="relative">
                         <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                         <input
                             type="text"
                             placeholder="Search classes..."
-                            className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                             value={filters.search}
                             onChange={(e) => setFilters({ ...filters, search: e.target.value, page: 1 })}
                         />
                     </div>
 
                     <select
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                         value={filters.teacher}
                         onChange={(e) => setFilters({ ...filters, teacher: e.target.value, page: 1 })}
                     >
@@ -169,7 +169,7 @@ const ClassManagement = ({ user }) => {
                     </select>
 
                     <select
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                         value={filters.limit}
                         onChange={(e) => setFilters({ ...filters, limit: e.target.value, page: 1 })}
                     >
@@ -187,32 +187,34 @@ const ClassManagement = ({ user }) => {
                 </div>
             ) : (
                 <>
-                    <div className="space-y-4">
+                    <div className="space-y-3 sm:space-y-4">
                         {filteredClasses.map((classItem) => (
                             <div
                                 key={classItem.id}
-                                className="bg-white rounded-xl shadow-sm border hover:shadow-md transition-all w-full p-4 flex flex-col gap-4"
+                                className="bg-white rounded-xl shadow-sm border hover:shadow-md transition-all w-full p-3 sm:p-4 flex flex-col gap-3 sm:gap-4"
                             >
                                 {/* Top Row - Name, Teacher, Actions */}
-                                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-                                    <div className="flex items-center gap-3">
-                                        <BookOpen className="h-5 w-5 text-blue-600" />
-                                        <h3 className="text-lg font-semibold text-gray-900">{classItem.name}</h3>
-                                        <span className="text-sm text-gray-500">|</span>
-                                        <p className="text-sm font-medium text-gray-700 flex items-center gap-1">
-                                            <User className="h-4 w-4 text-gray-400" />
+                                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                                    <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
+                                        <div className="flex items-center gap-2 sm:gap-3">
+                                            <BookOpen className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600" />
+                                            <h3 className="text-base sm:text-lg font-semibold text-gray-900">{classItem.name}</h3>
+                                        </div>
+                                        <span className="hidden sm:inline text-sm text-gray-500">|</span>
+                                        <p className="text-xs sm:text-sm font-medium text-gray-700 flex items-center gap-1">
+                                            <User className="h-3 w-3 sm:h-4 sm:w-4 text-gray-400" />
                                             {classItem.teacher}
                                         </p>
                                     </div>
 
                                     {/* Actions */}
-                                    <div className="flex items-center gap-3 opacity-80 hover:opacity-100 transition-opacity">
+                                    <div className="flex items-center gap-2 sm:gap-3 opacity-80 hover:opacity-100 transition-opacity">
                                         <button
                                             onClick={() => {
                                                 setSelectedClass(classItem);
                                                 setShowEnrollModal(true);
                                             }}
-                                            className="text-green-600 hover:text-green-800"
+                                            className="text-green-600 hover:text-green-800 p-2 rounded-lg hover:bg-green-50 transition-colors"
                                             title="Enroll Students"
                                         >
                                             <Users className="h-4 w-4" />
@@ -222,14 +224,14 @@ const ClassManagement = ({ user }) => {
                                                 setSelectedClass(classItem);
                                                 setShowEditModal(true);
                                             }}
-                                            className="text-blue-600 hover:text-blue-800"
+                                            className="text-blue-600 hover:text-blue-800 p-2 rounded-lg hover:bg-blue-50 transition-colors"
                                             title="Edit Class"
                                         >
                                             <Edit className="h-4 w-4" />
                                         </button>
                                         <button
                                             onClick={() => handleDeleteClass(classItem.id)}
-                                            className="text-red-600 hover:text-red-800"
+                                            className="text-red-600 hover:text-red-800 p-2 rounded-lg hover:bg-red-50 transition-colors"
                                             title="Delete Class"
                                         >
                                             <Trash2 className="h-4 w-4" />
@@ -238,27 +240,27 @@ const ClassManagement = ({ user }) => {
                                 </div>
 
                                 {/* Bottom Row - Students, Date, Price, Class Material */}
-                                <div className="flex justify-between items-center w-full">
+                                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center w-full gap-3 sm:gap-0">
                                     <div className="text-center">
                                         <p className="text-xs text-gray-500 flex items-center justify-center gap-1">
-                                            <Users className="h-4 w-4 text-gray-400" /> Students
+                                            <Users className="h-3 w-3 sm:h-4 sm:w-4 text-gray-400" /> Students
                                         </p>
-                                        <p className="font-medium text-gray-900">{classItem.students?.length || 0}</p>
+                                        <p className="font-medium text-gray-900 text-sm sm:text-base">{classItem.students?.length || 0}</p>
                                     </div>
 
                                     <div className="text-center">
                                         <p className="text-xs text-gray-500 flex items-center justify-center gap-1">
-                                            <Calendar className="h-4 w-4 text-gray-400" /> Date & Time
+                                            <Calendar className="h-3 w-3 sm:h-4 sm:w-4 text-gray-400" /> Date & Time
                                         </p>
-                                        <p className="font-medium text-gray-900">{classItem.schedule}</p>
+                                        <p className="font-medium text-gray-900 text-xs sm:text-sm">{classItem.schedule}</p>
                                     </div>
 
                                     {classItem.price && (
                                         <div className="text-center">
                                             <p className="text-xs text-gray-500 flex items-center justify-center gap-1">
-                                                <DollarSign className="h-4 w-4 text-gray-400" /> Price
+                                                <DollarSign className="h-3 w-3 sm:h-4 sm:w-4 text-gray-400" /> Price
                                             </p>
-                                            <p className="font-medium text-gray-900">USD {classItem.price}</p>
+                                            <p className="font-medium text-gray-900 text-sm sm:text-base">USD {classItem.price}</p>
                                         </div>
                                     )}
 
@@ -268,7 +270,7 @@ const ClassManagement = ({ user }) => {
                                                 // Handle class material click
                                                 console.log('Class material clicked for:', classItem.name);
                                             }}
-                                            className="px-3 py-2 border-2 border-green-600 text-green-600 font-semibold text-xs rounded-lg hover:bg-green-600 hover:text-white transition-all duration-200 uppercase"
+                                            className="w-full sm:w-auto px-3 py-2 border-2 border-green-600 text-green-600 font-semibold text-xs rounded-lg hover:bg-green-600 hover:text-white transition-all duration-200 uppercase"
                                         >
                                             Class Material
                                         </button>
@@ -280,20 +282,20 @@ const ClassManagement = ({ user }) => {
 
                     {/* Pagination */}
                     {pagination && pagination.pages > 1 && (
-                        <div className="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 mt-6 rounded-b-lg">
+                        <div className="bg-white px-3 sm:px-4 py-3 flex items-center justify-between border-t border-gray-200 mt-6 rounded-b-lg">
                             {/* Mobile */}
                             <div className="flex-1 flex justify-between sm:hidden">
                                 <button
                                     onClick={() => setFilters({ ...filters, page: Math.max(1, filters.page - 1) })}
                                     disabled={filters.page === 1}
-                                    className="px-4 py-2 border-2 border-green-600 text-green-600 text-sm rounded-md bg-white hover:bg-green-50 disabled:opacity-50 transition-all duration-200"
+                                    className="px-3 sm:px-4 py-2 border-2 border-green-600 text-green-600 text-xs sm:text-sm rounded-md bg-white hover:bg-green-50 disabled:opacity-50 transition-all duration-200"
                                 >
                                     Previous
                                 </button>
                                 <button
                                     onClick={() => setFilters({ ...filters, page: Math.min(pagination?.pages || 1, filters.page + 1) })}
                                     disabled={filters.page === (pagination?.pages || 1)}
-                                    className="px-4 py-2 border-2 border-green-600 text-green-600 text-sm rounded-md bg-white hover:bg-green-50 disabled:opacity-50 transition-all duration-200"
+                                    className="px-3 sm:px-4 py-2 border-2 border-green-600 text-green-600 text-xs sm:text-sm rounded-md bg-white hover:bg-green-50 disabled:opacity-50 transition-all duration-200"
                                 >
                                     Next
                                 </button>
@@ -301,7 +303,7 @@ const ClassManagement = ({ user }) => {
 
                             {/* Desktop */}
                             <div className="hidden sm:flex sm:items-center sm:justify-between w-full">
-                                <p className="text-sm text-gray-700">
+                                <p className="text-xs sm:text-sm text-gray-700">
                                     Showing <span className="font-medium">{((filters.page - 1) * filters.limit) + 1}</span> to{' '}
                                     <span className="font-medium">{Math.min(filters.page * filters.limit, pagination?.total || 0)}</span> of{' '}
                                     <span className="font-medium">{pagination?.total || 0}</span> results
@@ -311,7 +313,7 @@ const ClassManagement = ({ user }) => {
                                         <button
                                             key={page}
                                             onClick={() => setFilters({ ...filters, page })}
-                                            className={`px-3 py-1 border-2 text-sm rounded-md transition-all duration-200 ${page === filters.page
+                                            className={`px-2 sm:px-3 py-1 border-2 text-xs sm:text-sm rounded-md transition-all duration-200 ${page === filters.page
                                                 ? 'bg-green-50 border-green-600 text-green-600'
                                                 : 'bg-white border-green-600 text-green-600 hover:bg-green-50'
                                                 }`}
@@ -464,27 +466,25 @@ const ClassModal = ({ title, classData, onClose, onSubmit }) => {
 
     return (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50" style={{ margin: 0 }}>
-            <div className="relative top-10 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div className="relative top-4 sm:top-10 mx-auto p-4 sm:p-5 border w-11/12 sm:w-96 shadow-lg rounded-md bg-white">
                 <div className="mt-1">
-                    <h3 className="text-lg font-medium text-gray-900 mb-4">{title}</h3>
+                    <h3 className="text-base sm:text-lg font-medium text-gray-900 mb-4">{title}</h3>
                     <form onSubmit={handleSubmit} className="space-y-4">
                         <div>
                             <label className="block text-sm font-medium text-gray-700">Class Name</label>
                             <input
                                 type="text"
                                 required
-                                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                                 value={formData.name}
                                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                             />
                         </div>
 
-
-
                         <div>
                             <label className="block text-sm font-medium text-gray-700">Description</label>
                             <textarea
-                                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                                 rows="3"
                                 value={formData.description}
                                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
@@ -495,7 +495,7 @@ const ClassModal = ({ title, classData, onClose, onSubmit }) => {
                             <label className="block text-sm font-medium text-gray-700">Teacher</label>
                             <select
                                 required
-                                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                                 value={formData.teacher}
                                 onChange={(e) => setFormData({ ...formData, teacher: e.target.value })}
                             >
@@ -515,7 +515,7 @@ const ClassModal = ({ title, classData, onClose, onSubmit }) => {
                                 min="0"
                                 step="0.01"
                                 placeholder="0.00"
-                                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                                 value={formData.price}
                                 onChange={(e) => setFormData({ ...formData, price: e.target.value })}
                             />
@@ -529,16 +529,16 @@ const ClassModal = ({ title, classData, onClose, onSubmit }) => {
                             {formData.sessions.length > 0 && (
                                 <div className="mb-4 space-y-2">
                                     {formData.sessions.map((session, index) => (
-                                        <div key={index} className="flex items-center justify-between p-3 bg-blue-50 border border-blue-200 rounded-md">
-                                            <span className="text-sm font-medium text-blue-900">
+                                        <div key={index} className="flex items-center justify-between p-2 sm:p-3 bg-blue-50 border border-blue-200 rounded-md">
+                                            <span className="text-xs sm:text-sm font-medium text-blue-900">
                                                 {session.day}: {session.startTime} - {session.endTime}
                                             </span>
                                             <button
                                                 type="button"
                                                 onClick={() => removeSession(index)}
-                                                className="text-red-600 hover:text-red-800"
+                                                className="text-red-600 hover:text-red-800 p-1 rounded hover:bg-red-100 transition-colors"
                                             >
-                                                <Trash2 className="h-4 w-4" />
+                                                <Trash2 className="h-3 w-3 sm:h-4 sm:w-4" />
                                             </button>
                                         </div>
                                     ))}
@@ -550,18 +550,18 @@ const ClassModal = ({ title, classData, onClose, onSubmit }) => {
                                 <button
                                     type="button"
                                     onClick={() => setShowAddSession(true)}
-                                    className="w-full p-3 border-2 border-dashed border-green-300 rounded-md text-green-600 hover:border-green-400 hover:text-green-700 transition-colors"
+                                    className="w-full p-2 sm:p-3 border-2 border-dashed border-green-300 rounded-md text-green-600 hover:border-green-400 hover:text-green-700 transition-colors text-sm"
                                 >
                                     + Add Session
                                 </button>
                             ) : (
                                 /* Add Session Form */
-                                <div className="p-4 border border-gray-300 rounded-md bg-gray-50">
-                                    <div className="grid grid-cols-3 gap-3 mb-3">
+                                <div className="p-3 sm:p-4 border border-gray-300 rounded-md bg-gray-50">
+                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3 mb-3">
                                         <div>
                                             <label className="block text-xs font-medium text-gray-700 mb-1">Day</label>
                                             <select
-                                                className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                                className="w-full px-2 py-1 text-xs sm:text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
                                                 value={newSession.day}
                                                 onChange={(e) => setNewSession({ ...newSession, day: e.target.value })}
                                             >
@@ -574,7 +574,7 @@ const ClassModal = ({ title, classData, onClose, onSubmit }) => {
                                         <div>
                                             <label className="block text-xs font-medium text-gray-700 mb-1">Start Time</label>
                                             <select
-                                                className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                                className="w-full px-2 py-1 text-xs sm:text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
                                                 value={newSession.startTime}
                                                 onChange={(e) => setNewSession({ ...newSession, startTime: e.target.value })}
                                             >
@@ -587,7 +587,7 @@ const ClassModal = ({ title, classData, onClose, onSubmit }) => {
                                         <div>
                                             <label className="block text-xs font-medium text-gray-700 mb-1">End Time</label>
                                             <select
-                                                className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                                className="w-full px-2 py-1 text-xs sm:text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
                                                 value={newSession.endTime}
                                                 onChange={(e) => setNewSession({ ...newSession, endTime: e.target.value })}
                                             >
@@ -602,14 +602,14 @@ const ClassModal = ({ title, classData, onClose, onSubmit }) => {
                                         <button
                                             type="button"
                                             onClick={() => setShowAddSession(false)}
-                                            className="px-3 py-1 text-sm text-gray-600 hover:text-gray-800"
+                                            className="px-2 sm:px-3 py-1 text-xs sm:text-sm text-gray-600 hover:text-gray-800"
                                         >
                                             Cancel
                                         </button>
                                         <button
                                             type="button"
                                             onClick={addSession}
-                                            className="px-3 py-1 text-sm border-2 border-green-600 text-green-600 rounded hover:bg-green-500 hover:text-white transition-all duration-200"
+                                            className="px-2 sm:px-3 py-1 text-xs sm:text-sm border-2 border-green-600 text-green-600 rounded hover:bg-green-500 hover:text-white transition-all duration-200"
                                         >
                                             Add Session
                                         </button>
@@ -621,13 +621,13 @@ const ClassModal = ({ title, classData, onClose, onSubmit }) => {
                             <button
                                 type="button"
                                 onClick={onClose}
-                                className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+                                className="px-3 sm:px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 text-sm"
                             >
                                 Cancel
                             </button>
                             <button
                                 type="submit"
-                                className="px-4 py-2 border-2 border-green-600 text-green-600 rounded-md hover:bg-green-500 hover:text-white transition-all duration-200"
+                                className="px-3 sm:px-4 py-2 border-2 border-green-600 text-green-600 rounded-md hover:bg-green-500 hover:text-white transition-all duration-200 text-sm"
                             >
                                 {classData ? 'Update' : 'Create'}
                             </button>
@@ -667,17 +667,18 @@ const EnrollModal = ({ classData, onClose, onSubmit }) => {
 
     return (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-            <div className="relative top-20 mx-auto p-5 border w-2/3 max-w-2xl shadow-lg rounded-md bg-white">
+            <div className="relative top-4 sm:top-20 mx-auto p-4 sm:p-5 border w-11/12 sm:w-2/3 max-w-2xl shadow-lg rounded-md bg-white">
                 <div className="mt-3">
                     <div className="flex justify-between items-center mb-4">
-                        <h3 className="text-lg font-medium text-gray-900">
+                        <h3 className="text-base sm:text-lg font-medium text-gray-900">
                             Enroll Students in {classData.name}
                         </h3>
                         <button
                             onClick={onClose}
-                            className="text-gray-400 hover:text-gray-600"
+                            className="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100 transition-colors"
                         >
-                            ✕
+                            <span className="sr-only">Close</span>
+                            <X className="h-5 w-5" />
                         </button>
                     </div>
 
@@ -688,7 +689,7 @@ const EnrollModal = ({ classData, onClose, onSubmit }) => {
                             </p>
 
                             {availableStudents.length === 0 ? (
-                                <p className="text-gray-500 text-center py-4">
+                                <p className="text-gray-500 text-center py-4 text-sm">
                                     No available students to enroll
                                 </p>
                             ) : (
@@ -696,7 +697,7 @@ const EnrollModal = ({ classData, onClose, onSubmit }) => {
                                     {availableStudents.map((student) => (
                                         <label
                                             key={student.id}
-                                            className="flex items-center p-3 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0"
+                                            className="flex items-center p-2 sm:p-3 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0"
                                         >
                                             <input
                                                 type="checkbox"
@@ -705,16 +706,16 @@ const EnrollModal = ({ classData, onClose, onSubmit }) => {
                                                 className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                                             />
                                             <div className="ml-3 flex items-center">
-                                                <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
-                                                    <span className="text-white text-sm font-medium">
+                                                <div className="w-6 h-6 sm:w-8 sm:h-8 bg-blue-500 rounded-full flex items-center justify-center flex-shrink-0">
+                                                    <span className="text-white text-xs sm:text-sm font-medium">
                                                         {student.name.charAt(0)}
                                                     </span>
                                                 </div>
-                                                <div className="ml-3">
-                                                    <p className="text-sm font-medium text-gray-900">
+                                                <div className="ml-2 sm:ml-3 min-w-0 flex-1">
+                                                    <p className="text-xs sm:text-sm font-medium text-gray-900 truncate">
                                                         {student.name}
                                                     </p>
-                                                    <p className="text-xs text-gray-500">
+                                                    <p className="text-xs text-gray-500 truncate">
                                                         {student.email}
                                                     </p>
                                                 </div>
@@ -725,22 +726,22 @@ const EnrollModal = ({ classData, onClose, onSubmit }) => {
                             )}
                         </div>
 
-                        <div className="flex justify-between items-center">
-                            <p className="text-sm text-gray-600">
+                        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
+                            <p className="text-xs sm:text-sm text-gray-600">
                                 {selectedStudents.length} student(s) selected
                             </p>
-                            <div className="flex space-x-3">
+                            <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
                                 <button
                                     type="button"
                                     onClick={onClose}
-                                    className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+                                    className="px-3 sm:px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 text-sm transition-colors"
                                 >
                                     Cancel
                                 </button>
                                 <button
                                     type="submit"
                                     disabled={selectedStudents.length === 0}
-                                    className="px-4 py-2 border-2 border-green-600 text-green-600 rounded-md hover:bg-green-500 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
+                                    className="px-3 sm:px-4 py-2 border-2 border-green-600 text-green-600 rounded-md hover:bg-green-500 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 text-sm"
                                 >
                                     Enroll Students
                                 </button>

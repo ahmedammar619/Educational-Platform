@@ -1,15 +1,15 @@
 import { useState, useEffect } from 'react';
-import { Search, Plus, Edit, Trash2, UserCheck, UserX, Eye, Key, Users } from 'lucide-react';
+import { Search, Plus, Edit, Trash2, UserCheck, UserX, Eye, Key, Users, ChevronDown, ChevronUp } from 'lucide-react';
 import { mockUsers } from '../../data/mockData';
 
 const UserManagement = ({ user }) => {
   const [allUsers, setAllUsers] = useState([]);
   const [filteredUsers, setFilteredUsers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [expandedParents, setExpandedParents] = useState(new Set());
   const [filters, setFilters] = useState({
     search: '',
     role: '',
-    status: '',
     page: 1,
     limit: 10
   });
@@ -49,10 +49,38 @@ const UserManagement = ({ user }) => {
 
     // Apply search filter
     if (filters.search) {
-      filtered = filtered.filter(user =>
-        user.name.toLowerCase().includes(filters.search.toLowerCase()) ||
-        user.email.toLowerCase().includes(filters.search.toLowerCase())
+      const searchTerm = filters.search.toLowerCase();
+      
+      // First, get users that directly match the search
+      let directMatches = filtered.filter(user =>
+        user.name.toLowerCase().includes(searchTerm) ||
+        user.email.toLowerCase().includes(searchTerm)
       );
+      
+      // Find parents of students that match the search
+      const matchingStudentIds = new Set();
+      directMatches.forEach(user => {
+        if (user.role === 'student') {
+          matchingStudentIds.add(user.id);
+        }
+      });
+      
+      // Add parents of matching students
+      const parentsToInclude = allUsers.filter(user => 
+        user.role === 'parent' && 
+        user.children && 
+        user.children.some(childId => matchingStudentIds.has(childId))
+      );
+      
+      // Combine direct matches with parents of matching students
+      const allMatches = [...directMatches];
+      parentsToInclude.forEach(parent => {
+        if (!allMatches.some(match => match.id === parent.id)) {
+          allMatches.push(parent);
+        }
+      });
+      
+      filtered = allMatches;
     }
 
     // Apply role filter
@@ -60,19 +88,14 @@ const UserManagement = ({ user }) => {
       filtered = filtered.filter(user => user.role === filters.role);
     }
 
-    // Apply status filter
-    if (filters.status) {
-      const isActive = filters.status === 'active';
-      filtered = filtered.filter(user => user.is_active === isActive);
-    }
-
-    // Calculate pagination
-    const total = filtered.length;
+    // Set the filtered users (this will be used by getParentChildRows)
+    setFilteredUsers(filtered);
+    
+    // Calculate pagination based on the filtered results, excluding students
+    const paginationUsers = filtered.filter(user => user.role !== 'student');
+    const total = paginationUsers.length;
     const pages = Math.ceil(total / filters.limit);
-    const startIndex = (filters.page - 1) * filters.limit;
-    const endIndex = startIndex + parseInt(filters.limit);
-
-    setFilteredUsers(filtered.slice(startIndex, endIndex));
+    
     setPagination({
       page: filters.page,
       limit: filters.limit,
@@ -113,24 +136,316 @@ const UserManagement = ({ user }) => {
     alert('User deactivated successfully!');
   };
 
-  const handleResetPassword = (userId) => {
-    const newPassword = prompt('Enter new password (minimum 6 characters):');
-    if (!newPassword || newPassword.length < 6) {
-      alert('Password must be at least 6 characters');
-      return;
-    }
-
-    // In a real app, this would make an API call
-    alert('Password reset successfully!');
-  };
-
   const getRoleColor = (role) => {
     switch (role) {
-      case 'admin': return 'bg-red-100 text-red-800';
-      case 'teacher': return 'bg-green-100 text-green-800';
+      case 'admin': return 'bg-green-100 text-green-800';
+      case 'teacher': return 'bg-blue-100 text-blue-800';
       case 'parent': return 'bg-purple-100 text-purple-800';
-      case 'student': return 'bg-blue-100 text-blue-800';
+      case 'student': return 'bg-red-100 text-red-800';
       default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const toggleParentExpansion = (parentId) => {
+    setExpandedParents(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(parentId)) {
+        newSet.delete(parentId);
+      } else {
+        newSet.add(parentId);
+      }
+      return newSet;
+    });
+  };
+
+  const getParentChildRows = () => {
+    const rows = [];
+    const processedUsers = new Set();
+
+    // Use filtered users if available, otherwise use all users
+    const usersToProcess = filteredUsers.length > 0 ? filteredUsers : allUsers;
+
+    // Special handling for student role filter - show students with their parents
+    if (filters.role === 'student') {
+      const students = usersToProcess.filter(u => u.role === 'student');
+      const parentIds = new Set();
+      
+      // Collect all parent IDs for students
+      students.forEach(student => {
+        if (student.parentId) {
+          parentIds.add(student.parentId);
+        }
+      });
+      
+      // Add parents first
+      const parents = allUsers.filter(u => u.role === 'parent' && parentIds.has(u.id));
+      parents.forEach(parent => {
+        rows.push({
+          ...parent,
+          isParent: true,
+          rowSpan: 1
+        });
+        processedUsers.add(parent.id);
+        
+        // Add children if expanded
+        if (expandedParents.has(parent.id) && parent.children) {
+          const children = allUsers.filter(u =>
+            u.role === 'student' && parent.children.includes(u.id) && 
+            usersToProcess.some(filteredUser => filteredUser.id === u.id)
+          );
+          
+          children.forEach(child => {
+            rows.push({
+              ...child,
+              isChild: true,
+              parentId: parent.id,
+              parentName: parent.name,
+              rowSpan: 1
+            });
+            processedUsers.add(child.id);
+          });
+        }
+      });
+      
+      // Add students without parents
+      const studentsWithoutParents = students.filter(s => !s.parentId);
+      studentsWithoutParents.forEach(student => {
+        rows.push({
+          ...student,
+          rowSpan: 1
+        });
+        processedUsers.add(student.id);
+      });
+      
+      return rows;
+    }
+
+    // Get all parents from the filtered results
+    const parents = usersToProcess.filter(u => u.role === 'parent');
+    
+    parents.forEach(parent => {
+      if (processedUsers.has(parent.id)) return;
+      
+      // Add parent row
+      rows.push({
+        ...parent,
+        isParent: true,
+        rowSpan: 1
+      });
+      processedUsers.add(parent.id);
+
+      // Add child rows if expanded
+      if (expandedParents.has(parent.id) && parent.children) {
+        // Get children from the original allUsers to maintain relationships
+        const children = allUsers.filter(u =>
+          u.role === 'student' && parent.children.includes(u.id)
+        );
+        
+        children.forEach(child => {
+          if (processedUsers.has(child.id)) return;
+          
+          rows.push({
+            ...child,
+            isChild: true,
+            parentId: parent.id,
+            parentName: parent.name,
+            rowSpan: 1
+          });
+          processedUsers.add(child.id);
+        });
+      }
+    });
+
+    // Add remaining users (teachers, admins, students without parents)
+    const remainingUsers = usersToProcess.filter(u =>
+      !processedUsers.has(u.id) && u.role !== 'parent' && u.role !== 'student'
+    );
+    
+    remainingUsers.forEach(user => {
+      rows.push({
+        ...user,
+        rowSpan: 1
+      });
+    });
+
+    return rows;
+  };
+
+  const getPaginatedRows = () => {
+    const allRows = getParentChildRows();
+    const startIndex = (filters.page - 1) * filters.limit;
+    const endIndex = startIndex + parseInt(filters.limit);
+    return allRows.slice(startIndex, endIndex);
+  };
+
+  const getTotalDisplayedRows = () => {
+    const rows = getParentChildRows();
+    return rows.length;
+  };
+
+  const renderUserRow = (userItem, index) => {
+    if (userItem.isParent) {
+      // Parent row with expandable children
+      const children = allUsers.filter(u =>
+        u.role === 'student' && userItem.children?.includes(u.id)
+      );
+      const hasChildren = children.length > 0;
+      const isExpanded = expandedParents.has(userItem.id);
+
+      return (
+        <tr key={`parent-${userItem.id}`} className="hover:bg-gray-50">
+          <td className="px-6 py-4 whitespace-nowrap">
+            <div className="flex items-center">
+              <div className="flex-shrink-0 h-10 w-10">
+                <div className="h-10 w-10 rounded-full bg-purple-500 flex items-center justify-center">
+                  <span className=" text-white text-sm font-medium">
+                    {userItem.name.charAt(0)}
+                  </span>
+                </div>
+              </div>
+              <div className="ml-4 flex-1">
+                <div className="text-start text-sm font-medium text-gray-900">{userItem.name}</div>
+                <div className="text-start text-sm text-gray-500">{userItem.email}</div>
+              </div>
+              {hasChildren && (
+                <button
+                  onClick={() => toggleParentExpansion(userItem.id)}
+                  className="ml-2 p-1 hover:bg-purple-100 rounded"
+                >
+                  {isExpanded ? (
+                    <ChevronUp className="h-4 w-4 text-purple-600" />
+                  ) : (
+                    <ChevronDown className="h-4 w-4 text-purple-600" />
+                  )}
+                </button>
+              )}
+            </div>
+          </td>
+          <td className="px-6 py-4 whitespace-nowrap">
+            <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getRoleColor(userItem.role)}`}>
+              {userItem.role}
+            </span>
+          </td>
+          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+            <div className="flex items-center justify-center space-x-2">
+              <button
+                onClick={() => {
+                  setSelectedUser(userItem);
+                  setShowEditModal(true);
+                }}
+                className="text-blue-600 hover:text-blue-900"
+                title="Edit User"
+              >
+                <Edit className="h-4 w-4" />
+              </button>
+              <button
+                onClick={() => handleDeactivateUser(userItem.id)}
+                className="text-red-600 hover:text-red-900"
+                title="Deactivate User"
+                disabled={userItem.id === user.id}
+              >
+                <UserX className="h-4 w-4" />
+              </button>
+            </div>
+          </td>
+        </tr>
+      );
+    } else if (userItem.isChild) {
+      // Child row (indented under parent)
+      return (
+        <tr key={`child-${userItem.id}`} className="hover:bg-gray-50 bg-red-50">
+          <td className="px-6 py-4 whitespace-nowrap">
+            <div className="flex items-center ml-8">
+              <div className="flex-shrink-0 h-8 w-8">
+                <div className="h-8 w-8 rounded-full bg-red-600 flex items-center justify-center">
+                  <span className="text-white text-xs font-medium">
+                    {userItem.name.charAt(0)}
+                  </span>
+                </div>
+              </div>
+              <div className="ml-3">
+                <div className="text-sm font-medium text-gray-900">{userItem.name}</div>
+                <div className="text-sm text-gray-500">{userItem.email}</div>
+              </div>
+            </div>
+          </td>
+          <td className="px-6 py-4 whitespace-nowrap">
+            <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getRoleColor(userItem.role)}`}>
+              {userItem.role}
+            </span>
+          </td>
+          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+            <div className="flex items-center justify-center space-x-2">
+              <button
+                onClick={() => {
+                  setSelectedUser(userItem);
+                  setShowEditModal(true);
+                }}
+                className="text-blue-600 hover:text-blue-900"
+                title="Edit User"
+              >
+                <Edit className="h-4 w-4" />
+              </button>
+              <button
+                onClick={() => handleDeactivateUser(userItem.id)}
+                className="text-red-600 hover:text-red-900"
+                title="Deactivate User"
+                disabled={userItem.id === user.id}
+              >
+                <UserX className="h-4 w-4" />
+              </button>
+            </div>
+          </td>
+        </tr>
+      );
+    } else {
+      // Regular user row (teacher, admin, or student without parent)
+      return (
+        <tr key={userItem.id} className="hover:bg-gray-50">
+          <td className="px-6 py-4 whitespace-nowrap">
+            <div className="flex items-center">
+              <div className="flex-shrink-0 h-10 w-10">
+                <div className="h-10 w-10 rounded-full bg-green-500 flex items-center justify-center">
+                  <span className="text-white text-sm font-medium">
+                    {userItem.name.charAt(0)}
+                  </span>
+                </div>
+              </div>
+              <div className="ml-4">
+                <div className="text-sm font-medium text-gray-900">{userItem.name}</div>
+                <div className="text-sm text-gray-500">{userItem.email}</div>
+              </div>
+            </div>
+          </td>
+          <td className="px-6 py-4 whitespace-nowrap">
+            <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getRoleColor(userItem.role)}`}>
+              {userItem.role}
+            </span>
+          </td>
+          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+            <div className="flex items-center justify-center space-x-2">
+              <button
+                onClick={() => {
+                  setSelectedUser(userItem);
+                  setShowEditModal(true);
+                }}
+                className="text-blue-600 hover:text-blue-900"
+                title="Edit User"
+              >
+                <Edit className="h-4 w-4" />
+              </button>
+              <button
+                onClick={() => handleDeactivateUser(userItem.id)}
+                className="text-red-600 hover:text-red-900"
+                title="Deactivate User"
+                disabled={userItem.id === user.id}
+              >
+                <UserX className="h-4 w-4" />
+              </button>
+            </div>
+          </td>
+        </tr>
+      );
     }
   };
 
@@ -142,10 +457,10 @@ const UserManagement = ({ user }) => {
           <h1 className="text-start text-2xl font-bold text-gray-900">User Management</h1>
           <p className="text-gray-600">Manage student and teacher accounts</p>
         </div>
-                 <button
-           onClick={() => setShowCreateModal(true)}
-           className="flex items-center space-x-2 border-2 border-green-600 text-green-600 px-4 py-2 rounded-lg hover:bg-green-600 hover:text-white transition-all duration-200"
-         >
+        <button
+          onClick={() => setShowCreateModal(true)}
+          className="flex items-center space-x-2 border-2 border-green-600 text-green-600 px-4 py-2 rounded-lg hover:bg-green-600 hover:text-white transition-all duration-200"
+        >
           <Plus className="h-4 w-4" />
           <span>Add User</span>
         </button>
@@ -153,7 +468,7 @@ const UserManagement = ({ user }) => {
 
       {/* Filters */}
       <div className="bg-white p-6 rounded-lg shadow-sm border">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="relative">
             <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
             <input
@@ -208,70 +523,14 @@ const UserManagement = ({ user }) => {
                       Role
                     </th>
                     <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Created
-                    </th>
-                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Actions
                     </th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {filteredUsers.map((userItem) => (
-                    <tr key={userItem.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center">
-                          <div className="flex-shrink-0 h-10 w-10">
-                            <div className="h-10 w-10 rounded-full bg-green-500 flex items-center justify-center">
-                              <span className="text-white text-sm font-medium">
-                                {userItem.name.charAt(0)}
-                              </span>
-                            </div>
-                          </div>
-                          <div className="ml-4">
-                            <div className="text-sm font-medium text-gray-900">{userItem.name}</div>
-                            <div className="text-sm text-gray-500">{userItem.email}</div>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getRoleColor(userItem.role)}`}>
-                          {userItem.role}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {userItem.created_at || userItem.joinDate || 'Unknown'}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        <div className="flex items-center space-x-2">
-                          <button
-                            onClick={() => {
-                              setSelectedUser(userItem);
-                              setShowEditModal(true);
-                            }}
-                            className="text-blue-600 hover:text-blue-900"
-                            title="Edit User"
-                          >
-                            <Edit className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={() => handleResetPassword(userItem.id)}
-                            className="text-yellow-600 hover:text-yellow-900"
-                            title="Reset Password"
-                          >
-                            <Key className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={() => handleDeactivateUser(userItem.id)}
-                            className="text-red-600 hover:text-red-900"
-                            title="Deactivate User"
-                            disabled={userItem.id === user.id}
-                          >
-                            <UserX className="h-4 w-4" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                  {getPaginatedRows().map((userItem, index) =>
+                    renderUserRow(userItem, index)
+                  )}
                 </tbody>
               </table>
             </div>
@@ -280,18 +539,18 @@ const UserManagement = ({ user }) => {
             {pagination && pagination.pages > 1 && (
               <div className="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200">
                 <div className="flex-1 flex justify-between sm:hidden">
-                                     <button
-                     onClick={() => setFilters({ ...filters, page: Math.max(1, filters.page - 1) })}
-                     disabled={filters.page === 1}
-                     className="relative inline-flex items-center px-4 py-2 border-2 border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 transition-all duration-200"
-                   >
+                  <button
+                    onClick={() => setFilters({ ...filters, page: Math.max(1, filters.page - 1) })}
+                    disabled={filters.page === 1}
+                    className="relative inline-flex items-center px-4 py-2 border-2 border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 transition-all duration-200"
+                  >
                     Previous
                   </button>
-                                     <button
-                     onClick={() => setFilters({ ...filters, page: Math.min(pagination?.pages || 1, filters.page + 1) })}
-                     disabled={filters.page === (pagination?.pages || 1)}
-                     className="ml-3 relative inline-flex items-center px-4 py-2 border-2 border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 transition-all duration-200"
-                   >
+                  <button
+                    onClick={() => setFilters({ ...filters, page: Math.min(pagination?.pages || 1, filters.page + 1) })}
+                    disabled={filters.page === (pagination?.pages || 1)}
+                    className="ml-3 relative inline-flex items-center px-4 py-2 border-2 border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 transition-all duration-200"
+                  >
                     Next
                   </button>
                 </div>
@@ -300,7 +559,7 @@ const UserManagement = ({ user }) => {
                     <p className="text-sm text-gray-700">
                       Showing <span className="font-medium">{((filters.page - 1) * filters.limit) + 1}</span> to{' '}
                       <span className="font-medium">
-                        {Math.min(filters.page * filters.limit, pagination?.total || 0)}
+                        {Math.min(filters.page * filters.limit, getTotalDisplayedRows())}
                       </span> of{' '}
                       <span className="font-medium">{pagination?.total || 0}</span> results
                     </p>
@@ -308,14 +567,13 @@ const UserManagement = ({ user }) => {
                   <div>
                     <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px">
                       {Array.from({ length: pagination?.pages || 0 }, (_, i) => i + 1).map((page) => (
-                                                 <button
-                           key={page}
-                           onClick={() => setFilters({ ...filters, page })}
-                           className={`relative inline-flex items-center px-4 py-2 border-2 text-sm font-medium transition-all duration-200 ${page === filters.page
-                             ? 'z-10 bg-blue-50 border-blue-500 text-blue-600'
-                             : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
-                             }`}
-                         >
+                        <button
+                          key={page}
+                          onClick={() => setFilters({ ...filters, page })}
+                          className={`relative inline-flex items-center px-4 py-2 border-2 text-sm font-medium transition-all duration-200 ${page === filters.page
+                            ? 'z-10 bg-blue-50 border-blue-500 text-blue-600'
+                            : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'}`}
+                        >
                           {page}
                         </button>
                       ))}
@@ -470,36 +728,21 @@ const UserModal = ({ title, user, onClose, onSubmit }) => {
               />
             </div>
 
-            {user && (
-              <div className="flex items-center">
-                <input
-                  type="checkbox"
-                  id="is_active"
-                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                  checked={formData.is_active}
-                  onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
-                />
-                <label htmlFor="is_active" className="ml-2 block text-sm text-gray-900">
-                  Active
-                </label>
-              </div>
-            )}
-
-                         <div className="flex justify-end space-x-3 pt-4">
-               <button
-                 type="button"
-                 onClick={onClose}
-                 className="px-4 py-2 border-2 border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition-all duration-200"
-               >
-                 Cancel
-               </button>
-               <button
-                 type="submit"
-                 className="px-4 py-2 border-2 border-green-600 text-green-600 rounded-md hover:bg-green-600 hover:text-white transition-all duration-200"
-               >
-                 {user ? 'Update' : 'Create'}
-               </button>
-             </div>
+            <div className="flex justify-end space-x-3 pt-4">
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-4 py-2 border-2 border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition-all duration-200"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="px-4 py-2 border-2 border-green-600 text-green-600 rounded-md hover:bg-green-600 hover:text-white transition-all duration-200"
+              >
+                {user ? 'Update' : 'Create'}
+              </button>
+            </div>
           </form>
         </div>
       </div>

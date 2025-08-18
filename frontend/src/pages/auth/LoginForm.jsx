@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Eye, EyeOff, User, Lock } from 'lucide-react';
+import { mockUsers } from '../../data/mockData';
 
 const LoginForm = ({ onLogin, onRegister }) => {
   const [isLogin, setIsLogin] = useState(true);
@@ -14,12 +15,74 @@ const LoginForm = ({ onLogin, onRegister }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
+  // Mock authentication function
+  const mockAuthenticate = (email, password) => {
+    console.log('Mock authentication attempt:', { email, password });
+    
+    // Check if it's a demo account
+    if (password === 'password123') {
+      console.log('Password matches demo password, searching for user...');
+      
+      // Find user in mock data
+      let user = null;
+      
+      // Check teachers
+      user = mockUsers.teachers.find(t => t.email === email);
+      if (user) {
+        console.log('Found teacher user:', user);
+        return { user, token: 'mock-token-teacher' };
+      }
+      
+      // Check students
+      user = mockUsers.students.find(s => s.email === email);
+      if (user) {
+        console.log('Found student user:', user);
+        return { user, token: 'mock-token-student' };
+      }
+      
+      // Check parents
+      user = mockUsers.parents.find(p => p.email === email);
+      if (user) {
+        console.log('Found parent user:', user);
+        return { user, token: 'mock-token-parent' };
+      }
+      
+      // Check admins
+      user = mockUsers.admins.find(a => a.email === email);
+      if (user) {
+        console.log('Found admin user:', user);
+        return { user, token: 'mock-token-admin' };
+      }
+      
+      console.log('No user found with email:', email);
+    } else {
+      console.log('Password does not match demo password');
+    }
+    
+    return null;
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError('');
 
     try {
+      console.log('Login attempt with:', formData.email);
+      
+      // Try mock authentication first
+      const mockAuth = mockAuthenticate(formData.email, formData.password);
+      
+      if (mockAuth) {
+        console.log('Mock authentication successful:', mockAuth);
+        // Mock authentication successful
+        localStorage.setItem('token', mockAuth.token);
+        onLogin(mockAuth.user, mockAuth.token);
+        return;
+      }
+
+      console.log('Mock authentication failed, trying real API...');
+      // If not a demo account, try real API (for future use)
       const endpoint = isLogin ? '/api/auth/login' : '/api/auth/register';
       const payload = isLogin 
         ? { email: formData.email, password: formData.password }
@@ -57,20 +120,20 @@ const LoginForm = ({ onLogin, onRegister }) => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 via-blue-50 to-purple-50 flex items-center justify-center p-4">
-      <div className="max-w-md w-full bg-white rounded-lg shadow-xl p-8">
-        <div className="text-center mb-8">
-          <div className="w-16 h-16 bg-gradient-to-br from-green-500 to-blue-600 rounded-lg flex items-center justify-center mx-auto mb-4">
-            <span className="text-white text-2xl font-bold">ب</span>
+      <div className="w-full max-w-md bg-white rounded-lg shadow-xl p-6 sm:p-8">
+        <div className="text-center mb-6 sm:mb-8">
+          <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-br from-green-500 to-blue-600 rounded-lg flex items-center justify-center mx-auto mb-4">
+            <span className="text-white text-xl sm:text-2xl font-bold">ب</span>
           </div>
-          <h1 className="text-2xl font-bold text-gray-900">براعم النور</h1>
-          <p className="text-sm text-gray-600 mb-2">Baraem Al-Noor</p>
-          <p className="text-gray-600">
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">براعم النور</h1>
+          <p className="text-xs sm:text-sm text-gray-600 mb-2">Baraem Al-Noor</p>
+          <p className="text-sm sm:text-base text-gray-600">
             {isLogin ? 'Sign in to your account' : 'Create your account'}
           </p>
         </div>
 
         {error && (
-          <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
+          <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded text-sm">
             {error}
           </div>
         )}
@@ -82,13 +145,13 @@ const LoginForm = ({ onLogin, onRegister }) => {
                 Full Name
               </label>
               <div className="relative">
-                <User className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
+                <User className="absolute left-3 top-3 h-4 w-4 sm:h-5 sm:w-5 text-gray-400" />
                 <input
                   type="text"
                   name="name"
                   value={formData.name}
                   onChange={handleInputChange}
-                  className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  className="w-full pl-10 pr-3 py-2 sm:py-2.5 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm sm:text-base"
                   placeholder="Enter your full name"
                   required={!isLogin}
                 />
@@ -101,13 +164,13 @@ const LoginForm = ({ onLogin, onRegister }) => {
               Email Address
             </label>
             <div className="relative">
-              <User className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
+              <User className="absolute left-3 top-3 h-4 w-4 sm:h-5 sm:w-5 text-gray-400" />
               <input
                 type="email"
                 name="email"
                 value={formData.email}
                 onChange={handleInputChange}
-                className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                className="w-full pl-10 pr-3 py-2 sm:py-2.5 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm sm:text-base"
                 placeholder="Enter your email"
                 required
               />
@@ -119,13 +182,13 @@ const LoginForm = ({ onLogin, onRegister }) => {
               Password
             </label>
             <div className="relative">
-              <Lock className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
+              <Lock className="absolute left-3 top-3 h-4 w-4 sm:h-5 sm:w-5 text-gray-400" />
               <input
                 type={showPassword ? 'text' : 'password'}
                 name="password"
                 value={formData.password}
                 onChange={handleInputChange}
-                className="w-full pl-10 pr-10 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                className="w-full pl-10 pr-10 py-2 sm:py-2.5 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm sm:text-base"
                 placeholder="Enter your password"
                 required
               />
@@ -134,7 +197,7 @@ const LoginForm = ({ onLogin, onRegister }) => {
                 onClick={() => setShowPassword(!showPassword)}
                 className="absolute right-3 top-3 text-gray-400 hover:text-gray-600"
               >
-                {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                {showPassword ? <EyeOff className="h-4 w-4 sm:h-5 sm:w-5" /> : <Eye className="h-4 w-4 sm:h-5 sm:w-5" />}
               </button>
             </div>
           </div>
@@ -149,7 +212,7 @@ const LoginForm = ({ onLogin, onRegister }) => {
                   name="role"
                   value={formData.role}
                   onChange={handleInputChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  className="w-full px-3 py-2 sm:py-2.5 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm sm:text-base"
                 >
                   <option value="student">Student</option>
                   <option value="teacher">Teacher</option>
@@ -166,7 +229,7 @@ const LoginForm = ({ onLogin, onRegister }) => {
                   name="phone"
                   value={formData.phone}
                   onChange={handleInputChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  className="w-full px-3 py-2 sm:py-2.5 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm sm:text-base"
                   placeholder="Enter your phone number"
                 />
               </div>
@@ -176,7 +239,7 @@ const LoginForm = ({ onLogin, onRegister }) => {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="w-full bg-green-600 text-white py-2.5 sm:py-3 px-4 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm sm:text-base font-medium"
           >
             {loading ? 'Please wait...' : (isLogin ? 'Sign In' : 'Create Account')}
           </button>
@@ -207,7 +270,7 @@ const LoginForm = ({ onLogin, onRegister }) => {
         {isLogin && (
           <div className="mt-4 p-3 bg-green-50 rounded-md">
             <p className="text-sm text-green-800 font-medium">Demo Accounts:</p>
-            <div className="text-xs text-green-700 mt-1 space-y-1">
+            <div className="text-xs text-green-700 mt-2 space-y-1">
               <div>Admin: admin@education.com</div>
               <div>Teacher: jane.teacher@education.com</div>
               <div>Student: john.student@education.com</div>

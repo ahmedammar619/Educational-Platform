@@ -1,61 +1,21 @@
 import { useState, useEffect } from 'react';
 import { Calendar, Clock, MapPin, User, Filter, ChevronLeft, ChevronRight } from 'lucide-react';
 import { format, startOfWeek, endOfWeek, eachDayOfInterval, isSameDay, addWeeks, subWeeks, parseISO } from 'date-fns';
+import { mockTeacherSchedule, mockTeacherCourses } from '../../data/mockData';
 
 const TeacherCalendar = ({ user }) => {
   const [schedule, setSchedule] = useState([]);
   const [courses, setCourses] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [currentWeek, setCurrentWeek] = useState(new Date());
   const [viewMode, setViewMode] = useState('week'); // 'week' or 'day'
   const [selectedDate, setSelectedDate] = useState(new Date());
 
   useEffect(() => {
-    fetchSchedule();
-    fetchCourses();
-  }, [currentWeek]);
-
-  const fetchSchedule = async () => {
-    try {
-      setLoading(true);
-      const token = localStorage.getItem('token');
-      const weekStart = startOfWeek(currentWeek, { weekStartsOn: 1 }); // Monday start
-      const weekEnd = endOfWeek(currentWeek, { weekStartsOn: 1 });
-
-      const response = await fetch(`/api/teacher/schedule?start_date=${weekStart.toISOString()}&end_date=${weekEnd.toISOString()}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        setSchedule(data.schedule);
-      }
-    } catch (error) {
-      console.error('Failed to fetch schedule:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchCourses = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      const response = await fetch('/api/teacher/courses', {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        setCourses(data.courses);
-      }
-    } catch (error) {
-      console.error('Failed to fetch courses:', error);
-    }
-  };
+    // Load mock data instead of API calls
+    setSchedule(mockTeacherSchedule.schedule);
+    setCourses(mockTeacherCourses.courses);
+  }, []);
 
   const weekDays = eachDayOfInterval({
     start: startOfWeek(currentWeek, { weekStartsOn: 1 }),
