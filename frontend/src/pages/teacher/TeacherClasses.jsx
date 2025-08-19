@@ -142,14 +142,62 @@ const TeacherClasses = ({ user }) => {
 
 // Student Modal Component
 const StudentModal = ({ classData, students, onClose }) => {
+  const getParentDetails = (parentId) => {
+    return mockUsers.parents.find(parent => parent.id === parentId);
+  };
+
+  const groupStudentsByParent = (students) => {
+    const grouped = {};
+    
+    students.forEach(student => {
+      const parentId = student.parentId;
+      if (!grouped[parentId]) {
+        grouped[parentId] = {
+          parent: getParentDetails(parentId),
+          students: []
+        };
+      }
+      grouped[parentId].students.push(student);
+    });
+
+    // Convert to array and sort by parent name
+    return Object.values(grouped).sort((a, b) => 
+      a.parent.name.localeCompare(b.parent.name)
+    );
+  };
+
+  const getAttendanceRate = (studentId) => {
+    // Mock attendance data - in real app this would come from database
+    const attendanceRates = {
+      201: 95, // Ahmad Al-Noor
+      202: 88, // Fatima Al-Zahra
+      203: 92, // Yusuf Al-Salam
+      204: 78, // Maryam Al-Siddiq
+      205: 85, // Omar Al-Khattab
+    };
+    
+    return attendanceRates[studentId] || Math.floor(Math.random() * 30) + 70;
+  };
+
+  const getAttendanceColor = (rate) => {
+    if (rate >= 90) return 'bg-green-500';
+    if (rate >= 80) return 'bg-yellow-500';
+    if (rate >= 70) return 'bg-orange-500';
+    return 'bg-red-500';
+  };
+
+  const groupedStudents = groupStudentsByParent(students);
+
   return (
     <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50" style={{ margin: 0 }}>
       <div className="relative top-4 sm:top-20 mx-auto p-4 sm:p-5 border w-11/12 sm:w-3/4 md:w-1/2 max-w-4xl shadow-lg rounded-md bg-white">
         <div className="mt-3">
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="text-base sm:text-lg font-medium text-gray-900">
-              Students in {classData.name}
-            </h3>
+                     <div className="flex justify-between items-center mb-4">
+             <div>
+               <h3 className="text-base sm:text-lg font-medium text-gray-900">
+                 Students in {classData.name}
+               </h3>
+             </div>
             <button
               onClick={onClose}
               className="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100 transition-colors"
@@ -159,25 +207,72 @@ const StudentModal = ({ classData, students, onClose }) => {
             </button>
           </div>
 
-          <div className="space-y-3">
-            {students.map((student) => (
-              <div key={student.id} className="border rounded-lg p-3 sm:p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between w-full gap-3">
-                <div className="flex items-center space-x-3">
-                  <div className="w-8 h-8 sm:w-10 sm:h-10 bg-blue-500 rounded-full flex items-center justify-center flex-shrink-0">
-                    <span className="text-white font-medium text-sm sm:text-base">
-                      {student.name.charAt(0)}
-                    </span>
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <h4 className="font-medium text-gray-900 text-sm sm:text-base truncate">{student.name}</h4>
-                    <p className="text-xs sm:text-sm text-gray-500 truncate">{student.email}</p>
+          <div className="space-y-4">
+            {groupedStudents.map((group, groupIndex) => (
+              <div key={group.parent.id} className="border rounded-lg overflow-hidden">
+                {/* Parent Header */}
+                <div className="bg-blue-50 px-3 py-3 border-b">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-8 h-8 sm:w-10 sm:h-10 bg-blue-600 rounded-full flex items-center justify-center flex-shrink-0">
+                      <User className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
+                    </div>
+                                         <div className="text-start min-w-0 flex-1">
+                       <h4 className="font-semibold text-blue-900 text-sm sm:text-base">{group.parent.name}</h4>
+                       <p className="text-xs sm:text-sm text-blue-700">{group.parent.email}</p>
+                     </div>
+                     <div className="flex items-center gap-2">
+                       <button className="text-green-600 hover:text-green-900 text-xs sm:text-sm font-medium px-3 py-2 rounded-lg hover:bg-green-50 transition-colors">
+                         <MessageSquare className="h-4 w-4 inline mr-1" />
+                         Contact
+                       </button>
+                       {group.students.length > 1 && (
+                         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                           {group.students.length} Student{group.students.length !== 1 ? 's' : ''}
+                         </span>
+                       )}
+                     </div>
                   </div>
                 </div>
 
-                <div className="flex-shrink-0">
-                  <button className="text-blue-600 hover:text-blue-900 text-xs sm:text-sm font-medium px-3 py-2 rounded-lg hover:bg-blue-50 transition-colors">
-                    View Profile
-                  </button>
+                {/* Students List */}
+                <div className="divide-y">
+                  {group.students.map((student, studentIndex) => (
+                    <div key={student.id} className="px-3 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between w-full gap-3">
+                      <div className="flex items-center space-x-3">
+                        <div className="relative">
+                          <div className="w-8 h-8 sm:w-10 sm:h-10 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0">
+                            <span className="text-white font-medium text-sm sm:text-base">
+                              {student.name.charAt(0)}
+                            </span>
+                          </div>
+                          {group.students.length > 1 && studentIndex === 0 && (
+                            <div className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-1 h-3 bg-blue-300 rounded-full"></div>
+                          )}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <h5 className="font-medium text-gray-900 text-sm sm:text-base truncate">{student.name}</h5>
+                          <p className="text-xs sm:text-sm text-gray-500 truncate">{student.email}</p>
+                        </div>
+                      </div>
+
+                                             <div className="flex-shrink-0">
+                         <div className="text-center">
+                           <p className="text-xs text-gray-500 mb-1">Attendance</p>
+                           <div className="flex items-center gap-1">
+                             <div className="w-16 h-2 bg-gray-200 rounded-full overflow-hidden">
+                               <div 
+                                 className={`h-full rounded-full ${getAttendanceColor(getAttendanceRate(student.id))}`}
+                                 style={{ width: `${getAttendanceRate(student.id)}%` }}
+                               ></div>
+                             </div>
+                             <span className="text-xs font-medium text-gray-700">
+                               {getAttendanceRate(student.id)}%
+                             </span>
+                           </div>
+                         </div>
+                       </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             ))}

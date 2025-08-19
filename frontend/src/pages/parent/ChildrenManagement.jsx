@@ -183,7 +183,7 @@ const ChildrenManagement = ({ user }) => {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-start text-2xl font-bold text-gray-900">Children's Progress</h1>
+          <h1 className="text-2xl font-bold text-gray-900">Children's Progress</h1>
           <p className="text-gray-600">Monitor your children's academic performance and attendance</p>
         </div>
         <button

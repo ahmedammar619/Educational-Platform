@@ -25,7 +25,7 @@ const ParentCommunication = ({ user }) => {
       setLoading(true);
       const token = localStorage.getItem('token');
       const queryParams = new URLSearchParams();
-      
+
       Object.entries(filters).forEach(([key, value]) => {
         if (value) queryParams.append(key, value);
       });
@@ -35,7 +35,7 @@ const ParentCommunication = ({ user }) => {
           'Authorization': `Bearer ${token}`
         }
       });
-      
+
       if (response.ok) {
         const data = await response.json();
         setMessages(data.messages);
@@ -55,7 +55,7 @@ const ParentCommunication = ({ user }) => {
           'Authorization': `Bearer ${token}`
         }
       });
-      
+
       if (response.ok) {
         const data = await response.json();
         setTeachers(data.teachers);
@@ -73,7 +73,7 @@ const ParentCommunication = ({ user }) => {
           'Authorization': `Bearer ${token}`
         }
       });
-      
+
       if (response.ok) {
         const data = await response.json();
         setChildren(data.children);
@@ -122,7 +122,7 @@ const ParentCommunication = ({ user }) => {
         </div>
         <button
           onClick={() => setShowComposeModal(true)}
-          className="flex items-center space-x-2 bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700"
+          className="flex items-center space-x-2 border border-purple-600 text-purple-600 px-4 py-2 rounded-lg hover:bg-purple-600 hover:text-white"
         >
           <Plus className="h-4 w-4" />
           <span>New Message</span>
@@ -153,7 +153,7 @@ const ParentCommunication = ({ user }) => {
                         <p className="text-sm text-gray-600">{teacher.email}</p>
                       </div>
                     </div>
-                    
+
                     <div className="space-y-2 text-sm">
                       <div>
                         <p className="text-gray-600">Courses:</p>
@@ -164,7 +164,7 @@ const ParentCommunication = ({ user }) => {
                         <p className="font-medium">{teacher.students.join(', ')}</p>
                       </div>
                     </div>
-                    
+
                     <div className="flex space-x-2 mt-3">
                       <button
                         onClick={() => setShowComposeModal(true)}
@@ -210,7 +210,7 @@ const ParentCommunication = ({ user }) => {
               </div>
             </div>
           </div>
-          
+
           <div className="p-6">
             {loading ? (
               <div className="flex items-center justify-center py-12">
@@ -232,11 +232,10 @@ const ParentCommunication = ({ user }) => {
                       className={`flex ${direction === 'sent' ? 'justify-end' : 'justify-start'}`}
                     >
                       <div
-                        className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
-                          direction === 'sent'
-                            ? 'bg-purple-600 text-white'
-                            : 'bg-gray-100 text-gray-900'
-                        }`}
+                        className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${direction === 'sent'
+                          ? 'bg-purple-600 text-white'
+                          : 'bg-gray-100 text-gray-900'
+                          }`}
                       >
                         <div className="flex items-center justify-between mb-1">
                           <span className="text-xs font-medium">
@@ -246,15 +245,15 @@ const ParentCommunication = ({ user }) => {
                             {format(new Date(message.created_at), 'MMM dd, HH:mm')}
                           </span>
                         </div>
-                        
+
                         {message.subject && (
                           <p className={`text-sm font-medium mb-1 ${direction === 'sent' ? 'text-purple-100' : 'text-gray-700'}`}>
                             {message.subject}
                           </p>
                         )}
-                        
+
                         <p className="text-sm">{message.content}</p>
-                        
+
                         <div className="flex items-center justify-between mt-2">
                           <span className={`text-xs ${direction === 'sent' ? 'text-purple-200' : 'text-gray-500'}`}>
                             {direction === 'received' ? `To: ${message.recipient_name}` : `To: ${message.recipient_name}`}
@@ -313,7 +312,7 @@ const ComposeMessageModal = ({ teachers, children, onClose, onSend }) => {
               ✕
             </button>
           </div>
-          
+
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700">To (Teacher)</label>

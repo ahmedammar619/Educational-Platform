@@ -86,7 +86,7 @@ const TeacherCalendar = ({ user }) => {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-start text-2xl font-bold text-gray-900">My Teaching Schedule</h1>
+          <h1 className="text-2xl font-bold text-gray-900">My Teaching Schedule</h1>
           <p className="text-gray-600">View your class schedule and teaching sessions</p>
         </div>
         
