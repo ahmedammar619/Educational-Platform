@@ -1,3 +1,4 @@
+// src/modules/students/students.controller.ts
 import {
   Controller,
   Get,
@@ -19,13 +20,13 @@ import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
-import { UserRole } from '../../common/enums/user-role.enum';
+import { Role } from '../../common/enums/role.enum'; // ✅ updated
 import { EnrollmentStatus } from '../../common/enums/enrollment-status.enum';
 
 @ApiTags('Students')
 @Controller('students')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(UserRole.STUDENT)
+@Roles(Role.Student) // ✅ updated
 @ApiBearerAuth('JWT-auth')
 export class StudentsController {
   constructor(private readonly studentsService: StudentsService) {}
@@ -76,30 +77,7 @@ export class StudentsController {
     return { courses };
   }
 
-  @Post('enroll/:courseId')
-  @ApiOperation({ summary: 'Enroll in a course' })
-  @ApiResponse({
-    status: 201,
-    description: 'Successfully enrolled in course',
-  })
-  @ApiResponse({
-    status: 400,
-    description: 'Course at capacity',
-  })
-  @ApiResponse({
-    status: 404,
-    description: 'Course not found or inactive',
-  })
-  @ApiResponse({
-    status: 409,
-    description: 'Already enrolled in course',
-  })
-  async enrollInCourse(
-    @CurrentUser('id') studentId: number,
-    @Param('courseId') courseId: string,
-  ) {
-    return this.studentsService.enrollInCourse(studentId, +courseId);
-  }
+  // Enrollment is managed by Admin; students cannot self-enroll
 
   @Get('assignments')
   @ApiOperation({ summary: "Get student's assignments" })
@@ -116,10 +94,7 @@ export class StudentsController {
     enum: ['upcoming', 'overdue'],
     description: 'Filter by due date',
   })
-  @ApiResponse({
-    status: 200,
-    description: 'Assignments retrieved successfully',
-  })
+  @ApiResponse({ status: 200, description: 'Assignments retrieved successfully' })
   async getAssignments(
     @CurrentUser('id') studentId: number,
     @Query('courseId') courseId?: number,
@@ -136,14 +111,8 @@ export class StudentsController {
 
   @Post('assignments/:assignmentId/submit')
   @ApiOperation({ summary: 'Submit assignment' })
-  @ApiResponse({
-    status: 201,
-    description: 'Assignment submitted successfully',
-  })
-  @ApiResponse({
-    status: 404,
-    description: 'Assignment not found or not enrolled in course',
-  })
+  @ApiResponse({ status: 201, description: 'Assignment submitted successfully' })
+  @ApiResponse({ status: 404, description: 'Assignment not found or not enrolled in course' })
   async submitAssignment(
     @CurrentUser('id') studentId: number,
     @Param('assignmentId') assignmentId: string,
@@ -156,29 +125,20 @@ export class StudentsController {
   @ApiOperation({ summary: "Get student's grades" })
   @ApiQuery({ name: 'courseId', required: false, description: 'Filter by course ID' })
   @ApiQuery({ name: 'assignmentType', required: false, description: 'Filter by assignment type' })
-  @ApiResponse({
-    status: 200,
-    description: 'Grades retrieved successfully',
-  })
+  @ApiResponse({ status: 200, description: 'Grades retrieved successfully' })
   async getGrades(
     @CurrentUser('id') studentId: number,
     @Query('courseId') courseId?: number,
     @Query('assignmentType') assignmentType?: string,
   ) {
-    return this.studentsService.getStudentGrades(studentId, {
-      courseId,
-      assignmentType,
-    });
+    return this.studentsService.getStudentGrades(studentId, { courseId, assignmentType });
   }
 
   @Get('schedule')
   @ApiOperation({ summary: "Get student's schedule" })
   @ApiQuery({ name: 'start_date', required: false, description: 'Start date filter' })
   @ApiQuery({ name: 'end_date', required: false, description: 'End date filter' })
-  @ApiResponse({
-    status: 200,
-    description: 'Schedule retrieved successfully',
-  })
+  @ApiResponse({ status: 200, description: 'Schedule retrieved successfully' })
   async getSchedule(
     @CurrentUser('id') studentId: number,
     @Query('start_date') startDate?: string,
@@ -189,10 +149,7 @@ export class StudentsController {
 
   @Get('enrolled-courses')
   @ApiOperation({ summary: "Get student's enrolled courses (alias)" })
-  @ApiResponse({
-    status: 200,
-    description: 'Enrolled courses retrieved successfully',
-  })
+  @ApiResponse({ status: 200, description: 'Enrolled courses retrieved successfully' })
   async getEnrolledCourses(@CurrentUser('id') studentId: number) {
     const courses = await this.studentsService.getEnrolledCourses(studentId, EnrollmentStatus.ACTIVE);
     return { courses };
@@ -200,46 +157,18 @@ export class StudentsController {
 
   @Get('waitlist')
   @ApiOperation({ summary: "Get student's waitlisted courses" })
-  @ApiResponse({
-    status: 200,
-    description: 'Waitlisted courses retrieved successfully',
-  })
+  @ApiResponse({ status: 200, description: 'Waitlisted courses retrieved successfully' })
   async getWaitlist(@CurrentUser('id') studentId: number) {
     return this.studentsService.getWaitlist(studentId);
   }
 
-  @Post('courses/:courseId/enroll')
-  @ApiOperation({ summary: 'Enroll in a specific course (alternative endpoint)' })
-  @ApiResponse({
-    status: 201,
-    description: 'Successfully enrolled in course',
-  })
-  async enrollInSpecificCourse(
-    @CurrentUser('id') studentId: number,
-    @Param('courseId') courseId: string,
-  ) {
-    return this.studentsService.enrollInCourse(studentId, +courseId);
-  }
+  // Enrollment is managed by Admin; students cannot self-enroll
 
-  @Post('courses/:courseId/drop')
-  @ApiOperation({ summary: 'Drop from a specific course' })
-  @ApiResponse({
-    status: 200,
-    description: 'Successfully dropped from course',
-  })
-  async dropFromCourse(
-    @CurrentUser('id') studentId: number,
-    @Param('courseId') courseId: string,
-  ) {
-    return this.studentsService.dropFromCourse(studentId, +courseId);
-  }
+  // Dropping is managed by Admin; students cannot drop themselves
 
   @Get('courses/:courseId')
   @ApiOperation({ summary: 'Get specific course details for student' })
-  @ApiResponse({
-    status: 200,
-    description: 'Course details retrieved successfully',
-  })
+  @ApiResponse({ status: 200, description: 'Course details retrieved successfully' })
   async getCourseDetails(
     @CurrentUser('id') studentId: number,
     @Param('courseId') courseId: string,

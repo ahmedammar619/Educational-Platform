@@ -24,35 +24,19 @@ import { ChangePasswordDto } from './dto/change-password.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { User } from '../users/entities/user.entity';
+import { Public } from '../../common/decorators/public.decorator';
 
 @ApiTags('Authentication')
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
+  @Public()
   @Post('register')
   @ApiOperation({ summary: 'Register a new user' })
   @ApiResponse({
     status: 201,
     description: 'User created successfully',
-    schema: {
-      type: 'object',
-      properties: {
-        message: { type: 'string' },
-        user: {
-          type: 'object',
-          properties: {
-            id: { type: 'number' },
-            name: { type: 'string' },
-            email: { type: 'string' },
-            role: { type: 'string' },
-            phone: { type: 'string' },
-            createdAt: { type: 'string' },
-          },
-        },
-        token: { type: 'string' },
-      },
-    },
   })
   @ApiResponse({
     status: 409,
@@ -62,28 +46,13 @@ export class AuthController {
     return this.authService.register(registerDto);
   }
 
+  @Public()
   @Post('login')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'User login' })
   @ApiResponse({
     status: 200,
     description: 'Login successful',
-    schema: {
-      type: 'object',
-      properties: {
-        message: { type: 'string' },
-        user: {
-          type: 'object',
-          properties: {
-            id: { type: 'number' },
-            name: { type: 'string' },
-            email: { type: 'string' },
-            role: { type: 'string' },
-          },
-        },
-        token: { type: 'string' },
-      },
-    },
   })
   @ApiResponse({
     status: 401,
@@ -94,45 +63,31 @@ export class AuthController {
   }
 
   @Get('me')
-  @UseGuards(JwtAuthGuard)
+  // This route is protected by the global JwtAuthGuard
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Get current user information' })
-  @ApiResponse({
-    status: 200,
-    description: 'User information retrieved successfully',
-  })
-  @ApiResponse({
-    status: 401,
-    description: 'Unauthorized',
-  })
   async getCurrentUser(@CurrentUser() user: User) {
     return {
-      user: this.authService['sanitizeUser'](user),
+      user: (this.authService as any).sanitizeUser
+        ? (this.authService as any).sanitizeUser(user)
+        : user,
     };
   }
 
   @Get('profile')
-  @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Get user profile' })
-  @ApiResponse({
-    status: 200,
-    description: 'Profile retrieved successfully',
-  })
   async getProfile(@CurrentUser() user: User) {
     return {
-      user: this.authService['sanitizeUser'](user),
+      user: (this.authService as any).sanitizeUser
+        ? (this.authService as any).sanitizeUser(user)
+        : user,
     };
   }
 
   @Put('profile')
-  @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Update user profile' })
-  @ApiResponse({
-    status: 200,
-    description: 'Profile updated successfully',
-  })
   async updateProfile(
     @CurrentUser('id') userId: number,
     @Body() updateProfileDto: UpdateProfileDto,
@@ -141,18 +96,9 @@ export class AuthController {
   }
 
   @Put('change-password')
-  @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Change user password' })
   @ApiBody({ type: ChangePasswordDto })
-  @ApiResponse({
-    status: 200,
-    description: 'Password changed successfully',
-  })
-  @ApiResponse({
-    status: 400,
-    description: 'Invalid current password',
-  })
   async changePassword(
     @CurrentUser('id') userId: number,
     @Body() changePasswordDto: ChangePasswordDto,
@@ -161,13 +107,8 @@ export class AuthController {
   }
 
   @Put('deactivate')
-  @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Deactivate user account' })
-  @ApiResponse({
-    status: 200,
-    description: 'Account deactivated successfully',
-  })
   async deactivateAccount(@CurrentUser('id') userId: number) {
     return this.authService.deactivateAccount(userId);
   }

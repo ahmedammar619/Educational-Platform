@@ -1,10 +1,11 @@
+// src/modules/users/users.controller.ts
 import { Controller, Get, Param, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { UsersService } from './users.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
-import { UserRole } from '../../common/enums/user-role.enum';
+import { Role } from '../../common/enums/role.enum'; // ✅ updated
 
 @ApiTags('Users')
 @Controller('users')
@@ -14,7 +15,7 @@ export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
   @Get()
-  @Roles(UserRole.ADMIN)
+  @Roles(Role.Admin) // ✅ updated
   @ApiOperation({ summary: 'Get all users (Admin only)' })
   @ApiResponse({
     status: 200,
@@ -25,12 +26,14 @@ export class UsersController {
     description: 'Forbidden - Admin access required',
   })
   async findAll() {
+    console.log('findAll endpoint hit'); // DEBUG
     const users = await this.usersService.findAll();
+    console.log('Users fetched from DB:', users); // DEBUG
     return { users };
   }
 
   @Get(':id')
-  @Roles(UserRole.ADMIN, UserRole.TEACHER)
+  @Roles(Role.Admin, Role.Teacher) // ✅ updated
   @ApiOperation({ summary: 'Get user by ID' })
   @ApiResponse({
     status: 200,

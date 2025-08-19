@@ -7,13 +7,16 @@ import {
   OneToMany,
 } from 'typeorm';
 import { Exclude } from 'class-transformer';
-import { UserRole } from '../../../common/enums/user-role.enum';
+import { Role } from '../../../common/enums/role.enum';
 import { Enrollment } from '../../students/entities/enrollment.entity';
 import { Course } from '../../courses/entities/course.entity';
 import { Assignment } from '../../assignments/entities/assignment.entity';
 import { Submission } from '../../assignments/entities/submission.entity';
 import { Attendance } from '../../sessions/entities/attendance.entity';
 import { Notification } from '../../notifications/entities/notification.entity';
+import { Group } from '../../groups/entities/group.entity';
+import { GroupStudent } from '../../groups/entities/group_student.entity';
+import { Parent } from '../../parents/entities/parent.entity';
 
 @Entity('users')
 export class User {
@@ -32,10 +35,10 @@ export class User {
 
   @Column({
     type: 'enum',
-    enum: UserRole,
-    default: UserRole.STUDENT,
+    enum: Role,
+    default: Role.Student,
   })
-  role: UserRole;
+  role: Role;
 
   @Column({ nullable: true, length: 20 })
   phone?: string;
@@ -58,7 +61,8 @@ export class User {
   @UpdateDateColumn()
   updatedAt: Date;
 
-  // Relations
+  // ================= Relations =================
+
   @OneToMany(() => Enrollment, (enrollment) => enrollment.student)
   enrollments: Enrollment[];
 
@@ -76,4 +80,18 @@ export class User {
 
   @OneToMany(() => Notification, (notification) => notification.user)
   notifications: Notification[];
+
+  // Groups & GroupStudents
+  @OneToMany(() => Group, (group) => group.teacher)
+  groups: Group[];
+
+  @OneToMany(() => GroupStudent, (gs) => gs.student)
+  groupMemberships: GroupStudent[];
+
+  // Parent/Child Relations
+  @OneToMany(() => Parent, (p) => p.parent)
+  children: Parent[]; // if this user is a parent, these are their children
+
+  @OneToMany(() => Parent, (p) => p.child)
+  parents: Parent[]; // if this user is a child, these are their parents
 }

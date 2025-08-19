@@ -73,58 +73,7 @@ export class StudentsService {
     return queryBuilder.getMany();
   }
 
-  async enrollInCourse(studentId: number, courseId: number) {
-    // Check if course exists and is active
-    const course = await this.courseRepository.findOne({
-      where: { id: courseId, isActive: true },
-    });
-
-    if (!course) {
-      throw new NotFoundException('Course not found or inactive');
-    }
-
-    // Check if already enrolled
-    const existingEnrollment = await this.enrollmentRepository.findOne({
-      where: { studentId, courseId },
-    });
-
-    if (existingEnrollment) {
-      if (existingEnrollment.status === EnrollmentStatus.ACTIVE) {
-        throw new ConflictException('Already enrolled in this course');
-      } else {
-        // Reactivate enrollment
-        existingEnrollment.status = EnrollmentStatus.ACTIVE;
-        existingEnrollment.enrollmentDate = new Date();
-        await this.enrollmentRepository.save(existingEnrollment);
-        return { message: 'Enrollment reactivated successfully' };
-      }
-    }
-
-    // Check course capacity
-    const activeEnrollments = await this.enrollmentRepository.count({
-      where: { courseId, status: EnrollmentStatus.ACTIVE },
-    });
-
-    if (activeEnrollments >= course.maxStudents) {
-      throw new BadRequestException('Course is at maximum capacity');
-    }
-
-    // Create enrollment
-    const enrollment = this.enrollmentRepository.create({
-      studentId,
-      courseId,
-      status: EnrollmentStatus.ACTIVE,
-      progressPercentage: 0,
-    });
-
-    await this.enrollmentRepository.save(enrollment);
-
-    return {
-      message: 'Successfully enrolled in course',
-      enrollment,
-      course: { id: course.id, title: course.title },
-    };
-  }
+  // Enrollment operations are handled by Admin endpoints; students cannot enroll themselves
 
   async getStudentAssignments(studentId: number, filters: any = {}) {
     const { courseId, status, dueDateFilter } = filters;
