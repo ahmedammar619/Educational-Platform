@@ -1,115 +1,81 @@
 import {
-  Controller,
-  Get,
-  Post,
-  Param,
   Body,
-  Query,
+  Controller,
+  Post,
+  Patch,
+  Get,
+  Param,
   UseGuards,
+  Request,
 } from '@nestjs/common';
-import {
-  ApiTags,
-  ApiOperation,
-  ApiResponse,
-  ApiBearerAuth,
-  ApiQuery,
-} from '@nestjs/swagger';
 import { ParentsService } from './parents.service';
-import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { ParentSignupDto } from './dto/parent-signup.dto';
+import { AddChildDto } from './dto/add-child.dto';
+import { UpdatePaymentDto } from './dto/update-payment.dto';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
-import { CurrentUser } from '../../common/decorators/current-user.decorator';
-import { UserRole } from '../../common/enums/user-role.enum';
+import { Role } from '../../common/enums/role.enum';
+import { Query } from '@nestjs/common';
 
-@ApiTags('Parents')
-@Controller('parent')
-@UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(UserRole.PARENT)
-@ApiBearerAuth('JWT-auth')
+@Controller('parents')
 export class ParentsController {
-  constructor(private readonly parentsService: ParentsService) { }
+  constructor(private readonly parentsService: ParentsService) {}
 
-  @Get('children')
-  @ApiOperation({ summary: "Get parent's children" })
-  @ApiResponse({
-    status: 200,
-    description: 'Children retrieved successfully',
-  })
-  async getChildren(@CurrentUser('id') parentId: number) {
-    return this.parentsService.getChildren(parentId);
+  // 👤 Signup for parents
+  @Post('signup')
+  async signup(@Body() dto: ParentSignupDto) {
+    return this.parentsService.signupParent(dto);
   }
 
-  @Get('schedule')
-  @ApiOperation({ summary: "Get children's schedule" })
-  @ApiQuery({ name: 'childId', required: false, description: 'Filter by specific child' })
-  @ApiQuery({ name: 'startDate', required: false, description: 'Start date filter' })
-  @ApiQuery({ name: 'endDate', required: false, description: 'End date filter' })
-  @ApiResponse({
-    status: 200,
-    description: 'Schedule retrieved successfully',
-  })
-  async getSchedule(
-    @CurrentUser('id') parentId: number,
-    @Query('childId') childId?: number,
-    @Query('startDate') startDate?: string,
-    @Query('endDate') endDate?: string,
-  ) {
-    return this.parentsService.getSchedule(parentId, { childId, startDate, endDate });
+  // 👨‍👦 Parent adds child (must be logged in as parent)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.Parent)
+  @Post('children')
+  async addChild(@Request() req, @Body() dto: AddChildDto) {
+    return this.parentsService.addChild(req.user.id, dto);
   }
 
-  @Get('messages')
-  @ApiOperation({ summary: "Get parent's messages" })
-  @ApiQuery({ name: 'childId', required: false, description: 'Filter by specific child' })
-  @ApiQuery({ name: 'unreadOnly', required: false, description: 'Show only unread messages' })
-  @ApiResponse({
-    status: 200,
-    description: 'Messages retrieved successfully',
-  })
-  async getMessages(
-    @CurrentUser('id') parentId: number,
-    @Query('childId') childId?: number,
-    @Query('unreadOnly') unreadOnly?: boolean,
+  // 💳 Update payment info for a parent-child relation
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.Parent)
+  @Patch('children/:parentRecordId/payment')
+  async updatePayment(
+    @Request() req,
+    @Param('parentRecordId') parentRecordId: number,
+    @Body() dto: UpdatePaymentDto,
   ) {
-    return this.parentsService.getMessages(parentId, { childId, unreadOnly });
+    return this.parentsService.updatePayment(req.user.id, +parentRecordId, dto);
   }
 
-  @Post('messages')
-  @ApiOperation({ summary: 'Send a message' })
-  @ApiResponse({
-    status: 201,
-    description: 'Message sent successfully',
-  })
-  async sendMessage(
-    @CurrentUser('id') parentId: number,
-    @Body() messageData: any,
-  ) {
-    return this.parentsService.sendMessage(parentId, messageData);
+  // 📋 Get all children of the logged-in parent
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.Parent)
+  @Get('my-children')
+  async getMyChildren(@Request() req) {
+    return this.parentsService.getMyChildren(req.user.id);
   }
 
-  @Get('teachers')
-  @ApiOperation({ summary: "Get children's teachers" })
-  @ApiQuery({ name: 'childId', required: false, description: 'Filter by specific child' })
-  @ApiResponse({
-    status: 200,
-    description: 'Teachers retrieved successfully',
-  })
-  async getTeachers(
-    @CurrentUser('id') parentId: number,
-    @Query('childId') childId?: number,
+  // 📊 Parent views child's attendance
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.Parent)
+  @Get('children/:childId/attendance')
+  async getChildAttendance(
+    @Request() req,
+    @Param('childId') childId: number,
   ) {
-    return this.parentsService.getTeachers(parentId, { childId });
+    return this.parentsService.getChildAttendance(req.user.id, +childId);
   }
 
-  @Get('children/:childId/progress')
-  @ApiOperation({ summary: "Get specific child's progress" })
-  @ApiResponse({
-    status: 200,
-    description: 'Child progress retrieved successfully',
-  })
-  async getChildProgress(
-    @CurrentUser('id') parentId: number,
-    @Param('childId') childId: string,
+  // 📝 Parent views child's grades
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.Parent)
+  @Get('children/:childId/grades')
+  async getChildGrades(
+    @Request() req,
+    @Param('childId') childId: number,
+    @Query('courseId') courseId?: number,
   ) {
-    return this.parentsService.getChildProgress(parentId, +childId);
+    return this.parentsService.getChildGrades(req.user.id, +childId, { courseId });
   }
 }

@@ -4,7 +4,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 
-// Import all feature modules
+// Feature modules
 import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
 import { CoursesModule } from './modules/courses/courses.module';
@@ -19,8 +19,9 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
 import { HealthModule } from './modules/health/health.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { ParentsModule } from './modules/parents/parents.module';
+import { GroupsModule } from './modules/groups/groups.module';
 
-// Import entities
+// Entities
 import { User } from './modules/users/entities/user.entity';
 import { Course } from './modules/courses/entities/course.entity';
 import { Enrollment } from './modules/students/entities/enrollment.entity';
@@ -30,44 +31,55 @@ import { ClassSession } from './modules/sessions/entities/class-session.entity';
 import { Attendance } from './modules/sessions/entities/attendance.entity';
 import { Content } from './modules/content/entities/content.entity';
 import { Notification } from './modules/notifications/entities/notification.entity';
+import { Group } from './modules/groups/entities/group.entity';
+import { GroupStudent } from './modules/groups/entities/group_student.entity';
+import { Parent } from './modules/parents/entities/parent.entity';
 
 @Module({
   imports: [
-    // Configuration module
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: '.env',
     }),
 
-    // Database module with TypeORM
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
-      useFactory: (configService: ConfigService) => ({
-        type: 'postgres',
-        host: configService.get('DB_HOST', 'localhost'),
-        port: configService.get('DB_PORT', 5432),
-        username: configService.get('DB_USERNAME', 'postgres'),
-        password: configService.get('DB_PASSWORD', 'password'),
-        database: configService.get('DB_DATABASE', 'education_platform'),
-        entities: [
-          User,
-          Course,
-          Enrollment,
-          Assignment,
-          Submission,
-          ClassSession,
-          Attendance,
-          Content,
-          Notification,
-        ],
-        synchronize: configService.get('NODE_ENV') !== 'production', // Auto-sync in development
-        logging: configService.get('NODE_ENV') === 'development',
-        ssl: configService.get('NODE_ENV') === 'production' ? { rejectUnauthorized: false } : false,
-      }),
+      useFactory: (configService: ConfigService) => {
+        const isProd = configService.get('NODE_ENV') === 'production';
+        const syncEnv = configService.get('DB_SYNC');
+        const synchronize = syncEnv != null ? syncEnv === 'true' : !isProd;
+        const loggingEnv = configService.get('DB_LOGGING');
+        const logging = loggingEnv != null ? loggingEnv === 'true' : configService.get('NODE_ENV') === 'development';
+
+        return {
+          type: 'postgres',
+          host: configService.get<string>('DB_HOST', 'localhost'),
+          port: Number(configService.get<number>('DB_PORT', 5432)),
+          username: configService.get<string>('DB_USERNAME', 'postgres'),
+          password: configService.get<string>('DB_PASSWORD', 'password'),
+          database: configService.get<string>('DB_DATABASE', 'education_db'),
+          entities: [
+            User,
+            Course,
+            Enrollment,
+            Assignment,
+            Submission,
+            ClassSession,
+            Attendance,
+            Content,
+            Notification,
+            Group,
+            GroupStudent,
+            Parent,
+          ],
+          synchronize,
+          logging,
+          ssl: isProd ? { rejectUnauthorized: false } : false,
+        };
+      },
       inject: [ConfigService],
     }),
 
-    // Feature modules
     AuthModule,
     UsersModule,
     CoursesModule,
@@ -82,6 +94,7 @@ import { Notification } from './modules/notifications/entities/notification.enti
     HealthModule,
     DashboardModule,
     ParentsModule,
+    GroupsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

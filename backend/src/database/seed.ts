@@ -3,7 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { config } from 'dotenv';
 import { runSeeds } from './seeds';
 
-// Import entities
+// Entities
 import { User } from '../modules/users/entities/user.entity';
 import { Course } from '../modules/courses/entities/course.entity';
 import { Enrollment } from '../modules/students/entities/enrollment.entity';
@@ -13,6 +13,9 @@ import { ClassSession } from '../modules/sessions/entities/class-session.entity'
 import { Attendance } from '../modules/sessions/entities/attendance.entity';
 import { Content } from '../modules/content/entities/content.entity';
 import { Notification } from '../modules/notifications/entities/notification.entity';
+import { Group } from '../modules/groups/entities/group.entity';
+import { GroupStudent } from '../modules/groups/entities/group_student.entity';
+import { Parent } from '../modules/parents/entities/parent.entity';
 
 // Load environment variables
 config();
@@ -21,11 +24,11 @@ const configService = new ConfigService();
 
 const AppDataSource = new DataSource({
   type: 'postgres',
-  host: configService.get('DB_HOST', 'localhost'),
-  port: configService.get('DB_PORT', 5432),
-  username: configService.get('DB_USERNAME', 'postgres'),
-  password: configService.get('DB_PASSWORD', 'password'),
-  database: configService.get('DB_DATABASE', 'education_db'),
+  host: configService.get<string>('DB_HOST', 'localhost'),
+  port: Number(configService.get<number>('DB_PORT', 5432)),
+  username: configService.get<string>('DB_USERNAME', 'postgres'),
+  password: configService.get<string>('DB_PASSWORD', 'password'),
+  database: configService.get<string>('DB_NAME', 'education_db'),
   entities: [
     User,
     Course,
@@ -36,8 +39,11 @@ const AppDataSource = new DataSource({
     Attendance,
     Content,
     Notification,
+    Group,
+    GroupStudent,
+    Parent,
   ],
-  synchronize: false, // Don't auto-sync in seed script
+  synchronize: false, // don't auto-sync in seeding
   logging: false,
 });
 

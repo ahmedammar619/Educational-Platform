@@ -8,7 +8,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { JwtService } from '@nestjs/jwt';
-import * as bcrypt from 'bcrypt';
+import * as bcrypt from 'bcryptjs';
 
 import { User } from '../users/entities/user.entity';
 import { RegisterDto } from './dto/register.dto';
@@ -114,16 +114,18 @@ export class AuthService {
   }
 
   async findById(id: number): Promise<User> {
-    const user = await this.userRepository.findOne({
-      where: { id },
-    });
+  const user = await this.userRepository.findOne({
+    where: { id },
+    select: ['id', 'email', 'name', 'role', 'isActive'], // add isActive
+  });
 
-    if (!user) {
-      throw new NotFoundException('User not found');
-    }
-
-    return user;
+  if (!user) {
+    throw new NotFoundException('User not found');
   }
+
+  return user;
+}
+
 
   async updateProfile(userId: number, updateProfileDto: UpdateProfileDto) {
     const user = await this.findById(userId);

@@ -1,3 +1,4 @@
+// src/modules/sessions/sessions.controller.ts
 import { Controller, Get, Post, Put, Delete, Param, Body, Query, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { SessionsService } from './sessions.service';
@@ -5,7 +6,7 @@ import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
-import { UserRole } from '../../common/enums/user-role.enum';
+import { Role } from '../../common/enums/role.enum'; // ✅ updated
 
 @ApiTags('Sessions')
 @Controller('sessions')
@@ -37,7 +38,7 @@ export class SessionsController {
 
   @Post()
   @UseGuards(RolesGuard)
-  @Roles(UserRole.ADMIN, UserRole.TEACHER)
+  @Roles(Role.Admin)
   @ApiOperation({ summary: 'Create a new session' })
   @ApiResponse({ status: 201, description: 'Session created successfully' })
   async create(
@@ -49,7 +50,7 @@ export class SessionsController {
 
   @Put(':id')
   @UseGuards(RolesGuard)
-  @Roles(UserRole.ADMIN, UserRole.TEACHER)
+  @Roles(Role.Admin)
   @ApiOperation({ summary: 'Update a session' })
   @ApiResponse({ status: 200, description: 'Session updated successfully' })
   async update(
@@ -62,7 +63,7 @@ export class SessionsController {
 
   @Delete(':id')
   @UseGuards(RolesGuard)
-  @Roles(UserRole.ADMIN, UserRole.TEACHER)
+  @Roles(Role.Admin)
   @ApiOperation({ summary: 'Delete a session' })
   @ApiResponse({ status: 200, description: 'Session deleted successfully' })
   async remove(
@@ -74,7 +75,7 @@ export class SessionsController {
 
   @Post(':id/attendance/bulk')
   @UseGuards(RolesGuard)
-  @Roles(UserRole.ADMIN, UserRole.TEACHER)
+  @Roles(Role.Admin)
   @ApiOperation({ summary: 'Update attendance for multiple students' })
   @ApiResponse({ status: 200, description: 'Attendance updated successfully' })
   async updateBulkAttendance(

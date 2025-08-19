@@ -1,3 +1,4 @@
+// src/modules/teachers/teachers.controller.ts
 import {
   Controller,
   Get,
@@ -17,12 +18,12 @@ import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
-import { UserRole } from '../../common/enums/user-role.enum';
+import { Role } from '../../common/enums/role.enum'; // ✅ updated
 
 @ApiTags('Teachers')
 @Controller('teachers')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(UserRole.TEACHER)
+@Roles(Role.Teacher) // ✅ updated
 @ApiBearerAuth('JWT-auth')
 export class TeachersController {
   constructor(private readonly teachersService: TeachersService) {}

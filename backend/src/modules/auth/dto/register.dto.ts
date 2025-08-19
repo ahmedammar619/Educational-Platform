@@ -1,3 +1,4 @@
+// src/modules/auth/dto/register.dto.ts
 import { ApiProperty } from '@nestjs/swagger';
 import {
   IsEmail,
@@ -7,7 +8,7 @@ import {
   IsOptional,
   IsPhoneNumber,
 } from 'class-validator';
-import { UserRole } from '../../../common/enums/user-role.enum';
+import { Role } from '../../../common/enums/role.enum'; // ✅ updated
 
 export class RegisterDto {
   @ApiProperty({
@@ -35,13 +36,13 @@ export class RegisterDto {
 
   @ApiProperty({
     description: "User's role in the system",
-    enum: UserRole,
-    default: UserRole.STUDENT,
+    enum: Role, // ✅ updated
+    default: Role.Student, // ✅ updated
     required: false,
   })
-  @IsEnum(UserRole)
+  @IsEnum(Role) // ✅ updated
   @IsOptional()
-  role?: UserRole = UserRole.STUDENT;
+  role?: Role = Role.Student; // ✅ updated
 
   @ApiProperty({
     description: "User's phone number",

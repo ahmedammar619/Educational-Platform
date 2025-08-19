@@ -1,300 +1,131 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { Parent } from './entities/parent.entity';
 import { User } from '../users/entities/user.entity';
-import { Course } from '../courses/entities/course.entity';
-import { Enrollment } from '../students/entities/enrollment.entity';
-import { ClassSession } from '../sessions/entities/class-session.entity';
-import { Notification } from '../notifications/entities/notification.entity';
-import { EnrollmentStatus } from '../../common/enums/enrollment-status.enum';
-import { UserRole } from '../../common/enums/user-role.enum';
+import { ParentSignupDto } from './dto/parent-signup.dto';
+import { AddChildDto } from './dto/add-child.dto';
+import { UpdatePaymentDto } from './dto/update-payment.dto';
+import { Role } from '../../common/enums/role.enum';
+import { AuthService } from '../auth/auth.service';
+import { Attendance } from '../sessions/entities/attendance.entity';
+import { Submission } from '../assignments/entities/submission.entity';
+import { Assignment } from '../assignments/entities/assignment.entity';
 
 @Injectable()
 export class ParentsService {
   constructor(
-    @InjectRepository(User)
-    private readonly userRepository: Repository<User>,
-    @InjectRepository(Course)
-    private readonly courseRepository: Repository<Course>,
-    @InjectRepository(Enrollment)
-    private readonly enrollmentRepository: Repository<Enrollment>,
-    @InjectRepository(ClassSession)
-    private readonly sessionRepository: Repository<ClassSession>,
-    @InjectRepository(Notification)
-    private readonly notificationRepository: Repository<Notification>,
+    @InjectRepository(Parent) private readonly parentRepo: Repository<Parent>,
+    @InjectRepository(User) private readonly userRepo: Repository<User>,
+    @InjectRepository(Attendance) private readonly attendanceRepo: Repository<Attendance>,
+    @InjectRepository(Submission) private readonly submissionRepo: Repository<Submission>,
+    @InjectRepository(Assignment) private readonly assignmentRepo: Repository<Assignment>,
+    private readonly authService: AuthService,
   ) {}
 
-  async getChildren(parentId: number) {
-    // In a real implementation, you would have a parent-child relationship table
-    // For now, we'll return a mock response since we don't have this relationship set up
-    
-    // This would typically be:
-    // const children = await this.userRepository.find({
-    //   where: { parentId, role: UserRole.STUDENT },
-    //   relations: ['enrollments', 'enrollments.course'],
-    // });
-
-    // For demo purposes, return mock children data with the structure frontend expects
-    const children = [
-      {
-        id: 1,
-        name: 'Ahmad Al-Noor',
-        email: 'ahmad@demo.com',
-        role: UserRole.STUDENT,
-        relationship_type: 'son',
-        enrolled_courses: 4,
-        avg_progress: 85,
-        attended_sessions: 38,
-        total_sessions: 40,
-        avg_grade_percentage: 87,
-      },
-      {
-        id: 2,
-        name: 'Fatima Al-Noor',
-        email: 'fatima@demo.com',
-        role: UserRole.STUDENT,
-        relationship_type: 'daughter',
-        enrolled_courses: 3,
-        avg_progress: 92,
-        attended_sessions: 35,
-        total_sessions: 36,
-        avg_grade_percentage: 94,
-      },
-    ];
-
-    return { children };
+  // Optional convenience: allow a dedicated signup route for parents
+  async signupParent(dto: ParentSignupDto) {
+    return this.authService.register({
+      name: dto.name,
+      email: dto.email,
+      password: dto.password,
+      phone: dto.phone,
+      role: Role.Parent,   // ✅ changed to Role
+    } as any);
   }
 
-  async getSchedule(parentId: number, filters: any = {}) {
-    const { childId, startDate, endDate } = filters;
-
-    // In a real implementation, you would:
-    // 1. Get the parent's children
-    // 2. Get their enrolled courses
-    // 3. Get the sessions for those courses
-
-    // For demo purposes, return mock schedule data with the structure frontend expects
-    const sessions = [
-      {
-        id: 1,
-        title: 'Math Class',
-        course: { id: 1, title: 'Mathematics 101' },
-        scheduled_start: new Date().toISOString(),
-        scheduled_end: new Date(Date.now() + 60 * 60 * 1000).toISOString(), // 1 hour later
-        child: { id: 1, name: 'Demo Child 1' },
-        status: 'scheduled',
-      },
-      {
-        id: 2,
-        title: 'Science Lab',
-        course: { id: 2, title: 'Science 101' },
-        scheduled_start: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(), // 2 hours later
-        scheduled_end: new Date(Date.now() + 3 * 60 * 60 * 1000).toISOString(), // 3 hours later
-        child: { id: 2, name: 'Demo Child 2' },
-        status: 'scheduled',
-      },
-      {
-        id: 3,
-        title: 'English Literature',
-        course: { id: 3, title: 'English 101' },
-        scheduled_start: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // Tomorrow
-        scheduled_end: new Date(Date.now() + 25 * 60 * 60 * 1000).toISOString(),
-        child: { id: 1, name: 'Demo Child 1' },
-        status: 'scheduled',
-      },
-    ];
-
-    return { sessions };
-  }
-
-  async getMessages(parentId: number, filters: any = {}) {
-    const { childId, unreadOnly } = filters;
-
-    // Get messages/notifications for the parent
-    let queryBuilder = this.notificationRepository
-      .createQueryBuilder('notification')
-      .where('notification.userId = :parentId', { parentId });
-
-    if (unreadOnly) {
-      queryBuilder.andWhere('notification.isRead = :isRead', { isRead: false });
+  // Parent adds an existing child (student) by ID
+  async addChild(parentUserId: number, dto: AddChildDto): Promise<Parent> {
+    const parentUser = await this.userRepo.findOne({ where: { id: parentUserId } });
+    if (!parentUser || parentUser.role !== Role.Parent) {
+      throw new ForbiddenException('Only parents can add children.');
     }
 
-    const notifications = await queryBuilder
-      .orderBy('notification.createdAt', 'DESC')
-      .getMany();
+    const childUser = await this.userRepo.findOne({ where: { id: dto.childId } });
+    if (!childUser || childUser.role !== Role.Student) {
+      throw new NotFoundException('Child student not found.');
+    }
 
-    // Convert notifications to message format that frontend expects
-    const messages = notifications.map(notification => ({
-      id: notification.id,
-      subject: notification.title,
-      content: notification.content,
-      sender: 'System', // In a real app, this would be the actual sender
-      recipient: 'Parent',
-      timestamp: notification.createdAt,
-      isRead: notification.isRead,
-      type: notification.notificationType,
-    }));
+    // Prevent duplicate parent-child link
+    const existing = await this.parentRepo.findOne({
+      where: { parent: { id: parentUserId }, child: { id: childUser.id } },
+      relations: ['parent', 'child'],
+    });
+    if (existing) return existing;
 
-    return { messages };
-  }
-
-  async getTeachers(parentId: number, filters: any = {}) {
-    const { childId } = filters;
-
-    // In a real implementation, you would:
-    // 1. Get the parent's children
-    // 2. Get their enrolled courses
-    // 3. Get the teachers for those courses
-
-    // For demo purposes, get some teachers
-    const teachers = await this.userRepository.find({
-      where: { role: UserRole.TEACHER, isActive: true },
-      select: ['id', 'name', 'email', 'phone'],
-      take: 5,
+    const record = this.parentRepo.create({
+      parent: parentUser,
+      child: childUser,
+      childAge: dto.childAge,
+      paymentInfo: null,
     });
 
-    // Add mock course information with the structure frontend expects
-    const teachersWithCourses = teachers.map(teacher => ({
-      ...teacher,
-      courses: ['Mathematics 101', 'Science 101'], // Array of course names
-      students: ['Demo Child 1', 'Demo Child 2'], // Array of student names
-      contactInfo: {
-        email: teacher.email,
-        phone: teacher.phone,
-        officeHours: 'Mon-Fri 2:00-4:00 PM',
-      },
-    }));
-
-    return { teachers: teachersWithCourses };
+    return this.parentRepo.save(record);
   }
 
-  async getChildProgress(parentId: number, childId: number) {
-    // In a real implementation, you would:
-    // 1. Verify the child belongs to this parent
-    // 2. Get the child's enrollments and progress
-    // 3. Get grades, attendance, and completion rates
-
-    // For demo purposes, return mock progress data with the structure frontend expects
-    const childName = childId === 1 ? 'Ahmad Al-Noor' : 'Fatima Al-Noor';
-    const childEmail = childId === 1 ? 'ahmad@demo.com' : 'fatima@demo.com';
-
-    const progress = {
-      courses: [
-        {
-          id: 1,
-          title: 'Quran Memorization - Juz 1',
-          instructor_name: 'Sheikh Abdullah',
-          progress_percentage: 78,
-          attended_sessions: 19,
-          total_sessions: 20,
-          graded_assignments: 8,
-          total_assignments: 10,
-          avg_grade_percentage: 87,
-        },
-        {
-          id: 2,
-          title: 'Arabic Language Basics',
-          instructor_name: 'Ustadha Aisha',
-          progress_percentage: 82,
-          attended_sessions: 17,
-          total_sessions: 18,
-          graded_assignments: 6,
-          total_assignments: 8,
-          avg_grade_percentage: 84,
-        },
-        {
-          id: 3,
-          title: 'Islamic Studies',
-          instructor_name: 'Sheikh Omar',
-          progress_percentage: 90,
-          attended_sessions: 15,
-          total_sessions: 15,
-          graded_assignments: 5,
-          total_assignments: 6,
-          avg_grade_percentage: 92,
-        },
-      ],
-      recentGrades: [
-        {
-          id: 1,
-          assignment_title: 'Quran Recitation Test - Surah Al-Baqarah',
-          course_title: 'Quran Memorization - Juz 1',
-          assignment_type: 'Recitation',
-          grade: 87,
-          max_points: 100,
-          feedback: 'Excellent memorization and tajweed. Keep practicing the pronunciation of some verses.',
-          graded_by_name: 'Sheikh Abdullah',
-          graded_at: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-        },
-        {
-          id: 2,
-          assignment_title: 'Arabic Grammar Exercise - Verb Conjugation',
-          course_title: 'Arabic Language Basics',
-          assignment_type: 'Written Assignment',
-          grade: 84,
-          max_points: 100,
-          feedback: 'Good understanding of verb patterns. Review the irregular verbs for better accuracy.',
-          graded_by_name: 'Ustadha Aisha',
-          graded_at: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
-        },
-        {
-          id: 3,
-          assignment_title: 'Islamic History Quiz - The Rightly Guided Caliphs',
-          course_title: 'Islamic Studies',
-          assignment_type: 'Quiz',
-          grade: 92,
-          max_points: 100,
-          feedback: 'Excellent knowledge of Islamic history. Well done!',
-          graded_by_name: 'Sheikh Omar',
-          graded_at: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
-        },
-      ],
-      attendanceSummary: [
-        {
-          status: 'present',
-          count: 45,
-          percentage: 92,
-        },
-        {
-          status: 'absent',
-          count: 3,
-          percentage: 6,
-        },
-        {
-          status: 'late',
-          count: 1,
-          percentage: 2,
-        },
-      ],
-    };
-
-    // Return the structure the frontend expects
-    return progress;
-  }
-
-  async sendMessage(parentId: number, messageData: any) {
-    const { recipientId, subject, content, childId } = messageData;
-
-    // In a real implementation, you would:
-    // 1. Validate the recipient (teacher, admin, etc.)
-    // 2. Create a message record in a messages table
-    // 3. Send notifications
-
-    // For demo purposes, create a notification
-    const notification = this.notificationRepository.create({
-      userId: recipientId || 1, // Default to admin if no recipient
-      title: subject || 'New Message from Parent',
-      content: content || 'No content provided',
-      notificationType: 'message',
-      isRead: false,
+  async updatePayment(parentUserId: number, parentRecordId: number, dto: UpdatePaymentDto): Promise<Parent> {
+    const record = await this.parentRepo.findOne({
+      where: { id: parentRecordId },
+      relations: ['parent', 'child'],
     });
 
-    await this.notificationRepository.save(notification);
+    if (!record) throw new NotFoundException('Parent record not found.');
+    if (record.parent.id !== parentUserId) {
+      throw new ForbiddenException('You can update only your own payment info.');
+    }
 
-    return {
-      message: 'Message sent successfully',
-      messageId: notification.id,
-      sentAt: new Date(),
-    };
+    record.paymentInfo = dto.paymentInfo;
+    return this.parentRepo.save(record);
+  }
+
+  async getMyChildren(parentUserId: number): Promise<Parent[]> {
+    return this.parentRepo.find({
+      where: { parent: { id: parentUserId } },
+      relations: ['child'],
+      order: { id: 'ASC' },
+    });
+  }
+
+  private async assertParentOfChild(parentUserId: number, childId: number) {
+    const link = await this.parentRepo.findOne({
+      where: { parent: { id: parentUserId }, child: { id: childId } },
+      relations: ['parent', 'child'],
+    });
+    if (!link) {
+      throw new ForbiddenException('Not authorized to access this child data');
+    }
+    return link;
+  }
+
+  async getChildAttendance(parentUserId: number, childId: number) {
+    await this.assertParentOfChild(parentUserId, childId);
+
+    const records = await this.attendanceRepo.find({
+      where: { studentId: childId },
+      relations: ['session', 'session.course'],
+      order: { createdAt: 'DESC' },
+    });
+
+    return { attendance: records };
+  }
+
+  async getChildGrades(parentUserId: number, childId: number, filters: { courseId?: number } = {}) {
+    await this.assertParentOfChild(parentUserId, childId);
+
+    const { courseId } = filters;
+    let qb = this.submissionRepo
+      .createQueryBuilder('submission')
+      .leftJoinAndSelect('submission.assignment', 'assignment')
+      .leftJoinAndSelect('assignment.course', 'course')
+      .leftJoinAndSelect('submission.gradedBy', 'grader')
+      .where('submission.studentId = :childId', { childId })
+      .andWhere('submission.grade IS NOT NULL');
+
+    if (courseId) {
+      qb = qb.andWhere('course.id = :courseId', { courseId });
+    }
+
+    const grades = await qb.orderBy('submission.gradedAt', 'DESC').getMany();
+    return { grades };
   }
 }

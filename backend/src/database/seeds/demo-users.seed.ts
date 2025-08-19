@@ -1,7 +1,8 @@
+// src/database/seeds/demo-users.seed.ts
 import { DataSource } from 'typeorm';
-import * as bcrypt from 'bcrypt';
+import * as bcrypt from 'bcryptjs';
 import { User } from '../../modules/users/entities/user.entity';
-import { UserRole } from '../../common/enums/user-role.enum';
+import { Role } from '../../common/enums/role.enum'; // ✅ updated to Role
 
 export async function seedDemoUsers(dataSource: DataSource) {
     const userRepository = dataSource.getRepository(User);
@@ -21,7 +22,7 @@ export async function seedDemoUsers(dataSource: DataSource) {
             name: 'Admin User',
             email: 'admin@education.com',
             passwordHash: hashedPassword,
-            role: UserRole.ADMIN,
+            role: Role.Admin,
             phone: '+1-555-0001',
             isActive: true,
         },
@@ -29,7 +30,7 @@ export async function seedDemoUsers(dataSource: DataSource) {
             name: 'Jane Teacher',
             email: 'jane.teacher@education.com',
             passwordHash: hashedPassword,
-            role: UserRole.TEACHER,
+            role: Role.Teacher,
             phone: '+1-555-0002',
             isActive: true,
         },
@@ -37,7 +38,7 @@ export async function seedDemoUsers(dataSource: DataSource) {
             name: 'John Student',
             email: 'john.student@education.com',
             passwordHash: hashedPassword,
-            role: UserRole.STUDENT,
+            role: Role.Student,
             phone: '+1-555-0003',
             dateOfBirth: new Date('2000-05-15'),
             isActive: true,
@@ -46,7 +47,7 @@ export async function seedDemoUsers(dataSource: DataSource) {
             name: 'Mary Parent',
             email: 'mary.parent@education.com',
             passwordHash: hashedPassword,
-            role: UserRole.PARENT,
+            role: Role.Parent,
             phone: '+1-555-0004',
             isActive: true,
         },
