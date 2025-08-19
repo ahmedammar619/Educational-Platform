@@ -21,7 +21,7 @@ import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
-import { UserRole } from '../../common/enums/user-role.enum';
+import { Role } from '../../common/enums/role.enum'; // ✅ updated
 
 @ApiTags('Courses')
 @Controller('courses')
@@ -50,14 +50,8 @@ export class CoursesController {
 
   @Get(':id')
   @ApiOperation({ summary: 'Get course by ID' })
-  @ApiResponse({
-    status: 200,
-    description: 'Course retrieved successfully',
-  })
-  @ApiResponse({
-    status: 404,
-    description: 'Course not found',
-  })
+  @ApiResponse({ status: 200, description: 'Course retrieved successfully' })
+  @ApiResponse({ status: 404, description: 'Course not found' })
   async findOne(@Param('id') id: string) {
     const course = await this.coursesService.findOne(+id);
     return { course };
@@ -65,13 +59,10 @@ export class CoursesController {
 
   @Post()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN, UserRole.TEACHER)
+  @Roles(Role.Admin, Role.Teacher) // ✅ updated
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Create a new course' })
-  @ApiResponse({
-    status: 201,
-    description: 'Course created successfully',
-  })
+  @ApiResponse({ status: 201, description: 'Course created successfully' })
   async create(@Body() createCourseDto: any) {
     const course = await this.coursesService.create(createCourseDto);
     return {
@@ -82,13 +73,10 @@ export class CoursesController {
 
   @Put(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN, UserRole.TEACHER)
+  @Roles(Role.Admin, Role.Teacher) // ✅ updated
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Update a course' })
-  @ApiResponse({
-    status: 200,
-    description: 'Course updated successfully',
-  })
+  @ApiResponse({ status: 200, description: 'Course updated successfully' })
   async update(@Param('id') id: string, @Body() updateCourseDto: any) {
     const course = await this.coursesService.update(+id, updateCourseDto);
     return {
@@ -99,32 +87,24 @@ export class CoursesController {
 
   @Delete(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN)
+  @Roles(Role.Admin) // ✅ updated
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Delete a course' })
-  @ApiResponse({
-    status: 200,
-    description: 'Course deleted successfully',
-  })
+  @ApiResponse({ status: 200, description: 'Course deleted successfully' })
   async remove(@Param('id') id: string) {
     await this.coursesService.remove(+id);
-    return {
-      message: 'Course deleted successfully',
-    };
+    return { message: 'Course deleted successfully' };
   }
 
   @Post(':courseId/enroll')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.STUDENT)
+  @Roles(Role.Admin)
   @ApiBearerAuth('JWT-auth')
-  @ApiOperation({ summary: 'Enroll in a course' })
-  @ApiResponse({
-    status: 201,
-    description: 'Successfully enrolled in course',
-  })
+  @ApiOperation({ summary: 'Admin enrolls a student in a course' })
+  @ApiResponse({ status: 201, description: 'Successfully enrolled in course' })
   async enrollInCourse(
     @Param('courseId') courseId: string,
-    @CurrentUser('id') studentId: number,
+    @Body('studentId') studentId: number,
   ) {
     return this.coursesService.enrollStudent(+courseId, studentId);
   }

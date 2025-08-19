@@ -1,3 +1,4 @@
+// src/modules/admin/admin.controller.ts
 import {
   Controller,
   Get,
@@ -17,12 +18,12 @@ import { AdminService } from './admin.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
-import { UserRole } from '../../common/enums/user-role.enum';
+import { Role } from '../../common/enums/role.enum'; // ✅ updated
 
 @ApiTags('Admin')
 @Controller('admin')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(UserRole.ADMIN)
+@Roles(Role.Admin) // ✅ updated
 @ApiBearerAuth('JWT-auth')
 export class AdminController {
   constructor(private readonly adminService: AdminService) {}
@@ -41,7 +42,7 @@ export class AdminController {
   @ApiOperation({ summary: 'Get all users with pagination' })
   @ApiQuery({ name: 'page', required: false, description: 'Page number' })
   @ApiQuery({ name: 'limit', required: false, description: 'Items per page' })
-  @ApiQuery({ name: 'role', required: false, enum: UserRole, description: 'Filter by role' })
+  @ApiQuery({ name: 'role', required: false, enum: Role, description: 'Filter by role' }) // ✅ updated
   @ApiQuery({ name: 'search', required: false, description: 'Search by name or email' })
   @ApiResponse({
     status: 200,
@@ -50,7 +51,7 @@ export class AdminController {
   async getAllUsers(
     @Query('page') page?: number,
     @Query('limit') limit?: number,
-    @Query('role') role?: UserRole,
+    @Query('role') role?: Role, // ✅ updated
     @Query('search') search?: string,
   ) {
     return this.adminService.getAllUsers(page || 1, limit || 10, { role, search });

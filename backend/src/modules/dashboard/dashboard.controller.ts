@@ -14,7 +14,7 @@ import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
-import { UserRole } from '../../common/enums/user-role.enum';
+import { Role } from '../../common/enums/role.enum'; // ✅ updated
 import { User } from '../users/entities/user.entity';
 
 @ApiTags('Dashboard')
@@ -26,7 +26,7 @@ export class DashboardController {
 
   @Get('admin')
   @UseGuards(RolesGuard)
-  @Roles(UserRole.ADMIN)
+  @Roles(Role.Admin) // ✅ updated
   @ApiOperation({ summary: 'Get admin dashboard statistics' })
   @ApiResponse({
     status: 200,
@@ -38,7 +38,7 @@ export class DashboardController {
 
   @Get('teacher')
   @UseGuards(RolesGuard)
-  @Roles(UserRole.TEACHER)
+  @Roles(Role.Teacher) // ✅ updated
   @ApiOperation({ summary: 'Get teacher dashboard statistics' })
   @ApiResponse({
     status: 200,
@@ -50,7 +50,7 @@ export class DashboardController {
 
   @Get('student')
   @UseGuards(RolesGuard)
-  @Roles(UserRole.STUDENT)
+  @Roles(Role.Student) // ✅ updated
   @ApiOperation({ summary: 'Get student dashboard statistics' })
   @ApiResponse({
     status: 200,
@@ -62,7 +62,7 @@ export class DashboardController {
 
   @Get('parent')
   @UseGuards(RolesGuard)
-  @Roles(UserRole.PARENT)
+  @Roles(Role.Parent) // ✅ updated
   @ApiOperation({ summary: 'Get parent dashboard statistics' })
   @ApiResponse({
     status: 200,

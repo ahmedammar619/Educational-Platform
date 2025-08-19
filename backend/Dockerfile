@@ -1,48 +1,25 @@
-# Build stage
+# 1. Base image
 FROM node:18-alpine AS builder
 
-WORKDIR /app
+WORKDIR /usr/src/app
 
-# Copy package files
+# 2. Copy package files and install dependencies
 COPY package*.json ./
+RUN npm install --legacy-peer-deps
 
-# Install dependencies
-RUN npm ci --only=production && npm cache clean --force
-
-# Copy source code
+# 3. Copy source code and build
 COPY . .
-
-# Build the application
 RUN npm run build
+RUN npm rebuild bcrypt --build-from-source
 
-# Production stage
-FROM node:18-alpine AS production
+# 4. Production image
+FROM node:18-alpine
 
-WORKDIR /app
+WORKDIR /usr/src/app
 
-# Copy package files
+# Copy only dist and node_modules from builder stage
+COPY --from=builder /usr/src/app/dist ./dist
+COPY --from=builder /usr/src/app/node_modules ./node_modules
 COPY package*.json ./
 
-# Install only production dependencies
-RUN npm ci --only=production && npm cache clean --force
-
-# Copy built application from builder stage
-COPY --from=builder /app/dist ./dist
-
-# Create non-root user
-RUN addgroup -g 1001 -S nodejs
-RUN adduser -S nestjs -u 1001
-
-# Change ownership of the app directory
-RUN chown -R nestjs:nodejs /app
-USER nestjs
-
-# Expose port
-EXPOSE 3000
-
-# Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD curl -f http://localhost:3000/health || exit 1
-
-# Start the application
-CMD ["node", "dist/main"]
+CMD ["node", "dist/main.js"]
