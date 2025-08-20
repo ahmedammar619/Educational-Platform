@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Home, BookOpen, Users, FileText, Calendar, BarChart3, FolderOpen, User, Bell, LogOut } from 'lucide-react';
 import TeacherDashboard from './TeacherDashboard';
 import TeacherCalendar from './TeacherCalendar';
@@ -6,6 +6,20 @@ import TeacherClasses from './TeacherClasses';
 
 const TeacherMain = ({ user, onLogout }) => {
   const [activeTab, setActiveTab] = useState('dashboard');
+
+  // Debug effect to monitor user object
+  useEffect(() => {
+    console.log('TeacherMain - User object received:', user);
+    console.log('TeacherMain - User type:', typeof user);
+    console.log('TeacherMain - User keys:', user ? Object.keys(user) : 'No user');
+    if (user) {
+      console.log('TeacherMain - User firstName:', user.firstName);
+      console.log('TeacherMain - User lastName:', user.lastName);
+      console.log('TeacherMain - User name:', user.name);
+      console.log('TeacherMain - User email:', user.email);
+      console.log('TeacherMain - User role:', user.role);
+    }
+  }, [user]);
 
   const navigation = [
     { id: 'dashboard', name: 'Dashboard', icon: Home, component: TeacherDashboard },
@@ -17,9 +31,9 @@ const TeacherMain = ({ user, onLogout }) => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Top Navigation */}
-      <nav className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      {/* Top Navigation - Fixed */}
+      <nav className="fixed top-0 left-0 right-0 bg-white shadow-sm border-b z-50">
+        <div className="px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">
             <div className="flex items-center">
               <div className="flex items-center space-x-3">
@@ -44,7 +58,60 @@ const TeacherMain = ({ user, onLogout }) => {
                     <User className="h-4 w-4 text-white" />
                   </div>
                   <div className="hidden md:block">
-                    <p className="text-sm font-medium text-gray-900">{user?.name}</p>
+                    <p className="text-sm font-medium text-gray-900">
+                      {(() => {
+                        // Debug logging
+                        console.log('TeacherMain - User object:', user);
+                        console.log('TeacherMain - User firstName:', user?.firstName);
+                        console.log('TeacherMain - User lastName:', user?.lastName);
+                        console.log('TeacherMain - User name:', user?.name);
+                        
+                        // Check if user exists and has valid name data
+                        if (!user) {
+                          return 'Teacher';
+                        }
+                        
+                        // Try firstName + lastName first
+                        if (user.firstName && user.lastName && 
+                            user.firstName.trim() && user.lastName.trim()) {
+                          return `${user.firstName.trim()} ${user.lastName.trim()}`;
+                        }
+                        
+                        // Fallback to firstName only
+                        if (user.firstName && user.firstName.trim()) {
+                          return user.firstName.trim();
+                        }
+                        
+                        // Fallback to lastName only
+                        if (user.lastName && user.lastName.trim()) {
+                          return user.lastName.trim();
+                        }
+                        
+                        // Fallback to name field
+                        if (user.name && user.name.trim()) {
+                          return user.name.trim();
+                        }
+                        
+                        // Check if user might be stored as string in localStorage
+                        if (typeof user === 'string') {
+                          try {
+                            const parsedUser = JSON.parse(user);
+                            if (parsedUser.firstName && parsedUser.lastName) {
+                              return `${parsedUser.firstName} ${parsedUser.lastName}`;
+                            }
+                            if (parsedUser.name) {
+                              return parsedUser.name;
+                            }
+                          } catch (e) {
+                            // If it's not JSON, treat as name
+                            return user;
+                          }
+                        }
+                        
+                        // Final fallback
+                        return 'Teacher';
+                      })()}
+                    </p>
                     <p className="text-xs text-gray-500">Teacher</p>
                   </div>
                 </div>
@@ -62,11 +129,11 @@ const TeacherMain = ({ user, onLogout }) => {
         </div>
       </nav>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="flex flex-col lg:flex-row gap-8">
-          {/* Sidebar Navigation */}
-          <div className="lg:w-64 flex-shrink-0">
-            <div className="bg-white rounded-lg shadow-sm border p-4">
+      <div className="pt-16 pr-8 pl-2">
+        <div className="flex flex-col lg:flex-row gap-8 pt-6">
+          {/* Sidebar Navigation - Fixed */}
+          <div className="lg:w-64 flex-shrink-0 lg:fixed lg:top-16 lg:left-4 lg:h-screen lg:overflow-y-auto lg:z-40">
+            <div className="bg-white rounded-lg shadow-sm border p-4 mt-6">
               <nav className="space-y-2">
                 {navigation.map((item) => {
                   const Icon = item.icon;
@@ -111,23 +178,23 @@ const TeacherMain = ({ user, onLogout }) => {
               <h3 className="text-sm font-medium text-gray-900 mb-3">Today's Sessions</h3>
               <div className="space-y-3">
                 <div className="text-sm">
-                  <p className="font-medium text-gray-900">Mathematics 101</p>
+                  <p className="text-sm font-medium text-gray-900">Mathematics 101</p>
                   <p className="text-xs text-blue-600">10:00 AM - 11:30 AM</p>
                 </div>
                 <div className="text-sm">
-                  <p className="font-medium text-gray-900">Physics Lab</p>
+                  <p className="text-sm font-medium text-gray-900">Physics Lab</p>
                   <p className="text-xs text-green-600">2:00 PM - 4:00 PM</p>
                 </div>
                 <div className="text-sm">
-                  <p className="font-medium text-gray-900">Office Hours</p>
+                  <p className="text-sm font-medium text-gray-900">Office Hours</p>
                   <p className="text-xs text-gray-600">4:30 PM - 5:30 PM</p>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Main Content */}
-          <div className="flex-1 min-w-0">
+          {/* Main Content - With left margin for fixed sidebar and gap */}
+          <div className="flex-1 min-w-0 lg:ml-72 ">
             <ActiveComponent user={user} />
           </div>
         </div>

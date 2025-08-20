@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Users, Clock, Calendar, BookOpen, Plus, Edit, Eye, MessageSquare, User, DollarSign, X } from 'lucide-react';
-import { mockClasses, mockUsers, getClassesByTeacher } from '../../data/mockData';
+import { mockClasses, mockUsers } from '../../data/mockData';
 
 const TeacherClasses = ({ user }) => {
   const [classes, setClasses] = useState([]);
@@ -13,10 +13,11 @@ const TeacherClasses = ({ user }) => {
   }, [user]);
 
   const loadClasses = () => {
-    if (user) {
+    if (user && user.id) {
       console.log('TeacherClasses - User object:', user);
       console.log('TeacherClasses - User ID:', user.id);
-      const teacherClasses = getClassesByTeacher(user.id);
+      // Get classes taught by this teacher
+      const teacherClasses = mockClasses.filter(c => c.teacherId === user.id);
       console.log('TeacherClasses - Found classes:', teacherClasses);
       setClasses(teacherClasses);
     } else {
@@ -101,15 +102,26 @@ const TeacherClasses = ({ user }) => {
 
                     <div className="text-center">
                       <p className="text-xs text-gray-500 flex items-center justify-center gap-1">
-                        <Calendar className="h-3 w-3 sm:h-4 sm:w-4 text-gray-400" /> Date & Time
+                        <Calendar className="h-3 w-3 sm:h-4 sm:w-4 text-gray-400" /> Schedule
                       </p>
-                      <p className="font-medium text-gray-900 text-xs sm:text-sm">{classItem.schedule}</p>
+                      <p className="font-medium text-gray-900 text-sm sm:text-base">
+                        {classItem.schedule && Array.isArray(classItem.schedule)
+                          ? classItem.schedule.map(item => `${item.day} ${item.startTime}-${item.endTime}`).join(', ')
+                          : 'Schedule TBD'
+                        }
+                      </p>
+                    </div>
+
+                    <div className="text-center">
+                      <p className="text-xs text-gray-500 flex items-center justify-center gap-1">
+                        <Clock className="h-3 w-3 sm:h-4 sm:w-4 text-gray-400" /> Duration
+                      </p>
+                      <p className="font-medium text-gray-900 text-sm sm:text-base">{classItem.sessionDuration || 120} min</p>
                     </div>
 
                     <div className="text-center">
                       <button
                         onClick={() => {
-                          // Handle class material click
                           console.log('Class material clicked for:', classItem.name);
                         }}
                         className="w-full sm:w-auto px-3 py-2 border-2 border-blue-600 text-blue-600 font-semibold text-xs rounded-lg hover:bg-blue-600 hover:text-white transition-all duration-200 uppercase"
@@ -129,7 +141,6 @@ const TeacherClasses = ({ user }) => {
       {showStudentModal && selectedClassForModal && (
         <StudentModal
           classData={selectedClassForModal}
-          students={getStudentDetails(selectedClassForModal.students)}
           onClose={() => {
             setShowStudentModal(false);
             setSelectedClassForModal(null);
@@ -141,28 +152,39 @@ const TeacherClasses = ({ user }) => {
 };
 
 // Student Modal Component
-const StudentModal = ({ classData, students, onClose }) => {
+const StudentModal = ({ classData, onClose }) => {
+  const students = classData.students || [];
+
   const getParentDetails = (parentId) => {
-    return mockUsers.parents.find(parent => parent.id === parentId);
+    return mockUsers.parents.find(parent => parent.id === parentId) || {
+      id: parentId,
+      firstName: 'Unknown',
+      lastName: 'Parent',
+      fullName: 'Unknown Parent',
+      email: 'unknown@example.com'
+    };
   };
 
   const groupStudentsByParent = (students) => {
     const grouped = {};
-    
-    students.forEach(student => {
-      const parentId = student.parentId;
-      if (!grouped[parentId]) {
-        grouped[parentId] = {
-          parent: getParentDetails(parentId),
-          students: []
-        };
+
+    students.forEach(studentId => {
+      const student = mockUsers.students.find(s => s.id === studentId);
+      if (student && student.parentId) {
+        const parentId = student.parentId;
+        if (!grouped[parentId]) {
+          grouped[parentId] = {
+            parent: getParentDetails(parentId),
+            students: []
+          };
+        }
+        grouped[parentId].students.push(student);
       }
-      grouped[parentId].students.push(student);
     });
 
     // Convert to array and sort by parent name
-    return Object.values(grouped).sort((a, b) => 
-      a.parent.name.localeCompare(b.parent.name)
+    return Object.values(grouped).sort((a, b) =>
+      `${a.parent.firstName} ${a.parent.lastName}`.localeCompare(`${b.parent.firstName} ${b.parent.lastName}`)
     );
   };
 
@@ -174,8 +196,9 @@ const StudentModal = ({ classData, students, onClose }) => {
       203: 92, // Yusuf Al-Salam
       204: 78, // Maryam Al-Siddiq
       205: 85, // Omar Al-Khattab
+      206: 90, // John Student
     };
-    
+
     return attendanceRates[studentId] || Math.floor(Math.random() * 30) + 70;
   };
 
@@ -192,12 +215,12 @@ const StudentModal = ({ classData, students, onClose }) => {
     <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50" style={{ margin: 0 }}>
       <div className="relative top-4 sm:top-20 mx-auto p-4 sm:p-5 border w-11/12 sm:w-3/4 md:w-1/2 max-w-4xl shadow-lg rounded-md bg-white">
         <div className="mt-3">
-                     <div className="flex justify-between items-center mb-4">
-             <div>
-               <h3 className="text-base sm:text-lg font-medium text-gray-900">
-                 Students in {classData.name}
-               </h3>
-             </div>
+          <div className="flex justify-between items-center mb-4">
+            <div>
+              <h3 className="text-base sm:text-lg font-medium text-gray-900">
+                Students in {classData.name}
+              </h3>
+            </div>
             <button
               onClick={onClose}
               className="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100 transition-colors"
@@ -216,21 +239,23 @@ const StudentModal = ({ classData, students, onClose }) => {
                     <div className="w-8 h-8 sm:w-10 sm:h-10 bg-blue-600 rounded-full flex items-center justify-center flex-shrink-0">
                       <User className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
                     </div>
-                                         <div className="text-start min-w-0 flex-1">
-                       <h4 className="font-semibold text-blue-900 text-sm sm:text-base">{group.parent.name}</h4>
-                       <p className="text-xs sm:text-sm text-blue-700">{group.parent.email}</p>
-                     </div>
-                     <div className="flex items-center gap-2">
-                       <button className="text-green-600 hover:text-green-900 text-xs sm:text-sm font-medium px-3 py-2 rounded-lg hover:bg-green-50 transition-colors">
-                         <MessageSquare className="h-4 w-4 inline mr-1" />
-                         Contact
-                       </button>
-                       {group.students.length > 1 && (
-                         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                           {group.students.length} Student{group.students.length !== 1 ? 's' : ''}
-                         </span>
-                       )}
-                     </div>
+                    <div className="text-start min-w-0 flex-1">
+                      <h4 className="font-semibold text-blue-900 text-sm sm:text-base">
+                        {group.parent.firstName} {group.parent.lastName}
+                      </h4>
+                      <p className="text-xs sm:text-sm text-blue-700">{group.parent.email}</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button className="text-green-600 hover:text-green-900 text-xs sm:text-sm font-medium px-3 py-2 rounded-lg hover:bg-green-50 transition-colors">
+                        <MessageSquare className="h-4 w-4 inline mr-1" />
+                        Contact
+                      </button>
+                      {group.students.length > 1 && (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                          {group.students.length} Student{group.students.length !== 1 ? 's' : ''}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
 
@@ -242,49 +267,40 @@ const StudentModal = ({ classData, students, onClose }) => {
                         <div className="relative">
                           <div className="w-8 h-8 sm:w-10 sm:h-10 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0">
                             <span className="text-white font-medium text-sm sm:text-base">
-                              {student.name.charAt(0)}
+                              {student.firstName ? student.firstName.charAt(0) : student.fullName.charAt(0)}
                             </span>
                           </div>
                           {group.students.length > 1 && studentIndex === 0 && (
                             <div className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-1 h-3 bg-blue-300 rounded-full"></div>
                           )}
                         </div>
-                        <div className="min-w-0 flex-1">
-                          <h5 className="font-medium text-gray-900 text-sm sm:text-base truncate">{student.name}</h5>
-                          <p className="text-xs sm:text-sm text-gray-500 truncate">{student.email}</p>
+                        <div className="text-start min-w-0 flex-1">
+                          <h5 className="font-medium text-gray-900 text-sm sm:text-base truncate">
+                            {student.firstName && student.lastName
+                              ? `${student.firstName} ${student.lastName}`
+                              : student.fullName
+                            }
+                          </h5>
+                          <p className="text-xs sm:text-sm text-gray-500">{student.email}</p>
                         </div>
                       </div>
 
-                                             <div className="flex-shrink-0">
-                         <div className="text-center">
-                           <p className="text-xs text-gray-500 mb-1">Attendance</p>
-                           <div className="flex items-center gap-1">
-                             <div className="w-16 h-2 bg-gray-200 rounded-full overflow-hidden">
-                               <div 
-                                 className={`h-full rounded-full ${getAttendanceColor(getAttendanceRate(student.id))}`}
-                                 style={{ width: `${getAttendanceRate(student.id)}%` }}
-                               ></div>
-                             </div>
-                             <span className="text-xs font-medium text-gray-700">
-                               {getAttendanceRate(student.id)}%
-                             </span>
-                           </div>
-                         </div>
-                       </div>
+                      <div className="flex items-center gap-3">
+                        <div className="text-center">
+                          <p className="text-xs text-gray-500">Attendance</p>
+                          <div className="flex items-center gap-1">
+                            <div className={`w-3 h-3 rounded-full ${getAttendanceColor(getAttendanceRate(student.id))}`}></div>
+                            <span className="text-xs font-medium text-gray-900">
+                              {getAttendanceRate(student.id)}%
+                            </span>
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   ))}
                 </div>
               </div>
             ))}
-          </div>
-
-          <div className="flex justify-end mt-6">
-            <button
-              onClick={onClose}
-              className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors text-sm sm:text-base"
-            >
-              Close
-            </button>
           </div>
         </div>
       </div>

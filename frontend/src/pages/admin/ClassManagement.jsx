@@ -43,17 +43,23 @@ const ClassManagement = ({ user }) => {
 
         // Apply search filter
         if (filters.search) {
-            filtered = filtered.filter(classItem =>
-                classItem.name.toLowerCase().includes(filters.search.toLowerCase()) ||
-                classItem.teacher.toLowerCase().includes(filters.search.toLowerCase())
-            );
+            filtered = filtered.filter(classItem => {
+                const teacher = mockUsers.teachers.find(t => t.id === classItem.teacherId);
+                const teacherName = teacher ? `${teacher.firstName} ${teacher.lastName}` : 'Teacher TBD';
+                
+                return classItem.name.toLowerCase().includes(filters.search.toLowerCase()) ||
+                       teacherName.toLowerCase().includes(filters.search.toLowerCase());
+            });
         }
 
         // Apply teacher filter
         if (filters.teacher) {
-            filtered = filtered.filter(classItem =>
-                classItem.teacher.toLowerCase().includes(filters.teacher.toLowerCase())
-            );
+            filtered = filtered.filter(classItem => {
+                const teacher = mockUsers.teachers.find(t => t.id === classItem.teacherId);
+                const teacherName = teacher ? `${teacher.firstName} ${teacher.lastName}` : 'Teacher TBD';
+                
+                return teacherName.toLowerCase().includes(filters.teacher.toLowerCase());
+            });
         }
 
         // Calculate pagination
@@ -74,8 +80,15 @@ const ClassManagement = ({ user }) => {
     const handleCreateClass = (classData) => {
         const newClass = {
             id: Date.now(),
-            ...classData,
-            status: 'active',
+            name: classData.name,
+            description: classData.description,
+            teacherId: classData.teacherId,
+            price: classData.price,
+            schedule: classData.schedule,
+            students: classData.students || [],
+            numberOfSessions: classData.numberOfSessions,
+            sessionDuration: classData.sessionDuration,
+            status: classData.status || 'active',
             created_at: new Date().toISOString().split('T')[0]
         };
 
@@ -85,9 +98,21 @@ const ClassManagement = ({ user }) => {
     };
 
     const handleUpdateClass = (classId, classData) => {
-        setClasses(prev => prev.map(classItem =>
-            classItem.id === classId ? { ...classItem, ...classData } : classItem
-        ));
+        setClasses(prev => prev.map(classItem => {
+            if (classItem.id === classId) {
+                return {
+                    ...classItem,
+                    name: classData.name,
+                    description: classData.description,
+                    teacherId: classData.teacherId,
+                    price: classData.price,
+                    schedule: classData.schedule,
+                    numberOfSessions: classData.numberOfSessions,
+                    sessionDuration: classData.sessionDuration
+                };
+            }
+            return classItem;
+        }));
         setShowEditModal(false);
         setSelectedClass(null);
         alert('Class updated successfully!');
@@ -162,8 +187,8 @@ const ClassManagement = ({ user }) => {
                     >
                         <option value="">All Teachers</option>
                         {mockUsers.teachers.map((teacher) => (
-                            <option key={teacher.id} value={teacher.name}>
-                                {teacher.name}
+                            <option key={teacher.id} value={`${teacher.firstName} ${teacher.lastName}`}>
+                                {teacher.firstName} {teacher.lastName}
                             </option>
                         ))}
                     </select>
@@ -188,24 +213,28 @@ const ClassManagement = ({ user }) => {
             ) : (
                 <>
                     <div className="space-y-3 sm:space-y-4">
-                        {filteredClasses.map((classItem) => (
-                            <div
-                                key={classItem.id}
-                                className="bg-white rounded-xl shadow-sm border hover:shadow-md transition-all w-full p-3 sm:p-4 flex flex-col gap-3 sm:gap-4"
-                            >
-                                {/* Top Row - Name, Teacher, Actions */}
-                                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                                    <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
-                                        <div className="flex items-center gap-2 sm:gap-3">
-                                            <BookOpen className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600" />
-                                            <h3 className="text-base sm:text-lg font-semibold text-gray-900">{classItem.name}</h3>
+                        {filteredClasses.map((classItem) => {
+                            const teacher = mockUsers.teachers.find(t => t.id === classItem.teacherId);
+                            const teacherName = teacher ? `${teacher.firstName} ${teacher.lastName}` : 'Teacher TBD';
+                            
+                            return (
+                                <div
+                                    key={classItem.id}
+                                    className="bg-white rounded-xl shadow-sm border hover:shadow-md transition-all w-full p-3 sm:p-4 flex flex-col gap-3 sm:gap-4"
+                                >
+                                    {/* Top Row - Name, Teacher, Actions */}
+                                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                                        <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
+                                            <div className="flex items-center gap-2 sm:gap-3">
+                                                <BookOpen className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600" />
+                                                <h3 className="text-base sm:text-lg font-semibold text-gray-900">{classItem.name}</h3>
+                                            </div>
+                                            <span className="hidden sm:inline text-sm text-gray-500">|</span>
+                                            <p className="text-xs sm:text-sm font-medium text-gray-700 flex items-center gap-1">
+                                                <User className="h-3 w-3 sm:h-4 sm:w-4 text-gray-400" />
+                                                {teacherName}
+                                            </p>
                                         </div>
-                                        <span className="hidden sm:inline text-sm text-gray-500">|</span>
-                                        <p className="text-xs sm:text-sm font-medium text-gray-700 flex items-center gap-1">
-                                            <User className="h-3 w-3 sm:h-4 sm:w-4 text-gray-400" />
-                                            {classItem.teacher}
-                                        </p>
-                                    </div>
 
                                     {/* Actions */}
                                     <div className="flex items-center gap-2 sm:gap-3 opacity-80 hover:opacity-100 transition-opacity">
@@ -250,9 +279,14 @@ const ClassManagement = ({ user }) => {
 
                                     <div className="text-center">
                                         <p className="text-xs text-gray-500 flex items-center justify-center gap-1">
-                                            <Calendar className="h-3 w-3 sm:h-4 sm:w-4 text-gray-400" /> Date & Time
+                                            <Calendar className="h-3 w-3 sm:h-4 sm:w-4 text-gray-400" /> Schedule
                                         </p>
-                                        <p className="font-medium text-gray-900 text-xs sm:text-sm">{classItem.schedule}</p>
+                                        <p className="font-medium text-gray-900 text-xs sm:text-sm">
+                                            {classItem.schedule && Array.isArray(classItem.schedule) 
+                                              ? classItem.schedule.map(item => `${item.day} ${item.startTime}-${item.endTime}`).join(', ')
+                                              : classItem.schedule || 'Schedule TBD'
+                                            }
+                                        </p>
                                     </div>
 
                                     {classItem.price && (
@@ -277,7 +311,8 @@ const ClassManagement = ({ user }) => {
                                     </div>
                                 </div>
                             </div>
-                        ))}
+                        );
+                    })}
                     </div>
 
                     {/* Pagination */}
@@ -376,6 +411,17 @@ const ClassModal = ({ title, classData, onClose, onSubmit }) => {
         sessions: classData?.sessions || []
     });
 
+    // Reset form when user prop changes
+    useEffect(() => {
+        setFormData({
+            name: classData?.name || '',
+            description: classData?.description || '',
+            teacher: classData?.teacher || '',
+            price: classData?.price || '',
+            sessions: classData?.sessions || []
+        });
+    }, [classData]);
+
     const [showAddSession, setShowAddSession] = useState(false);
     const [newSession, setNewSession] = useState({
         day: 'Sunday',
@@ -432,23 +478,6 @@ const ClassModal = ({ title, classData, onClose, onSubmit }) => {
         });
     };
 
-    const generateScheduleString = () => {
-        if (formData.sessions.length === 0) return '';
-
-        const groupedSessions = formData.sessions.reduce((acc, session) => {
-            const key = `${session.startTime}-${session.endTime}`;
-            if (!acc[key]) {
-                acc[key] = [];
-            }
-            acc[key].push(session.day);
-            return acc;
-        }, {});
-
-        return Object.entries(groupedSessions)
-            .map(([timeRange, days]) => `${days.join(' & ')} ${timeRange.replace('-', ' - ')}`)
-            .join(', ');
-    };
-
     const handleSubmit = (e) => {
         e.preventDefault();
 
@@ -457,11 +486,25 @@ const ClassModal = ({ title, classData, onClose, onSubmit }) => {
             return;
         }
 
-        const scheduleString = generateScheduleString();
-        onSubmit({
+        // Convert sessions to the new schedule format
+        const schedule = formData.sessions.map(session => ({
+            day: session.day,
+            startTime: session.startTime,
+            endTime: session.endTime
+        }));
+
+        // Create the class data with the new structure
+        const classData = {
             ...formData,
-            schedule: scheduleString
-        });
+            teacherId: parseInt(formData.teacher), // Convert to number
+            schedule: schedule,
+            students: [],
+            numberOfSessions: schedule.length,
+            sessionDuration: 120, // Default to 120 minutes
+            status: 'active'
+        };
+
+        onSubmit(classData);
     };
 
     return (
@@ -501,8 +544,8 @@ const ClassModal = ({ title, classData, onClose, onSubmit }) => {
                             >
                                 <option value="">Select a teacher</option>
                                 {mockUsers.teachers.map((teacher) => (
-                                    <option key={teacher.id} value={teacher.name}>
-                                        {teacher.name}
+                                    <option key={teacher.id} value={teacher.id}>
+                                        {teacher.firstName} {teacher.lastName}
                                     </option>
                                 ))}
                             </select>
@@ -708,12 +751,15 @@ const EnrollModal = ({ classData, onClose, onSubmit }) => {
                                             <div className="ml-3 flex items-center">
                                                 <div className="w-6 h-6 sm:w-8 sm:h-8 bg-blue-500 rounded-full flex items-center justify-center flex-shrink-0">
                                                     <span className="text-white text-xs sm:text-sm font-medium">
-                                                        {student.name.charAt(0)}
+                                                        {student.firstName ? student.firstName.charAt(0) : student.fullName.charAt(0)}
                                                     </span>
                                                 </div>
                                                 <div className="ml-2 sm:ml-3 min-w-0 flex-1">
                                                     <p className="text-xs sm:text-sm font-medium text-gray-900 truncate">
-                                                        {student.name}
+                                                        {student.firstName && student.lastName 
+                                                          ? `${student.firstName} ${student.lastName}` 
+                                                          : student.fullName
+                                                        }
                                                     </p>
                                                     <p className="text-xs text-gray-500 truncate">
                                                         {student.email}

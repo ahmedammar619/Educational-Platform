@@ -16,21 +16,29 @@ function App() {
 
   const validateToken = async (savedToken) => {
     try {
-      const response = await fetch('/api/auth/profile', {
-        headers: {
-          'Authorization': `Bearer ${savedToken}`
+      // Mock token validation - check if token exists and is valid
+      if (savedToken && savedToken.startsWith('mock-token-')) {
+        // Extract user role from token
+        const role = savedToken.replace('mock-token-', '');
+        
+        // Get user from localStorage or mock data
+        const savedUser = localStorage.getItem('user');
+        if (savedUser) {
+          const userData = JSON.parse(savedUser);
+          if (userData.role === role) {
+            setUser(userData);
+            return;
+          }
         }
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setUser(data.user);
-      } else {
-        localStorage.removeItem('token');
       }
+      
+      // Invalid token, remove it
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
     } catch (error) {
       console.error('Token validation failed:', error);
       localStorage.removeItem('token');
+      localStorage.removeItem('user');
     } finally {
       setLoading(false);
     }
@@ -38,6 +46,8 @@ function App() {
 
   const handleLogin = (userData, userToken) => {
     setUser(userData);
+    // Save user data to localStorage for persistence
+    localStorage.setItem('user', JSON.stringify(userData));
     setShowLogin(false);
   };
 

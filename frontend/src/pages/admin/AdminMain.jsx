@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Home, Users, BookOpen, Shield, Bell, LogOut } from 'lucide-react';
+import { Home, Users, BookOpen, Shield, Bell, LogOut, User } from 'lucide-react';
 import AdminDashboard from './AdminDashboard';
 import UserManagement from './UserManagement';
 import ClassManagement from './ClassManagement';
@@ -41,10 +41,15 @@ const AdminMain = ({ user, onLogout }) => {
               <div className="flex items-center space-x-3">
                 <div className="flex items-center space-x-2">
                   <div className="w-8 h-8 bg-green-600 rounded-full flex items-center justify-center">
-                    <Shield className="h-4 w-4 text-white" />
+                    <User className="h-4 w-4 text-white" />
                   </div>
                   <div className="hidden md:block">
-                    <p className="text-sm font-medium text-gray-900">{user?.name}</p>
+                    <p className="text-sm font-medium text-gray-900">
+                      {user?.firstName && user?.lastName 
+                        ? `${user.firstName} ${user.lastName}` 
+                        : user?.name || 'Admin'
+                      }
+                    </p>
                     <p className="text-xs text-gray-500">Administrator</p>
                   </div>
                 </div>
@@ -62,7 +67,7 @@ const AdminMain = ({ user, onLogout }) => {
         </div>
       </nav>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="flex flex-col lg:flex-row gap-8">
           {/* Sidebar Navigation */}
           <div className="lg:w-64 flex-shrink-0">
