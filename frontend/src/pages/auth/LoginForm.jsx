@@ -70,7 +70,7 @@ const LoginForm = ({ onLogin, onRegister }) => {
     try {
       console.log('Login attempt with:', formData.email);
       
-      // Try mock authentication first
+      // Use mock authentication only
       const mockAuth = mockAuthenticate(formData.email, formData.password);
       
       if (mockAuth) {
@@ -81,31 +81,10 @@ const LoginForm = ({ onLogin, onRegister }) => {
         return;
       }
 
-      console.log('Mock authentication failed, trying real API...');
-      // If not a demo account, try real API (for future use)
-      const endpoint = isLogin ? '/api/auth/login' : '/api/auth/register';
-      const payload = isLogin 
-        ? { email: formData.email, password: formData.password }
-        : formData;
-
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload),
-      });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        localStorage.setItem('token', data.token);
-        onLogin(data.user, data.token);
-      } else {
-        setError(data.error || 'Authentication failed');
-      }
+      // Mock authentication failed
+      setError('Invalid email or password. Please use the demo accounts.');
     } catch (error) {
-      setError('Network error. Please try again.');
+      setError('Authentication failed. Please try again.');
     } finally {
       setLoading(false);
     }

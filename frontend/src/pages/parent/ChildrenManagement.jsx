@@ -212,11 +212,16 @@ const ChildrenManagement = ({ user }) => {
               <div className="flex items-center mb-3">
                 <div className="w-12 h-12 bg-purple-500 rounded-full flex items-center justify-center">
                   <span className="text-white text-lg font-bold">
-                    {child.name.charAt(0)}
+                    {child.firstName ? child.firstName.charAt(0) : child.name.charAt(0)}
                   </span>
                 </div>
                 <div className="ml-4">
-                  <h3 className="font-semibold text-gray-900">{child.name}</h3>
+                  <h3 className="font-semibold text-gray-900">
+                    {child.firstName && child.lastName 
+                      ? `${child.firstName} ${child.lastName}` 
+                      : child.name
+                    }
+                  </h3>
                   <p className="text-sm text-gray-600">{child.email}</p>
                 </div>
               </div>
@@ -258,11 +263,16 @@ const ChildrenManagement = ({ user }) => {
             <div className="flex items-center mb-4">
               <div className="w-16 h-16 bg-white bg-opacity-20 rounded-full flex items-center justify-center">
                 <span className="text-2xl font-bold">
-                  {selectedChild.name.charAt(0)}
+                  {selectedChild.firstName ? selectedChild.firstName.charAt(0) : selectedChild.name.charAt(0)}
                 </span>
               </div>
               <div className="ml-4">
-                <h2 className="text-2xl font-bold">{selectedChild.name}</h2>
+                <h2 className="text-2xl font-bold">
+                  {selectedChild.firstName && selectedChild.lastName 
+                    ? `${selectedChild.firstName} ${selectedChild.lastName}` 
+                    : selectedChild.name
+                  }
+                </h2>
                 <p className="text-purple-100">{selectedChild.email}</p>
                 <p className="text-purple-100 capitalize">{selectedChild.relationship_type}</p>
               </div>

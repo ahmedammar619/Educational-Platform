@@ -35,10 +35,34 @@ const UserManagement = ({ user }) => {
     setLoading(true);
     // Combine all user types into one array
     const combinedUsers = [
-      ...mockUsers.students.map(u => ({ ...u, is_active: u.status === 'active', created_at: u.joinDate })),
-      ...mockUsers.teachers.map(u => ({ ...u, is_active: u.status === 'active', created_at: u.joinDate })),
-      ...mockUsers.parents.map(u => ({ ...u, is_active: u.status === 'active', created_at: u.joinDate })),
-      ...mockUsers.admins.map(u => ({ ...u, is_active: u.status === 'active', created_at: u.joinDate }))
+      ...mockUsers.students.map(u => ({ 
+        ...u, 
+        is_active: u.status === 'active', 
+        created_at: u.joinDate,
+        // Add fallback for name if firstName/lastName don't exist
+        name: u.firstName && u.lastName ? `${u.firstName} ${u.lastName}` : u.name
+      })),
+      ...mockUsers.teachers.map(u => ({ 
+        ...u, 
+        is_active: u.status === 'active', 
+        created_at: u.joinDate,
+        // Add fallback for name if firstName/lastName don't exist
+        name: u.firstName && u.lastName ? `${u.firstName} ${u.lastName}` : u.name
+      })),
+      ...mockUsers.parents.map(u => ({ 
+        ...u, 
+        is_active: u.status === 'active', 
+        created_at: u.joinDate,
+        // Add fallback for name if firstName/lastName don't exist
+        name: u.firstName && u.lastName ? `${u.firstName} ${u.lastName}` : u.name
+      })),
+      ...mockUsers.admins.map(u => ({ 
+        ...u, 
+        is_active: u.status === 'active', 
+        created_at: u.joinDate,
+        // Add fallback for name if firstName/lastName don't exist
+        name: u.firstName && u.lastName ? `${u.firstName} ${u.lastName}` : u.name
+      }))
     ];
     setAllUsers(combinedUsers);
     setLoading(false);

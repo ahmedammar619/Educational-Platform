@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Home, Users, Calendar, MessageSquare, User, Bell, LogOut } from 'lucide-react';
 import ParentDashboard from './ParentDashboard';
 import ChildrenManagement from './ChildrenManagement';
@@ -7,6 +7,20 @@ import ParentCommunication from './ParentCommunication';
 
 const ParentMain = ({ user, onLogout }) => {
   const [activeTab, setActiveTab] = useState('dashboard');
+
+  // Debug effect to monitor user object
+  useEffect(() => {
+    console.log('ParentMain - User object received:', user);
+    console.log('ParentMain - User type:', typeof user);
+    console.log('ParentMain - User keys:', user ? Object.keys(user) : 'No user');
+    if (user) {
+      console.log('ParentMain - User firstName:', user.firstName);
+      console.log('ParentMain - User lastName:', user.lastName);
+      console.log('ParentMain - User name:', user.name);
+      console.log('ParentMain - User email:', user.email);
+      console.log('ParentMain - User role:', user.role);
+    }
+  }, [user]);
 
   const navigation = [
     { id: 'dashboard', name: 'Dashboard', icon: Home, component: ParentDashboard },
@@ -46,7 +60,54 @@ const ParentMain = ({ user, onLogout }) => {
                     <User className="h-4 w-4 text-white" />
                   </div>
                   <div className="hidden md:block">
-                    <p className="text-sm font-medium text-gray-900">{user?.name}</p>
+                    <p className="text-sm font-medium text-gray-900">
+                      {(() => {
+                        // Check if user exists and has valid name data
+                        if (!user) {
+                          return 'Parent';
+                        }
+                        
+                        // Try firstName + lastName first
+                        if (user.firstName && user.lastName && 
+                            user.firstName.trim() && user.lastName.trim()) {
+                          return `${user.firstName.trim()} ${user.lastName.trim()}`;
+                        }
+                        
+                        // Fallback to firstName only
+                        if (user.firstName && user.firstName.trim()) {
+                          return user.firstName.trim();
+                        }
+                        
+                        // Fallback to lastName only
+                        if (user.lastName && user.lastName.trim()) {
+                          return user.lastName.trim();
+                        }
+                        
+                        // Fallback to name field (for backward compatibility)
+                        if (user.name && user.name.trim()) {
+                          return user.name.trim();
+                        }
+                        
+                        // Check if user might be stored as string in localStorage
+                        if (typeof user === 'string') {
+                          try {
+                            const parsedUser = JSON.parse(user);
+                            if (parsedUser.firstName && parsedUser.lastName) {
+                              return `${parsedUser.firstName} ${parsedUser.lastName}`;
+                            }
+                            if (parsedUser.name) {
+                              return parsedUser.name;
+                            }
+                          } catch (e) {
+                            // If it's not JSON, treat as name
+                            return user;
+                          }
+                        }
+                        
+                        // Final fallback
+                        return 'Parent';
+                      })()}
+                    </p>
                     <p className="text-xs text-gray-500">Parent</p>
                   </div>
                 </div>

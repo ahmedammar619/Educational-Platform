@@ -44,7 +44,12 @@ const StudentMain = ({ user, onLogout }) => {
                     <User className="h-4 w-4 text-white" />
                   </div>
                   <div className="hidden md:block">
-                    <p className="text-sm font-medium text-gray-900">{user?.name}</p>
+                    <p className="text-sm font-medium text-gray-900">
+                      {user?.firstName && user?.lastName 
+                        ? `${user.firstName} ${user.lastName}` 
+                        : user?.name || 'Student'
+                      }
+                    </p>
                     <p className="text-xs text-gray-500">Student</p>
                   </div>
                 </div>

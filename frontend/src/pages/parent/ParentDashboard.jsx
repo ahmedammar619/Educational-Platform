@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Users, TrendingUp, Calendar, Award, MessageCircle, Bell, BookOpen, Clock } from 'lucide-react';
-import { format } from 'date-fns';
+import { Calendar, Clock, Users, BookOpen, TrendingUp, AlertCircle } from 'lucide-react';
+import { mockUsers, mockClasses } from '../../data/mockData';
 
 const ParentDashboard = ({ user }) => {
   const [dashboardData, setDashboardData] = useState(null);
@@ -8,52 +8,156 @@ const ParentDashboard = ({ user }) => {
 
   useEffect(() => {
     fetchDashboardData();
-  }, []);
+  }, [user]);
 
   const fetchDashboardData = async () => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch('/api/dashboard/parent', {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
+      setLoading(true);
+      // Use mock dashboard data
+      if (user && user.role === 'parent') {
+        const parent = mockUsers.parents.find(p => p.id === user.id);
+        if (parent) {
+          const children = parent.children.map(childId => {
+            const child = mockUsers.students.find(s => s.id === childId);
+            const childClasses = mockClasses.filter(cls => cls.students.includes(childId));
 
-      if (response.ok) {
-        const data = await response.json();
-        setDashboardData(data);
+            return {
+              child: child,
+              classes: childClasses,
+              totalClasses: childClasses.length,
+              totalSessions: childClasses.reduce((total, cls) => total + cls.numberOfSessions, 0)
+            };
+          });
+
+          const totalChildren = children.length;
+          const totalClasses = children.reduce((total, child) => total + child.totalClasses, 0);
+          const totalSessions = children.reduce((total, child) => total + child.totalSessions, 0);
+
+          // Calculate total cost
+          const totalCost = children.reduce((total, child) => {
+            return total + child.classes.reduce((classTotal, cls) => classTotal + cls.price, 0);
+          }, 0);
+
+          // Get upcoming classes for this week
+          const today = new Date();
+          const weekStart = new Date(today);
+          weekStart.setDate(today.getDate() - today.getDay()); // Start of week (Sunday)
+
+          const upcomingClasses = [];
+          children.forEach(({ child, classes }) => {
+            classes.forEach(cls => {
+              cls.schedule.forEach(session => {
+                const dayNumber = getDayNumber(session.day);
+                const classDate = new Date(weekStart);
+                classDate.setDate(weekStart.getDate() + dayNumber);
+
+                if (classDate >= today) {
+                  upcomingClasses.push({
+                    id: `${cls.id}-${session.day}-${child.id}`,
+                    title: cls.name,
+                    childName: child.fullName,
+                    teacherName: getTeacherName(cls.teacherId),
+                    day: session.day,
+                    startTime: session.startTime,
+                    endTime: session.endTime,
+                    date: classDate
+                  });
+                }
+              });
+            });
+          });
+
+          // Sort upcoming classes by date and time
+          upcomingClasses.sort((a, b) => {
+            if (a.date.getTime() !== b.date.getTime()) {
+              return a.date.getTime() - b.date.getTime();
+            }
+            return a.startTime.localeCompare(b.startTime);
+          });
+
+          setDashboardData({
+            totalChildren,
+            totalClasses,
+            totalSessions,
+            totalCost,
+            children,
+            upcomingClasses: upcomingClasses.slice(0, 5) // Show only next 5 classes
+          });
+        }
       }
     } catch (error) {
-      console.error('Failed to fetch dashboard data:', error);
+      console.error('Error fetching dashboard data:', error);
     } finally {
       setLoading(false);
     }
   };
 
+  const getTeacherName = (teacherId) => {
+    const teacher = mockUsers.teachers.find(t => t.id === teacherId);
+    return teacher ? teacher.fullName : 'Unknown Teacher';
+  };
+
+  const getDayNumber = (dayName) => {
+    const dayMap = {
+      'Sunday': 0,
+      'Monday': 1,
+      'Tuesday': 2,
+      'Wednesday': 3,
+      'Thursday': 4,
+      'Friday': 5,
+      'Saturday': 6
+    };
+    return dayMap[dayName] || 0;
+  };
+
+  const convert24To12Hour = (time24) => {
+    if (!time24) return '';
+    const [hours, minutes] = time24.split(':');
+    const hour = parseInt(hours);
+    const period = hour >= 12 ? 'PM' : 'AM';
+    const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+    return `${displayHour}:${minutes} ${period}`;
+  };
+
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
       </div>
     );
   }
 
-  const { children = [], upcomingSessions = [], recentGrades = [] } = dashboardData || {};
+  if (!dashboardData) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <AlertCircle className="mx-auto h-12 w-12 text-red-500 mb-4" />
+          <h3 className="text-lg font-medium text-gray-900 mb-2">Error Loading Dashboard</h3>
+          <p className="text-gray-500">Unable to load dashboard data. Please try again.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
-      {/* User Info Card */}
+      {/* Parent Info Card */}
       <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
-        <div className="bg-gradient-to-r from-purple-600 to-purple-700 p-6">
+        <div className="bg-gradient-to-r from-purple-600 to-blue-600 p-6">
           <div className="flex items-center space-x-4">
             <div className="w-16 h-16 bg-white bg-opacity-20 rounded-full flex items-center justify-center">
               <span className="text-2xl font-bold text-white">
-                {user?.name?.charAt(0) || 'P'}
+                {user?.firstName?.charAt(0) || user?.name?.charAt(0) || 'P'}
               </span>
             </div>
             <div className="flex-1">
-              <h1 className="text-2xl font-bold text-white">{user?.name || 'Parent'}</h1>
-              <p className="text-purple-100">Parent • Guardian & Supporter</p>
+              <h1 className="text-2xl font-bold text-white">
+                {user?.firstName && user?.lastName
+                  ? `${user.firstName} ${user.lastName}`
+                  : user?.name || 'Parent'
+                }
+              </h1>
+              <p className="text-purple-100">Parent • Family Management</p>
             </div>
           </div>
         </div>
@@ -64,270 +168,180 @@ const ParentDashboard = ({ user }) => {
               <p className="font-medium text-gray-900">{user?.email || 'parent@example.com'}</p>
             </div>
             <div className="text-center">
-              <p className="text-sm text-gray-600">Phone</p>
-              <p className="font-medium text-gray-900">{user?.phone || '+1 (555) 987-6543'}</p>
+              <p className="text-sm text-gray-600">Parent ID</p>
+              <p className="font-medium text-gray-900">{user?.id || 'PAR001'}</p>
             </div>
             <div className="text-center">
               <p className="text-sm text-gray-600">Children</p>
-              <p className="font-medium text-gray-900">{children?.length || 0} linked</p>
+              <p className="font-medium text-gray-900">{dashboardData?.totalChildren || 0}</p>
             </div>
             <div className="text-center">
-              <p className="text-sm text-gray-600">Member Since</p>
-              <p className="font-medium text-gray-900">{user?.memberSince || 'Jan 2024'}</p>
+              <p className="text-sm text-gray-600">Join Date</p>
+              <p className="font-medium text-gray-900">{user?.joinDate || 'Jan 2024'}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div className="bg-white rounded-lg shadow p-6">
+          <div className="flex items-center">
+            <div className="p-2 bg-blue-100 rounded-lg">
+              <Users className="h-6 w-6 text-blue-600" />
+            </div>
+            <div className="ml-4">
+              <p className="text-sm font-medium text-gray-600">Total Children</p>
+              <p className="text-2xl font-bold text-gray-900">{dashboardData.totalChildren}</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-lg shadow p-6">
+          <div className="flex items-center">
+            <div className="p-2 bg-green-100 rounded-lg">
+              <BookOpen className="h-6 w-6 text-green-600" />
+            </div>
+            <div className="ml-4">
+              <p className="text-sm font-medium text-gray-600">Total Classes</p>
+              <p className="text-2xl font-bold text-gray-900">{dashboardData.totalClasses}</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-lg shadow p-6">
+          <div className="flex items-center">
+            <div className="p-2 bg-purple-100 rounded-lg">
+              <Clock className="h-6 w-6 text-purple-600" />
+            </div>
+            <div className="ml-4">
+              <p className="text-sm font-medium text-gray-600">Weekly Sessions</p>
+              <p className="text-2xl font-bold text-gray-900">{dashboardData.totalSessions}</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-lg shadow p-6">
+          <div className="flex items-center">
+            <div className="p-2 bg-yellow-100 rounded-lg">
+              <TrendingUp className="h-6 w-6 text-yellow-600" />
+            </div>
+            <div className="ml-4">
+              <p className="text-sm font-medium text-gray-600">Total Investment</p>
+              <p className="text-2xl font-bold text-gray-900">SAR {dashboardData.totalCost.toLocaleString()}</p>
             </div>
           </div>
         </div>
       </div>
 
       {/* Children Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {children.map((child) => (
-          <div key={child.id} className="bg-white p-6 rounded-lg shadow-sm border">
-            <div className="flex items-center mb-4">
-              <div className="w-12 h-12 bg-purple-500 rounded-full flex items-center justify-center">
-                <span className="text-white text-lg font-bold">
-                  {child.name.charAt(0)}
-                </span>
-              </div>
-              <div className="ml-4">
-                <h3 className="font-semibold text-gray-900">{child.name}</h3>
-                <p className="text-sm text-gray-600">{child.email}</p>
-              </div>
-            </div>
-
-            <div className="space-y-3">
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-600">Enrolled Courses</span>
-                <span className="font-semibold text-gray-900">{child.enrolled_courses}</span>
-              </div>
-
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-600">Average Progress</span>
-                <span className="font-semibold text-gray-900">
-                  {Math.round(child.avg_progress || 0)}%
-                </span>
-              </div>
-
-              <div className="w-full bg-gray-200 rounded-full h-2">
-                <div
-                  className="bg-purple-600 h-2 rounded-full"
-                  style={{ width: `${child.avg_progress || 0}%` }}
-                ></div>
-              </div>
-
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-600">Attendance</span>
-                <span className="font-semibold text-gray-900">
-                  {child.total_attendance}/{child.total_sessions}
-                </span>
-              </div>
-
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-600">Attendance Rate</span>
-                <span className={`font-semibold ${(child.total_attendance / child.total_sessions) > 0.8
-                  ? 'text-green-600'
-                  : 'text-orange-600'
-                  }`}>
-                  {child.total_sessions > 0
-                    ? Math.round((child.total_attendance / child.total_sessions) * 100)
-                    : 0}%
-                </span>
-              </div>
-            </div>
-
-            <div className="mt-4 pt-4 border-t">
-              <button className="w-full text-sm bg-purple-600 text-white py-2 rounded hover:bg-purple-700">
-                View Details
-              </button>
-            </div>
-          </div>
-        ))}
-
-        {children.length === 0 && (
-          <div className="col-span-3 text-center py-8">
-            <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-            <p className="text-gray-600">No children linked to your account</p>
-            <p className="text-sm text-gray-500">Contact support to link student accounts</p>
-          </div>
-        )}
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Upcoming Sessions */}
-        <div className="bg-white rounded-lg shadow-sm border">
-          <div className="p-6 border-b">
-            <h2 className="text-lg font-semibold text-gray-900">Upcoming Sessions</h2>
-          </div>
-          <div className="p-6">
-            {upcomingSessions.length === 0 ? (
-              <p className="text-gray-500 text-center py-4">No upcoming sessions</p>
-            ) : (
-              <div className="space-y-4">
-                {upcomingSessions.map((session) => (
-                  <div key={session.id} className="border rounded-lg p-4">
-                    <div className="flex justify-between items-start mb-2">
-                      <h3 className="font-medium text-gray-900">{session.title}</h3>
-                      <Calendar className="h-4 w-4 text-gray-400" />
-                    </div>
-                    <p className="text-sm text-gray-600 mb-1">
-                      Course: {session.course_title}
-                    </p>
-                    <p className="text-sm text-gray-600 mb-2">
-                      Student: {session.student_name}
-                    </p>
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-gray-500">
-                        {format(new Date(session.scheduled_start), 'MMM dd, yyyy - HH:mm')}
-                      </span>
-                      <div className="flex items-center space-x-2">
-                        <Clock className="h-4 w-4 text-gray-400" />
-                        <span className="text-sm text-gray-500">
-                          {format(new Date(session.scheduled_start), 'HH:mm')} -
-                          {format(new Date(session.scheduled_end), 'HH:mm')}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Recent Grades */}
-        <div className="bg-white rounded-lg shadow-sm border">
-          <div className="p-6 border-b">
-            <h2 className="text-lg font-semibold text-gray-900">Recent Grades</h2>
-          </div>
-          <div className="p-6">
-            {recentGrades.length === 0 ? (
-              <p className="text-gray-500 text-center py-4">No recent grades</p>
-            ) : (
-              <div className="space-y-4">
-                {recentGrades.map((grade, index) => (
-                  <div key={index} className="border rounded-lg p-4">
-                    <div className="flex justify-between items-start mb-2">
-                      <h3 className="font-medium text-gray-900">{grade.assignment_title}</h3>
-                      <div className="flex items-center space-x-2">
-                        <Award className="h-4 w-4 text-yellow-500" />
-                        <span className={`font-semibold ${(grade.grade / grade.max_points) >= 0.8
-                          ? 'text-green-600'
-                          : (grade.grade / grade.max_points) >= 0.6
-                            ? 'text-yellow-600'
-                            : 'text-red-600'
-                          }`}>
-                          {grade.grade}/{grade.max_points}
-                        </span>
-                      </div>
-                    </div>
-                    <p className="text-sm text-gray-600 mb-1">
-                      Course: {grade.course_title}
-                    </p>
-                    <p className="text-sm text-gray-600 mb-2">
-                      Student: {grade.student_name}
-                    </p>
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-gray-500">
-                        Graded: {format(new Date(grade.graded_at), 'MMM dd, yyyy')}
-                      </span>
-                      <span className={`text-sm px-2 py-1 rounded-full ${(grade.grade / grade.max_points) >= 0.8
-                        ? 'bg-green-100 text-green-800'
-                        : (grade.grade / grade.max_points) >= 0.6
-                          ? 'bg-yellow-100 text-yellow-800'
-                          : 'bg-red-100 text-red-800'
-                        }`}>
-                        {Math.round((grade.grade / grade.max_points) * 100)}%
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Communication & Notifications */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Quick Actions */}
-        <div className="bg-white rounded-lg shadow-sm border">
-          <div className="p-6 border-b">
-            <h2 className="text-lg font-semibold text-gray-900">Quick Actions</h2>
-          </div>
-          <div className="p-6">
-            <div className="grid grid-cols-2 gap-4">
-              <button className="flex flex-col items-center p-4 border rounded-lg hover:bg-gray-50">
-                <MessageCircle className="h-8 w-8 text-blue-600 mb-2" />
-                <span className="text-sm font-medium">Message Teachers</span>
-              </button>
-              <button className="flex flex-col items-center p-4 border rounded-lg hover:bg-gray-50">
-                <Calendar className="h-8 w-8 text-green-600 mb-2" />
-                <span className="text-sm font-medium">View Schedule</span>
-              </button>
-              <button className="flex flex-col items-center p-4 border rounded-lg hover:bg-gray-50">
-                <TrendingUp className="h-8 w-8 text-purple-600 mb-2" />
-                <span className="text-sm font-medium">Progress Reports</span>
-              </button>
-              <button className="flex flex-col items-center p-4 border rounded-lg hover:bg-gray-50">
-                <BookOpen className="h-8 w-8 text-orange-600 mb-2" />
-                <span className="text-sm font-medium">Course Materials</span>
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Notifications */}
-        <div className="bg-white rounded-lg shadow-sm border">
-          <div className="p-6 border-b">
-            <h2 className="text-lg font-semibold text-gray-900">Recent Notifications</h2>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+        {/* Children Summary */}
+        <div className="bg-white rounded-lg shadow">
+          <div className="px-6 py-4 border-b border-gray-200">
+            <h3 className="text-lg font-semibold text-gray-900">Children Overview</h3>
           </div>
           <div className="p-6">
             <div className="space-y-4">
-              <div className="flex items-start space-x-3 p-3 bg-blue-50 rounded-lg">
-                <Bell className="h-5 w-5 text-blue-600 mt-0.5" />
-                <div>
-                  <p className="text-sm font-medium text-gray-900">
-                    Assignment Due Reminder
-                  </p>
-                  <p className="text-sm text-gray-600">
-                    John has an assignment due tomorrow in Math class
-                  </p>
-                  <p className="text-xs text-gray-500 mt-1">2 hours ago</p>
-                </div>
-              </div>
+              {dashboardData.children.map(({ child, classes, totalClasses, totalSessions }) => (
+                <div key={child.id} className="border rounded-lg p-4">
+                  <div className="flex items-center space-x-3 mb-3">
+                    <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                      <span className="text-blue-600 font-medium">
+                        {child.firstName.charAt(0)}
+                      </span>
+                    </div>
+                    <div className="flex-1">
+                      <h4 className="font-medium text-gray-900">{child.fullName}</h4>
+                      <p className="text-sm text-gray-600">{child.email}</p>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-sm font-medium text-gray-900">{totalClasses} classes</div>
+                      <div className="text-xs text-gray-500">{totalSessions} sessions/week</div>
+                    </div>
+                  </div>
 
-              <div className="flex items-start space-x-3 p-3 bg-green-50 rounded-lg">
-                <Award className="h-5 w-5 text-green-600 mt-0.5" />
-                <div>
-                  <p className="text-sm font-medium text-gray-900">
-                    Great Performance!
-                  </p>
-                  <p className="text-sm text-gray-600">
-                    Mary scored 95% on her Science quiz
-                  </p>
-                  <p className="text-xs text-gray-500 mt-1">1 day ago</p>
+                  <div className="space-y-2">
+                    {classes.slice(0, 3).map((cls) => (
+                      <div key={cls.id} className="flex items-center justify-between text-sm">
+                        <span className="text-gray-600">{cls.name}</span>
+                        <span className="text-gray-900 font-medium">SAR {cls.price}</span>
+                      </div>
+                    ))}
+                    {classes.length > 3 && (
+                      <div className="text-xs text-gray-500 text-center pt-2">
+                        +{classes.length - 3} more classes
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
-
-              <div className="flex items-start space-x-3 p-3 bg-yellow-50 rounded-lg">
-                <Calendar className="h-5 w-5 text-yellow-600 mt-0.5" />
-                <div>
-                  <p className="text-sm font-medium text-gray-900">
-                    Schedule Change
-                  </p>
-                  <p className="text-sm text-gray-600">
-                    Tomorrow's English class moved to 2:00 PM
-                  </p>
-                  <p className="text-xs text-gray-500 mt-1">2 days ago</p>
-                </div>
-              </div>
+              ))}
             </div>
+          </div>
+        </div>
 
-            <div className="mt-4 pt-4 border-t">
-              <button className="w-full text-sm text-purple-600 hover:text-purple-800">
-                View All Notifications
-              </button>
-            </div>
+        {/* Upcoming Classes */}
+        <div className="bg-white rounded-lg shadow">
+          <div className="px-6 py-4 border-b border-gray-200">
+            <h3 className="text-lg font-semibold text-gray-900">Upcoming Classes This Week</h3>
+          </div>
+          <div className="p-6">
+            {dashboardData.upcomingClasses.length === 0 ? (
+              <div className="text-center py-8">
+                <Calendar className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+                <p className="text-gray-500">No upcoming classes this week</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {dashboardData.upcomingClasses.map((cls) => (
+                  <div key={cls.id} className="border rounded-lg p-3 bg-blue-50">
+                    <div className="flex items-center justify-between mb-2">
+                      <h4 className="font-medium text-gray-900">{cls.title}</h4>
+                      <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
+                        {cls.day}
+                      </span>
+                    </div>
+                    <div className="space-y-1 text-sm text-gray-600">
+                      <div className="flex items-center space-x-2">
+                        <Users className="h-4 w-4" />
+                        <span>{cls.childName}</span>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Users className="h-4 w-4" />
+                        <span>{cls.teacherName}</span>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Clock className="h-4 w-4" />
+                        <span>{convert24To12Hour(cls.startTime)} - {convert24To12Hour(cls.endTime)}</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Quick Actions */}
+      <div className="bg-white rounded-lg shadow">
+        <div className="px-6 py-4 border-b border-gray-200">
+          <h3 className="text-lg font-semibold text-gray-900">Quick Actions</h3>
+        </div>
+        <div className="p-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <button className="flex flex-col items-center p-4 border rounded-lg hover:bg-gray-50 transition-colors">
+              <Calendar className="h-8 w-8 text-blue-600 mb-2" />
+              <span className="text-sm font-medium">View Schedule</span>
+            </button>
+            <button className="flex flex-col items-center p-4 border rounded-lg hover:bg-gray-50 transition-colors">
+              <Users className="h-8 w-8 text-green-600 mb-2" />
+              <span className="text-sm font-medium">Contact Teachers</span>
+            </button>
+            <button className="flex flex-col items-center p-4 border rounded-lg hover:bg-gray-50 transition-colors">
+              <BookOpen className="h-8 w-8 text-purple-600 mb-2" />
+              <span className="text-sm font-medium">View Progress</span>
+            </button>
           </div>
         </div>
       </div>

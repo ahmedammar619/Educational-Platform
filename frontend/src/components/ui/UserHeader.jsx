@@ -17,18 +17,40 @@ const UserHeader = ({
     orange: 'from-orange-600 to-orange-700'
   };
 
+  // Get user display name
+  const getUserDisplayName = () => {
+    if (user?.firstName && user?.lastName) {
+      return `${user.firstName} ${user.lastName}`;
+    }
+    return user?.name || title;
+  };
+
+  // Get user initial
+  const getUserInitial = () => {
+    if (user?.firstName) {
+      return user.firstName.charAt(0);
+    }
+    if (user?.name) {
+      return user.name.charAt(0);
+    }
+    if (title) {
+      return title.charAt(0);
+    }
+    return 'U';
+  };
+
   return (
     <Card padding="none" className="overflow-hidden">
       <div className={`bg-gradient-to-r ${roleColorClasses[roleColor]} p-6`}>
         <div className="flex items-center space-x-4">
           <div className="w-16 h-16 bg-white bg-opacity-20 rounded-full flex items-center justify-center">
             <span className="text-2xl font-bold text-white">
-              {user?.name?.charAt(0) || title?.charAt(0) || 'U'}
+              {getUserInitial()}
             </span>
           </div>
           <div className="flex-1">
             <h1 className="text-2xl font-bold text-white">
-              {user?.name || title}
+              {getUserDisplayName()}
             </h1>
             <p className="text-white text-opacity-90">
               {subtitle || `${user?.role?.charAt(0).toUpperCase()}${user?.role?.slice(1)}` || 'User'}
