@@ -3,6 +3,7 @@ import {
   Controller,
   Get,
   Put,
+  Delete,
   Param,
   Query,
   UseGuards,
@@ -18,12 +19,12 @@ import { AdminService } from './admin.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
-import { Role } from '../../common/enums/role.enum'; // ✅ updated
+import { Role } from '../../common/enums/role.enum';
 
 @ApiTags('Admin')
 @Controller('admin')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(Role.Admin) // ✅ updated
+@Roles(Role.Admin)
 @ApiBearerAuth('JWT-auth')
 export class AdminController {
   constructor(private readonly adminService: AdminService) {}
@@ -42,7 +43,7 @@ export class AdminController {
   @ApiOperation({ summary: 'Get all users with pagination' })
   @ApiQuery({ name: 'page', required: false, description: 'Page number' })
   @ApiQuery({ name: 'limit', required: false, description: 'Items per page' })
-  @ApiQuery({ name: 'role', required: false, enum: Role, description: 'Filter by role' }) // ✅ updated
+  @ApiQuery({ name: 'role', required: false, enum: Role, description: 'Filter by role' })
   @ApiQuery({ name: 'search', required: false, description: 'Search by name or email' })
   @ApiResponse({
     status: 200,
@@ -51,35 +52,27 @@ export class AdminController {
   async getAllUsers(
     @Query('page') page?: number,
     @Query('limit') limit?: number,
-    @Query('role') role?: Role, // ✅ updated
+    @Query('role') role?: Role,
     @Query('search') search?: string,
   ) {
     return this.adminService.getAllUsers(page || 1, limit || 10, { role, search });
   }
 
-  @Get('courses')
-  @ApiOperation({ summary: 'Get all courses with pagination' })
+  @Get('students')
+  @ApiOperation({ summary: 'Get all students with pagination' })
   @ApiQuery({ name: 'page', required: false, description: 'Page number' })
   @ApiQuery({ name: 'limit', required: false, description: 'Items per page' })
-  @ApiQuery({ name: 'instructorId', required: false, description: 'Filter by instructor ID' })
-  @ApiQuery({ name: 'isActive', required: false, description: 'Filter by active status' })
-  @ApiQuery({ name: 'search', required: false, description: 'Search by title or description' })
+  @ApiQuery({ name: 'search', required: false, description: 'Search by name or username' })
   @ApiResponse({
     status: 200,
-    description: 'Courses retrieved successfully',
+    description: 'Students retrieved successfully',
   })
-  async getAllCourses(
+  async getAllStudents(
     @Query('page') page?: number,
     @Query('limit') limit?: number,
-    @Query('instructorId') instructorId?: number,
-    @Query('isActive') isActive?: boolean,
     @Query('search') search?: string,
   ) {
-    return this.adminService.getAllCourses(page || 1, limit || 10, {
-      instructorId,
-      isActive,
-      search,
-    });
+    return this.adminService.getAllStudents(page || 1, limit || 10, search);
   }
 
   @Put('users/:id/deactivate')
@@ -100,5 +93,25 @@ export class AdminController {
   })
   async reactivateUser(@Param('id') id: string) {
     return this.adminService.reactivateUser(+id);
+  }
+
+  @Put('users/:id/unlock')
+  @ApiOperation({ summary: 'Unlock a user account (reset failed login attempts)' })
+  @ApiResponse({
+    status: 200,
+    description: 'User account unlocked successfully',
+  })
+  async unlockUser(@Param('id') id: string) {
+    return this.adminService.unlockUser(+id);
+  }
+
+  @Delete('users/:id')
+  @ApiOperation({ summary: 'Delete a user permanently' })
+  @ApiResponse({
+    status: 200,
+    description: 'User deleted successfully',
+  })
+  async deleteUser(@Param('id') id: string) {
+    return this.adminService.deleteUser(+id);
   }
 }

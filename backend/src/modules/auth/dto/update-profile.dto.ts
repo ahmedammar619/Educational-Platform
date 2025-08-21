@@ -3,13 +3,22 @@ import { IsString, IsOptional, IsDateString, IsPhoneNumber } from 'class-validat
 
 export class UpdateProfileDto {
   @ApiProperty({
-    description: "User's full name",
-    example: 'John Doe',
+    description: "User's first name",
+    example: 'John',
     required: false,
   })
   @IsString()
   @IsOptional()
-  name?: string;
+  firstName?: string;
+
+  @ApiProperty({
+    description: "User's last name",
+    example: 'Doe',
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  lastName?: string;
 
   @ApiProperty({
     description: "User's phone number",
@@ -21,20 +30,20 @@ export class UpdateProfileDto {
   phone?: string;
 
   @ApiProperty({
-    description: "User's date of birth",
-    example: '1990-01-01',
+    description: "User's birth date (for students)",
+    example: '2000-01-01',
     required: false,
   })
   @IsDateString()
   @IsOptional()
-  dateOfBirth?: string;
+  birthDate?: string;
 
   @ApiProperty({
-    description: "URL to user's profile image",
-    example: 'https://example.com/profile.jpg',
+    description: "User's username (for students)",
+    example: 'johndoe123',
     required: false,
   })
   @IsString()
   @IsOptional()
-  profileImageUrl?: string;
+  username?: string;
 }

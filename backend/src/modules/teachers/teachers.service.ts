@@ -1,62 +1,48 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Course } from '../courses/entities/course.entity';
-import { Assignment } from '../assignments/entities/assignment.entity';
+import { User } from '../users/entities/user.entity';
+import { Role } from '../../common/enums/role.enum';
 
 @Injectable()
 export class TeachersService {
   constructor(
-    @InjectRepository(Course)
-    private readonly courseRepository: Repository<Course>,
-    @InjectRepository(Assignment)
-    private readonly assignmentRepository: Repository<Assignment>,
+    @InjectRepository(User)
+    private readonly userRepository: Repository<User>
   ) {}
 
-  async getTeacherCourses(teacherId: number) {
-    return this.courseRepository.find({
-      where: { instructorId: teacherId, isActive: true },
-      relations: ['enrollments', 'assignments'],
-      order: { createdAt: 'DESC' },
-    });
-  }
-
-  async getCourseStudents(teacherId: number, courseId: number) {
-    const course = await this.courseRepository.findOne({
-      where: { id: courseId, instructorId: teacherId },
-      relations: ['enrollments', 'enrollments.student'],
+  async getTeacherProfile(teacherId: number) {
+    const teacher = await this.userRepository.findOne({
+      where: { id: teacherId, role: Role.Teacher },
+      select: ['id', 'firstName', 'lastName', 'email', 'phone', 'createdAt'],
     });
 
-    if (!course) {
-      throw new Error('Course not found or access denied');
+    if (!teacher) {
+      throw new Error('Teacher not found');
     }
 
-    return course.enrollments.map(enrollment => ({
-      ...enrollment.student,
-      enrollmentDate: enrollment.enrollmentDate,
-      progressPercentage: enrollment.progressPercentage,
-      status: enrollment.status,
-    }));
+    return teacher;
   }
 
-  async createAssignment(teacherId: number, assignmentData: any) {
-    const { courseId, ...data } = assignmentData;
-
-    // Verify teacher owns the course
-    const course = await this.courseRepository.findOne({
-      where: { id: courseId, instructorId: teacherId },
+  async updateTeacherProfile(teacherId: number, updateData: Partial<User>) {
+    const teacher = await this.userRepository.findOne({
+      where: { id: teacherId, role: Role.Teacher },
     });
 
-    if (!course) {
-      throw new Error('Course not found or access denied');
+    if (!teacher) {
+      throw new Error('Teacher not found');
     }
 
-    const assignment = this.assignmentRepository.create({
-      ...data,
-      courseId,
-      createdById: teacherId,
-    });
+    // Only allow updating certain fields
+    const allowedFields = ['firstName', 'lastName', 'phone'];
+    const filteredData = Object.keys(updateData)
+      .filter(key => allowedFields.includes(key))
+      .reduce((obj, key) => {
+        obj[key] = updateData[key];
+        return obj;
+      }, {});
 
-    return this.assignmentRepository.save(assignment);
+    await this.userRepository.update(teacherId, filteredData);
+    return this.getTeacherProfile(teacherId);
   }
 }

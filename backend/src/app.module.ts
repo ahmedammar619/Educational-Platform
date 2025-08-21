@@ -1,38 +1,21 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { ThrottlerModule } from '@nestjs/throttler';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { securityConfig } from './config/security.config';
 
 // Feature modules
 import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
-import { CoursesModule } from './modules/courses/courses.module';
 import { StudentsModule } from './modules/students/students.module';
 import { TeachersModule } from './modules/teachers/teachers.module';
 import { AdminModule } from './modules/admin/admin.module';
-import { AssignmentsModule } from './modules/assignments/assignments.module';
-import { SessionsModule } from './modules/sessions/sessions.module';
-import { ContentModule } from './modules/content/content.module';
-import { AnalyticsModule } from './modules/analytics/analytics.module';
-import { NotificationsModule } from './modules/notifications/notifications.module';
-import { HealthModule } from './modules/health/health.module';
-import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { ParentsModule } from './modules/parents/parents.module';
-import { GroupsModule } from './modules/groups/groups.module';
 
 // Entities
 import { User } from './modules/users/entities/user.entity';
-import { Course } from './modules/courses/entities/course.entity';
-import { Enrollment } from './modules/students/entities/enrollment.entity';
-import { Assignment } from './modules/assignments/entities/assignment.entity';
-import { Submission } from './modules/assignments/entities/submission.entity';
-import { ClassSession } from './modules/sessions/entities/class-session.entity';
-import { Attendance } from './modules/sessions/entities/attendance.entity';
-import { Content } from './modules/content/entities/content.entity';
-import { Notification } from './modules/notifications/entities/notification.entity';
-import { Group } from './modules/groups/entities/group.entity';
-import { GroupStudent } from './modules/groups/entities/group_student.entity';
 import { Parent } from './modules/parents/entities/parent.entity';
 
 @Module({
@@ -41,6 +24,12 @@ import { Parent } from './modules/parents/entities/parent.entity';
       isGlobal: true,
       envFilePath: '.env',
     }),
+
+    // Rate Limiting Configuration
+    ThrottlerModule.forRoot([{
+      ttl: securityConfig.rateLimit.ttl,
+      limit: securityConfig.rateLimit.limit,
+    }]),
 
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
@@ -60,16 +49,6 @@ import { Parent } from './modules/parents/entities/parent.entity';
           database: configService.get<string>('DB_DATABASE', 'education_db'),
           entities: [
             User,
-            Course,
-            Enrollment,
-            Assignment,
-            Submission,
-            ClassSession,
-            Attendance,
-            Content,
-            Notification,
-            Group,
-            GroupStudent,
             Parent,
           ],
           synchronize,
@@ -82,19 +61,10 @@ import { Parent } from './modules/parents/entities/parent.entity';
 
     AuthModule,
     UsersModule,
-    CoursesModule,
     StudentsModule,
     TeachersModule,
     AdminModule,
-    AssignmentsModule,
-    SessionsModule,
-    ContentModule,
-    AnalyticsModule,
-    NotificationsModule,
-    HealthModule,
-    DashboardModule,
     ParentsModule,
-    GroupsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

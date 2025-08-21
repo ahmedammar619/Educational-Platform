@@ -8,14 +8,6 @@ import {
 } from 'typeorm';
 import { Exclude } from 'class-transformer';
 import { Role } from '../../../common/enums/role.enum';
-import { Enrollment } from '../../students/entities/enrollment.entity';
-import { Course } from '../../courses/entities/course.entity';
-import { Assignment } from '../../assignments/entities/assignment.entity';
-import { Submission } from '../../assignments/entities/submission.entity';
-import { Attendance } from '../../sessions/entities/attendance.entity';
-import { Notification } from '../../notifications/entities/notification.entity';
-import { Group } from '../../groups/entities/group.entity';
-import { GroupStudent } from '../../groups/entities/group_student.entity';
 import { Parent } from '../../parents/entities/parent.entity';
 
 @Entity('users')
@@ -24,10 +16,16 @@ export class User {
   id: number;
 
   @Column({ length: 255 })
-  name: string;
+  firstName: string;
+
+  @Column({ length: 255 })
+  lastName: string;
 
   @Column({ unique: true, length: 255 })
   email: string;
+
+  @Column({ unique: true, length: 255, nullable: true })
+  username?: string; // Only for students
 
   @Column()
   @Exclude()
@@ -41,16 +39,20 @@ export class User {
   role: Role;
 
   @Column({ nullable: true, length: 20 })
-  phone?: string;
+  phone?: string; // For parents and teachers
 
   @Column({ type: 'date', nullable: true })
-  dateOfBirth?: Date;
-
-  @Column({ nullable: true, length: 500 })
-  profileImageUrl?: string;
+  birthDate?: Date; // Only for students
 
   @Column({ default: true })
   isActive: boolean;
+
+  // ================= Security Fields =================
+  @Column({ default: 0 })
+  failedLoginAttempts: number;
+
+  @Column({ type: 'timestamp', nullable: true })
+  lockedUntil?: Date;
 
   @Column({ type: 'timestamp', nullable: true })
   lastLogin?: Date;
@@ -62,31 +64,6 @@ export class User {
   updatedAt: Date;
 
   // ================= Relations =================
-
-  @OneToMany(() => Enrollment, (enrollment) => enrollment.student)
-  enrollments: Enrollment[];
-
-  @OneToMany(() => Course, (course) => course.instructor)
-  instructedCourses: Course[];
-
-  @OneToMany(() => Assignment, (assignment) => assignment.createdBy)
-  createdAssignments: Assignment[];
-
-  @OneToMany(() => Submission, (submission) => submission.student)
-  submissions: Submission[];
-
-  @OneToMany(() => Attendance, (attendance) => attendance.student)
-  attendanceRecords: Attendance[];
-
-  @OneToMany(() => Notification, (notification) => notification.user)
-  notifications: Notification[];
-
-  // Groups & GroupStudents
-  @OneToMany(() => Group, (group) => group.teacher)
-  groups: Group[];
-
-  @OneToMany(() => GroupStudent, (gs) => gs.student)
-  groupMemberships: GroupStudent[];
 
   // Parent/Child Relations
   @OneToMany(() => Parent, (p) => p.parent)

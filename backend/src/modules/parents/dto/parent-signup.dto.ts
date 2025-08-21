@@ -1,9 +1,13 @@
-import { IsEmail, IsNotEmpty, IsString, MinLength } from 'class-validator';
+import { IsEmail, IsNotEmpty, IsString, MinLength, IsPhoneNumber } from 'class-validator';
 
 export class ParentSignupDto {
   @IsString()
   @IsNotEmpty()
-  name: string;
+  firstName: string;
+
+  @IsString()
+  @IsNotEmpty()
+  lastName: string;
 
   @IsEmail()
   email: string;
@@ -12,6 +16,6 @@ export class ParentSignupDto {
   @MinLength(6)
   password: string;
 
-  @IsString()
+  @IsPhoneNumber()
   phone: string;
 }

@@ -5,6 +5,8 @@ import { ConfigService } from '@nestjs/config';
 import { AppModule } from './app.module';
 import { HttpExceptionFilter, AllExceptionsFilter } from './common/filters/http-exception.filter';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
+import { securityConfig } from './config/security.config';
+import helmet from 'helmet';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -13,33 +15,17 @@ async function bootstrap() {
   // Global prefix
   app.setGlobalPrefix('api');
 
-  // CORS configuration
-  app.enableCors({
-    origin: [
-      'http://localhost:3000',
-      'http://localhost:3001',
-      'http://localhost:5173',
-      'http://127.0.0.1:3000',
-      'http://127.0.0.1:3001',
-      'http://127.0.0.1:5173',
-      configService.get('CLIENT_URL') || 'http://localhost:5173'
-    ],
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
-    optionsSuccessStatus: 200,
-  });
+  // Security Headers
+  app.use(helmet());
+  app.use(helmet.contentSecurityPolicy(securityConfig.headers.helmet.contentSecurityPolicy));
+  app.use(helmet.hsts(securityConfig.headers.helmet.hsts));
 
-  // Global validation pipe
+  // Enhanced CORS configuration
+  app.enableCors(securityConfig.cors);
+
+  // Global validation pipe with enhanced security
   app.useGlobalPipes(
-    new ValidationPipe({
-      whitelist: true,
-      forbidNonWhitelisted: true,
-      transform: true,
-      transformOptions: {
-        enableImplicitConversion: true,
-      },
-    }),
+    new ValidationPipe(securityConfig.validation),
   );
 
   // Global exception filters
@@ -50,7 +36,8 @@ async function bootstrap() {
 
   // Swagger configuration
   const config = new DocumentBuilder()
-    .setTitle('UNI-SCHEDULER APP API')
+    .setTitle('Educational Platform API')
+    .setDescription('Simplified Educational Platform with Admin, Parent, Student, and Teacher management')
     .setVersion('1.0')
     .addServer(
       configService.get('NODE_ENV') === 'production'
@@ -69,9 +56,13 @@ async function bootstrap() {
       },
       'JWT-auth',
     )
-    .addTag('Users', ' User management and account operations')
-    .addTag('Auth', ' Authentication operations')
-    .addTag('Departments', ' Department management')
+    .addTag('System', 'System information and health checks')
+    .addTag('Auth', 'Authentication operations (register, login, profile management)')
+    .addTag('Users', 'User management and account operations')
+    .addTag('Admin', 'Administrative operations (dashboard, user management, account unlock)')
+    .addTag('Parents', 'Parent-specific operations (signup, child management)')
+    .addTag('Students', 'Student profile management')
+    .addTag('Teachers', 'Teacher profile management')
     .build();
 
   const document = SwaggerModule.createDocument(app, config);
@@ -84,7 +75,7 @@ async function bootstrap() {
       showExtensions: true,
       showCommonExtensions: true,
     },
-    customSiteTitle: 'UNI-SCHEDULER API Documentation',
+    customSiteTitle: 'Educational Platform API Documentation',
     customCss: `
       /* Hide the topbar logo */
       .swagger-ui .topbar { display: none !important; }
@@ -169,9 +160,10 @@ async function bootstrap() {
   const port = configService.get('PORT', 3000);
   await app.listen(port);
 
-  console.log('🚀 UNI-SCHEDULER API Started');
+  console.log('🚀 Educational Platform API Started');
   console.log('📍 Server running on port ' + port);
   console.log('🌍 Environment: ' + configService.get('NODE_ENV', 'development'));
+  console.log('🔐 Security: Enhanced with rate limiting, account lockout, and security headers');
   console.log('📊 Health check: http://localhost:' + port + '/api/health');
   console.log('🔐 API endpoints: http://localhost:' + port + '/api');
   console.log('📚 API Documentation: http://localhost:' + port + '/api/docs');

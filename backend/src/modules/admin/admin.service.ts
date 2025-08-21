@@ -2,26 +2,21 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from '../users/entities/user.entity';
-import { Course } from '../courses/entities/course.entity';
-import { Enrollment } from '../students/entities/enrollment.entity';
-import { EnrollmentStatus } from '../../common/enums/enrollment-status.enum';
+import { Role } from '../../common/enums/role.enum';
 
 @Injectable()
 export class AdminService {
   constructor(
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
-    @InjectRepository(Course)
-    private readonly courseRepository: Repository<Course>,
-    @InjectRepository(Enrollment)
-    private readonly enrollmentRepository: Repository<Enrollment>,
   ) {}
 
   async getDashboardStats() {
-    const [totalUsers, totalCourses, totalEnrollments] = await Promise.all([
+    const [totalUsers, totalParents, totalStudents, totalTeachers] = await Promise.all([
       this.userRepository.count({ where: { isActive: true } }),
-      this.courseRepository.count({ where: { isActive: true } }),
-      this.enrollmentRepository.count({ where: { status: EnrollmentStatus.ACTIVE } }),
+      this.userRepository.count({ where: { role: Role.Parent, isActive: true } }),
+      this.userRepository.count({ where: { role: Role.Student, isActive: true } }),
+      this.userRepository.count({ where: { role: Role.Teacher, isActive: true } }),
     ]);
 
     const usersByRole = await this.userRepository
@@ -34,8 +29,9 @@ export class AdminService {
 
     return {
       totalUsers,
-      totalCourses,
-      totalEnrollments,
+      totalParents,
+      totalStudents,
+      totalTeachers,
       usersByRole,
       timestamp: new Date().toISOString(),
     };
@@ -55,7 +51,7 @@ export class AdminService {
 
     if (search) {
       queryBuilder.andWhere(
-        '(user.name ILIKE :search OR user.email ILIKE :search)',
+        '(user.firstName ILIKE :search OR user.lastName ILIKE :search OR user.email ILIKE :search)',
         { search: `%${search}%` }
       );
     }
@@ -77,42 +73,29 @@ export class AdminService {
     };
   }
 
-  async getAllCourses(page: number = 1, limit: number = 10, filters: any = {}) {
-    const { instructorId, isActive, search } = filters;
+  async getAllStudents(page: number = 1, limit: number = 10, search?: string) {
     const offset = (page - 1) * limit;
 
-    let queryBuilder = this.courseRepository
-      .createQueryBuilder('course')
-      .leftJoinAndSelect('course.instructor', 'instructor')
-      .leftJoin('course.enrollments', 'enrollment', 'enrollment.status = :enrollmentStatus', {
-        enrollmentStatus: EnrollmentStatus.ACTIVE,
-      })
-      .addSelect('COUNT(enrollment.id)', 'enrolledStudents')
-      .groupBy('course.id, instructor.id');
-
-    if (instructorId) {
-      queryBuilder.andWhere('course.instructorId = :instructorId', { instructorId });
-    }
-
-    if (isActive !== undefined) {
-      queryBuilder.andWhere('course.isActive = :isActive', { isActive });
-    }
+    let queryBuilder = this.userRepository
+      .createQueryBuilder('user')
+      .where('user.role = :role', { role: Role.Student })
+      .andWhere('user.isActive = :isActive', { isActive: true });
 
     if (search) {
       queryBuilder.andWhere(
-        '(course.title ILIKE :search OR course.description ILIKE :search)',
+        '(user.firstName ILIKE :search OR user.lastName ILIKE :search OR user.username ILIKE :search)',
         { search: `%${search}%` }
       );
     }
 
-    const [courses, total] = await queryBuilder
+    const [students, total] = await queryBuilder
       .skip(offset)
       .take(limit)
-      .orderBy('course.createdAt', 'DESC')
+      .orderBy('user.createdAt', 'DESC')
       .getManyAndCount();
 
     return {
-      courses,
+      students,
       pagination: {
         page,
         limit,
@@ -130,5 +113,18 @@ export class AdminService {
   async reactivateUser(userId: number) {
     await this.userRepository.update(userId, { isActive: true });
     return { message: 'User reactivated successfully' };
+  }
+
+  async unlockUser(userId: number) {
+    await this.userRepository.update(userId, {
+      failedLoginAttempts: 0,
+      lockedUntil: null,
+    });
+    return { message: 'User account unlocked successfully' };
+  }
+
+  async deleteUser(userId: number) {
+    await this.userRepository.delete(userId);
+    return { message: 'User deleted successfully' };
   }
 }

@@ -7,16 +7,25 @@ import {
   IsEnum,
   IsOptional,
   IsPhoneNumber,
+  IsDateString,
+  Matches,
 } from 'class-validator';
-import { Role } from '../../../common/enums/role.enum'; // ✅ updated
+import { Role } from '../../../common/enums/role.enum';
 
 export class RegisterDto {
   @ApiProperty({
-    description: "User's full name",
-    example: 'John Doe',
+    description: "User's first name",
+    example: 'John',
   })
   @IsString()
-  name: string;
+  firstName: string;
+
+  @ApiProperty({
+    description: "User's last name",
+    example: 'Doe',
+  })
+  @IsString()
+  lastName: string;
 
   @ApiProperty({
     description: "User's email address",
@@ -26,30 +35,54 @@ export class RegisterDto {
   email: string;
 
   @ApiProperty({
-    description: "User's password",
-    example: 'password123',
-    minLength: 6,
+    description: "User's password (must contain uppercase, lowercase, number, and special character)",
+    example: 'SecurePass123!',
+    minLength: 8,
   })
   @IsString()
-  @MinLength(6)
+  @MinLength(8)
+  @Matches(
+    /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/,
+    { 
+      message: 'Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character (@$!%*?&)' 
+    }
+  )
   password: string;
 
   @ApiProperty({
     description: "User's role in the system",
-    enum: Role, // ✅ updated
-    default: Role.Student, // ✅ updated
+    enum: Role,
+    default: Role.Student,
     required: false,
   })
-  @IsEnum(Role) // ✅ updated
+  @IsEnum(Role)
   @IsOptional()
-  role?: Role = Role.Student; // ✅ updated
+  role?: Role = Role.Student;
 
   @ApiProperty({
-    description: "User's phone number",
+    description: "User's phone number (for parents and teachers)",
     example: '+1234567890',
     required: false,
   })
   @IsPhoneNumber()
   @IsOptional()
   phone?: string;
+
+  @ApiProperty({
+    description: "User's username (for students only)",
+    example: 'johndoe123',
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  username?: string;
+
+  @ApiProperty({
+    description: "User's birth date (for students only)",
+    example: '2000-01-01',
+    required: false,
+  })
+  @IsDateString()
+  @IsOptional()
+  birthDate?: string;
 }

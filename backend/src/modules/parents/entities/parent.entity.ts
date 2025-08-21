@@ -7,7 +7,7 @@ import {
 } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
 
-@Entity('parents')
+@Entity('parent_children')
 export class Parent {
   @PrimaryGeneratedColumn()
   id: number;
@@ -25,10 +25,4 @@ export class Parent {
 
   @Column()
   childId: number;
-
-  @Column({ nullable: true })
-  childAge?: number;
-
-  @Column({ nullable: true })
-  paymentInfo?: string;
 }
