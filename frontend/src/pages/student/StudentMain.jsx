@@ -17,9 +17,9 @@ const StudentMain = ({ user, onLogout }) => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Top Navigation */}
-      <nav className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      {/* Top Navigation - Fixed */}
+      <nav className="fixed top-0 left-0 right-0 bg-white shadow-sm border-b z-50">
+        <div className="px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">
             <div className="flex items-center">
               <div className="flex items-center space-x-3">
@@ -67,11 +67,11 @@ const StudentMain = ({ user, onLogout }) => {
         </div>
       </nav>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="flex flex-col lg:flex-row gap-8">
-          {/* Sidebar Navigation */}
-          <div className="lg:w-64 flex-shrink-0">
-            <div className="bg-white rounded-lg shadow-sm border p-4">
+      <div className="pt-16 pr-8 pl-2">
+        <div className="flex flex-col lg:flex-row gap-8 pt-6">
+          {/* Sidebar Navigation - Fixed */}
+          <div className="lg:w-64 flex-shrink-0 lg:fixed lg:top-16 lg:left-4 lg:h-screen lg:overflow-y-auto lg:z-40">
+            <div className="bg-white rounded-lg shadow-sm border p-4 mt-6">
               <nav className="space-y-2">
                 {navigation.map((item) => {
                   const Icon = item.icon;
@@ -128,8 +128,8 @@ const StudentMain = ({ user, onLogout }) => {
             </div>
           </div>
 
-          {/* Main Content */}
-          <div className="flex-1 min-w-0">
+          {/* Main Content - With left margin for fixed sidebar and gap */}
+          <div className="flex-1 min-w-0 lg:ml-72">
             <ActiveComponent user={user} />
           </div>
         </div>
