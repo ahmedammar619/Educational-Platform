@@ -1,11 +1,24 @@
-import { IsInt, IsNotEmpty, Min } from 'class-validator';
+import { IsString, IsNotEmpty, MinLength, IsDateString, IsOptional } from 'class-validator';
 
 export class AddChildDto {
-  @IsInt()
+  @IsString()
   @IsNotEmpty()
-  childId: number;
+  firstName: string;
 
-  @IsInt()
-  @Min(1)
-  childAge: number;
+  @IsString()
+  @IsNotEmpty()
+  lastName: string;
+
+  @IsString()
+  @IsNotEmpty()
+  @MinLength(3)
+  username: string;
+
+  @IsString()
+  @MinLength(6)
+  password: string;
+
+  @IsDateString()
+  @IsOptional()
+  birthDate?: string;
 }

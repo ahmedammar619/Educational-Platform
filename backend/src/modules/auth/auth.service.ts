@@ -4,11 +4,13 @@ import {
   ConflictException,
   NotFoundException,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
+import { securityConfig } from '../../config/security.config';
 
 import { User } from '../users/entities/user.entity';
 import { RegisterDto } from './dto/register.dto';
@@ -36,6 +38,17 @@ export class AuthService {
       throw new ConflictException('User already exists with this email');
     }
 
+    // Check if username already exists (for students)
+    if (userData.username) {
+      const existingUsername = await this.userRepository.findOne({
+        where: { username: userData.username },
+      });
+
+      if (existingUsername) {
+        throw new ConflictException('Username already exists');
+      }
+    }
+
     // Hash password
     const saltRounds = 12;
     const passwordHash = await bcrypt.hash(password, saltRounds);
@@ -45,6 +58,8 @@ export class AuthService {
       ...userData,
       email,
       passwordHash,
+      failedLoginAttempts: 0,
+      lockedUntil: null,
     });
 
     const savedUser = await this.userRepository.save(user);
@@ -65,7 +80,7 @@ export class AuthService {
     // Find user with password
     const user = await this.userRepository.findOne({
       where: { email },
-      select: ['id', 'email', 'passwordHash', 'name', 'role', 'isActive'],
+      select: ['id', 'email', 'passwordHash', 'firstName', 'lastName', 'role', 'isActive', 'failedLoginAttempts', 'lockedUntil'],
     });
 
     if (!user) {
@@ -76,14 +91,42 @@ export class AuthService {
       throw new UnauthorizedException('Account is deactivated');
     }
 
-    // Verify password
-    const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
-    if (!isPasswordValid) {
-      throw new UnauthorizedException('Invalid credentials');
+    // Check if account is locked
+    if (user.lockedUntil && user.lockedUntil > new Date()) {
+      const remainingTime = Math.ceil((user.lockedUntil.getTime() - Date.now()) / 1000 / 60);
+      throw new ForbiddenException(`Account is locked. Try again in ${remainingTime} minutes.`);
     }
 
-    // Update last login
+    // Verify password
+    const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
+    
+    if (!isPasswordValid) {
+      // Increment failed login attempts
+      const newFailedAttempts = user.failedLoginAttempts + 1;
+      let lockedUntil = null;
+
+      // Lock account if max attempts reached
+      if (newFailedAttempts >= securityConfig.lockout.maxFailedAttempts) {
+        lockedUntil = new Date(Date.now() + securityConfig.lockout.lockoutDuration);
+      }
+
+      await this.userRepository.update(user.id, {
+        failedLoginAttempts: newFailedAttempts,
+        lockedUntil,
+      });
+
+      if (newFailedAttempts >= securityConfig.lockout.maxFailedAttempts) {
+        throw new ForbiddenException(`Account locked due to too many failed attempts. Try again in ${Math.ceil(securityConfig.lockout.lockoutDuration / 1000 / 60)} minutes.`);
+      }
+
+      const remainingAttempts = securityConfig.lockout.maxFailedAttempts - newFailedAttempts;
+      throw new UnauthorizedException(`Invalid credentials. ${remainingAttempts} attempts remaining.`);
+    }
+
+    // Reset failed login attempts on successful login
     await this.userRepository.update(user.id, {
+      failedLoginAttempts: 0,
+      lockedUntil: null,
       lastLogin: new Date(),
     });
 
@@ -100,10 +143,15 @@ export class AuthService {
   async validateUser(email: string, password: string): Promise<any> {
     const user = await this.userRepository.findOne({
       where: { email },
-      select: ['id', 'email', 'passwordHash', 'name', 'role', 'isActive'],
+      select: ['id', 'email', 'passwordHash', 'firstName', 'lastName', 'role', 'isActive', 'failedLoginAttempts', 'lockedUntil'],
     });
 
     if (user && user.isActive) {
+      // Check if account is locked
+      if (user.lockedUntil && user.lockedUntil > new Date()) {
+        return null;
+      }
+
       const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
       if (isPasswordValid) {
         const { passwordHash, ...result } = user;
@@ -114,18 +162,17 @@ export class AuthService {
   }
 
   async findById(id: number): Promise<User> {
-  const user = await this.userRepository.findOne({
-    where: { id },
-    select: ['id', 'email', 'name', 'role', 'isActive'], // add isActive
-  });
+    const user = await this.userRepository.findOne({
+      where: { id },
+      select: ['id', 'email', 'firstName', 'lastName', 'role', 'isActive'],
+    });
 
-  if (!user) {
-    throw new NotFoundException('User not found');
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    return user;
   }
-
-  return user;
-}
-
 
   async updateProfile(userId: number, updateProfileDto: UpdateProfileDto) {
     const user = await this.findById(userId);
@@ -176,12 +223,19 @@ export class AuthService {
   }
 
   async deactivateAccount(userId: number) {
-    await this.userRepository.update(userId, {
-      isActive: false,
-    });
-
+    await this.userRepository.update(userId, { isActive: false });
     return {
       message: 'Account deactivated successfully',
+    };
+  }
+
+  async unlockAccount(userId: number) {
+    await this.userRepository.update(userId, {
+      failedLoginAttempts: 0,
+      lockedUntil: null,
+    });
+    return {
+      message: 'Account unlocked successfully',
     };
   }
 
@@ -190,13 +244,20 @@ export class AuthService {
       sub: user.id,
       email: user.email,
       role: user.role,
+      iat: Math.floor(Date.now() / 1000),
+      exp: Math.floor(Date.now() / 1000) + (parseInt(securityConfig.jwt.expiresIn) * 60), // Convert minutes to seconds
     };
 
-    return this.jwtService.sign(payload);
+    return this.jwtService.sign(payload, {
+      secret: process.env.JWT_SECRET || securityConfig.jwt.secret,
+      expiresIn: securityConfig.jwt.expiresIn,
+      issuer: securityConfig.jwt.issuer,
+      audience: securityConfig.jwt.audience,
+    });
   }
 
   private sanitizeUser(user: User): Partial<User> {
-    const { passwordHash, ...sanitizedUser } = user;
+    const { passwordHash, failedLoginAttempts, lockedUntil, ...sanitizedUser } = user;
     return sanitizedUser;
   }
 }

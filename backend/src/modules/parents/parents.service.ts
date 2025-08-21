@@ -1,131 +1,112 @@
-import { Injectable, ForbiddenException, NotFoundException } from '@nestjs/common';
+import { Injectable, ForbiddenException, NotFoundException, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Parent } from './entities/parent.entity';
 import { User } from '../users/entities/user.entity';
 import { ParentSignupDto } from './dto/parent-signup.dto';
 import { AddChildDto } from './dto/add-child.dto';
-import { UpdatePaymentDto } from './dto/update-payment.dto';
 import { Role } from '../../common/enums/role.enum';
 import { AuthService } from '../auth/auth.service';
-import { Attendance } from '../sessions/entities/attendance.entity';
-import { Submission } from '../assignments/entities/submission.entity';
-import { Assignment } from '../assignments/entities/assignment.entity';
+import * as bcrypt from 'bcryptjs';
 
 @Injectable()
 export class ParentsService {
   constructor(
     @InjectRepository(Parent) private readonly parentRepo: Repository<Parent>,
     @InjectRepository(User) private readonly userRepo: Repository<User>,
-    @InjectRepository(Attendance) private readonly attendanceRepo: Repository<Attendance>,
-    @InjectRepository(Submission) private readonly submissionRepo: Repository<Submission>,
-    @InjectRepository(Assignment) private readonly assignmentRepo: Repository<Assignment>,
     private readonly authService: AuthService,
   ) {}
 
-  // Optional convenience: allow a dedicated signup route for parents
+  // Parent signup
   async signupParent(dto: ParentSignupDto) {
     return this.authService.register({
-      name: dto.name,
+      firstName: dto.firstName,
+      lastName: dto.lastName,
       email: dto.email,
       password: dto.password,
       phone: dto.phone,
-      role: Role.Parent,   // ✅ changed to Role
+      role: Role.Parent,
     } as any);
   }
 
-  // Parent adds an existing child (student) by ID
-  async addChild(parentUserId: number, dto: AddChildDto): Promise<Parent> {
+  // Parent creates a new student account for their child
+  async createChildAccount(parentUserId: number, dto: AddChildDto): Promise<{ user: User; parent: Parent }> {
     const parentUser = await this.userRepo.findOne({ where: { id: parentUserId } });
     if (!parentUser || parentUser.role !== Role.Parent) {
-      throw new ForbiddenException('Only parents can add children.');
+      throw new ForbiddenException('Only parents can create child accounts.');
     }
 
-    const childUser = await this.userRepo.findOne({ where: { id: dto.childId } });
-    if (!childUser || childUser.role !== Role.Student) {
-      throw new NotFoundException('Child student not found.');
+    // Check if username already exists
+    const existingUsername = await this.userRepo.findOne({ where: { username: dto.username } });
+    if (existingUsername) {
+      throw new ConflictException('Username already exists.');
     }
 
-    // Prevent duplicate parent-child link
-    const existing = await this.parentRepo.findOne({
-      where: { parent: { id: parentUserId }, child: { id: childUser.id } },
-      relations: ['parent', 'child'],
+    // Check if email already exists
+    const existingEmail = await this.userRepo.findOne({ where: { email: dto.username + '@student.local' } });
+    if (existingEmail) {
+      throw new ConflictException('Email already exists.');
+    }
+
+    // Hash password
+    const saltRounds = 12;
+    const passwordHash = await bcrypt.hash(dto.password, saltRounds);
+
+    // Create student user
+    const studentUser = this.userRepo.create({
+      firstName: dto.firstName,
+      lastName: dto.lastName,
+      email: dto.username + '@student.local', // Generate email from username
+      username: dto.username,
+      passwordHash,
+      role: Role.Student,
+      birthDate: dto.birthDate ? new Date(dto.birthDate) : null,
     });
-    if (existing) return existing;
 
-    const record = this.parentRepo.create({
+    const savedStudent = await this.userRepo.save(studentUser);
+
+    // Create parent-child relationship
+    const parentRecord = this.parentRepo.create({
       parent: parentUser,
-      child: childUser,
-      childAge: dto.childAge,
-      paymentInfo: null,
+      child: savedStudent,
     });
 
-    return this.parentRepo.save(record);
+    const savedParentRecord = await this.parentRepo.save(parentRecord);
+
+    return {
+      user: savedStudent,
+      parent: savedParentRecord,
+    };
   }
 
-  async updatePayment(parentUserId: number, parentRecordId: number, dto: UpdatePaymentDto): Promise<Parent> {
-    const record = await this.parentRepo.findOne({
-      where: { id: parentRecordId },
-      relations: ['parent', 'child'],
-    });
-
-    if (!record) throw new NotFoundException('Parent record not found.');
-    if (record.parent.id !== parentUserId) {
-      throw new ForbiddenException('You can update only your own payment info.');
-    }
-
-    record.paymentInfo = dto.paymentInfo;
-    return this.parentRepo.save(record);
-  }
-
-  async getMyChildren(parentUserId: number): Promise<Parent[]> {
-    return this.parentRepo.find({
+  // Get all children of the logged-in parent
+  async getMyChildren(parentUserId: number): Promise<User[]> {
+    const parentRecords = await this.parentRepo.find({
       where: { parent: { id: parentUserId } },
       relations: ['child'],
       order: { id: 'ASC' },
     });
+
+    return parentRecords.map(record => record.child);
   }
 
-  private async assertParentOfChild(parentUserId: number, childId: number) {
-    const link = await this.parentRepo.findOne({
+  // Remove child from parent (delete student account)
+  async removeChild(parentUserId: number, childId: number): Promise<{ message: string }> {
+    const parentRecord = await this.parentRepo.findOne({
       where: { parent: { id: parentUserId }, child: { id: childId } },
       relations: ['parent', 'child'],
     });
-    if (!link) {
-      throw new ForbiddenException('Not authorized to access this child data');
-    }
-    return link;
-  }
 
-  async getChildAttendance(parentUserId: number, childId: number) {
-    await this.assertParentOfChild(parentUserId, childId);
-
-    const records = await this.attendanceRepo.find({
-      where: { studentId: childId },
-      relations: ['session', 'session.course'],
-      order: { createdAt: 'DESC' },
-    });
-
-    return { attendance: records };
-  }
-
-  async getChildGrades(parentUserId: number, childId: number, filters: { courseId?: number } = {}) {
-    await this.assertParentOfChild(parentUserId, childId);
-
-    const { courseId } = filters;
-    let qb = this.submissionRepo
-      .createQueryBuilder('submission')
-      .leftJoinAndSelect('submission.assignment', 'assignment')
-      .leftJoinAndSelect('assignment.course', 'course')
-      .leftJoinAndSelect('submission.gradedBy', 'grader')
-      .where('submission.studentId = :childId', { childId })
-      .andWhere('submission.grade IS NOT NULL');
-
-    if (courseId) {
-      qb = qb.andWhere('course.id = :courseId', { courseId });
+    if (!parentRecord) {
+      throw new NotFoundException('Parent-child relationship not found.');
     }
 
-    const grades = await qb.orderBy('submission.gradedAt', 'DESC').getMany();
-    return { grades };
+    // Delete the parent-child relationship
+    await this.parentRepo.remove(parentRecord);
+
+    // Delete the child user account
+    await this.userRepo.remove(parentRecord.child);
+
+    return { message: 'Child account removed successfully' };
   }
 }

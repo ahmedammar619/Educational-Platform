@@ -2,9 +2,8 @@
 import {
   Controller,
   Get,
-  Post,
+  Put,
   Body,
-  Param,
   UseGuards,
 } from '@nestjs/common';
 import {
@@ -18,55 +17,38 @@ import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
-import { Role } from '../../common/enums/role.enum'; // ✅ updated
+import { Role } from '../../common/enums/role.enum';
 
 @ApiTags('Teachers')
 @Controller('teachers')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(Role.Teacher) // ✅ updated
+@Roles(Role.Teacher)
 @ApiBearerAuth('JWT-auth')
 export class TeachersController {
   constructor(private readonly teachersService: TeachersService) {}
 
-  @Get('courses')
-  @ApiOperation({ summary: "Get teacher's courses" })
+  @Get('profile')
+  @ApiOperation({ summary: "Get teacher's profile" })
   @ApiResponse({
     status: 200,
-    description: 'Teacher courses retrieved successfully',
+    description: 'Teacher profile retrieved successfully',
   })
-  async getCourses(@CurrentUser('id') teacherId: number) {
-    const courses = await this.teachersService.getTeacherCourses(teacherId);
-    return { courses };
+  async getProfile(@CurrentUser('id') teacherId: number) {
+    const profile = await this.teachersService.getTeacherProfile(teacherId);
+    return { profile };
   }
 
-  @Get('courses/:courseId/students')
-  @ApiOperation({ summary: 'Get students enrolled in course' })
+  @Put('profile')
+  @ApiOperation({ summary: 'Update teacher profile' })
   @ApiResponse({
     status: 200,
-    description: 'Course students retrieved successfully',
+    description: 'Teacher profile updated successfully',
   })
-  async getCourseStudents(
+  async updateProfile(
     @CurrentUser('id') teacherId: number,
-    @Param('courseId') courseId: string,
+    @Body() updateData: { firstName?: string; lastName?: string; phone?: string },
   ) {
-    const students = await this.teachersService.getCourseStudents(teacherId, +courseId);
-    return { students };
-  }
-
-  @Post('assignments')
-  @ApiOperation({ summary: 'Create a new assignment' })
-  @ApiResponse({
-    status: 201,
-    description: 'Assignment created successfully',
-  })
-  async createAssignment(
-    @CurrentUser('id') teacherId: number,
-    @Body() assignmentData: any,
-  ) {
-    const assignment = await this.teachersService.createAssignment(teacherId, assignmentData);
-    return {
-      message: 'Assignment created successfully',
-      assignment,
-    };
+    const profile = await this.teachersService.updateTeacherProfile(teacherId, updateData);
+    return { profile };
   }
 }
