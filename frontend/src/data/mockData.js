@@ -178,6 +178,36 @@ export const mockUsers = {
       status: 'active',
       avatar: '/api/placeholder/40/40',
       courseIds: [1, 2, 6, 8] // Quran Juz 1, Arabic Basics, Islamic History, Fiqh
+    },
+    {
+      id: 207,
+      firstName: 'Sarah',
+      lastName: 'Student',
+      fullName: 'Sarah Student',
+      email: 'sarah.student@education.com',
+      phone: '+1-555-0005',
+      role: 'student',
+      age: 12,
+      parentId: 305,
+      joinDate: '2023-09-01',
+      status: 'active',
+      avatar: '/api/placeholder/40/40',
+      courseIds: [1, 3, 8] // Quran Juz 1, Islamic Studies Foundation, Fiqh
+    },
+    {
+      id: 208,
+      firstName: 'Michael',
+      lastName: 'Student',
+      fullName: 'Michael Student',
+      email: 'michael.student@education.com',
+      phone: '+1-555-0006',
+      role: 'student',
+      age: 14,
+      parentId: 305,
+      joinDate: '2023-09-01',
+      status: 'active',
+      avatar: '/api/placeholder/40/40',
+      courseIds: [2, 4, 8] // Arabic Language Basics, Tajweed Mastery, Fiqh
     }
   ],
   parents: [
@@ -241,7 +271,7 @@ export const mockUsers = {
       email: 'mary.parent@education.com',
       phone: '+1-555-0004',
       role: 'parent',
-      children: [206],
+      children: [206, 207, 208],
       joinDate: '2023-08-15',
       status: 'active',
       avatar: '/api/placeholder/40/40'
@@ -284,7 +314,7 @@ export const mockClasses = [
     numberOfSessions: 2, // 2 sessions per week
     sessionDuration: 120, // 120 minutes per session
     price: 500, // SAR
-    students: [201, 202, 204], // Ahmad, Fatima, Maryam
+    students: [201, 202, 204, 207], // Ahmad, Fatima, Maryam, Sarah
     description: 'Memorization of the first Juz of the Holy Quran with proper Tajweed',
     startDate: '2023-09-01',
     endDate: '2023-12-01',
@@ -308,7 +338,7 @@ export const mockClasses = [
     numberOfSessions: 2,
     sessionDuration: 120,
     price: 400,
-    students: [201, 203], // Ahmad, Yusuf
+    students: [201, 203, 207, 208], // Ahmad, Yusuf, Sarah, Michael
     description: 'Basic Arabic reading, writing, and grammar for beginners',
     startDate: '2023-09-05',
     endDate: '2023-11-30',
@@ -332,7 +362,7 @@ export const mockClasses = [
     numberOfSessions: 2,
     sessionDuration: 120,
     price: 350,
-    students: [202, 203, 205], // Fatima, Yusuf, Omar
+    students: [202, 203, 205, 207], // Fatima, Yusuf, Omar, Sarah
     description: 'Introduction to Islamic history, principles, and values',
     startDate: '2023-09-10',
     endDate: '2023-11-25',
@@ -356,7 +386,7 @@ export const mockClasses = [
     numberOfSessions: 2,
     sessionDuration: 120,
     price: 450,
-    students: [203, 204], // Yusuf, Maryam
+    students: [203, 204, 208], // Yusuf, Maryam, Michael
     description: 'Master the art of Quranic recitation with proper pronunciation and rules',
     startDate: '2023-10-01',
     endDate: '2023-12-15',
@@ -404,7 +434,7 @@ export const mockClasses = [
     numberOfSessions: 2,
     sessionDuration: 120,
     price: 250,
-    students: [201, 203], // Ahmad, Yusuf
+    students: [201, 203, 207], // Ahmad, Yusuf, Sarah
     description: 'Introduction to Islamic history and its significance',
     startDate: '2023-11-01',
     endDate: '2023-12-31',
@@ -452,7 +482,7 @@ export const mockClasses = [
     numberOfSessions: 2,
     sessionDuration: 120,
     price: 400,
-    students: [201, 202, 203, 204, 205], // All students
+    students: [201, 202, 203, 204, 205, 206, 207, 208], // All students
     description: 'Study of Islamic law and legal principles',
     startDate: '2024-01-15',
     endDate: '2024-04-15',
@@ -564,15 +594,63 @@ export const mockClasses = [
         endTime: "20:00"
       }
     ]
+  },
+  {
+    id: 13,
+    name: 'Evening Quran Recitation',
+    teacherId: 101,
+    numberOfSessions: 2,
+    sessionDuration: 120,
+    price: 350,
+    students: [206, 207, 208], // Mary Parent's children
+    description: 'Evening Quran recitation and memorization practice',
+    startDate: '2024-01-01',
+    endDate: '2024-06-30',
+    schedule: [
+      {
+        day: "Monday",
+        startTime: "20:00",
+        endTime: "22:00"
+      },
+      {
+        day: "Thursday",
+        startTime: "20:00",
+        endTime: "22:00"
+      }
+    ]
+  },
+  {
+    id: 14,
+    name: 'Advanced Islamic Studies',
+    teacherId: 103,
+    numberOfSessions: 2,
+    sessionDuration: 120,
+    price: 500,
+    students: [201, 203, 205], // Advanced students
+    description: 'Advanced topics in Islamic studies and theology',
+    startDate: '2024-02-01',
+    endDate: '2024-07-31',
+    schedule: [
+      {
+        day: "Tuesday",
+        startTime: "20:00",
+        endTime: "22:00"
+      },
+      {
+        day: "Saturday",
+        startTime: "20:00",
+        endTime: "22:00"
+      }
+    ]
   }
 ];
 
 // Analytics Mock Data
 export const mockAnalytics = {
   admin: {
-    totalUsers: 16,
+    totalUsers: 19,
     totalTeachers: 6,
-    totalStudents: 6,
+    totalStudents: 9,
     totalParents: 5,
     totalClasses: 12,
     activeClasses: 12,
@@ -584,7 +662,7 @@ export const mockAnalytics = {
       { month: 'Nov', users: 14 },
       { month: 'Dec', users: 15 },
       { month: 'Jan', users: 15 },
-      { month: 'Feb', users: 16 }
+      { month: 'Feb', users: 19 }
     ],
     revenueData: [
       { month: 'Sep', revenue: 2000 },
@@ -595,14 +673,14 @@ export const mockAnalytics = {
       { month: 'Feb', revenue: 13250 }
     ],
     classDistribution: [
-      { name: 'Quran Memorization - Juz 1', students: 3, color: '#10B981' },
-      { name: 'Arabic Language Basics', students: 2, color: '#3B82F6' },
-      { name: 'Islamic Studies Foundation', students: 3, color: '#8B5CF6' },
-      { name: 'Tajweed Mastery', students: 2, color: '#F59E0B' },
+      { name: 'Quran Memorization - Juz 1', students: 4, color: '#10B981' },
+      { name: 'Arabic Language Basics', students: 4, color: '#3B82F6' },
+      { name: 'Islamic Studies Foundation', students: 4, color: '#8B5CF6' },
+      { name: 'Tajweed Mastery', students: 3, color: '#F59E0B' },
       { name: 'Hadith Studies', students: 1, color: '#EF4444' },
-      { name: 'Islamic History', students: 2, color: '#06B6D4' },
+      { name: 'Islamic History', students: 3, color: '#06B6D4' },
       { name: 'Quran Memorization - Juz 2', students: 2, color: '#10B981' },
-      { name: 'Fiqh (Islamic Jurisprudence)', students: 5, color: '#8B5A2B' },
+      { name: 'Fiqh (Islamic Jurisprudence)', students: 8, color: '#8B5A2B' },
       { name: 'Seerah (Prophet\'s Biography)', students: 3, color: '#FF69B4' },
       { name: 'Advanced Arabic Grammar', students: 1, color: '#32CD32' },
       { name: 'Quran Tafseer (Interpretation)', students: 3, color: '#FF4500' },

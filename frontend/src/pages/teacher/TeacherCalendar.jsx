@@ -1,15 +1,20 @@
-import { useState, useEffect } from 'react';
-import { Calendar, Clock, MapPin, User, Filter, ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { Calendar, Clock, MapPin, User, Filter, ChevronLeft, ChevronRight, X, BookOpen, Users } from 'lucide-react';
 import { format, startOfWeek, endOfWeek, eachDayOfInterval, isSameDay, addWeeks, subWeeks, parseISO, addDays, isAfter, isBefore } from 'date-fns';
 import { mockClasses, mockUsers } from '../../data/mockData';
+import FullCalendar from '@fullcalendar/react';
+import timeGridPlugin from '@fullcalendar/timegrid';
+import dayGridPlugin from '@fullcalendar/daygrid';
+import interactionPlugin from '@fullcalendar/interaction';
 
 const TeacherCalendar = ({ user }) => {
   const [schedule, setSchedule] = useState([]);
   const [courses, setCourses] = useState([]);
   const [loading, setLoading] = useState(false);
   const [currentWeek, setCurrentWeek] = useState(new Date());
-  const [viewMode, setViewMode] = useState('week'); // Changed default to 'week'
+  const [viewMode, setViewMode] = useState('timeGridWeek'); // FullCalendar view modes
   const [selectedDate, setSelectedDate] = useState(new Date());
+  const calendarRef = useRef(null);
 
   useEffect(() => {
     if (user) {
@@ -33,6 +38,15 @@ const TeacherCalendar = ({ user }) => {
         const allEvents = [...nonRecurringEvents, ...weekEvents];
         return allEvents.sort((a, b) => new Date(a.start_time) - new Date(b.start_time));
       });
+
+      // Update selectedDate to match the first day of the new week
+      setSelectedDate(weekStart);
+
+      // Navigate FullCalendar to the correct week
+      if (calendarRef.current && calendarRef.current.getApi) {
+        const calendarApi = calendarRef.current.getApi();
+        calendarApi.gotoDate(weekStart);
+      }
     }
   }, [currentWeek, courses]);
 
@@ -91,11 +105,17 @@ const TeacherCalendar = ({ user }) => {
   const convertClassesToEvents = (teacherClasses) => {
     const events = [];
     const today = new Date();
-    const endDate = addDays(today, 365); // Generate events for next year (52 weeks)
 
     teacherClasses.forEach((classItem) => {
-      const classEvents = generateClassEvents(classItem, today, endDate);
-      events.push(...classEvents);
+      // Use the course's actual start and end dates
+      const courseStartDate = new Date(classItem.startDate);
+      const courseEndDate = new Date(classItem.endDate);
+      
+      // Only generate events if the course is active (end date is in the future)
+      if (courseEndDate > today) {
+        const classEvents = generateClassEvents(classItem, courseStartDate, courseEndDate);
+        events.push(...classEvents);
+      }
     });
 
     return events;
@@ -131,23 +151,21 @@ const TeacherCalendar = ({ user }) => {
         const eventEndDate = new Date(eventDate);
         eventEndDate.setMinutes(eventEndDate.getMinutes() + 120);
 
-        // Only add events that are in the future
-        if (isAfter(eventDate, new Date())) {
-          events.push({
-            id: `class-${classItem.id}-${eventDate.getTime()}`,
-            title: classItem.name,
-            type: 'lecture',
-            start_time: eventDate.toISOString(),
-            end_time: eventEndDate.toISOString(),
-            location: `Room ${getRoomForClass(classItem.id)}`,
-            instructor_name: `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || 'You',
-            course_title: classItem.name,
-            description: classItem.description,
-            classId: classItem.id,
-            isRecurring: true,
-            weekNumber: Math.floor((eventDate.getTime() - startDate.getTime()) / (7 * 24 * 60 * 60 * 1000)) + 1
-          });
-        }
+        // Add all events within the course period (including past events for display purposes)
+        events.push({
+          id: `class-${classItem.id}-${eventDate.getTime()}`,
+          title: classItem.name,
+          type: 'lecture',
+          start_time: eventDate.toISOString(),
+          end_time: eventEndDate.toISOString(),
+          location: `Room ${getRoomForClass(classItem.id)}`,
+          instructor_name: `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || 'You',
+          course_title: classItem.name,
+          description: classItem.description,
+          classId: classItem.id,
+          isRecurring: true,
+          weekNumber: Math.floor((eventDate.getTime() - startDate.getTime()) / (7 * 24 * 60 * 60 * 1000)) + 1
+        });
 
         // Move to next week (7 days later)
         currentOccurrence = addDays(currentOccurrence, 7);
@@ -198,74 +216,6 @@ const TeacherCalendar = ({ user }) => {
   const getRoomForClass = (classId) => {
     const rooms = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2', 'D1', 'D2'];
     return rooms[classId % rooms.length];
-  };
-
-  const weekDays = eachDayOfInterval({
-    start: startOfWeek(currentWeek, { weekStartsOn: 1 }),
-    end: endOfWeek(currentWeek, { weekStartsOn: 1 })
-  });
-
-  const timeSlots = [
-    '08:00', '09:00', '10:00', '11:00', '12:00', '13:00',
-    '14:00', '15:00', '16:00', '17:00', '18:00', '19:00'
-  ];
-
-  const getScheduleForDay = (date) => {
-    console.log('Getting schedule for date:', format(date, 'yyyy-MM-dd'));
-
-    // First check existing schedule
-    const existingEvents = schedule.filter(item => {
-      const itemDate = parseISO(item.start_time);
-      return isSameDay(itemDate, date);
-    });
-
-    console.log('Existing events for this date:', existingEvents.length);
-
-    // Generate events for the current week if we have courses
-    if (courses.length > 0) {
-      const weekStart = startOfWeek(date, { weekStartsOn: 1 });
-      const weekEnd = endOfWeek(date, { weekStartsOn: 1 });
-      console.log('Week range:', format(weekStart, 'yyyy-MM-dd'), 'to', format(weekEnd, 'yyyy-MM-dd'));
-
-      const weekEvents = generateEventsForDateRange(weekStart, weekEnd);
-
-      // Filter events for the specific date
-      const weekEventsForDate = weekEvents.filter(item => {
-        const itemDate = parseISO(item.start_time);
-        return isSameDay(itemDate, date);
-      });
-
-      console.log('Generated events for this date:', weekEventsForDate.length);
-
-      // Combine and sort all events
-      const allEvents = [...existingEvents, ...weekEventsForDate];
-      console.log('Total events for this date:', allEvents.length);
-      return allEvents.sort((a, b) => new Date(a.start_time) - new Date(b.start_time));
-    }
-
-    return existingEvents.sort((a, b) => new Date(a.start_time) - new Date(a.start_time));
-  };
-
-  const getScheduleForTimeSlot = (date, timeSlot) => {
-    // Ensure we have events for this specific date by calling getScheduleForDay
-    const daySchedule = getScheduleForDay(date);
-    return daySchedule.filter(item => {
-      const startTime = parseISO(item.start_time);
-      const endTime = parseISO(item.end_time);
-
-      // Parse the time slot (e.g., "18:00")
-      const [slotHour] = timeSlot.split(':').map(Number);
-
-      // Create date objects for comparison
-      const slotStart = new Date(date);
-      slotStart.setHours(slotHour, 0, 0, 0);
-
-      const slotEnd = new Date(date);
-      slotEnd.setHours(slotHour + 1, 0, 0, 0);
-
-      // Check if the event overlaps with this time slot
-      return (startTime < slotEnd && endTime > slotStart);
-    });
   };
 
   // Generate events for a specific date range (for navigation)
@@ -373,21 +323,71 @@ const TeacherCalendar = ({ user }) => {
     } else {
       setCurrentWeek(addWeeks(currentWeek, 1));
     }
-
-    // Debug: Log the new week to see what's happening
-    const newWeek = direction === 'prev' ? subWeeks(currentWeek, 1) : addWeeks(currentWeek, 1);
-    console.log('Navigating to week:', format(newWeek, 'yyyy-MM-dd'));
-    console.log('Current courses:', courses);
-
-    // Force regeneration of events for the new week
-    const weekStart = startOfWeek(newWeek, { weekStartsOn: 1 });
-    const weekEnd = endOfWeek(newWeek, { weekStartsOn: 1 });
-    console.log('New week range:', format(weekStart, 'yyyy-MM-dd'), 'to', format(weekEnd, 'yyyy-MM-dd'));
   };
 
   const goToToday = () => {
     setCurrentWeek(new Date());
     setSelectedDate(new Date());
+  };
+
+  // FullCalendar event handlers
+  const handleDateSelect = (selectInfo) => {
+    const title = prompt('Please enter a title for your event');
+    if (title) {
+      const calendarApi = selectInfo.view.calendar;
+      calendarApi.unselect(); // clear date selection
+
+      if (selectInfo.allDay) {
+        calendarApi.addEvent({
+          id: createEventId(),
+          title,
+          start: selectInfo.startStr,
+          end: selectInfo.endStr,
+          allDay: selectInfo.allDay
+        });
+      } else {
+        calendarApi.addEvent({
+          id: createEventId(),
+          title,
+          start: selectInfo.startStr,
+          end: selectInfo.endStr
+        });
+      }
+    }
+  };
+
+  const handleEventClick = (clickInfo) => {
+    if (confirm(`Are you sure you want to delete the event '${clickInfo.event.title}'`)) {
+      clickInfo.event.remove();
+    }
+  };
+
+  const createEventId = () => {
+    return String(Math.random()).replace(/\D/g, '');
+  };
+
+  // Convert our events to FullCalendar format
+  const getFullCalendarEvents = () => {
+    console.log('getFullCalendarEvents called');
+    console.log('Current schedule length:', schedule.length);
+    console.log('Schedule sample:', schedule.slice(0, 3));
+    
+    const fullCalendarEvents = schedule.map(event => ({
+      id: event.id,
+      title: event.title,
+      start: event.start_time,
+      end: event.end_time,
+      extendedProps: {
+        location: event.location,
+        instructor: event.instructor_name,
+        description: event.description,
+        isRecurring: event.isRecurring,
+        classId: event.classId
+      }
+    }));
+    
+    console.log('FullCalendar events:', fullCalendarEvents.length);
+    return fullCalendarEvents;
   };
 
   return (
@@ -396,25 +396,25 @@ const TeacherCalendar = ({ user }) => {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">My Teaching Schedule</h1>
-          <p className="text-gray-600">View your class schedule and teaching sessions</p>
+          <p className="text-gray-600">View your class schedule and teaching sessions (8 AM - 8 PM)</p>
         </div>
 
         <div className="flex items-center space-x-4">
           <div className="flex items-center space-x-2">
             <button
-              onClick={() => setViewMode('week')}
-              className={`px-3 py-2 rounded-md text-sm font-medium ${viewMode === 'week'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              onClick={() => setViewMode('timeGridWeek')}
+              className={`px-3 py-2 rounded-md text-sm font-medium ${viewMode === 'timeGridWeek'
+                ? 'bg-blue-600 text-white'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                 }`}
             >
               Week
             </button>
             <button
-              onClick={() => setViewMode('day')}
-              className={`px-3 py-2 rounded-md text-sm font-medium ${viewMode === 'day'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              onClick={() => setViewMode('timeGridDay')}
+              className={`px-3 py-2 rounded-md text-sm font-medium ${viewMode === 'timeGridDay'
+                ? 'bg-blue-600 text-white'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                 }`}
             >
               Day
@@ -443,13 +443,20 @@ const TeacherCalendar = ({ user }) => {
 
           <div className="text-center">
             <h2 className="text-lg font-semibold text-gray-900">
-              {viewMode === 'week'
+              {viewMode === 'timeGridWeek'
                 ? `Week of ${format(startOfWeek(currentWeek, { weekStartsOn: 1 }), 'MMM dd, yyyy')}`
-                : format(selectedDate, 'EEEE, MMM dd, yyyy')
+                : viewMode === 'timeGridDay'
+                  ? format(selectedDate, 'EEEE, MMM dd, yyyy')
+                  : format(currentWeek, 'MMMM yyyy')
               }
             </h2>
             <p className="text-sm text-gray-600">
-              {format(startOfWeek(currentWeek, { weekStartsOn: 1 }), 'MMM dd')} - {format(endOfWeek(currentWeek, { weekStartsOn: 1 }), 'MMM dd, yyyy')}
+              {viewMode === 'timeGridWeek'
+                ? `${format(startOfWeek(currentWeek, { weekStartsOn: 1 }), 'MMM dd')} - ${format(endOfWeek(currentWeek, { weekStartsOn: 1 }), 'MMM dd, yyyy')}`
+                : viewMode === 'timeGridDay'
+                  ? format(selectedDate, 'EEEE, MMMM dd, yyyy')
+                  : format(currentWeek, 'MMMM yyyy')
+              }
             </p>
           </div>
 
@@ -468,334 +475,265 @@ const TeacherCalendar = ({ user }) => {
         <div className="flex items-center justify-center py-12">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
         </div>
-      ) : viewMode === 'week' ? (
-        <WeekView
-          weekDays={weekDays}
-          timeSlots={timeSlots}
-          getScheduleForTimeSlot={getScheduleForTimeSlot}
-          getEventColor={getEventColor}
-          getEventIcon={getEventIcon}
-        />
-      ) : (
-        <DayView
-          selectedDate={selectedDate}
-          setSelectedDate={setSelectedDate}
-          weekDays={weekDays}
-          getScheduleForDay={getScheduleForDay}
-          getEventColor={getEventColor}
-          getEventIcon={getEventIcon}
-        />
-      )}
-
-      {/* Legend */}
-      <div className="bg-white p-4 rounded-lg shadow-sm border">
-        <h3 className="text-sm font-medium text-gray-900 mb-3">Event Types</h3>
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-2">
-          {[
-            { type: 'lecture', label: 'Lecture' },
-            { type: 'lab', label: 'Lab' },
-            { type: 'tutorial', label: 'Tutorial' },
-            { type: 'seminar', label: 'Seminar' },
-            { type: 'exam', label: 'Exam' },
-            { type: 'assignment_due', label: 'Assignment Due' },
-            { type: 'office_hours', label: 'Office Hours' },
-            { type: 'enrolled', label: 'Teaching Classes', isRecurring: true }
-          ].map(({ type, label, isRecurring }) => (
-            <div key={type} className="flex items-center space-x-2">
-              <div className={`w-3 h-3 rounded border-2 ${getEventColor(type, isRecurring)}`}></div>
-              <span className="text-xs text-gray-600">{label}</span>
+      ) : viewMode === 'timeGridDay' ? (
+        // Day View with Sidebar Layout
+        <div className="flex gap-6">
+          {/* Left Sidebar - Day Selection */}
+          <div className="w-64 bg-white rounded-lg shadow-sm border p-4">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Select Day</h3>
+            <div className="space-y-2">
+              {(() => {
+                const weekStart = startOfWeek(currentWeek, { weekStartsOn: 1 });
+                const days = [];
+                for (let i = 0; i < 7; i++) {
+                  const day = addDays(weekStart, i);
+                  const dayEvents = schedule.filter(event => 
+                    isSameDay(parseISO(event.start_time), day)
+                  );
+                  const isSelected = isSameDay(day, selectedDate);
+                  
+                  days.push(
+                    <button
+                      key={i}
+                      onClick={() => setSelectedDate(day)}
+                      className={`w-full p-3 text-left rounded-lg transition-colors ${
+                        isSelected 
+                          ? 'bg-blue-100 border-2 border-blue-300' 
+                          : 'bg-gray-50 hover:bg-gray-100 border-2 border-transparent'
+                      }`}
+                    >
+                      <div className="font-medium text-gray-900">
+                        {format(day, 'EEEE MMM dd')}
+                      </div>
+                      <div className="text-sm text-gray-600">
+                        {dayEvents.length} events
+                      </div>
+                    </button>
+                  );
+                }
+                return days;
+              })()}
             </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// Week View Component
-const WeekView = ({ weekDays, timeSlots, getScheduleForTimeSlot, getEventColor, getEventIcon }) => {
-  const [currentTime, setCurrentTime] = useState(new Date());
-
-  // Update current time every minute
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentTime(new Date());
-    }, 60000); // Update every minute
-
-    return () => clearInterval(timer);
-  }, []);
-
-  // Get current time position for indicator
-  const getCurrentTimePosition = () => {
-    const now = new Date();
-    const currentHour = now.getHours();
-    const currentMinute = now.getMinutes();
-
-    // Find the closest time slot
-    const timeSlotIndex = timeSlots.findIndex(slot => {
-      const [hour] = slot.split(':').map(Number);
-      return hour >= currentHour;
-    });
-
-    if (timeSlotIndex === -1) return null;
-
-    // Calculate position within the time slot
-    const slotHour = parseInt(timeSlots[timeSlotIndex].split(':')[0]);
-    const minutesFromSlot = (currentHour - slotHour) * 60 + currentMinute;
-    const slotHeight = 64; // Height of each time slot (h-16 = 64px)
-    const position = (timeSlotIndex * slotHeight) + (minutesFromSlot / 60) * slotHeight;
-
-    return position;
-  };
-
-  const currentTimePosition = getCurrentTimePosition();
-
-  return (
-    <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
-      <div className="overflow-x-auto">
-        <div className="min-w-full relative">
-          {/* Header with Days */}
-          <div className="grid grid-cols-8 border-b">
-            <div className="p-4 bg-gray-50 border-r">
-              <span className="text-sm font-medium text-gray-600">Time</span>
-              <div className="text-xs text-gray-500 mt-1">GMT+00</div>
-            </div>
-            {weekDays.map((day) => (
-              <div
-                key={day.toISOString()}
-                className="p-4 bg-gray-50 border-r last:border-r-0 text-center"
-              >
-                <div className="text-sm font-medium text-gray-900">
-                  {format(day, 'EEE').toUpperCase()}
-                </div>
-                <div className="text-lg font-bold text-gray-900 mt-1">
-                  {format(day, 'dd')}
-                </div>
-              </div>
-            ))}
           </div>
 
-          {/* Time slots and Events */}
-          {timeSlots.map((timeSlot, index) => {
-            const isCurrentTimeSlot = (() => {
-              const now = new Date();
-              const currentHour = now.getHours();
-              const currentMinute = now.getMinutes();
+          {/* Right Section - Day Schedule */}
+          <div className="flex-1 bg-white rounded-lg shadow-sm border overflow-hidden">
+            <div className="p-4 border-b border-gray-200">
+              <h2 className="text-xl font-semibold text-gray-900">
+                {format(selectedDate, 'EEEE, MMMM dd, yyyy')}
+              </h2>
+              <p className="text-gray-600">
+                {schedule.filter(event => 
+                  isSameDay(parseISO(event.start_time), selectedDate)
+                ).length} events scheduled
+              </p>
+            </div>
+            
+            <div className="p-4">
+              {(() => {
+                const dayEvents = schedule.filter(event => 
+                  isSameDay(parseISO(event.start_time), selectedDate)
+                ).sort((a, b) => new Date(a.start_time) - new Date(b.start_time));
 
-              // Check if current time is between 8:00 and 20:00
-              if (currentHour < 8 || currentHour >= 20) return false;
-
-              // Check if this time slot matches current hour
-              const [slotHour] = timeSlot.split(':').map(Number);
-              return slotHour === currentHour;
-            })();
-
-            return (
-              <div key={timeSlot} className="grid grid-cols-8 border-b last:border-b-0 relative">
-                <div className={`p-3 bg-gray-50 border-r text-center flex items-center justify-center ${isCurrentTimeSlot ? 'border-2 border-blue-500' : ''
-                  }`}>
-                  <span className="text-sm font-medium text-gray-600">
-                    {(() => {
-                      const [hour] = timeSlot.split(':').map(Number);
-                      const nextHour = hour + 1;
-                      const period = hour < 12 ? 'AM' : 'PM';
-                      const nextPeriod = nextHour < 12 ? 'AM' : 'PM';
-                      const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
-                      const displayNextHour = nextHour === 0 ? 12 : nextHour > 12 ? nextHour - 12 : nextHour;
-                      return `${displayHour} ${period}-${displayNextHour} ${nextPeriod}`;
-                    })()}
-                  </span>
-                </div>
-                {weekDays.map((day) => {
-                  const events = getScheduleForTimeSlot(day, timeSlot);
-                  // Remove duplicate events based on unique properties
-                  const uniqueEvents = events.filter((event, index, self) =>
-                    index === self.findIndex(e =>
-                      e.id === event.id ||
-                      (e.title === event.title && e.start_time === event.start_time)
-                    )
-                  );
+                if (dayEvents.length === 0) {
                   return (
-                    <div
-                      key={`${day.toISOString()}-${timeSlot}`}
-                      className={`p-2 border-r last:border-r-0 h-16 relative ${isCurrentTimeSlot ? 'border-2 border-blue-500' : ''
-                        }`}
-                    >
-                      {uniqueEvents.map((event) => (
-                        <ScheduleEvent
-                          key={event.id}
-                          event={event}
-                          getEventColor={(type) => getEventColor(type, event.isRecurring)}
-                          getEventIcon={getEventIcon}
-                          compact={true}
-                        />
-                      ))}
+                    <div className="text-center py-8 text-gray-500">
+                      <Calendar className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+                      <p>No events scheduled for this day</p>
                     </div>
                   );
-                })}
-              </div>
-            );
-          })}
+                }
 
-          {/* Current Time Indicator */}
-          {currentTimePosition && (
-            <div
-              className="absolute left-0 right-0 z-10 pointer-events-none"
-              style={{ top: `${currentTimePosition}px` }}
-            >
-              <div className="flex items-center">
-                <div className="w-3 h-3 bg-red-500 rounded-full ml-4"></div>
-                <div className="flex-1 h-0.5 bg-red-500"></div>
-              </div>
+                return (
+                  <div className="space-y-4">
+                    {dayEvents.map((event, index) => (
+                      <div key={event.id} className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                        <div className="flex justify-between items-start mb-2">
+                          <div className="flex items-center space-x-2">
+                            <BookOpen className="h-4 w-4 text-blue-600" />
+                            <h3 className="text-base font-semibold text-gray-900">{event.title}</h3>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-xs text-blue-600 bg-blue-100 px-2 py-1 rounded-full">
+                              Teaching Class
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <p className="text-gray-600 mb-2 text-sm">{event.description}</p>
+                        
+                        <div className="grid grid-cols-2 gap-3 text-sm">
+                          <div className="flex items-center space-x-2">
+                            <Clock className="h-4 w-4 text-gray-500" />
+                            <span className="text-gray-700">
+                              {format(parseISO(event.start_time), 'HH:mm')} - {format(parseISO(event.end_time), 'HH:mm')}
+                            </span>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <MapPin className="h-4 w-4 text-gray-500" />
+                            <span className="text-gray-700">{event.location}</span>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <User className="h-4 w-4 text-gray-500" />
+                            <span className="text-gray-700">{event.instructor_name}</span>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <Users className="h-4 w-4 text-gray-500" />
+                            <span className="text-gray-700">Students</span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
             </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// Day View Component
-const DayView = ({ selectedDate, setSelectedDate, weekDays, getScheduleForDay, getEventColor, getEventIcon }) => {
-  const daySchedule = getScheduleForDay(selectedDate);
-
-  return (
-    <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-      {/* Day selector */}
-      <div className="lg:col-span-1">
-        <div className="bg-white rounded-lg shadow-sm border p-4">
-          <h3 className="text-sm font-medium text-gray-900 mb-3">Select Day</h3>
-          <div className="space-y-2">
-            {weekDays.map((day) => (
-              <button
-                key={day.toISOString()}
-                onClick={() => setSelectedDate(day)}
-                className={`w-full text-left p-3 rounded-md transition-colors ${isSameDay(day, selectedDate)
-                    ? 'bg-blue-100 text-blue-900 border border-blue-300'
-                    : 'hover:bg-gray-100 text-gray-700'
-                  }`}
-              >
-                <div className="font-medium">{format(day, 'EEEE')}</div>
-                <div className="text-sm text-gray-600">{format(day, 'MMM dd')}</div>
-                <div className="text-xs text-gray-500 mt-1">
-                  {getScheduleForDay(day).length} events
-                </div>
-              </button>
-            ))}
           </div>
         </div>
-      </div>
+      ) : (
+        // Week View with FullCalendar
+        <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
+          {/* Custom Tailwind styles for FullCalendar */}
+          <style jsx>{`
+            .fc {
+              font-family: inherit;
+              background: white;
+            }
+            .fc-header-toolbar {
+              display: none;
+            }
+            .fc-timegrid-slot {
+              height: 4rem !important;
+              border-bottom: 1px solid #e5e7eb;
+            }
+            .fc-timegrid-slot-label {
+              font-size: 0.875rem;
+              font-weight: 500;
+              color: #374151;
+              padding: 0.5rem;
+              text-align: center;
+            }
+            .fc-col-header-cell {
+              background-color: #f9fafb;
+              border-right: 1px solid #e5e7eb;
+              padding: 1rem;
+              text-align: center;
+            }
+            .fc-col-header-cell:last-child {
+              border-right: none;
+            }
+            .fc-col-header-cell-cushion {
+              font-size: 0.875rem;
+              font-weight: 500;
+              color: #111827;
+              text-decoration: none;
+            }
+            .fc-col-header-cell-cushion:hover {
+              text-decoration: none;
+            }
+            .fc-timegrid-now-indicator-line {
+              border-color: #3b82f6;
+              border-width: 2px;
+            }
+            .fc-timegrid-now-indicator-arrow {
+              border-color: #3b82f6;
+              border-width: 5px;
+            }
+            .fc-scroller::-webkit-scrollbar {
+              width: 8px;
+              height: 8px;
+            }
+            .fc-scroller::-webkit-scrollbar-track {
+              background: #f1f1f1;
+              border-radius: 4px;
+            }
+            .fc-scroller::-webkit-scrollbar-thumb {
+              background: #c1c1c1;
+              border-radius: 4px;
+            }
+            .fc-scroller::-webkit-scrollbar-thumb:hover {
+              background: #a8a8a8;
+            }
+            /* Ensure 8 PM and later rows are visible */
+            .fc-timegrid-slot:nth-child(n+13) {
+              background-color: #fefefe;
+            }
+            .fc-timegrid-slot:nth-child(n+13):hover {
+              background-color: #f3f4f6;
+            }
+          `}</style>
+          <FullCalendar
+            ref={calendarRef}
+            plugins={[timeGridPlugin, dayGridPlugin, interactionPlugin]}
+            headerToolbar={false} // We're using our custom header
+            initialView={viewMode}
+            initialDate={currentWeek}
+            editable={false}
+            selectable={true}
+            selectMirror={true}
+            dayMaxEvents={true}
+            weekends={true}
+            events={getFullCalendarEvents()}
+            select={handleDateSelect}
+            eventClick={handleEventClick}
+            height="auto"
+            slotMinTime="08:00:00"
+            slotMaxTime="20:00:00"
+            allDaySlot={false}
+            slotDuration="01:00:00"
+            slotLabelFormat={{
+              hour: 'numeric',
+              minute: '2-digit',
+              hour12: true
+            }}
+            eventTimeFormat={{
+              hour: 'numeric',
+              minute: '2-digit',
+              hour12: true
+            }}
+            eventDisplay="block"
+            eventOverlap={false}
+            slotEventOverlap={false}
+            nowIndicator={true}
+            businessHours={{
+              daysOfWeek: [1, 2, 3, 4, 5, 6, 0], // Monday through Sunday
+              startTime: '08:00',
+              endTime: '20:00',
+            }}
+            dayHeaderFormat={{
+              weekday: 'short',
+              day: 'numeric'
+            }}
+            weekNumbers={false}
+            weekNumberCalculation="ISO"
+            firstDay={1} // Monday
+            locale="en"
+            timeZone="local"
+            eventClassNames={(arg) => {
+              const event = arg.event;
+              const isRecurring = event.extendedProps.isRecurring;
 
-      {/* Day schedule */}
-      <div className="lg:col-span-3">
-        <div className="bg-white rounded-lg shadow-sm border">
-          <div className="p-6 border-b">
-            <h3 className="text-lg font-semibold text-gray-900">
-              {format(selectedDate, 'EEEE, MMMM dd, yyyy')}
-            </h3>
-            <p className="text-sm text-gray-600 mt-1">
-              {daySchedule.length} events scheduled
-            </p>
-          </div>
+              // Base Tailwind classes for all events
+              const baseClasses = 'rounded-md border-l-4 text-xs font-medium p-1 m-0.5 cursor-pointer transition-all duration-200 hover:scale-105 hover:shadow-md';
 
-          <div className="p-6">
-            {daySchedule.length === 0 ? (
-              <div className="text-center py-8">
-                <Calendar className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-600">No events scheduled for this day</p>
-                <p className="text-sm text-gray-500">Enjoy your free time!</p>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {daySchedule.map((event) => (
-                  <ScheduleEvent
-                    key={event.id}
-                    event={event}
-                    getEventColor={(type) => getEventColor(type, event.isRecurring)}
-                    getEventIcon={getEventIcon}
-                    compact={false}
-                  />
-                ))}
-              </div>
-            )}
-          </div>
+              // Color classes using Tailwind
+              let colorClasses = 'bg-blue-100 border-blue-300 text-blue-800';
+
+              return [baseClasses, colorClasses];
+            }}
+            eventContent={(arg) => {
+              return {
+                html: `
+                  <div class="p-1">
+                    <div class="font-semibold text-xs mb-0.5 text-blue-700">${arg.event.title}</div>
+                    <div class="text-xs opacity-75 mb-0.5 text-blue-700">${arg.timeText}</div>
+                  </div>
+                `
+              };
+            }}
+          />
         </div>
-      </div>
-    </div>
-  );
-};
-
-// Schedule Event Component
-const ScheduleEvent = ({ event, getEventColor, getEventIcon, compact }) => {
-  const startTime = format(parseISO(event.start_time), 'HH:mm');
-  const endTime = format(parseISO(event.end_time), 'HH:mm');
-
-  if (compact) {
-    return (
-      <div className={`p-2 rounded border-l-4 text-xs ${getEventColor(event.type)}`}>
-        <div className="font-medium truncate">{event.title}</div>
-        <div className="text-xs opacity-75">{startTime}-{endTime}</div>
-      </div>
-    );
-  }
-
-  return (
-    <div className={`p-4 rounded-lg border-l-4 ${getEventColor(event.type)}`}>
-      <div className="flex items-start justify-between">
-        <div className="flex-1">
-          <div className="flex items-center space-x-2 mb-2">
-            <span className="text-lg">{getEventIcon(event.type)}</span>
-            <h4 className="font-medium text-gray-900">{event.title}</h4>
-          </div>
-
-          {event.description && (
-            <p className="text-sm text-gray-600 mb-3">{event.description}</p>
-          )}
-
-          <div className="space-y-1 text-sm text-gray-600">
-            <div className="flex items-center space-x-2">
-              <Clock className="h-4 w-4" />
-              <span>{startTime} - {endTime}</span>
-            </div>
-
-            {event.location && (
-              <div className="flex items-center space-x-2">
-                <MapPin className="h-4 w-4" />
-                <span>{event.location}</span>
-              </div>
-            )}
-
-            {event.instructor_name && (
-              <div className="flex items-center space-x-2">
-                <User className="h-4 w-4" />
-                <span>{event.instructor_name}</span>
-              </div>
-            )}
-
-            {event.course_title && (
-              <div className="text-xs text-gray-500 mt-2">
-                Course: {event.course_title}
-              </div>
-            )}
-          </div>
-        </div>
-
-        <div className="text-right">
-          {event.isRecurring && (
-            <div className="text-xs text-blue-600 font-medium mb-1">
-              📚 Teaching Class
-            </div>
-          )}
-          {event.weekNumber && (
-            <div className="text-xs text-blue-500 mb-1">
-              Week {event.weekNumber}
-            </div>
-          )}
-          <div className="text-xs text-gray-500 capitalize">
-            {event.type.replace('_', ' ')}
-          </div>
-        </div>
-      </div>
+      )}
     </div>
   );
 };
