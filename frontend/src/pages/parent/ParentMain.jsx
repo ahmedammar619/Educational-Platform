@@ -32,7 +32,7 @@ const ParentMain = ({ user, onLogout }) => {
   const ActiveComponent = navigation.find(nav => nav.id === activeTab)?.component || ParentDashboard;
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 h-full">
       {/* Top Navigation - Fixed */}
       <nav className="fixed top-0 left-0 right-0 bg-white shadow-sm border-b z-50">
         <div className="px-4 sm:px-6 lg:px-8">
@@ -66,28 +66,28 @@ const ParentMain = ({ user, onLogout }) => {
                         if (!user) {
                           return 'Parent';
                         }
-                        
+
                         // Try firstName + lastName first
-                        if (user.firstName && user.lastName && 
-                            user.firstName.trim() && user.lastName.trim()) {
+                        if (user.firstName && user.lastName &&
+                          user.firstName.trim() && user.lastName.trim()) {
                           return `${user.firstName.trim()} ${user.lastName.trim()}`;
                         }
-                        
+
                         // Fallback to firstName only
                         if (user.firstName && user.firstName.trim()) {
                           return user.firstName.trim();
                         }
-                        
+
                         // Fallback to lastName only
                         if (user.lastName && user.lastName.trim()) {
                           return user.lastName.trim();
                         }
-                        
+
                         // Fallback to name field (for backward compatibility)
                         if (user.name && user.name.trim()) {
                           return user.name.trim();
                         }
-                        
+
                         // Check if user might be stored as string in localStorage
                         if (typeof user === 'string') {
                           try {
@@ -103,7 +103,7 @@ const ParentMain = ({ user, onLogout }) => {
                             return user;
                           }
                         }
-                        
+
                         // Final fallback
                         return 'Parent';
                       })()}
@@ -137,11 +137,10 @@ const ParentMain = ({ user, onLogout }) => {
                     <button
                       key={item.id}
                       onClick={() => setActiveTab(item.id)}
-                      className={`w-full flex items-center space-x-3 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                        activeTab === item.id
-                          ? 'bg-purple-100 text-purple-700 border border-purple-200'
-                          : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
-                      }`}
+                      className={`w-full flex items-center space-x-3 px-3 py-2 rounded-md text-sm font-medium transition-colors ${activeTab === item.id
+                        ? 'bg-purple-100 text-purple-700 border border-purple-200'
+                        : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                        }`}
                     >
                       <Icon className="h-5 w-5" />
                       <span>{item.name}</span>
@@ -171,25 +170,6 @@ const ParentMain = ({ user, onLogout }) => {
                   <span className="text-gray-600">Avg. Attendance</span>
                   <span className="font-medium text-green-600">94%</span>
                 </div>
-              </div>
-            </div>
-
-            {/* Quick Actions */}
-            <div className="mt-6 bg-white rounded-lg shadow-sm border p-4">
-              <h3 className="text-sm font-medium text-gray-900 mb-3">Quick Actions</h3>
-              <div className="space-y-2">
-                <button className="w-full text-left px-3 py-2 text-sm text-purple-600 hover:bg-purple-50 rounded-md">
-                  View Progress Reports
-                </button>
-                <button className="w-full text-left px-3 py-2 text-sm text-purple-600 hover:bg-purple-50 rounded-md">
-                  Message Teachers
-                </button>
-                <button className="w-full text-left px-3 py-2 text-sm text-purple-600 hover:bg-purple-50 rounded-md">
-                  Schedule Meeting
-                </button>
-                <button className="w-full text-left px-3 py-2 text-sm text-purple-600 hover:bg-purple-50 rounded-md">
-                  Payment History
-                </button>
               </div>
             </div>
           </div>

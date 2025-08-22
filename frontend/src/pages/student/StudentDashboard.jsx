@@ -40,19 +40,19 @@ const StudentDashboard = ({ user }) => {
         }
 
         // Get enrolled classes
-        const enrolledClasses = mockClasses.filter(c => 
+        const enrolledClasses = mockClasses.filter(c =>
           c.students.includes(user.id)
         );
 
         const classesWithDetails = enrolledClasses.map(cls => {
           const teacher = mockUsers.teachers.find(t => t.id === cls.teacherId);
           const teacherName = teacher ? `${teacher.firstName} ${teacher.lastName}` : 'Teacher TBD';
-          
+
           // Generate mock progress
           const progress = Math.floor(Math.random() * 30) + 70;
-          
+
           // Get schedule display
-          const scheduleDisplay = cls.schedule && Array.isArray(cls.schedule) 
+          const scheduleDisplay = cls.schedule && Array.isArray(cls.schedule)
             ? cls.schedule.map(item => `${item.day} ${item.startTime}-${item.endTime}`).join(', ')
             : 'Schedule TBD';
 
@@ -100,23 +100,23 @@ const StudentDashboard = ({ user }) => {
   const generateUpcomingSessions = (enrolledClasses) => {
     const sessions = [];
     const today = new Date();
-    
+
     enrolledClasses.forEach(cls => {
       if (cls.schedule && Array.isArray(cls.schedule)) {
         cls.schedule.forEach(scheduleItem => {
           // Find next occurrence of this scheduled day
           const dayNumber = getDayNumber(scheduleItem.day);
           let nextDate = new Date(today);
-          
+
           while (nextDate.getDay() !== dayNumber) {
             nextDate.setDate(nextDate.getDate() + 1);
           }
-          
+
           // Only add if it's in the future
           if (nextDate > today) {
             const teacher = mockUsers.teachers.find(t => t.id === cls.teacherId);
             const teacherName = teacher ? `${teacher.firstName} ${teacher.lastName}` : 'Teacher TBD';
-            
+
             sessions.push({
               id: `session-${cls.id}-${scheduleItem.day}`,
               title: cls.name,
@@ -130,7 +130,7 @@ const StudentDashboard = ({ user }) => {
         });
       }
     });
-    
+
     // Sort by date and return
     return sessions.sort((a, b) => new Date(a.start) - new Date(b.start));
   };
@@ -166,7 +166,7 @@ const StudentDashboard = ({ user }) => {
   const { courses = [], upcomingSessions = [], analytics = {}, announcements = [] } = dashboardData || {};
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 h-full">
       {/* User Info Card */}
       <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
         <div className="bg-gradient-to-r from-red-700 to-red-600 p-6">
@@ -178,8 +178,8 @@ const StudentDashboard = ({ user }) => {
             </div>
             <div className="flex-1">
               <h1 className="text-2xl font-bold text-white">
-                {user?.firstName && user?.lastName 
-                  ? `${user.firstName} ${user.lastName}` 
+                {user?.firstName && user?.lastName
+                  ? `${user.firstName} ${user.lastName}`
                   : user?.name || 'Student'
                 }
               </h1>
@@ -271,8 +271,8 @@ const StudentDashboard = ({ user }) => {
                     </div>
                     <p className="text-sm text-gray-600 mb-2">Teacher: {course.teacherName}</p>
                     <div className="w-full bg-gray-200 rounded-full h-2">
-                      <div 
-                        className="bg-red-600 h-2 rounded-full" 
+                      <div
+                        className="bg-red-600 h-2 rounded-full"
                         style={{ width: `${course.progress}%` }}
                       ></div>
                     </div>
@@ -345,8 +345,8 @@ const StudentDashboard = ({ user }) => {
                   </div>
                   <p className="text-sm text-gray-600 mb-2">Teacher: {classItem.teacherName}</p>
                   <div className="w-full bg-gray-200 rounded-full h-2">
-                    <div 
-                      className="bg-red-600 h-2 rounded-full" 
+                    <div
+                      className="bg-red-600 h-2 rounded-full"
                       style={{ width: `${classItem.progress}%` }}
                     ></div>
                   </div>
@@ -373,11 +373,10 @@ const StudentDashboard = ({ user }) => {
           ) : (
             <div className="space-y-4">
               {announcements.map((announcement) => (
-                <div key={announcement.id} className={`border-l-4 p-4 rounded-r-lg ${
-                  announcement.type === 'info' ? 'border-red-400 bg-red-50' :
-                  announcement.type === 'warning' ? 'border-yellow-400 bg-yellow-50' :
-                  'border-red-400 bg-red-50'
-                }`}>
+                <div key={announcement.id} className={`border-l-4 p-4 rounded-r-lg ${announcement.type === 'info' ? 'border-red-400 bg-red-50' :
+                    announcement.type === 'warning' ? 'border-yellow-400 bg-yellow-50' :
+                      'border-red-400 bg-red-50'
+                  }`}>
                   <h3 className="font-medium text-gray-900 mb-1">{announcement.title}</h3>
                   <p className="text-sm text-gray-600 mb-2">{announcement.message}</p>
                   <p className="text-xs text-gray-500">{format(new Date(announcement.date), 'MMM dd, yyyy')}</p>

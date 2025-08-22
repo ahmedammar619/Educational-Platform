@@ -76,7 +76,7 @@ const ChildAccountCreation = ({ user }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (!validateForm()) {
       return;
     }
@@ -87,7 +87,7 @@ const ChildAccountCreation = ({ user }) => {
     try {
       // Simulate API call
       await new Promise(resolve => setTimeout(resolve, 2000));
-      
+
       // Mock successful creation
       const newStudent = {
         id: Date.now(),
@@ -102,7 +102,7 @@ const ChildAccountCreation = ({ user }) => {
       };
 
       console.log('New student account created:', newStudent);
-      
+
       setSubmitStatus('success');
       setFormData({
         firstName: '',
@@ -121,7 +121,7 @@ const ChildAccountCreation = ({ user }) => {
 
   if (submitStatus === 'success') {
     return (
-      <div className="bg-white rounded-lg shadow-sm border p-8 text-center">
+      <div className="bg-white rounded-lg shadow-sm border p-8 text-center h-full">
         <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
           <Check className="h-8 w-8 text-purple-600" />
         </div>
@@ -140,7 +140,7 @@ const ChildAccountCreation = ({ user }) => {
   }
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border p-8">
+    <div className="bg-white rounded-lg shadow-sm border p-8 h-full">
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Personal Information */}
         <div>
@@ -158,9 +158,8 @@ const ChildAccountCreation = ({ user }) => {
                 name="firstName"
                 value={formData.firstName}
                 onChange={handleInputChange}
-                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 ${
-                  errors.firstName ? 'border-red-500' : 'border-gray-300'
-                }`}
+                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 ${errors.firstName ? 'border-red-500' : 'border-gray-300'
+                  }`}
                 placeholder="Enter first name"
               />
               {errors.firstName && (
@@ -176,9 +175,8 @@ const ChildAccountCreation = ({ user }) => {
                 name="lastName"
                 value={formData.lastName}
                 onChange={handleInputChange}
-                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 ${
-                  errors.lastName ? 'border-red-500' : 'border-gray-300'
-                }`}
+                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 ${errors.lastName ? 'border-red-500' : 'border-gray-300'
+                  }`}
                 placeholder="Enter last name"
               />
               {errors.lastName && (
@@ -204,9 +202,8 @@ const ChildAccountCreation = ({ user }) => {
                 name="email"
                 value={formData.email}
                 onChange={handleInputChange}
-                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 ${
-                  errors.email ? 'border-red-500' : 'border-gray-300'
-                }`}
+                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 ${errors.email ? 'border-red-500' : 'border-gray-300'
+                  }`}
                 placeholder="Enter email address"
               />
               {errors.email && (
@@ -223,9 +220,8 @@ const ChildAccountCreation = ({ user }) => {
                   name="password"
                   value={formData.password}
                   onChange={handleInputChange}
-                  className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 ${
-                    errors.password ? 'border-red-500' : 'border-gray-300'
-                  }`}
+                  className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 ${errors.password ? 'border-red-500' : 'border-gray-300'
+                    }`}
                   placeholder="Enter password"
                 />
                 {errors.password && (
@@ -241,9 +237,8 @@ const ChildAccountCreation = ({ user }) => {
                   name="confirmPassword"
                   value={formData.confirmPassword}
                   onChange={handleInputChange}
-                  className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 ${
-                    errors.confirmPassword ? 'border-red-500' : 'border-gray-300'
-                  }`}
+                  className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 ${errors.confirmPassword ? 'border-red-500' : 'border-gray-300'
+                    }`}
                   placeholder="Confirm password"
                 />
                 {errors.confirmPassword && (
@@ -267,11 +262,10 @@ const ChildAccountCreation = ({ user }) => {
             {availableCourses.map((course) => (
               <label
                 key={course}
-                className={`flex items-center p-3 border rounded-md cursor-pointer transition-colors ${
-                  formData.interestedCourses.includes(course)
-                    ? 'border-purple-500 bg-purple-50'
-                    : 'border-gray-300 hover:border-purple-300'
-                }`}
+                className={`flex items-center p-3 border rounded-md cursor-pointer transition-colors ${formData.interestedCourses.includes(course)
+                  ? 'border-purple-500 bg-purple-50'
+                  : 'border-gray-300 hover:border-purple-300'
+                  }`}
               >
                 <input
                   type="checkbox"
@@ -279,11 +273,10 @@ const ChildAccountCreation = ({ user }) => {
                   onChange={() => handleCourseToggle(course)}
                   className="sr-only"
                 />
-                <div className={`w-4 h-4 border-2 rounded mr-3 flex items-center justify-center ${
-                  formData.interestedCourses.includes(course)
-                    ? 'border-purple-500 bg-purple-500'
-                    : 'border-gray-300'
-                }`}>
+                <div className={`w-4 h-4 border-2 rounded mr-3 flex items-center justify-center ${formData.interestedCourses.includes(course)
+                  ? 'border-purple-500 bg-purple-500'
+                  : 'border-gray-300'
+                  }`}>
                   {formData.interestedCourses.includes(course) && (
                     <Check className="h-3 w-3 text-white" />
                   )}

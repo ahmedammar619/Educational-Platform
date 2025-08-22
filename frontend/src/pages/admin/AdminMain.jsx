@@ -3,7 +3,7 @@ import { Home, Users, BookOpen, Shield, Bell, LogOut, User, FileText, ArrowLeft 
 import AdminDashboard from './AdminDashboard';
 import UserManagement from './UserManagement';
 import ClassManagement from './ClassManagement';
-import MaterialPages from '../../components/common/MaterialPages';
+import MaterialPages from '../../components/common/class-material/MaterialPages';
 
 const AdminMain = ({ user, onLogout }) => {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -34,8 +34,8 @@ const AdminMain = ({ user, onLogout }) => {
       return (
         <div className="space-y-4">
           {/* MaterialPages Component */}
-          <MaterialPages 
-            classData={selectedClass} 
+          <MaterialPages
+            classData={selectedClass}
             onBack={handleBackFromMaterials}
             currentUser={user}
           />
@@ -44,15 +44,15 @@ const AdminMain = ({ user, onLogout }) => {
     }
 
     return (
-      <ActiveComponent 
-        user={user} 
+      <ActiveComponent
+        user={user}
         onOpenMaterials={activeTab === 'classes' ? handleOpenMaterials : undefined}
       />
     );
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 h-full">
       {/* Top Navigation - Fixed */}
       <nav className="fixed top-0 left-0 right-0 bg-white shadow-sm border-b z-50">
         <div className="px-4 sm:px-6 lg:px-8">
@@ -81,8 +81,8 @@ const AdminMain = ({ user, onLogout }) => {
                   </div>
                   <div className="hidden md:block">
                     <p className="text-sm font-medium text-gray-900">
-                      {user?.firstName && user?.lastName 
-                        ? `${user.firstName} ${user.lastName}` 
+                      {user?.firstName && user?.lastName
+                        ? `${user.firstName} ${user.lastName}`
                         : user?.name || 'Admin'
                       }
                     </p>
@@ -150,28 +150,6 @@ const AdminMain = ({ user, onLogout }) => {
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-600">System Health</span>
                   <span className="font-medium text-green-600">Excellent</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Quick Actions */}
-            <div className="mt-6 bg-white rounded-lg shadow-sm border p-4">
-              <h3 className="text-sm font-medium text-gray-900 mb-3">Quick Actions</h3>
-              <div className="space-y-3">
-                <div className="text-sm">
-                  <button className="w-full text-left text-gray-600 hover:text-green-600 hover:bg-green-50 p-2 rounded transition-colors">
-                    Add New User
-                  </button>
-                </div>
-                <div className="text-sm">
-                  <button className="w-full text-left text-gray-600 hover:text-green-600 hover:bg-green-50 p-2 rounded transition-colors">
-                    Create Class
-                  </button>
-                </div>
-                <div className="text-sm">
-                  <button className="w-full text-left text-gray-600 hover:text-green-600 hover:bg-green-50 p-2 rounded transition-colors">
-                    View Reports
-                  </button>
                 </div>
               </div>
             </div>

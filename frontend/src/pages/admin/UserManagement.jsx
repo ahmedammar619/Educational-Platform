@@ -35,30 +35,30 @@ const UserManagement = ({ user }) => {
     setLoading(true);
     // Combine all user types into one array
     const combinedUsers = [
-      ...mockUsers.students.map(u => ({ 
-        ...u, 
-        is_active: u.status === 'active', 
+      ...mockUsers.students.map(u => ({
+        ...u,
+        is_active: u.status === 'active',
         created_at: u.joinDate,
         // Add fallback for name if firstName/lastName don't exist
         name: u.firstName && u.lastName ? `${u.firstName} ${u.lastName}` : u.name
       })),
-      ...mockUsers.teachers.map(u => ({ 
-        ...u, 
-        is_active: u.status === 'active', 
+      ...mockUsers.teachers.map(u => ({
+        ...u,
+        is_active: u.status === 'active',
         created_at: u.joinDate,
         // Add fallback for name if firstName/lastName don't exist
         name: u.firstName && u.lastName ? `${u.firstName} ${u.lastName}` : u.name
       })),
-      ...mockUsers.parents.map(u => ({ 
-        ...u, 
-        is_active: u.status === 'active', 
+      ...mockUsers.parents.map(u => ({
+        ...u,
+        is_active: u.status === 'active',
         created_at: u.joinDate,
         // Add fallback for name if firstName/lastName don't exist
         name: u.firstName && u.lastName ? `${u.firstName} ${u.lastName}` : u.name
       })),
-      ...mockUsers.admins.map(u => ({ 
-        ...u, 
-        is_active: u.status === 'active', 
+      ...mockUsers.admins.map(u => ({
+        ...u,
+        is_active: u.status === 'active',
         created_at: u.joinDate,
         // Add fallback for name if firstName/lastName don't exist
         name: u.firstName && u.lastName ? `${u.firstName} ${u.lastName}` : u.name
@@ -74,13 +74,13 @@ const UserManagement = ({ user }) => {
     // Apply search filter
     if (filters.search) {
       const searchTerm = filters.search.toLowerCase();
-      
+
       // First, get users that directly match the search
       let directMatches = filtered.filter(user =>
         user.name.toLowerCase().includes(searchTerm) ||
         user.email.toLowerCase().includes(searchTerm)
       );
-      
+
       // Find parents of students that match the search
       const matchingStudentIds = new Set();
       directMatches.forEach(user => {
@@ -88,14 +88,14 @@ const UserManagement = ({ user }) => {
           matchingStudentIds.add(user.id);
         }
       });
-      
+
       // Add parents of matching students
-      const parentsToInclude = allUsers.filter(user => 
-        user.role === 'parent' && 
-        user.children && 
+      const parentsToInclude = allUsers.filter(user =>
+        user.role === 'parent' &&
+        user.children &&
         user.children.some(childId => matchingStudentIds.has(childId))
       );
-      
+
       // Combine direct matches with parents of matching students
       const allMatches = [...directMatches];
       parentsToInclude.forEach(parent => {
@@ -103,7 +103,7 @@ const UserManagement = ({ user }) => {
           allMatches.push(parent);
         }
       });
-      
+
       filtered = allMatches;
     }
 
@@ -114,12 +114,12 @@ const UserManagement = ({ user }) => {
 
     // Set the filtered users (this will be used by getParentChildRows)
     setFilteredUsers(filtered);
-    
+
     // Calculate pagination based on the filtered results, excluding students
     const paginationUsers = filtered.filter(user => user.role !== 'student');
     const total = paginationUsers.length;
     const pages = Math.ceil(total / filters.limit);
-    
+
     setPagination({
       page: filters.page,
       limit: filters.limit,
@@ -193,14 +193,14 @@ const UserManagement = ({ user }) => {
     if (filters.role === 'student') {
       const students = usersToProcess.filter(u => u.role === 'student');
       const parentIds = new Set();
-      
+
       // Collect all parent IDs for students
       students.forEach(student => {
         if (student.parentId) {
           parentIds.add(student.parentId);
         }
       });
-      
+
       // Add parents first
       const parents = allUsers.filter(u => u.role === 'parent' && parentIds.has(u.id));
       parents.forEach(parent => {
@@ -210,14 +210,14 @@ const UserManagement = ({ user }) => {
           rowSpan: 1
         });
         processedUsers.add(parent.id);
-        
+
         // Add children if expanded
         if (expandedParents.has(parent.id) && parent.children) {
           const children = allUsers.filter(u =>
-            u.role === 'student' && parent.children.includes(u.id) && 
+            u.role === 'student' && parent.children.includes(u.id) &&
             usersToProcess.some(filteredUser => filteredUser.id === u.id)
           );
-          
+
           children.forEach(child => {
             rows.push({
               ...child,
@@ -230,7 +230,7 @@ const UserManagement = ({ user }) => {
           });
         }
       });
-      
+
       // Add students without parents
       const studentsWithoutParents = students.filter(s => !s.parentId);
       studentsWithoutParents.forEach(student => {
@@ -240,16 +240,16 @@ const UserManagement = ({ user }) => {
         });
         processedUsers.add(student.id);
       });
-      
+
       return rows;
     }
 
     // Get all parents from the filtered results
     const parents = usersToProcess.filter(u => u.role === 'parent');
-    
+
     parents.forEach(parent => {
       if (processedUsers.has(parent.id)) return;
-      
+
       // Add parent row
       rows.push({
         ...parent,
@@ -264,10 +264,10 @@ const UserManagement = ({ user }) => {
         const children = allUsers.filter(u =>
           u.role === 'student' && parent.children.includes(u.id)
         );
-        
+
         children.forEach(child => {
           if (processedUsers.has(child.id)) return;
-          
+
           rows.push({
             ...child,
             isChild: true,
@@ -284,7 +284,7 @@ const UserManagement = ({ user }) => {
     const remainingUsers = usersToProcess.filter(u =>
       !processedUsers.has(u.id) && u.role !== 'parent' && u.role !== 'student'
     );
-    
+
     remainingUsers.forEach(user => {
       rows.push({
         ...user,
@@ -474,7 +474,7 @@ const UserManagement = ({ user }) => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 h-full">
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>

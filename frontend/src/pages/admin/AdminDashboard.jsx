@@ -28,7 +28,7 @@ const AdminDashboard = ({ user }) => {
         revenueData: mockAnalytics.admin.revenueData,
         classDistribution: mockAnalytics.admin.classDistribution
       };
-      
+
       setDashboardData(mockDashboardData);
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
@@ -58,7 +58,7 @@ const AdminDashboard = ({ user }) => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 h-full">
       {/* Admin Info Card */}
       <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
         <div className="bg-gradient-to-r from-green-700 to-green-600 p-6">
@@ -70,8 +70,8 @@ const AdminDashboard = ({ user }) => {
             </div>
             <div className="flex-1">
               <h1 className="text-2xl font-bold text-white">
-                {user?.firstName && user?.lastName 
-                  ? `${user.firstName} ${user.lastName}` 
+                {user?.firstName && user?.lastName
+                  ? `${user.firstName} ${user.lastName}`
                   : user?.name || 'Admin'
                 }
               </h1>
@@ -103,136 +103,136 @@ const AdminDashboard = ({ user }) => {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center">
-              <div className="p-2 bg-blue-100 rounded-lg">
-                <Users className="h-6 w-6 text-blue-600" />
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Total Users</p>
-                <p className="text-2xl font-bold text-gray-900">{dashboardData.totalUsers}</p>
-              </div>
+        <div className="bg-white rounded-lg shadow p-6">
+          <div className="flex items-center">
+            <div className="p-2 bg-blue-100 rounded-lg">
+              <Users className="h-6 w-6 text-blue-600" />
             </div>
-          </div>
-
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center">
-              <div className="p-2 bg-green-100 rounded-lg">
-                <BookOpen className="h-6 w-6 text-green-600" />
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Total Classes</p>
-                <p className="text-2xl font-bold text-gray-900">{dashboardData.totalClasses}</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center">
-              <div className="p-2 bg-purple-100 rounded-lg">
-                <TrendingUp className="h-6 w-6 text-purple-600" />
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Monthly Growth</p>
-                <p className="text-2xl font-bold text-gray-900">{dashboardData.monthlyGrowth}%</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center">
-              <div className="p-2 bg-yellow-100 rounded-lg">
-                <DollarSign className="h-6 w-6 text-yellow-600" />
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Revenue</p>
-                <p className="text-2xl font-bold text-gray-900">USD {dashboardData.revenue.toLocaleString()}</p>
-              </div>
+            <div className="ml-4">
+              <p className="text-sm font-medium text-gray-600">Total Users</p>
+              <p className="text-2xl font-bold text-gray-900">{dashboardData.totalUsers}</p>
             </div>
           </div>
         </div>
 
-        {/* Charts and Data */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* User Growth Chart */}
-          <div className="bg-white rounded-lg shadow p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">User Growth</h3>
-            <div className="space-y-3">
-              {dashboardData.userGrowthData.map((data, index) => (
-                <div key={index} className="flex items-center justify-between">
-                  <span className="text-sm text-gray-600">{data.month}</span>
-                  <div className="flex items-center">
-                    <div className="w-20 bg-gray-200 rounded-full h-2 mr-3">
-                      <div 
-                        className="bg-blue-600 h-2 rounded-full" 
-                        style={{ width: `${(data.users / Math.max(...dashboardData.userGrowthData.map(d => d.users))) * 100}%` }}
-                      ></div>
-                    </div>
-                    <span className="text-sm font-medium text-gray-900">{data.users}</span>
-                  </div>
-                </div>
-              ))}
+        <div className="bg-white rounded-lg shadow p-6">
+          <div className="flex items-center">
+            <div className="p-2 bg-green-100 rounded-lg">
+              <BookOpen className="h-6 w-6 text-green-600" />
+            </div>
+            <div className="ml-4">
+              <p className="text-sm font-medium text-gray-600">Total Classes</p>
+              <p className="text-2xl font-bold text-gray-900">{dashboardData.totalClasses}</p>
             </div>
           </div>
+        </div>
 
-          {/* Class Distribution */}
-          <div className="bg-white rounded-lg shadow p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Class Distribution</h3>
-            <div className="space-y-3">
-              {dashboardData.classDistribution.slice(0, 6).map((classData, index) => (
-                <div key={index} className="flex items-center justify-between">
-                  <div className="flex items-center">
-                    <div 
-                      className="w-3 h-3 rounded-full mr-3" 
-                      style={{ backgroundColor: classData.color }}
+        <div className="bg-white rounded-lg shadow p-6">
+          <div className="flex items-center">
+            <div className="p-2 bg-purple-100 rounded-lg">
+              <TrendingUp className="h-6 w-6 text-purple-600" />
+            </div>
+            <div className="ml-4">
+              <p className="text-sm font-medium text-gray-600">Monthly Growth</p>
+              <p className="text-2xl font-bold text-gray-900">{dashboardData.monthlyGrowth}%</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-lg shadow p-6">
+          <div className="flex items-center">
+            <div className="p-2 bg-yellow-100 rounded-lg">
+              <DollarSign className="h-6 w-6 text-yellow-600" />
+            </div>
+            <div className="ml-4">
+              <p className="text-sm font-medium text-gray-600">Revenue</p>
+              <p className="text-2xl font-bold text-gray-900">USD {dashboardData.revenue.toLocaleString()}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Charts and Data */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        {/* User Growth Chart */}
+        <div className="bg-white rounded-lg shadow p-6">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">User Growth</h3>
+          <div className="space-y-3">
+            {dashboardData.userGrowthData.map((data, index) => (
+              <div key={index} className="flex items-center justify-between">
+                <span className="text-sm text-gray-600">{data.month}</span>
+                <div className="flex items-center">
+                  <div className="w-20 bg-gray-200 rounded-full h-2 mr-3">
+                    <div
+                      className="bg-blue-600 h-2 rounded-full"
+                      style={{ width: `${(data.users / Math.max(...dashboardData.userGrowthData.map(d => d.users))) * 100}%` }}
                     ></div>
-                    <span className="text-sm text-gray-600 truncate max-w-32">{classData.name}</span>
                   </div>
-                  <span className="text-sm font-medium text-gray-900">{classData.students}</span>
+                  <span className="text-sm font-medium text-gray-900">{data.users}</span>
                 </div>
-              ))}
-            </div>
+              </div>
+            ))}
           </div>
         </div>
 
-        {/* Recent Activity */}
-        <div className="mt-8 bg-white rounded-lg shadow">
-          <div className="px-6 py-4 border-b border-gray-200">
-            <h3 className="text-lg font-semibold text-gray-900">Recent Activity</h3>
+        {/* Class Distribution */}
+        <div className="bg-white rounded-lg shadow p-6">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Class Distribution</h3>
+          <div className="space-y-3">
+            {dashboardData.classDistribution.slice(0, 6).map((classData, index) => (
+              <div key={index} className="flex items-center justify-between">
+                <div className="flex items-center">
+                  <div
+                    className="w-3 h-3 rounded-full mr-3"
+                    style={{ backgroundColor: classData.color }}
+                  ></div>
+                  <span className="text-sm text-gray-600 truncate max-w-32">{classData.name}</span>
+                </div>
+                <span className="text-sm font-medium text-gray-900">{classData.students}</span>
+              </div>
+            ))}
           </div>
-          <div className="p-6">
-            <div className="space-y-4">
-              <div className="flex items-center space-x-3">
-                <div className="p-2 bg-green-100 rounded-full">
-                  <UserPlus className="h-4 w-4 text-green-600" />
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-900">New student registered</p>
-                  <p className="text-sm text-gray-500">2 hours ago</p>
-                </div>
+        </div>
+      </div>
+
+      {/* Recent Activity */}
+      <div className="mt-8 bg-white rounded-lg shadow">
+        <div className="px-6 py-4 border-b border-gray-200">
+          <h3 className="text-lg font-semibold text-gray-900">Recent Activity</h3>
+        </div>
+        <div className="p-6">
+          <div className="space-y-4">
+            <div className="flex items-center space-x-3">
+              <div className="p-2 bg-green-100 rounded-full">
+                <UserPlus className="h-4 w-4 text-green-600" />
               </div>
-              <div className="flex items-center space-x-3">
-                <div className="p-2 bg-blue-100 rounded-full">
-                  <BookOpen className="h-4 w-4 text-blue-600" />
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-900">New class created</p>
-                  <p className="text-sm text-gray-500">4 hours ago</p>
-                </div>
+              <div>
+                <p className="text-sm font-medium text-gray-900">New student registered</p>
+                <p className="text-sm text-gray-500">2 hours ago</p>
               </div>
-              <div className="flex items-center space-x-3">
-                <div className="p-2 bg-purple-100 rounded-full">
-                  <TrendingUp className="h-4 w-4 text-purple-600" />
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-900">Monthly revenue target reached</p>
-                  <p className="text-sm text-gray-500">1 day ago</p>
-                </div>
+            </div>
+            <div className="flex items-center space-x-3">
+              <div className="p-2 bg-blue-100 rounded-full">
+                <BookOpen className="h-4 w-4 text-blue-600" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-gray-900">New class created</p>
+                <p className="text-sm text-gray-500">4 hours ago</p>
+              </div>
+            </div>
+            <div className="flex items-center space-x-3">
+              <div className="p-2 bg-purple-100 rounded-full">
+                <TrendingUp className="h-4 w-4 text-purple-600" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-gray-900">Monthly revenue target reached</p>
+                <p className="text-sm text-gray-500">1 day ago</p>
               </div>
             </div>
           </div>
         </div>
       </div>
+    </div>
   );
 };
 

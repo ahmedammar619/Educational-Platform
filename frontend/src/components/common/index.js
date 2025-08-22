@@ -1,1 +1,1 @@
-export { default as MaterialPages } from './MaterialPages';
+export { default as MaterialPages } from './class-material/MaterialPages';

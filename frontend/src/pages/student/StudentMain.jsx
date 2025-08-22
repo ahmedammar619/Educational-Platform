@@ -3,7 +3,7 @@ import { Home, BookOpen, Calendar, User, Bell, LogOut, FileText, ArrowLeft } fro
 import StudentDashboard from './StudentDashboard';
 import StudentClasses from './StudentClasses';
 import StudentSchedule from './StudentSchedule';
-import MaterialPages from '../../components/common/MaterialPages';
+import MaterialPages from '../../components/common/class-material/MaterialPages';
 
 const StudentMain = ({ user, onLogout }) => {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -32,10 +32,10 @@ const StudentMain = ({ user, onLogout }) => {
   const renderMainContent = () => {
     if (showMaterials && selectedClass) {
       return (
-        <div className="space-y-4">
+        <div className="space-y-4 h-full">
           {/* MaterialPages Component */}
-          <MaterialPages 
-            classData={selectedClass} 
+          <MaterialPages
+            classData={selectedClass}
             onBack={handleBackFromMaterials}
             currentUser={user}
           />
@@ -44,15 +44,15 @@ const StudentMain = ({ user, onLogout }) => {
     }
 
     return (
-      <ActiveComponent 
-        user={user} 
+      <ActiveComponent
+        user={user}
         onOpenMaterials={activeTab === 'classes' ? handleOpenMaterials : undefined}
       />
     );
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 h-full">
       {/* Top Navigation - Fixed */}
       <nav className="fixed top-0 left-0 right-0 bg-white shadow-sm border-b z-50">
         <div className="px-4 sm:px-6 lg:px-8">
@@ -68,12 +68,12 @@ const StudentMain = ({ user, onLogout }) => {
                 </div>
               </div>
             </div>
-            
+
             <div className="flex items-center space-x-4">
               <button className="p-2 text-gray-400 hover:text-red-600">
                 <Bell className="h-5 w-5" />
               </button>
-              
+
               <div className="flex items-center space-x-3">
                 <div className="flex items-center space-x-2">
                   <div className="w-8 h-8 bg-red-600 rounded-full flex items-center justify-center">
@@ -81,15 +81,15 @@ const StudentMain = ({ user, onLogout }) => {
                   </div>
                   <div className="hidden md:block">
                     <p className="text-sm font-medium text-gray-900">
-                      {user?.firstName && user?.lastName 
-                        ? `${user.firstName} ${user.lastName}` 
+                      {user?.firstName && user?.lastName
+                        ? `${user.firstName} ${user.lastName}`
                         : user?.name || 'Student'
                       }
                     </p>
                     <p className="text-xs text-gray-500">Student</p>
                   </div>
                 </div>
-                
+
                 <button
                   onClick={onLogout}
                   className="p-2 text-gray-400 hover:text-red-600"
@@ -122,11 +122,10 @@ const StudentMain = ({ user, onLogout }) => {
                           setSelectedClass(null);
                         }
                       }}
-                      className={`w-full flex items-center space-x-3 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                        activeTab === item.id
+                      className={`w-full flex items-center space-x-3 px-3 py-2 rounded-md text-sm font-medium transition-colors ${activeTab === item.id
                           ? 'bg-red-100 text-red-700 border border-red-200'
                           : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
-                      }`}
+                        }`}
                     >
                       <Icon className="h-5 w-5" />
                       <span>{item.name}</span>
@@ -134,25 +133,6 @@ const StudentMain = ({ user, onLogout }) => {
                   );
                 })}
               </nav>
-            </div>
-
-            {/* Quick Stats */}
-            <div className="mt-6 bg-white rounded-lg shadow-sm border p-4">
-              <h3 className="text-sm font-medium text-gray-900 mb-3">Quick Stats</h3>
-              <div className="space-y-3">
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">Enrolled Classes</span>
-                  <span className="font-medium text-gray-900">2</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">Progress</span>
-                  <span className="font-medium text-gray-900">85%</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">Attendance</span>
-                  <span className="font-medium text-green-600">94%</span>
-                </div>
-              </div>
             </div>
 
             {/* Upcoming Classes */}
