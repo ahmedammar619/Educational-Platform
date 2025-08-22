@@ -1,11 +1,14 @@
 import { useState } from 'react';
-import { Home, Users, BookOpen, Shield, Bell, LogOut, User } from 'lucide-react';
+import { Home, Users, BookOpen, Shield, Bell, LogOut, User, FileText, ArrowLeft } from 'lucide-react';
 import AdminDashboard from './AdminDashboard';
 import UserManagement from './UserManagement';
 import ClassManagement from './ClassManagement';
+import MaterialPages from '../../components/common/MaterialPages';
 
 const AdminMain = ({ user, onLogout }) => {
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [showMaterials, setShowMaterials] = useState(false);
+  const [selectedClass, setSelectedClass] = useState(null);
 
   const navigation = [
     { id: 'dashboard', name: 'Dashboard', icon: Home, component: AdminDashboard },
@@ -14,6 +17,39 @@ const AdminMain = ({ user, onLogout }) => {
   ];
 
   const ActiveComponent = navigation.find(nav => nav.id === activeTab)?.component || AdminDashboard;
+
+  const handleOpenMaterials = (classData) => {
+    setSelectedClass(classData);
+    setShowMaterials(true);
+  };
+
+  const handleBackFromMaterials = () => {
+    setShowMaterials(false);
+    setSelectedClass(null);
+  };
+
+  // Render MaterialPages within the main content area
+  const renderMainContent = () => {
+    if (showMaterials && selectedClass) {
+      return (
+        <div className="space-y-4">
+          {/* MaterialPages Component */}
+          <MaterialPages 
+            classData={selectedClass} 
+            onBack={handleBackFromMaterials}
+            currentUser={user}
+          />
+        </div>
+      );
+    }
+
+    return (
+      <ActiveComponent 
+        user={user} 
+        onOpenMaterials={activeTab === 'classes' ? handleOpenMaterials : undefined}
+      />
+    );
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -78,10 +114,17 @@ const AdminMain = ({ user, onLogout }) => {
                   return (
                     <button
                       key={item.id}
-                      onClick={() => setActiveTab(item.id)}
+                      onClick={() => {
+                        setActiveTab(item.id);
+                        // Close materials when switching tabs
+                        if (showMaterials) {
+                          setShowMaterials(false);
+                          setSelectedClass(null);
+                        }
+                      }}
                       className={`w-full flex items-center space-x-3 px-3 py-2 rounded-md text-sm font-medium transition-colors ${activeTab === item.id
-                          ? 'bg-green-100 text-green-700 border border-green-200'
-                          : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                        ? 'bg-green-100 text-green-700 border border-green-200'
+                        : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
                         }`}
                     >
                       <Icon className="h-5 w-5" />
@@ -110,11 +153,33 @@ const AdminMain = ({ user, onLogout }) => {
                 </div>
               </div>
             </div>
+
+            {/* Quick Actions */}
+            <div className="mt-6 bg-white rounded-lg shadow-sm border p-4">
+              <h3 className="text-sm font-medium text-gray-900 mb-3">Quick Actions</h3>
+              <div className="space-y-3">
+                <div className="text-sm">
+                  <button className="w-full text-left text-gray-600 hover:text-green-600 hover:bg-green-50 p-2 rounded transition-colors">
+                    Add New User
+                  </button>
+                </div>
+                <div className="text-sm">
+                  <button className="w-full text-left text-gray-600 hover:text-green-600 hover:bg-green-50 p-2 rounded transition-colors">
+                    Create Class
+                  </button>
+                </div>
+                <div className="text-sm">
+                  <button className="w-full text-left text-gray-600 hover:text-green-600 hover:bg-green-50 p-2 rounded transition-colors">
+                    View Reports
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
 
           {/* Main Content - With left margin for fixed sidebar and gap */}
           <div className="flex-1 min-w-0 lg:ml-72">
-            <ActiveComponent user={user} />
+            {renderMainContent()}
           </div>
         </div>
       </div>

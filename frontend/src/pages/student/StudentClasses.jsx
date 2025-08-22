@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { BookOpen, Clock, User, MapPin, Calendar, CheckCircle, Users, Search, Filter } from 'lucide-react';
 import { mockClasses, mockUsers } from '../../data/mockData';
 
-const StudentClasses = ({ user }) => {
+const StudentClasses = ({ user, onOpenMaterials }) => {
   const [enrolledClasses, setEnrolledClasses] = useState([]);
   const [filteredClasses, setFilteredClasses] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -227,9 +227,7 @@ const StudentClasses = ({ user }) => {
 
                     <div className="text-center">
                       <button
-                        onClick={() => {
-                          console.log('Class material clicked for:', classItem.name);
-                        }}
+                        onClick={() => onOpenMaterials(classItem)}
                         className="w-full sm:w-auto px-3 py-2 border-2 border-red-600 text-red-600 font-semibold text-xs rounded-lg hover:bg-red-600 hover:text-white transition-all duration-200 uppercase"
                       >
                         Class Material

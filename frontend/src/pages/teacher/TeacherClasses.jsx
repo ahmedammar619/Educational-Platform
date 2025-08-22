@@ -1,12 +1,15 @@
 import { useState, useEffect } from 'react';
 import { Users, Clock, Calendar, BookOpen, Plus, Edit, Eye, MessageSquare, User, DollarSign, X } from 'lucide-react';
 import { mockClasses, mockUsers } from '../../data/mockData';
+import { MaterialPages } from '../../components';
 
 const TeacherClasses = ({ user }) => {
   const [classes, setClasses] = useState([]);
   const [showClassModal, setShowClassModal] = useState(false);
   const [showStudentModal, setShowStudentModal] = useState(false);
+  const [showMaterialPages, setShowMaterialPages] = useState(false);
   const [selectedClassForModal, setSelectedClassForModal] = useState(null);
+  const [selectedClassForMaterial, setSelectedClassForMaterial] = useState(null);
 
   useEffect(() => {
     loadClasses();
@@ -42,109 +45,123 @@ const TeacherClasses = ({ user }) => {
 
   return (
     <div className="space-y-4 sm:space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">My Classes</h1>
-          <p className="text-sm sm:text-base text-gray-600">Manage your classes and track student progress</p>
-        </div>
-      </div>
-
-      {/* Classes List */}
-      <div className="bg-white rounded-lg shadow-sm border">
-        <div className="p-4 sm:p-6 border-b">
-          <h2 className="text-base sm:text-lg font-semibold text-gray-900">All Classes</h2>
-        </div>
-        <div className="p-4 sm:p-6">
-          {classes.length === 0 ? (
-            <div className="text-center py-8">
-              <BookOpen className="h-8 w-8 sm:h-12 sm:w-12 text-gray-400 mx-auto mb-4" />
-              <p className="text-sm sm:text-base text-gray-600">No classes assigned yet</p>
-              <p className="text-xs sm:text-sm text-gray-500">Create your first class to get started</p>
+      {!showMaterialPages ? (
+        <>
+          {/* Header */}
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
+            <div>
+              <h1 className="text-xl sm:text-2xl font-bold text-gray-900">My Classes</h1>
+              <p className="text-sm sm:text-base text-gray-600">Manage your classes and track student progress</p>
             </div>
-          ) : (
-            <div className="space-y-3 sm:space-y-4">
-              {classes.map((classItem) => (
-                <div
-                  key={classItem.id}
-                  className="bg-white rounded-xl shadow-sm border hover:shadow-md transition-all w-full p-3 sm:p-4 flex flex-col gap-3 sm:gap-4"
-                >
-                  {/* Top Row - Name, Actions */}
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                    <div className="flex items-center gap-2 sm:gap-3">
-                      <BookOpen className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600" />
-                      <h3 className="text-base sm:text-lg font-semibold text-gray-900">{classItem.name}</h3>
-                    </div>
+          </div>
 
-                    {/* Actions */}
-                    <div className="flex items-center gap-3 opacity-80 hover:opacity-100 transition-opacity">
-                      <button
-                        onClick={() => {
-                          setSelectedClassForModal(classItem);
-                          setShowStudentModal(true);
-                        }}
-                        className="text-green-600 hover:text-green-800 p-2 rounded-lg hover:bg-green-50 transition-colors"
-                        title="View Students"
-                      >
-                        <Users className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Bottom Row - Students, Date, Class Material */}
-                  <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center w-full gap-3 sm:gap-0">
-                    <div className="text-center">
-                      <p className="text-xs text-gray-500 flex items-center justify-center gap-1">
-                        <Users className="h-3 w-3 sm:h-4 sm:w-4 text-gray-400" /> Students
-                      </p>
-                      <p className="font-medium text-gray-900 text-sm sm:text-base">{classItem.students?.length || 0}</p>
-                    </div>
-
-                    <div className="text-center">
-                      <p className="text-xs text-gray-500 flex items-center justify-center gap-1">
-                        <Calendar className="h-3 w-3 sm:h-4 sm:w-4 text-gray-400" /> Schedule
-                      </p>
-                      <p className="font-medium text-gray-900 text-sm sm:text-base">
-                        {classItem.schedule && Array.isArray(classItem.schedule)
-                          ? classItem.schedule.map(item => `${item.day} ${item.startTime}-${item.endTime}`).join(', ')
-                          : 'Schedule TBD'
-                        }
-                      </p>
-                    </div>
-
-                    <div className="text-center">
-                      <p className="text-xs text-gray-500 flex items-center justify-center gap-1">
-                        <Clock className="h-3 w-3 sm:h-4 sm:w-4 text-gray-400" /> Duration
-                      </p>
-                      <p className="font-medium text-gray-900 text-sm sm:text-base">{classItem.sessionDuration || 120} min</p>
-                    </div>
-
-                    <div className="text-center">
-                      <button
-                        onClick={() => {
-                          console.log('Class material clicked for:', classItem.name);
-                        }}
-                        className="w-full sm:w-auto px-3 py-2 border-2 border-blue-600 text-blue-600 font-semibold text-xs rounded-lg hover:bg-blue-600 hover:text-white transition-all duration-200 uppercase"
-                      >
-                        Class Material
-                      </button>
-                    </div>
-                  </div>
+          {/* Classes List */}
+          <div className="bg-white rounded-lg shadow-sm border">
+            <div className="p-4 sm:p-6 border-b">
+              <h2 className="text-base sm:text-lg font-semibold text-gray-900">All Classes</h2>
+            </div>
+            <div className="p-4 sm:p-6">
+              {classes.length === 0 ? (
+                <div className="text-center py-8">
+                  <BookOpen className="h-8 w-8 sm:h-12 sm:w-12 text-gray-400 mx-auto mb-4" />
+                  <p className="text-sm sm:text-base text-gray-600">No classes assigned yet</p>
+                  <p className="text-xs sm:text-sm text-gray-500">Create your first class to get started</p>
                 </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
+              ) : (
+                <div className="space-y-3 sm:space-y-4">
+                  {classes.map((classItem) => (
+                    <div
+                      key={classItem.id}
+                      className="bg-white rounded-xl shadow-sm border hover:shadow-md transition-all w-full p-3 sm:p-4 flex flex-col gap-3 sm:gap-4"
+                    >
+                      {/* Top Row - Name, Actions */}
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                        <div className="flex items-center gap-2 sm:gap-3">
+                          <BookOpen className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600" />
+                          <h3 className="text-base sm:text-lg font-semibold text-gray-900">{classItem.name}</h3>
+                        </div>
 
-      {/* Student Modal */}
-      {showStudentModal && selectedClassForModal && (
-        <StudentModal
-          classData={selectedClassForModal}
-          onClose={() => {
-            setShowStudentModal(false);
-            setSelectedClassForModal(null);
+                        {/* Actions */}
+                        <div className="flex items-center gap-3 opacity-80 hover:opacity-100 transition-opacity">
+                          <button
+                            onClick={() => {
+                              setSelectedClassForModal(classItem);
+                              setShowStudentModal(true);
+                            }}
+                            className="text-green-600 hover:text-green-800 p-2 rounded-lg hover:bg-green-50 transition-colors"
+                            title="View Students"
+                          >
+                            <Users className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Bottom Row - Students, Date, Class Material */}
+                      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center w-full gap-3 sm:gap-0">
+                        <div className="text-center">
+                          <p className="text-xs text-gray-500 flex items-center justify-center gap-1">
+                            <Users className="h-3 w-3 sm:h-4 sm:w-4 text-gray-400" /> Students
+                          </p>
+                          <p className="font-medium text-gray-900 text-sm sm:text-base">{classItem.students?.length || 0}</p>
+                        </div>
+
+                        <div className="text-center">
+                          <p className="text-xs text-gray-500 flex items-center justify-center gap-1">
+                            <Calendar className="h-3 w-3 sm:h-4 sm:w-4 text-gray-400" /> Schedule
+                          </p>
+                          <p className="font-medium text-gray-900 text-sm sm:text-base">
+                            {classItem.schedule && Array.isArray(classItem.schedule)
+                              ? classItem.schedule.map(item => `${item.day} ${item.startTime}-${item.endTime}`).join(', ')
+                              : 'Schedule TBD'
+                            }
+                          </p>
+                        </div>
+
+                        <div className="text-center">
+                          <p className="text-xs text-gray-500 flex items-center justify-center gap-1">
+                            <Clock className="h-3 w-3 sm:h-4 sm:w-4 text-gray-400" /> Duration
+                          </p>
+                          <p className="font-medium text-gray-900 text-sm sm:text-base">{classItem.sessionDuration || 120} min</p>
+                        </div>
+
+                        <div className="text-center">
+                          <button
+                            onClick={() => {
+                              setSelectedClassForMaterial(classItem);
+                              setShowMaterialPages(true);
+                            }}
+                            className="w-full sm:w-auto px-3 py-2 border-2 border-blue-600 text-blue-600 font-semibold text-xs rounded-lg hover:bg-blue-600 hover:text-white transition-all duration-200 uppercase"
+                          >
+                            Class Material
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Student Modal */}
+          {showStudentModal && selectedClassForModal && (
+            <StudentModal
+              classData={selectedClassForModal}
+              onClose={() => {
+                setShowStudentModal(false);
+                setSelectedClassForModal(null);
+              }}
+            />
+          )}
+        </>
+      ) : (
+        <MaterialPages
+          classData={selectedClassForMaterial}
+          onBack={() => {
+            setShowMaterialPages(false);
+            setSelectedClassForMaterial(null);
           }}
+          currentUser={user}
         />
       )}
     </div>

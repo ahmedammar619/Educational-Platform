@@ -143,7 +143,7 @@ const ParentDashboard = ({ user }) => {
     <div className="space-y-6">
       {/* Parent Info Card */}
       <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
-        <div className="bg-gradient-to-r from-purple-600 to-blue-600 p-6">
+        <div className="bg-gradient-to-r from-purple-700 to-purple-600 p-6">
           <div className="flex items-center space-x-4">
             <div className="w-16 h-16 bg-white bg-opacity-20 rounded-full flex items-center justify-center">
               <span className="text-2xl font-bold text-white">
