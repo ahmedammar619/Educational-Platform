@@ -1,11 +1,14 @@
 import { useState } from 'react';
-import { Home, BookOpen, Calendar, User, Bell, LogOut } from 'lucide-react';
+import { Home, BookOpen, Calendar, User, Bell, LogOut, FileText, ArrowLeft } from 'lucide-react';
 import StudentDashboard from './StudentDashboard';
 import StudentClasses from './StudentClasses';
 import StudentSchedule from './StudentSchedule';
+import MaterialPages from '../../components/common/MaterialPages';
 
 const StudentMain = ({ user, onLogout }) => {
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [showMaterials, setShowMaterials] = useState(false);
+  const [selectedClass, setSelectedClass] = useState(null);
 
   const navigation = [
     { id: 'dashboard', name: 'Dashboard', icon: Home, component: StudentDashboard },
@@ -14,6 +17,39 @@ const StudentMain = ({ user, onLogout }) => {
   ];
 
   const ActiveComponent = navigation.find(nav => nav.id === activeTab)?.component || StudentDashboard;
+
+  const handleOpenMaterials = (classData) => {
+    setSelectedClass(classData);
+    setShowMaterials(true);
+  };
+
+  const handleBackFromMaterials = () => {
+    setShowMaterials(false);
+    setSelectedClass(null);
+  };
+
+  // Render MaterialPages within the main content area
+  const renderMainContent = () => {
+    if (showMaterials && selectedClass) {
+      return (
+        <div className="space-y-4">
+          {/* MaterialPages Component */}
+          <MaterialPages 
+            classData={selectedClass} 
+            onBack={handleBackFromMaterials}
+            currentUser={user}
+          />
+        </div>
+      );
+    }
+
+    return (
+      <ActiveComponent 
+        user={user} 
+        onOpenMaterials={activeTab === 'classes' ? handleOpenMaterials : undefined}
+      />
+    );
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -78,7 +114,14 @@ const StudentMain = ({ user, onLogout }) => {
                   return (
                     <button
                       key={item.id}
-                      onClick={() => setActiveTab(item.id)}
+                      onClick={() => {
+                        setActiveTab(item.id);
+                        // Close materials when switching tabs
+                        if (showMaterials) {
+                          setShowMaterials(false);
+                          setSelectedClass(null);
+                        }
+                      }}
                       className={`w-full flex items-center space-x-3 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
                         activeTab === item.id
                           ? 'bg-red-100 text-red-700 border border-red-200'
@@ -117,11 +160,11 @@ const StudentMain = ({ user, onLogout }) => {
               <h3 className="text-sm font-medium text-gray-900 mb-3">Upcoming Classes</h3>
               <div className="space-y-3">
                 <div className="text-sm">
-                  <p className="font-medium text-gray-900">Quran Memorization</p>
+                  <p className="text-sm font-medium text-gray-900">Quran Memorization</p>
                   <p className="text-xs text-blue-600">Today at 4:00 PM</p>
                 </div>
                 <div className="text-sm">
-                  <p className="font-medium text-gray-900">Arabic Language</p>
+                  <p className="text-sm font-medium text-gray-900">Arabic Language</p>
                   <p className="text-xs text-green-600">Tomorrow at 5:00 PM</p>
                 </div>
               </div>
@@ -130,7 +173,7 @@ const StudentMain = ({ user, onLogout }) => {
 
           {/* Main Content - With left margin for fixed sidebar and gap */}
           <div className="flex-1 min-w-0 lg:ml-72">
-            <ActiveComponent user={user} />
+            {renderMainContent()}
           </div>
         </div>
       </div>

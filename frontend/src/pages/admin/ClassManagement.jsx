@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Plus, Edit, Trash2, Users, Clock, DollarSign, Calendar, Search, Filter, User, BookOpen, X } from 'lucide-react';
 import { mockClasses, mockUsers } from '../../data/mockData';
 
-const ClassManagement = ({ user }) => {
+const ClassManagement = ({ user, onOpenMaterials }) => {
     const [classes, setClasses] = useState([]);
     const [filteredClasses, setFilteredClasses] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -46,9 +46,9 @@ const ClassManagement = ({ user }) => {
             filtered = filtered.filter(classItem => {
                 const teacher = mockUsers.teachers.find(t => t.id === classItem.teacherId);
                 const teacherName = teacher ? `${teacher.firstName} ${teacher.lastName}` : 'Teacher TBD';
-                
+
                 return classItem.name.toLowerCase().includes(filters.search.toLowerCase()) ||
-                       teacherName.toLowerCase().includes(filters.search.toLowerCase());
+                    teacherName.toLowerCase().includes(filters.search.toLowerCase());
             });
         }
 
@@ -57,7 +57,7 @@ const ClassManagement = ({ user }) => {
             filtered = filtered.filter(classItem => {
                 const teacher = mockUsers.teachers.find(t => t.id === classItem.teacherId);
                 const teacherName = teacher ? `${teacher.firstName} ${teacher.lastName}` : 'Teacher TBD';
-                
+
                 return teacherName.toLowerCase().includes(filters.teacher.toLowerCase());
             });
         }
@@ -216,7 +216,7 @@ const ClassManagement = ({ user }) => {
                         {filteredClasses.map((classItem) => {
                             const teacher = mockUsers.teachers.find(t => t.id === classItem.teacherId);
                             const teacherName = teacher ? `${teacher.firstName} ${teacher.lastName}` : 'Teacher TBD';
-                            
+
                             return (
                                 <div
                                     key={classItem.id}
@@ -236,83 +236,80 @@ const ClassManagement = ({ user }) => {
                                             </p>
                                         </div>
 
-                                    {/* Actions */}
-                                    <div className="flex items-center gap-2 sm:gap-3 opacity-80 hover:opacity-100 transition-opacity">
-                                        <button
-                                            onClick={() => {
-                                                setSelectedClass(classItem);
-                                                setShowEnrollModal(true);
-                                            }}
-                                            className="text-green-600 hover:text-green-800 p-2 rounded-lg hover:bg-green-50 transition-colors"
-                                            title="Enroll Students"
-                                        >
-                                            <Users className="h-4 w-4" />
-                                        </button>
-                                        <button
-                                            onClick={() => {
-                                                setSelectedClass(classItem);
-                                                setShowEditModal(true);
-                                            }}
-                                            className="text-blue-600 hover:text-blue-800 p-2 rounded-lg hover:bg-blue-50 transition-colors"
-                                            title="Edit Class"
-                                        >
-                                            <Edit className="h-4 w-4" />
-                                        </button>
-                                        <button
-                                            onClick={() => handleDeleteClass(classItem.id)}
-                                            className="text-red-600 hover:text-red-800 p-2 rounded-lg hover:bg-red-50 transition-colors"
-                                            title="Delete Class"
-                                        >
-                                            <Trash2 className="h-4 w-4" />
-                                        </button>
-                                    </div>
-                                </div>
-
-                                {/* Bottom Row - Students, Date, Price, Class Material */}
-                                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center w-full gap-3 sm:gap-0">
-                                    <div className="text-center">
-                                        <p className="text-xs text-gray-500 flex items-center justify-center gap-1">
-                                            <Users className="h-3 w-3 sm:h-4 sm:w-4 text-gray-400" /> Students
-                                        </p>
-                                        <p className="font-medium text-gray-900 text-sm sm:text-base">{classItem.students?.length || 0}</p>
+                                        {/* Actions */}
+                                        <div className="flex items-center gap-2 sm:gap-3 opacity-80 hover:opacity-100 transition-opacity">
+                                            <button
+                                                onClick={() => {
+                                                    setSelectedClass(classItem);
+                                                    setShowEnrollModal(true);
+                                                }}
+                                                className="text-green-600 hover:text-green-800 p-2 rounded-lg hover:bg-green-50 transition-colors"
+                                                title="Enroll Students"
+                                            >
+                                                <Users className="h-4 w-4" />
+                                            </button>
+                                            <button
+                                                onClick={() => {
+                                                    setSelectedClass(classItem);
+                                                    setShowEditModal(true);
+                                                }}
+                                                className="text-blue-600 hover:text-blue-800 p-2 rounded-lg hover:bg-blue-50 transition-colors"
+                                                title="Edit Class"
+                                            >
+                                                <Edit className="h-4 w-4" />
+                                            </button>
+                                            <button
+                                                onClick={() => handleDeleteClass(classItem.id)}
+                                                className="text-red-600 hover:text-red-800 p-2 rounded-lg hover:bg-red-50 transition-colors"
+                                                title="Delete Class"
+                                            >
+                                                <Trash2 className="h-4 w-4" />
+                                            </button>
+                                        </div>
                                     </div>
 
-                                    <div className="text-center">
-                                        <p className="text-xs text-gray-500 flex items-center justify-center gap-1">
-                                            <Calendar className="h-3 w-3 sm:h-4 sm:w-4 text-gray-400" /> Schedule
-                                        </p>
-                                        <p className="font-medium text-gray-900 text-xs sm:text-sm">
-                                            {classItem.schedule && Array.isArray(classItem.schedule) 
-                                              ? classItem.schedule.map(item => `${item.day} ${item.startTime}-${item.endTime}`).join(', ')
-                                              : classItem.schedule || 'Schedule TBD'
-                                            }
-                                        </p>
-                                    </div>
-
-                                    {classItem.price && (
+                                    {/* Bottom Row - Students, Date, Price, Class Material */}
+                                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center w-full gap-3 sm:gap-0">
                                         <div className="text-center">
                                             <p className="text-xs text-gray-500 flex items-center justify-center gap-1">
-                                                <DollarSign className="h-3 w-3 sm:h-4 sm:w-4 text-gray-400" /> Price
+                                                <Users className="h-3 w-3 sm:h-4 sm:w-4 text-gray-400" /> Students
                                             </p>
-                                            <p className="font-medium text-gray-900 text-sm sm:text-base">USD {classItem.price}</p>
+                                            <p className="font-medium text-gray-900 text-sm sm:text-base">{classItem.students?.length || 0}</p>
                                         </div>
-                                    )}
 
-                                    <div className="text-center">
-                                        <button
-                                            onClick={() => {
-                                                // Handle class material click
-                                                console.log('Class material clicked for:', classItem.name);
-                                            }}
-                                            className="w-full sm:w-auto px-3 py-2 border-2 border-green-600 text-green-600 font-semibold text-xs rounded-lg hover:bg-green-600 hover:text-white transition-all duration-200 uppercase"
-                                        >
-                                            Class Material
-                                        </button>
+                                        <div className="text-center">
+                                            <p className="text-xs text-gray-500 flex items-center justify-center gap-1">
+                                                <Calendar className="h-3 w-3 sm:h-4 sm:w-4 text-gray-400" /> Schedule
+                                            </p>
+                                            <p className="font-medium text-gray-900 text-xs sm:text-sm">
+                                                {classItem.schedule && Array.isArray(classItem.schedule)
+                                                    ? classItem.schedule.map(item => `${item.day} ${item.startTime}-${item.endTime}`).join(', ')
+                                                    : classItem.schedule || 'Schedule TBD'
+                                                }
+                                            </p>
+                                        </div>
+
+                                        {classItem.price && (
+                                            <div className="text-center">
+                                                <p className="text-xs text-gray-500 flex items-center justify-center gap-1">
+                                                    <DollarSign className="h-3 w-3 sm:h-4 sm:w-4 text-gray-400" /> Price
+                                                </p>
+                                                <p className="font-medium text-gray-900 text-sm sm:text-base">USD {classItem.price}</p>
+                                            </div>
+                                        )}
+
+                                        <div className="text-center">
+                                            <button
+                                                onClick={() => onOpenMaterials(classItem)}
+                                                className="w-full sm:w-auto px-3 py-2 border-2 border-green-600 text-green-600 font-semibold text-xs rounded-lg hover:bg-green-600 hover:text-white transition-all duration-200 uppercase"
+                                            >
+                                                Class Material
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                        );
-                    })}
+                            );
+                        })}
                     </div>
 
                     {/* Pagination */}
@@ -323,14 +320,14 @@ const ClassManagement = ({ user }) => {
                                 <button
                                     onClick={() => setFilters({ ...filters, page: Math.max(1, filters.page - 1) })}
                                     disabled={filters.page === 1}
-                                    className="px-3 sm:px-4 py-2 border-2 border-green-600 text-green-600 text-xs sm:text-sm rounded-md bg-white hover:bg-green-50 disabled:opacity-50 transition-all duration-200"
+                                    className="px-3 sm:px-4 py-2 border-2 border-green-600 text-green-600 text-xs sm:text-sm rounded-md bg-white hover:bg-green-200 disabled:opacity-60 transition-all duration-200"
                                 >
                                     Previous
                                 </button>
                                 <button
                                     onClick={() => setFilters({ ...filters, page: Math.min(pagination?.pages || 1, filters.page + 1) })}
                                     disabled={filters.page === (pagination?.pages || 1)}
-                                    className="px-3 sm:px-4 py-2 border-2 border-green-600 text-green-600 text-xs sm:text-sm rounded-md bg-white hover:bg-green-50 disabled:opacity-50 transition-all duration-200"
+                                    className="px-3 sm:px-4 py-2 border-2 border-green-600 text-green-600 text-xs sm:text-sm rounded-md bg-white hover:bg-green-200 disabled:opacity-60 transition-all duration-200"
                                 >
                                     Next
                                 </button>
@@ -756,9 +753,9 @@ const EnrollModal = ({ classData, onClose, onSubmit }) => {
                                                 </div>
                                                 <div className="ml-2 sm:ml-3 min-w-0 flex-1">
                                                     <p className="text-xs sm:text-sm font-medium text-gray-900 truncate">
-                                                        {student.firstName && student.lastName 
-                                                          ? `${student.firstName} ${student.lastName}` 
-                                                          : student.fullName
+                                                        {student.firstName && student.lastName
+                                                            ? `${student.firstName} ${student.lastName}`
+                                                            : student.fullName
                                                         }
                                                     </p>
                                                     <p className="text-xs text-gray-500 truncate">
