@@ -29,16 +29,16 @@ const StudentClasses = ({ user, onOpenMaterials }) => {
 
   const loadStudentClasses = () => {
     setLoading(true);
-    
+
     // For demo purposes, let's show classes that have students enrolled
     // In a real app, this would filter by the actual student ID
     const studentId = user?.id || 201; // Default to Ahmad Al-Noor for demo
-    
+
     // Get classes where this student is enrolled
-    const studentClasses = mockClasses.filter(cls => 
+    const studentClasses = mockClasses.filter(cls =>
       cls.students && cls.students.includes(studentId)
     );
-    
+
     // If no classes found for this student, show some sample classes for demo
     if (studentClasses.length === 0) {
       // Show classes that have students (for demo purposes)
@@ -47,7 +47,7 @@ const StudentClasses = ({ user, onOpenMaterials }) => {
     } else {
       setEnrolledClasses(studentClasses);
     }
-    
+
     setLoading(false);
   };
 
@@ -59,9 +59,9 @@ const StudentClasses = ({ user, onOpenMaterials }) => {
       filtered = filtered.filter(classItem => {
         const teacher = mockUsers.teachers.find(t => t.id === classItem.teacherId);
         const teacherName = teacher ? `${teacher.firstName} ${teacher.lastName}` : 'Teacher TBD';
-        
+
         return classItem.name.toLowerCase().includes(filters.search.toLowerCase()) ||
-               teacherName.toLowerCase().includes(filters.search.toLowerCase());
+          teacherName.toLowerCase().includes(filters.search.toLowerCase());
       });
     }
 
@@ -70,7 +70,7 @@ const StudentClasses = ({ user, onOpenMaterials }) => {
       filtered = filtered.filter(classItem => {
         const teacher = mockUsers.teachers.find(t => t.id === classItem.teacherId);
         const teacherName = teacher ? `${teacher.firstName} ${teacher.lastName}` : 'Teacher TBD';
-        
+
         return teacherName.toLowerCase().includes(filters.teacher.toLowerCase());
       });
     }
@@ -109,7 +109,7 @@ const StudentClasses = ({ user, onOpenMaterials }) => {
   }
 
   return (
-    <div className="space-y-4 sm:space-y-6">
+    <div className="space-y-4 sm:space-y-6 h-full">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
         <div>
@@ -176,7 +176,7 @@ const StudentClasses = ({ user, onOpenMaterials }) => {
             {filteredClasses.map((classItem) => {
               const teacher = mockUsers.teachers.find(t => t.id === classItem.teacherId);
               const teacherName = teacher ? `${teacher.firstName} ${teacher.lastName}` : 'Teacher TBD';
-              
+
               return (
                 <div
                   key={classItem.id}
@@ -211,7 +211,7 @@ const StudentClasses = ({ user, onOpenMaterials }) => {
                         <Calendar className="h-3 w-3 sm:h-4 sm:w-4 text-gray-400" /> Schedule
                       </p>
                       <p className="font-medium text-gray-900 text-xs sm:text-sm">
-                        {classItem.schedule && Array.isArray(classItem.schedule) 
+                        {classItem.schedule && Array.isArray(classItem.schedule)
                           ? classItem.schedule.map(item => `${item.day} ${item.startTime}-${item.endTime}`).join(', ')
                           : 'Schedule TBD'
                         }
@@ -279,28 +279,27 @@ const StudentClasses = ({ user, onOpenMaterials }) => {
                 >
                   Previous
                 </button>
-                
+
                 <div className="flex items-center space-x-1">
                   {Array.from({ length: Math.min(5, pagination.pages) }, (_, i) => {
                     const pageNum = Math.max(1, Math.min(pagination.pages - 4, filters.page - 2)) + i;
                     if (pageNum > pagination.pages) return null;
-                    
+
                     return (
                       <button
                         key={pageNum}
                         onClick={() => setFilters({ ...filters, page: pageNum })}
-                        className={`px-3 py-2 text-sm font-medium rounded-md ${
-                          pageNum === filters.page
+                        className={`px-3 py-2 text-sm font-medium rounded-md ${pageNum === filters.page
                             ? 'bg-blue-600 text-white'
                             : 'text-gray-500 bg-white border border-gray-300 hover:bg-gray-50'
-                        }`}
+                          }`}
                       >
                         {pageNum}
                       </button>
                     );
                   })}
                 </div>
-                
+
                 <button
                   onClick={() => setFilters({ ...filters, page: Math.min(pagination.pages, filters.page + 1) })}
                   disabled={filters.page === pagination.pages}

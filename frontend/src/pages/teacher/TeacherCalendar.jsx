@@ -110,7 +110,7 @@ const TeacherCalendar = ({ user }) => {
       // Use the course's actual start and end dates
       const courseStartDate = new Date(classItem.startDate);
       const courseEndDate = new Date(classItem.endDate);
-      
+
       // Only generate events if the course is active (end date is in the future)
       if (courseEndDate > today) {
         const classEvents = generateClassEvents(classItem, courseStartDate, courseEndDate);
@@ -371,7 +371,7 @@ const TeacherCalendar = ({ user }) => {
     console.log('getFullCalendarEvents called');
     console.log('Current schedule length:', schedule.length);
     console.log('Schedule sample:', schedule.slice(0, 3));
-    
+
     const fullCalendarEvents = schedule.map(event => ({
       id: event.id,
       title: event.title,
@@ -385,13 +385,13 @@ const TeacherCalendar = ({ user }) => {
         classId: event.classId
       }
     }));
-    
+
     console.log('FullCalendar events:', fullCalendarEvents.length);
     return fullCalendarEvents;
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 h-full">
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
@@ -487,20 +487,19 @@ const TeacherCalendar = ({ user }) => {
                 const days = [];
                 for (let i = 0; i < 7; i++) {
                   const day = addDays(weekStart, i);
-                  const dayEvents = schedule.filter(event => 
+                  const dayEvents = schedule.filter(event =>
                     isSameDay(parseISO(event.start_time), day)
                   );
                   const isSelected = isSameDay(day, selectedDate);
-                  
+
                   days.push(
                     <button
                       key={i}
                       onClick={() => setSelectedDate(day)}
-                      className={`w-full p-3 text-left rounded-lg transition-colors ${
-                        isSelected 
-                          ? 'bg-blue-100 border-2 border-blue-300' 
+                      className={`w-full p-3 text-left rounded-lg transition-colors ${isSelected
+                          ? 'bg-blue-100 border-2 border-blue-300'
                           : 'bg-gray-50 hover:bg-gray-100 border-2 border-transparent'
-                      }`}
+                        }`}
                     >
                       <div className="font-medium text-gray-900">
                         {format(day, 'EEEE MMM dd')}
@@ -523,15 +522,15 @@ const TeacherCalendar = ({ user }) => {
                 {format(selectedDate, 'EEEE, MMMM dd, yyyy')}
               </h2>
               <p className="text-gray-600">
-                {schedule.filter(event => 
+                {schedule.filter(event =>
                   isSameDay(parseISO(event.start_time), selectedDate)
                 ).length} events scheduled
               </p>
             </div>
-            
+
             <div className="p-4">
               {(() => {
-                const dayEvents = schedule.filter(event => 
+                const dayEvents = schedule.filter(event =>
                   isSameDay(parseISO(event.start_time), selectedDate)
                 ).sort((a, b) => new Date(a.start_time) - new Date(b.start_time));
 
@@ -545,7 +544,7 @@ const TeacherCalendar = ({ user }) => {
                 }
 
                 return (
-                  <div className="space-y-4">
+                  <div className="space-y-4 h-full">
                     {dayEvents.map((event, index) => (
                       <div key={event.id} className="bg-blue-50 border border-blue-200 rounded-lg p-3">
                         <div className="flex justify-between items-start mb-2">
@@ -559,9 +558,9 @@ const TeacherCalendar = ({ user }) => {
                             </div>
                           </div>
                         </div>
-                        
+
                         <p className="text-gray-600 mb-2 text-sm">{event.description}</p>
-                        
+
                         <div className="grid grid-cols-2 gap-3 text-sm">
                           <div className="flex items-center space-x-2">
                             <Clock className="h-4 w-4 text-gray-500" />

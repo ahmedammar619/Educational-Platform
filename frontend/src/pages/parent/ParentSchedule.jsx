@@ -25,12 +25,12 @@ const ParentSchedule = ({ user }) => {
     }
   }, [user]);
 
-     // Auto-select child when childrenSummary changes
-   useEffect(() => {
-     if (childrenSummary.length > 0 && !selectedChildFilter) {
-       setSelectedChildFilter(childrenSummary[0].id.toString());
-     }
-   }, [childrenSummary, selectedChildFilter]);
+  // Auto-select child when childrenSummary changes
+  useEffect(() => {
+    if (childrenSummary.length > 0 && !selectedChildFilter) {
+      setSelectedChildFilter(childrenSummary[0].id.toString());
+    }
+  }, [childrenSummary, selectedChildFilter]);
 
   // Regenerate events when currentWeek changes (for navigation)
   useEffect(() => {
@@ -162,7 +162,7 @@ const ParentSchedule = ({ user }) => {
       // Use the course's actual start and end dates
       const courseStartDate = new Date(classItem.startDate);
       const courseEndDate = new Date(classItem.endDate);
-      
+
       // Only generate events if the course is active (end date is in the future)
       if (courseEndDate > today) {
         const classEvents = generateClassEvents(classItem, courseStartDate, courseEndDate);
@@ -485,7 +485,7 @@ const ParentSchedule = ({ user }) => {
       setCurrentWeek(subWeeks(currentWeek, 1));
     } else {
       setCurrentWeek(addWeeks(currentWeek, 1));
-    }   
+    }
   };
 
   const goToToday = () => {
@@ -493,36 +493,20 @@ const ParentSchedule = ({ user }) => {
     setSelectedDate(new Date());
   };
 
-  // FullCalendar event handlers
+  // FullCalendar event handlers - Parents can only view, not modify
   const handleDateSelect = (selectInfo) => {
-    const title = prompt('Please enter a title for your event');
-    if (title) {
-      const calendarApi = selectInfo.view.calendar;
-      calendarApi.unselect(); // clear date selection
-
-      if (selectInfo.allDay) {
-        calendarApi.addEvent({
-          id: createEventId(),
-          title,
-          start: selectInfo.startStr,
-          end: selectInfo.endStr,
-          allDay: selectInfo.allDay
-        });
-      } else {
-        calendarApi.addEvent({
-          id: createEventId(),
-          title,
-          start: selectInfo.startStr,
-          end: selectInfo.endStr
-        });
-      }
-    }
+    // Parents cannot add events - just clear the selection
+    selectInfo.view.calendar.unselect();
   };
 
   const handleEventClick = (clickInfo) => {
-    if (confirm(`Are you sure you want to delete the event '${clickInfo.event.title}'`)) {
-      clickInfo.event.remove();
-    }
+    // Parents cannot delete events - just show event info
+    const event = clickInfo.event;
+    const childName = event.extendedProps.childName || 'Child';
+    const location = event.extendedProps.location || 'TBD';
+    const instructor = event.extendedProps.instructor || 'TBD';
+
+    alert(`Class: ${event.title}\nChild: ${childName}\nTime: ${event.start.toLocaleString()}\nLocation: ${location}\nInstructor: ${instructor}`);
   };
 
   const createEventId = () => {
@@ -535,7 +519,7 @@ const ParentSchedule = ({ user }) => {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Children's Schedule</h1>
-          <p className="text-gray-600">View your children's class schedules and upcoming events (8 AM - 8 PM)</p>
+          <p className="text-gray-600">View your children's class schedules and upcoming events</p>
         </div>
 
         <div className="flex items-center space-x-4">
@@ -633,147 +617,149 @@ const ParentSchedule = ({ user }) => {
         </div>
       </div>
 
-             {/* Schedule View */}
-       {loading ? (
-         <div className="flex items-center justify-center py-12">
-           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
-         </div>
-       ) : !selectedChildFilter ? (
-         <div className="bg-white rounded-lg shadow-sm border p-8 text-center">
-           <div className="text-gray-500">
-             <User className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-             <h3 className="text-lg font-medium text-gray-900 mb-2">Select a Child</h3>
-             <p className="text-gray-600">Please select a child from the dropdown above to view their schedule.</p>
-             {childrenSummary.length > 0 && (
-               <button
-                 onClick={() => setSelectedChildFilter(childrenSummary[0].id.toString())}
-                 className="mt-4 px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 text-sm font-medium"
-               >
-                 View {childrenSummary[0].name}'s Schedule
-               </button>
-             )}
-           </div>
-         </div>
-       ) : viewMode === 'timeGridDay' ? (
-         // Day View with Sidebar Layout
-         <div className="flex gap-6">
-           {/* Left Sidebar - Day Selection */}
-           <div className="w-64 bg-white rounded-lg shadow-sm border p-4">
-             <h3 className="text-lg font-semibold text-gray-900 mb-4">Select Day</h3>
-             <div className="space-y-2">
-               {(() => {
-                 const weekStart = startOfWeek(currentWeek, { weekStartsOn: 1 });
-                 const days = [];
-                 for (let i = 0; i < 7; i++) {
-                   const day = addDays(weekStart, i);
-                   const dayEvents = schedule.filter(event => 
-                     isSameDay(parseISO(event.start_time), day) && 
-                     event.childId === parseInt(selectedChildFilter)
-                   );
-                   const isSelected = isSameDay(day, selectedDate);
-                   
-                   days.push(
-                     <button
-                       key={i}
-                       onClick={() => setSelectedDate(day)}
-                       className={`w-full p-3 text-left rounded-lg transition-colors ${
-                         isSelected 
-                           ? 'bg-purple-100 border-2 border-purple-300' 
-                           : 'bg-gray-50 hover:bg-gray-100 border-2 border-transparent'
-                       }`}
-                     >
-                       <div className="font-medium text-gray-900">
-                         {format(day, 'EEEE MMM dd')}
-                       </div>
-                       <div className="text-sm text-gray-600">
-                         {dayEvents.length} events
-                       </div>
-                     </button>
-                   );
-                 }
-                 return days;
-               })()}
-             </div>
-           </div>
+      {/* Schedule View */}
+      {loading ? (
+        <div className="flex items-center justify-center py-12">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
+        </div>
+      ) : !selectedChildFilter ? (
+        <div className="bg-white rounded-lg shadow-sm border p-8 text-center">
+          <div className="text-gray-500">
+            <User className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+            <h3 className="text-lg font-medium text-gray-900 mb-2">Select a Child</h3>
+            <p className="text-gray-600">Please select a child from the dropdown above to view their schedule.</p>
+            {childrenSummary.length > 0 && (
+              <button
+                onClick={() => setSelectedChildFilter(childrenSummary[0].id.toString())}
+                className="mt-4 px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 text-sm font-medium"
+              >
+                View {childrenSummary[0].name}'s Schedule
+              </button>
+            )}
+          </div>
+        </div>
+      ) : viewMode === 'timeGridDay' ? (
+        // Day View with Sidebar Layout
+        <div className="flex gap-6">
+          {/* Left Sidebar - Day Selection */}
+          <div className="w-64 bg-white rounded-lg shadow-sm border p-4">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Select Day</h3>
+            <div className="space-y-2">
+              {(() => {
+                const weekStart = startOfWeek(currentWeek, { weekStartsOn: 1 });
+                const days = [];
+                for (let i = 0; i < 7; i++) {
+                  const day = addDays(weekStart, i);
+                  const dayEvents = schedule.filter(event =>
+                    isSameDay(parseISO(event.start_time), day) &&
+                    event.childId === parseInt(selectedChildFilter)
+                  );
+                  const isSelected = isSameDay(day, selectedDate);
 
-           {/* Right Section - Day Schedule */}
-           <div className="flex-1 bg-white rounded-lg shadow-sm border overflow-hidden">
-             <div className="p-4 border-b border-gray-200">
-               <h2 className="text-xl font-semibold text-gray-900">
-                 {format(selectedDate, 'EEEE, MMMM dd, yyyy')}
-               </h2>
-               <p className="text-gray-600">
-                 {schedule.filter(event => 
-                   isSameDay(parseISO(event.start_time), selectedDate) && 
-                   event.childId === parseInt(selectedChildFilter)
-                 ).length} events scheduled
-               </p>
-             </div>
-             
-             <div className="p-4">
-               {(() => {
-                 const dayEvents = schedule.filter(event => 
-                   isSameDay(parseISO(event.start_time), selectedDate) && 
-                   event.childId === parseInt(selectedChildFilter)
-                 ).sort((a, b) => new Date(a.start_time) - new Date(b.start_time));
+                  days.push(
+                    <button
+                      key={i}
+                      onClick={() => setSelectedDate(day)}
+                      className={`w-full p-3 text-left rounded-lg transition-colors ${isSelected
+                        ? 'bg-purple-100 border-2 border-purple-300'
+                        : 'bg-gray-50 hover:bg-gray-100 border-2 border-transparent'
+                        }`}
+                    >
+                      <div className="font-medium text-gray-900">
+                        {format(day, 'EEEE MMM dd')}
+                      </div>
+                      <div className="text-sm text-gray-600">
+                        {dayEvents.length} events
+                      </div>
+                    </button>
+                  );
+                }
+                return days;
+              })()}
+            </div>
+          </div>
 
-                 if (dayEvents.length === 0) {
-                   return (
-                     <div className="text-center py-8 text-gray-500">
-                       <Calendar className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-                       <p>No events scheduled for this day</p>
-                     </div>
-                   );
-                 }
+          {/* Right Section - Day Schedule */}
+          <div className="flex-1 bg-white rounded-lg shadow-sm border overflow-hidden">
+            <div className="p-4 border-b border-gray-200">
+              <h2 className="text-xl font-semibold text-gray-900">
+                {format(selectedDate, 'EEEE, MMMM dd, yyyy')}
+              </h2>
+              <p className="text-gray-600">
+                {schedule.filter(event =>
+                  isSameDay(parseISO(event.start_time), selectedDate) &&
+                  event.childId === parseInt(selectedChildFilter)
+                ).length} events scheduled
+              </p>
+            </div>
 
-                 return (
-                   <div className="space-y-4">
-                     {dayEvents.map((event, index) => (
-                       <div key={event.id} className="bg-purple-50 border border-purple-200 rounded-lg p-3">
-                         <div className="flex justify-between items-start mb-2">
-                           <div className="flex items-center space-x-2">
-                             <BookOpen className="h-4 w-4 text-purple-600" />
-                             <h3 className="text-base font-semibold text-gray-900">{event.title}</h3>
-                           </div>
-                           <div className="text-right">
-                             <div className="text-xs text-purple-600 bg-purple-100 px-2 py-1 rounded-full">
-                               Enrolled Class
-                             </div>
-                           </div>
-                         </div>
-                         
-                         <p className="text-gray-600 mb-2 text-sm">{event.description}</p>
-                         
-                         <div className="grid grid-cols-2 gap-3 text-sm">
-                           <div className="flex items-center space-x-2">
-                             <Clock className="h-4 w-4 text-gray-500" />
-                             <span className="text-gray-700">
-                               {format(parseISO(event.start_time), 'HH:mm')} - {format(parseISO(event.end_time), 'HH:mm')}
-                             </span>
-                           </div>
+            <div className="p-4">
+              {(() => {
+                const dayEvents = schedule.filter(event =>
+                  isSameDay(parseISO(event.start_time), selectedDate) &&
+                  event.childId === parseInt(selectedChildFilter)
+                ).sort((a, b) => new Date(a.start_time) - new Date(b.start_time));
 
-                           <div className="flex items-center space-x-2">
-                             <User className="h-4 w-4 text-gray-500" />
-                             <span className="text-gray-700">{event.instructor_name}</span>
-                           </div>
-                           <div className="flex items-center space-x-2">
-                             <Users className="h-4 w-4 text-gray-500" />
-                             <span className="text-purple-700 font-bold">{event.childName}</span>
-                           </div>
-                         </div>
-                       </div>
-                     ))}
-                   </div>
-                 );
-               })()}
-             </div>
-           </div>
-         </div>
-       ) : (
-         // Week View with FullCalendar
-         <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
-           {/* Custom Tailwind styles for FullCalendar */}
-           <style jsx>{`
+                if (dayEvents.length === 0) {
+                  return (
+                    <div className="text-center py-8 text-gray-500">
+                      <Calendar className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+                      <p>No events scheduled for this day</p>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div className="space-y-4">
+                    {dayEvents.map((event, index) => (
+                      <div key={event.id} className="bg-purple-50 border border-purple-200 rounded-lg p-3">
+                        <div className="flex justify-between items-start mb-2">
+                          <div className="flex items-center space-x-2">
+                            <BookOpen className="h-4 w-4 text-purple-600" />
+                            <h3 className="text-base font-semibold text-gray-900">{event.title}</h3>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-xs text-purple-600 bg-purple-100 px-2 py-1 rounded-full">
+                              Enrolled Class
+                            </div>
+                          </div>
+                        </div>
+
+                        <p className="text-gray-600 mb-2 text-sm">{event.description}</p>
+
+                        <div className="grid grid-cols-2 gap-3 text-sm">
+                          <div className="flex items-center space-x-2">
+                            <Clock className="h-4 w-4 text-gray-500" />
+                            <span className="text-gray-700">
+                              {format(parseISO(event.start_time), 'HH:mm')} - {format(parseISO(event.end_time), 'HH:mm')}
+                            </span>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <MapPin className="h-4 w-4 text-gray-500" />
+                            <span className="text-gray-700">{event.location}</span>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <User className="h-4 w-4 text-gray-500" />
+                            <span className="text-gray-700">{event.instructor_name}</span>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <Users className="h-4 w-4 text-gray-500" />
+                            <span className="text-purple-700 font-bold">{event.childName}</span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
+            </div>
+          </div>
+        </div>
+      ) : (
+        // Week View with FullCalendar
+        <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
+          {/* Custom Tailwind styles for FullCalendar */}
+          <style jsx>{`
              .fc {
                font-family: inherit;
                background: white;
@@ -841,80 +827,85 @@ const ParentSchedule = ({ user }) => {
                background-color: #f3f4f6;
              }
            `}</style>
-           <FullCalendar
-             ref={calendarRef}
-             plugins={[timeGridPlugin, dayGridPlugin, interactionPlugin]}
-             headerToolbar={false} // We're using our custom header
-             initialView={viewMode}
-             initialDate={currentWeek}
-             editable={false}
-             selectable={true}
-             selectMirror={true}
-             dayMaxEvents={true}
-             weekends={true}
-             events={getFullCalendarEvents()}
-             select={handleDateSelect}
-             eventClick={handleEventClick}
-             height="auto"
-             slotMinTime="08:00:00"
-             slotMaxTime="20:00:00"
-             allDaySlot={false}
-             slotDuration="01:00:00"
-             slotLabelFormat={{
-               hour: 'numeric',
-               minute: '2-digit',
-               hour12: true
-             }}
-             eventTimeFormat={{
-               hour: 'numeric',
-               minute: '2-digit',
-               hour12: true
-             }}
-             eventDisplay="block"
-             eventOverlap={false}
-             slotEventOverlap={false}
-             nowIndicator={true}
-             businessHours={{
-               daysOfWeek: [1, 2, 3, 4, 5, 6, 0], // Monday through Sunday
-               startTime: '08:00',
-               endTime: '20:00',
-             }}
-             dayHeaderFormat={{
-               weekday: 'short',
-               day: 'numeric'
-             }}
-             weekNumbers={false}
-             weekNumberCalculation="ISO"
-             firstDay={1} // Monday
-             locale="en"
-             timeZone="local"
-             eventClassNames={(arg) => {
-               const event = arg.event;
-               const isRecurring = event.extendedProps.isRecurring;
-               const childId = event.extendedProps.childId;
+          <FullCalendar
+            ref={calendarRef}
+            plugins={[timeGridPlugin, dayGridPlugin, interactionPlugin]}
+            headerToolbar={false} // We're using our custom header
+            initialView={viewMode}
+            initialDate={currentWeek}
+            editable={false} // Parents cannot edit events
+            selectable={false} // Parents cannot select dates to add events
+            selectMirror={false}
+            dayMaxEvents={true}
+            weekends={true}
+            events={getFullCalendarEvents()}
+            select={handleDateSelect}
+            eventClick={handleEventClick}
+            height="auto"
+            slotMinTime="08:00:00"
+            slotMaxTime="20:00:00"
+            allDaySlot={false}
+            slotDuration="01:00:00"
+            slotLabelFormat={{
+              hour: 'numeric',
+              minute: '2-digit',
+              hour12: true
+            }}
+            eventTimeFormat={{
+              hour: 'numeric',
+              minute: '2-digit',
+              hour12: true
+            }}
+            eventDisplay="block"
+            eventOverlap={false}
+            slotEventOverlap={false}
+            nowIndicator={true}
+            businessHours={{
+              daysOfWeek: [1, 2, 3, 4, 5, 6, 0], // Monday through Sunday
+              startTime: '08:00',
+              endTime: '20:00',
+            }}
+            dayHeaderFormat={{
+              weekday: 'short',
+              day: 'numeric'
+            }}
+            weekNumbers={false}
+            weekNumberCalculation="ISO"
+            firstDay={1} // Monday
+            locale="en"
+            timeZone="local"
+            eventClassNames={(arg) => {
+              const event = arg.event;
+              const isRecurring = event.extendedProps.isRecurring;
+              const childId = event.extendedProps.childId;
 
-               // Base Tailwind classes for all events
-               const baseClasses = 'rounded-md border-l-4 text-xs font-medium p-1 m-0.5 cursor-pointer transition-all duration-200 hover:scale-105 hover:shadow-md';
+              // Base Tailwind classes for all events - read-only for parents
+              const baseClasses = 'rounded-md border-l-4 text-xs font-medium p-1 m-0.5 cursor-pointer transition-all duration-200 hover:shadow-md';
 
-               // Child-specific color classes using Tailwind
-               let colorClasses = 'bg-purple-100 border-purple-300 text-purple-800';
+              // Child-specific color classes using Tailwind - purple theme for parents
+              let colorClasses = 'bg-purple-100 border-purple-300 text-purple-800';
 
-               return [baseClasses, colorClasses];
-             }}
-             eventContent={(arg) => {
-               return {
-                 html: `
+              return [baseClasses, colorClasses];
+            }}
+            eventContent={(arg) => {
+              const event = arg.event;
+              const location = event.extendedProps.location || 'TBD';
+              const instructor = event.extendedProps.instructor || 'TBD';
+              const childName = event.extendedProps.childName || 'Child';
+
+              return {
+                html: `
                    <div class="p-1">
-                     <div class="font-semibold text-xs mb-0.5 text-purple-700">${arg.event.title}</div>
+                     <div class="font-semibold text-xs mb-0.5 text-purple-700">${event.title}</div>
                      <div class="text-xs opacity-75 mb-0.5 text-purple-700">${arg.timeText}</div>
-                     ${arg.event.extendedProps.childName ? `<div class="text-xs font-medium text-purple-700 opacity-90">${arg.event.extendedProps.childName}</div>` : ''}
+                     <div class="text-xs opacity-60 text-purple-600">${childName} • ${location} • ${instructor}</div>
                    </div>
                  `
-               };
-             }}
-           />
-         </div>
-       )}
+              };
+            }}
+          />
+        </div>
+      )}
     </div>
   );
 };

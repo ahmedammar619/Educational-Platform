@@ -48,7 +48,7 @@ const ChildrenManagement = ({ user }) => {
           relationship_type: 'daughter'
         }
       ];
-      
+
       setChildren(mockChildren);
       if (mockChildren.length > 0 && !selectedChild) {
         setSelectedChild(mockChildren[0]);
@@ -108,7 +108,7 @@ const ChildrenManagement = ({ user }) => {
           { status: 'late', count: 1, percentage: 2 }
         ]
       };
-      
+
       setChildProgress(mockProgress);
     } catch (error) {
       console.error('Failed to fetch child progress:', error);
@@ -152,7 +152,7 @@ const ChildrenManagement = ({ user }) => {
   // Show Add Child Form as a separate page
   if (showAddChildForm) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-6 h-full">
         {/* Header for Add Child Page */}
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
@@ -179,7 +179,7 @@ const ChildrenManagement = ({ user }) => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 h-full">
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
@@ -203,11 +203,10 @@ const ChildrenManagement = ({ user }) => {
             <button
               key={child.id}
               onClick={() => setSelectedChild(child)}
-              className={`p-4 rounded-lg border-2 text-left transition-colors ${
-                selectedChild?.id === child.id
-                  ? 'border-purple-500 bg-purple-50'
-                  : 'border-gray-200 hover:border-purple-300 hover:bg-purple-25'
-              }`}
+              className={`p-4 rounded-lg border-2 text-left transition-colors ${selectedChild?.id === child.id
+                ? 'border-purple-500 bg-purple-50'
+                : 'border-gray-200 hover:border-purple-300 hover:bg-purple-25'
+                }`}
             >
               <div className="flex items-center mb-3">
                 <div className="w-12 h-12 bg-purple-500 rounded-full flex items-center justify-center">
@@ -217,15 +216,15 @@ const ChildrenManagement = ({ user }) => {
                 </div>
                 <div className="ml-4">
                   <h3 className="font-semibold text-gray-900">
-                    {child.firstName && child.lastName 
-                      ? `${child.firstName} ${child.lastName}` 
+                    {child.firstName && child.lastName
+                      ? `${child.firstName} ${child.lastName}`
                       : child.name
                     }
                   </h3>
                   <p className="text-sm text-gray-600">{child.email}</p>
                 </div>
               </div>
-              
+
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
                   <p className="text-gray-600">Courses</p>
@@ -238,7 +237,7 @@ const ChildrenManagement = ({ user }) => {
                 <div>
                   <p className="text-gray-600">Attendance</p>
                   <p className="font-semibold">
-                    {child.total_sessions > 0 
+                    {child.total_sessions > 0
                       ? Math.round((child.attended_sessions / child.total_sessions) * 100)
                       : 0}%
                   </p>
@@ -268,8 +267,8 @@ const ChildrenManagement = ({ user }) => {
               </div>
               <div className="ml-4">
                 <h2 className="text-2xl font-bold">
-                  {selectedChild.firstName && selectedChild.lastName 
-                    ? `${selectedChild.firstName} ${selectedChild.lastName}` 
+                  {selectedChild.firstName && selectedChild.lastName
+                    ? `${selectedChild.firstName} ${selectedChild.lastName}`
                     : selectedChild.name
                   }
                 </h2>
@@ -277,7 +276,7 @@ const ChildrenManagement = ({ user }) => {
                 <p className="text-purple-100 capitalize">{selectedChild.relationship_type}</p>
               </div>
             </div>
-            
+
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div className="text-center">
                 <p className="text-3xl font-bold">{selectedChild.enrolled_courses}</p>
@@ -289,7 +288,7 @@ const ChildrenManagement = ({ user }) => {
               </div>
               <div className="text-center">
                 <p className="text-3xl font-bold">
-                  {selectedChild.total_sessions > 0 
+                  {selectedChild.total_sessions > 0
                     ? Math.round((selectedChild.attended_sessions / selectedChild.total_sessions) * 100)
                     : 0}%
                 </p>
@@ -326,14 +325,14 @@ const ChildrenManagement = ({ user }) => {
                             <span className="text-sm text-gray-500">{course.progress_percentage}%</span>
                           </div>
                           <p className="text-sm text-gray-600 mb-2">Instructor: {course.instructor_name}</p>
-                          
+
                           <div className="w-full bg-gray-200 rounded-full h-2 mb-3">
-                            <div 
-                              className="bg-purple-600 h-2 rounded-full" 
+                            <div
+                              className="bg-purple-600 h-2 rounded-full"
                               style={{ width: `${course.progress_percentage}%` }}
                             ></div>
                           </div>
-                          
+
                           <div className="grid grid-cols-3 gap-4 text-sm">
                             <div>
                               <p className="text-gray-600">Attendance</p>
@@ -384,16 +383,16 @@ const ChildrenManagement = ({ user }) => {
                               </p>
                             </div>
                           </div>
-                          
+
                           <p className="text-sm text-gray-600 mb-1">Course: {grade.course_title}</p>
                           <p className="text-sm text-gray-600 mb-2">Type: {grade.assignment_type}</p>
-                          
+
                           {grade.feedback && (
                             <div className="bg-gray-50 p-3 rounded-md mb-2">
                               <p className="text-sm text-gray-700">{grade.feedback}</p>
                             </div>
                           )}
-                          
+
                           <div className="flex justify-between text-xs text-gray-500">
                             <span>Graded by: {grade.graded_by_name}</span>
                             <span>Date: {new Date(grade.graded_at).toLocaleDateString('en-US', {
@@ -432,33 +431,6 @@ const ChildrenManagement = ({ user }) => {
               </div>
             </div>
           )}
-
-          {/* Quick Actions */}
-          <div className="bg-white rounded-lg shadow-sm border">
-            <div className="p-6 border-b">
-              <h3 className="text-lg font-semibold text-gray-900">Quick Actions</h3>
-            </div>
-            <div className="p-6">
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <button className="flex flex-col items-center p-4 border rounded-lg hover:bg-gray-50">
-                  <Calendar className="h-8 w-8 text-blue-600 mb-2" />
-                  <span className="text-sm font-medium">View Schedule</span>
-                </button>
-                <button className="flex flex-col items-center p-4 border rounded-lg hover:bg-gray-50">
-                  <BookOpen className="h-8 w-8 text-green-600 mb-2" />
-                  <span className="text-sm font-medium">View Assignments</span>
-                </button>
-                <button className="flex flex-col items-center p-4 border rounded-lg hover:bg-gray-50">
-                  <CheckCircle className="h-8 w-8 text-purple-600 mb-2" />
-                  <span className="text-sm font-medium">Attendance Report</span>
-                </button>
-                <button className="flex flex-col items-center p-4 border rounded-lg hover:bg-gray-50">
-                  <Users className="h-8 w-8 text-orange-600 mb-2" />
-                  <span className="text-sm font-medium">Contact Teachers</span>
-                </button>
-              </div>
-            </div>
-          </div>
         </div>
       )}
     </div>

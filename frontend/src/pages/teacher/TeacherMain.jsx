@@ -30,7 +30,7 @@ const TeacherMain = ({ user, onLogout }) => {
   const ActiveComponent = navigation.find(nav => nav.id === activeTab)?.component || TeacherDashboard;
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 h-full">
       {/* Top Navigation - Fixed */}
       <nav className="fixed top-0 left-0 right-0 bg-white shadow-sm border-b z-50">
         <div className="px-4 sm:px-6 lg:px-8">
@@ -65,33 +65,33 @@ const TeacherMain = ({ user, onLogout }) => {
                         console.log('TeacherMain - User firstName:', user?.firstName);
                         console.log('TeacherMain - User lastName:', user?.lastName);
                         console.log('TeacherMain - User name:', user?.name);
-                        
+
                         // Check if user exists and has valid name data
                         if (!user) {
                           return 'Teacher';
                         }
-                        
+
                         // Try firstName + lastName first
-                        if (user.firstName && user.lastName && 
-                            user.firstName.trim() && user.lastName.trim()) {
+                        if (user.firstName && user.lastName &&
+                          user.firstName.trim() && user.lastName.trim()) {
                           return `${user.firstName.trim()} ${user.lastName.trim()}`;
                         }
-                        
+
                         // Fallback to firstName only
                         if (user.firstName && user.firstName.trim()) {
                           return user.firstName.trim();
                         }
-                        
+
                         // Fallback to lastName only
                         if (user.lastName && user.lastName.trim()) {
                           return user.lastName.trim();
                         }
-                        
+
                         // Fallback to name field
                         if (user.name && user.name.trim()) {
                           return user.name.trim();
                         }
-                        
+
                         // Check if user might be stored as string in localStorage
                         if (typeof user === 'string') {
                           try {
@@ -107,7 +107,7 @@ const TeacherMain = ({ user, onLogout }) => {
                             return user;
                           }
                         }
-                        
+
                         // Final fallback
                         return 'Teacher';
                       })()}
@@ -154,25 +154,6 @@ const TeacherMain = ({ user, onLogout }) => {
               </nav>
             </div>
 
-            {/* Quick Stats */}
-            <div className="mt-6 bg-white rounded-lg shadow-sm border p-4">
-              <h3 className="text-sm font-medium text-gray-900 mb-3">Teaching Stats</h3>
-              <div className="space-y-3">
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">Active Courses</span>
-                  <span className="font-medium text-gray-900">4</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">Total Students</span>
-                  <span className="font-medium text-gray-900">127</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">Pending Grades</span>
-                  <span className="font-medium text-orange-600">23</span>
-                </div>
-              </div>
-            </div>
-
             {/* Upcoming Sessions */}
             <div className="mt-6 bg-white rounded-lg shadow-sm border p-4">
               <h3 className="text-sm font-medium text-gray-900 mb-3">Today's Sessions</h3>
@@ -206,7 +187,7 @@ const TeacherMain = ({ user, onLogout }) => {
 // Student Management Component
 const StudentManagement = ({ user }) => {
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 h-full">
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Student Management</h1>
         <p className="text-gray-600">Manage your students, track attendance, and monitor progress</p>
@@ -224,7 +205,7 @@ const StudentManagement = ({ user }) => {
 // Teacher Analytics Component
 const TeacherAnalytics = ({ user }) => {
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 h-full">
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Teaching Analytics</h1>
         <p className="text-gray-600">Analyze your teaching performance and student engagement</p>

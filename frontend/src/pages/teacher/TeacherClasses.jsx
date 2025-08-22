@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Users, Clock, Calendar, BookOpen, Plus, Edit, Eye, MessageSquare, User, DollarSign, X } from 'lucide-react';
 import { mockClasses, mockUsers } from '../../data/mockData';
-import { MaterialPages } from '../../components';
+import MaterialPages from '../../components/common/class-material/MaterialPages';
 
 const TeacherClasses = ({ user }) => {
   const [classes, setClasses] = useState([]);
@@ -44,7 +44,7 @@ const TeacherClasses = ({ user }) => {
   };
 
   return (
-    <div className="space-y-4 sm:space-y-6">
+    <div className="space-y-4 sm:space-y-6 h-full">
       {!showMaterialPages ? (
         <>
           {/* Header */}

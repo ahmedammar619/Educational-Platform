@@ -129,7 +129,7 @@ const ParentDashboard = ({ user }) => {
 
   if (!dashboardData) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex items-center justify-center min-h-screen h-full">
         <div className="text-center">
           <AlertCircle className="mx-auto h-12 w-12 text-red-500 mb-4" />
           <h3 className="text-lg font-medium text-gray-900 mb-2">Error Loading Dashboard</h3>
@@ -140,7 +140,7 @@ const ParentDashboard = ({ user }) => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 h-full">
       {/* Parent Info Card */}
       <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
         <div className="bg-gradient-to-r from-purple-700 to-purple-600 p-6">
@@ -319,29 +319,6 @@ const ParentDashboard = ({ user }) => {
                 ))}
               </div>
             )}
-          </div>
-        </div>
-      </div>
-
-      {/* Quick Actions */}
-      <div className="bg-white rounded-lg shadow">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <h3 className="text-lg font-semibold text-gray-900">Quick Actions</h3>
-        </div>
-        <div className="p-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <button className="flex flex-col items-center p-4 border rounded-lg hover:bg-gray-50 transition-colors">
-              <Calendar className="h-8 w-8 text-blue-600 mb-2" />
-              <span className="text-sm font-medium">View Schedule</span>
-            </button>
-            <button className="flex flex-col items-center p-4 border rounded-lg hover:bg-gray-50 transition-colors">
-              <Users className="h-8 w-8 text-green-600 mb-2" />
-              <span className="text-sm font-medium">Contact Teachers</span>
-            </button>
-            <button className="flex flex-col items-center p-4 border rounded-lg hover:bg-gray-50 transition-colors">
-              <BookOpen className="h-8 w-8 text-purple-600 mb-2" />
-              <span className="text-sm font-medium">View Progress</span>
-            </button>
           </div>
         </div>
       </div>

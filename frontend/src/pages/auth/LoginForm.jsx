@@ -18,47 +18,47 @@ const LoginForm = ({ onLogin, onRegister }) => {
   // Mock authentication function
   const mockAuthenticate = (email, password) => {
     console.log('Mock authentication attempt:', { email, password });
-    
+
     // Check if it's a demo account
     if (password === 'password123') {
       console.log('Password matches demo password, searching for user...');
-      
+
       // Find user in mock data
       let user = null;
-      
+
       // Check teachers
       user = mockUsers.teachers.find(t => t.email === email);
       if (user) {
         console.log('Found teacher user:', user);
         return { user, token: 'mock-token-teacher' };
       }
-      
+
       // Check students
       user = mockUsers.students.find(s => s.email === email);
       if (user) {
         console.log('Found student user:', user);
         return { user, token: 'mock-token-student' };
       }
-      
+
       // Check parents
       user = mockUsers.parents.find(p => p.email === email);
       if (user) {
         console.log('Found parent user:', user);
         return { user, token: 'mock-token-parent' };
       }
-      
+
       // Check admins
       user = mockUsers.admins.find(a => a.email === email);
       if (user) {
         console.log('Found admin user:', user);
         return { user, token: 'mock-token-admin' };
       }
-      
+
       console.log('No user found with email:', email);
     } else {
       console.log('Password does not match demo password');
     }
-    
+
     return null;
   };
 
@@ -69,10 +69,10 @@ const LoginForm = ({ onLogin, onRegister }) => {
 
     try {
       console.log('Login attempt with:', formData.email);
-      
+
       // Use mock authentication only
       const mockAuth = mockAuthenticate(formData.email, formData.password);
-      
+
       if (mockAuth) {
         console.log('Mock authentication successful:', mockAuth);
         // Mock authentication successful
@@ -98,7 +98,7 @@ const LoginForm = ({ onLogin, onRegister }) => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 via-blue-50 to-purple-50 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-green-50 via-blue-50 to-purple-50 flex items-center justify-center p-4 h-full">
       <div className="w-full max-w-md bg-white rounded-lg shadow-xl p-6 sm:p-8">
         <div className="text-center mb-6 sm:mb-8">
           <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-br from-green-500 to-blue-600 rounded-lg flex items-center justify-center mx-auto mb-4">
@@ -239,8 +239,8 @@ const LoginForm = ({ onLogin, onRegister }) => {
             }}
             className="text-green-600 hover:text-green-800 text-sm"
           >
-            {isLogin 
-              ? "Don't have an account? Sign up" 
+            {isLogin
+              ? "Don't have an account? Sign up"
               : "Already have an account? Sign in"
             }
           </button>

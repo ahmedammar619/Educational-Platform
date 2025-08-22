@@ -29,17 +29,17 @@ const TeacherDashboard = ({ user }) => {
 
         // Get classes taught by this teacher
         const courses = mockClasses.filter(c => c.teacherId === user.id);
-        
+
         // Generate upcoming sessions from teacher's classes
         const upcomingSessions = generateUpcomingSessions(courses);
-        
+
         const data = {
           courses,
           upcomingSessions,
           pendingGrading: [], // Mock empty for now
           studentActivity: [] // Mock empty for now
         };
-        
+
         setDashboardData(data);
       } else {
         setDashboardData({
@@ -60,18 +60,18 @@ const TeacherDashboard = ({ user }) => {
   const generateUpcomingSessions = (courses) => {
     const sessions = [];
     const today = new Date();
-    
+
     courses.forEach(cls => {
       if (cls.schedule && Array.isArray(cls.schedule)) {
         cls.schedule.forEach(scheduleItem => {
           // Find next occurrence of this scheduled day
           const dayNumber = getDayNumber(scheduleItem.day);
           let nextDate = new Date(today);
-          
+
           while (nextDate.getDay() !== dayNumber) {
             nextDate.setDate(nextDate.getDate() + 1);
           }
-          
+
           // Only add if it's in the future
           if (nextDate > today) {
             sessions.push({
@@ -89,7 +89,7 @@ const TeacherDashboard = ({ user }) => {
         });
       }
     });
-    
+
     // Sort by date and return
     return sessions.sort((a, b) => new Date(a.scheduled_start) - new Date(b.scheduled_start));
   };
@@ -125,7 +125,7 @@ const TeacherDashboard = ({ user }) => {
   const { courses = [], upcomingSessions = [], pendingGrading = [], studentActivity = [] } = dashboardData || {};
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 h-full">
       {/* User Info Card */}
       <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
         <div className="bg-gradient-to-r from-blue-700 to-blue-600 p-6">
@@ -137,8 +137,8 @@ const TeacherDashboard = ({ user }) => {
             </div>
             <div className="flex-1">
               <h1 className="text-2xl font-bold text-white">
-                {user?.firstName && user?.lastName 
-                  ? `${user.firstName} ${user.lastName}` 
+                {user?.firstName && user?.lastName
+                  ? `${user.firstName} ${user.lastName}`
                   : user?.name || 'Teacher'
                 }
               </h1>
@@ -245,7 +245,7 @@ const TeacherDashboard = ({ user }) => {
                       </button>
                     </div>
                     <div className="mt-2 text-xs text-gray-500">
-                      Schedule: {course.schedule && Array.isArray(course.schedule) 
+                      Schedule: {course.schedule && Array.isArray(course.schedule)
                         ? course.schedule.map(item => `${item.day} ${item.startTime}-${item.endTime}`).join(', ')
                         : 'Schedule TBD'
                       }
@@ -290,7 +290,7 @@ const TeacherDashboard = ({ user }) => {
                       </span>
                       <div className="space-x-2">
                         {session.zoom_join_url && (
-                          <a 
+                          <a
                             href={session.zoom_join_url}
                             target="_blank"
                             rel="noopener noreferrer"

@@ -150,7 +150,7 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
     };
 
     return (
-        <div className="space-y-4 sm:space-y-6">
+        <div className="space-y-4 sm:space-y-6 h-full">
             {/* Header */}
             <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
                 <div>

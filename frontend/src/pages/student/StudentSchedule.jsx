@@ -132,7 +132,7 @@ const StudentSchedule = ({ user }) => {
       // Use the course's actual start and end dates
       const courseStartDate = new Date(classItem.startDate);
       const courseEndDate = new Date(classItem.endDate);
-      
+
       // Only generate events if the course is active (end date is in the future)
       if (courseEndDate > today) {
         const classEvents = generateClassEvents(classItem, courseStartDate, courseEndDate);
@@ -387,7 +387,7 @@ const StudentSchedule = ({ user }) => {
     if (isRecurring) {
       return 'bg-red-100 border-red-300 text-red-800';
     }
-    
+
     const colors = {
       'lecture': 'bg-red-100 border-red-300 text-red-800',
       'lab': 'bg-green-100 border-green-300 text-green-800',
@@ -426,36 +426,16 @@ const StudentSchedule = ({ user }) => {
     setSelectedDate(new Date());
   };
 
-  // FullCalendar event handlers
+  // FullCalendar event handlers - Students can only view, not modify
   const handleDateSelect = (selectInfo) => {
-    const title = prompt('Please enter a title for your event');
-    if (title) {
-      const calendarApi = selectInfo.view.calendar;
-      calendarApi.unselect(); // clear date selection
-
-      if (selectInfo.allDay) {
-        calendarApi.addEvent({
-          id: createEventId(),
-          title,
-          start: selectInfo.startStr,
-          end: selectInfo.endStr,
-          allDay: selectInfo.allDay
-        });
-      } else {
-        calendarApi.addEvent({
-          id: createEventId(),
-          title,
-          start: selectInfo.startStr,
-          end: selectInfo.endStr
-        });
-      }
-    }
+    // Students cannot add events - just clear the selection
+    selectInfo.view.calendar.unselect();
   };
 
   const handleEventClick = (clickInfo) => {
-    if (confirm(`Are you sure you want to delete the event '${clickInfo.event.title}'`)) {
-      clickInfo.event.remove();
-    }
+    // Students cannot delete events - just show event info
+    const event = clickInfo.event;
+    alert(`Class: ${event.title}\nTime: ${event.start.toLocaleString()}\nLocation: ${event.extendedProps.location || 'TBD'}\nInstructor: ${event.extendedProps.instructor || 'TBD'}`);
   };
 
   const createEventId = () => {
@@ -467,7 +447,7 @@ const StudentSchedule = ({ user }) => {
     console.log('getFullCalendarEvents called');
     console.log('Current schedule length:', schedule.length);
     console.log('Schedule sample:', schedule.slice(0, 3));
-    
+
     const fullCalendarEvents = schedule.map(event => ({
       id: event.id,
       title: event.title,
@@ -481,18 +461,19 @@ const StudentSchedule = ({ user }) => {
         classId: event.classId
       }
     }));
-    
+
     console.log('FullCalendar events:', fullCalendarEvents.length);
     return fullCalendarEvents;
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 h-full">
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">My Schedule</h1>
-          <p className="text-gray-600">View your class schedule and upcoming events (8 AM - 8 PM)</p>
+          <p className="text-gray-600">View your enrolled class schedule and upcoming events (8 AM - 8 PM)</p>
+          <p className="text-sm text-gray-500 mt-1">📚 Read-only view • Contact your teacher or administrator for schedule changes</p>
         </div>
 
         <div className="flex items-center space-x-4">
@@ -583,20 +564,19 @@ const StudentSchedule = ({ user }) => {
                 const days = [];
                 for (let i = 0; i < 7; i++) {
                   const day = addDays(weekStart, i);
-                  const dayEvents = schedule.filter(event => 
+                  const dayEvents = schedule.filter(event =>
                     isSameDay(parseISO(event.start_time), day)
                   );
                   const isSelected = isSameDay(day, selectedDate);
-                  
+
                   days.push(
                     <button
                       key={i}
                       onClick={() => setSelectedDate(day)}
-                      className={`w-full p-3 text-left rounded-lg transition-colors ${
-                        isSelected 
-                          ? 'bg-red-100 border-2 border-red-300' 
+                      className={`w-full p-3 text-left rounded-lg transition-colors ${isSelected
+                          ? 'bg-red-100 border-2 border-red-300'
                           : 'bg-gray-50 hover:bg-gray-100 border-2 border-transparent'
-                      }`}
+                        }`}
                     >
                       <div className="font-medium text-gray-900">
                         {format(day, 'EEEE MMM dd')}
@@ -619,15 +599,15 @@ const StudentSchedule = ({ user }) => {
                 {format(selectedDate, 'EEEE, MMMM dd, yyyy')}
               </h2>
               <p className="text-gray-600">
-                {schedule.filter(event => 
+                {schedule.filter(event =>
                   isSameDay(parseISO(event.start_time), selectedDate)
                 ).length} events scheduled
               </p>
             </div>
-            
+
             <div className="p-4">
               {(() => {
-                const dayEvents = schedule.filter(event => 
+                const dayEvents = schedule.filter(event =>
                   isSameDay(parseISO(event.start_time), selectedDate)
                 ).sort((a, b) => new Date(a.start_time) - new Date(b.start_time));
 
@@ -641,7 +621,7 @@ const StudentSchedule = ({ user }) => {
                 }
 
                 return (
-                  <div className="space-y-4">
+                  <div className="space-y-4 h-full">
                     {dayEvents.map((event, index) => (
                       <div key={event.id} className="bg-red-50 border border-red-200 rounded-lg p-3">
                         <div className="flex justify-between items-start mb-2">
@@ -655,9 +635,9 @@ const StudentSchedule = ({ user }) => {
                             </div>
                           </div>
                         </div>
-                        
+
                         <p className="text-gray-600 mb-2 text-sm">{event.description}</p>
-                        
+
                         <div className="grid grid-cols-2 gap-3 text-sm">
                           <div className="flex items-center space-x-2">
                             <Clock className="h-4 w-4 text-gray-500" />
@@ -764,9 +744,9 @@ const StudentSchedule = ({ user }) => {
             headerToolbar={false} // We're using our custom header
             initialView={viewMode}
             initialDate={currentWeek}
-            editable={false}
-            selectable={true}
-            selectMirror={true}
+            editable={false} // Students cannot edit events
+            selectable={false} // Students cannot select dates to add events
+            selectMirror={false}
             dayMaxEvents={true}
             weekends={true}
             events={getFullCalendarEvents()}
@@ -809,20 +789,25 @@ const StudentSchedule = ({ user }) => {
               const event = arg.event;
               const isRecurring = event.extendedProps.isRecurring;
 
-              // Base Tailwind classes for all events
-              const baseClasses = 'rounded-md border-l-4 text-xs font-medium p-1 m-0.5 cursor-pointer transition-all duration-200 hover:scale-105 hover:shadow-md';
+              // Base Tailwind classes for all events - read-only for students
+              const baseClasses = 'rounded-md border-l-4 text-xs font-medium p-1 m-0.5 cursor-pointer transition-all duration-200 hover:shadow-md';
 
-              // Color classes using Tailwind
+              // Color classes using Tailwind - red theme for students
               let colorClasses = 'bg-red-100 border-red-300 text-red-800';
 
               return [baseClasses, colorClasses];
             }}
             eventContent={(arg) => {
+              const event = arg.event;
+              const location = event.extendedProps.location || 'TBD';
+              const instructor = event.extendedProps.instructor || 'TBD';
+
               return {
                 html: `
                   <div class="p-1">
-                    <div class="font-semibold text-xs mb-0.5 text-red-700">${arg.event.title}</div>
+                    <div class="font-semibold text-xs mb-0.5 text-red-700">${event.title}</div>
                     <div class="text-xs opacity-75 mb-0.5 text-red-700">${arg.timeText}</div>
+                    <div class="text-xs opacity-60 text-red-600">${location} • ${instructor}</div>
                   </div>
                 `
               };
