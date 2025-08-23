@@ -28,7 +28,9 @@ export const securityConfig = {
 
   // JWT Configuration
   jwt: {
-    secret: process.env.JWT_SECRET || 'your-super-secret-key-change-in-production',
+    secret: process.env.JWT_SECRET || (() => {
+      throw new Error('JWT_SECRET environment variable is required');
+    })(),
     expiresIn: '15m', // 15 minutes
     refreshExpiresIn: '7d', // 7 days
     issuer: 'educational-platform',

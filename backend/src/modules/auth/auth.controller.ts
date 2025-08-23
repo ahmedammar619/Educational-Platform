@@ -62,6 +62,43 @@ export class AuthController {
     return this.authService.login(loginDto);
   }
 
+  @Post('logout')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'User logout' })
+  @ApiResponse({
+    status: 200,
+    description: 'Logout successful',
+  })
+  async logout(@CurrentUser() user: User) {
+    return this.authService.logout(user.id);
+  }
+
+  @Public()
+  @Post('forgot-password')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Request password reset' })
+  @ApiResponse({
+    status: 200,
+    description: 'Password reset email sent',
+  })
+  async forgotPassword(@Body() body: { email: string }) {
+    return this.authService.forgotPassword(body.email);
+  }
+
+  @Public()
+  @Post('reset-password')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Reset password with token' })
+  @ApiResponse({
+    status: 200,
+    description: 'Password reset successful',
+  })
+  async resetPassword(@Body() body: { token: string; newPassword: string }) {
+    return this.authService.resetPassword(body.token, body.newPassword);
+  }
+
   @Get('me')
   // This route is protected by the global JwtAuthGuard
   @ApiBearerAuth('JWT-auth')
@@ -109,7 +146,7 @@ export class AuthController {
   @Put('deactivate')
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Deactivate user account' })
-  async deactivateAccount(@CurrentUser('id') userId: number) {
+  async deactivateAccount(@CurrentUser() userId: number) {
     return this.authService.deactivateAccount(userId);
   }
 }

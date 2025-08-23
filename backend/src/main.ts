@@ -2,6 +2,7 @@ import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
+import { ThrottlerGuard } from '@nestjs/throttler';
 import { AppModule } from './app.module';
 import { HttpExceptionFilter, AllExceptionsFilter } from './common/filters/http-exception.filter';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
@@ -11,6 +12,14 @@ import helmet from 'helmet';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const configService = app.get(ConfigService);
+
+  // Validate required environment variables
+  const requiredEnvVars = ['JWT_SECRET', 'DB_PASSWORD'];
+  for (const envVar of requiredEnvVars) {
+    if (!process.env[envVar]) {
+      throw new Error(`Missing required environment variable: ${envVar}`);
+    }
+  }
 
   // Global prefix
   app.setGlobalPrefix('api');
@@ -33,6 +42,9 @@ async function bootstrap() {
 
   // Global logging interceptor
   app.useGlobalInterceptors(new LoggingInterceptor());
+
+  // Global rate limiting guard
+  app.useGlobalGuards(new ThrottlerGuard());
 
   // Swagger configuration
   const config = new DocumentBuilder()

@@ -1,8 +1,11 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, ConflictException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from '../users/entities/user.entity';
 import { Role } from '../../common/enums/role.enum';
+import { CreateUserDto } from './dto/create-user.dto';
+import { UpdateUserDto } from './dto/update-user.dto';
+import * as bcrypt from 'bcryptjs';
 
 @Injectable()
 export class AdminService {
@@ -34,6 +37,95 @@ export class AdminService {
       totalTeachers,
       usersByRole,
       timestamp: new Date().toISOString(),
+    };
+  }
+
+  async createUser(createUserDto: CreateUserDto) {
+    const { email, password, username, role } = createUserDto;
+
+    // Check if user already exists
+    const existingUser = await this.userRepository.findOne({
+      where: { email },
+    });
+
+    if (existingUser) {
+      throw new ConflictException('User already exists with this email');
+    }
+
+    // Check if username already exists (for students)
+    if (username && role === Role.Student) {
+      const existingUsername = await this.userRepository.findOne({
+        where: { username },
+      });
+
+      if (existingUsername) {
+        throw new ConflictException('Username already exists');
+      }
+    }
+
+    // Hash password
+    const saltRounds = 12;
+    const passwordHash = await bcrypt.hash(password, saltRounds);
+
+    // Create user
+    const user = this.userRepository.create({
+      ...createUserDto,
+      passwordHash,
+      isActive: true,
+      failedLoginAttempts: 0,
+      lockedUntil: null,
+    });
+
+    const savedUser = await this.userRepository.save(user);
+
+    // Remove password hash from response
+    const { passwordHash: _, ...userWithoutPassword } = savedUser;
+    return {
+      message: 'User created successfully',
+      user: userWithoutPassword,
+    };
+  }
+
+  async updateUser(userId: number, updateUserDto: UpdateUserDto) {
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new BadRequestException('User not found');
+    }
+
+    // Check if email is being changed and if it already exists
+    if (updateUserDto.email && updateUserDto.email !== user.email) {
+      const existingUser = await this.userRepository.findOne({
+        where: { email: updateUserDto.email },
+      });
+
+      if (existingUser) {
+        throw new ConflictException('Email already exists');
+      }
+    }
+
+    // Check if username is being changed and if it already exists (for students)
+    if (updateUserDto.username && updateUserDto.username !== user.username && user.role === Role.Student) {
+      const existingUsername = await this.userRepository.findOne({
+        where: { username: updateUserDto.username },
+      });
+
+      if (existingUsername) {
+        throw new ConflictException('Username already exists');
+      }
+    }
+
+    // Update user
+    Object.assign(user, updateUserDto);
+    const updatedUser = await this.userRepository.save(user);
+
+    // Remove password hash from response
+    const { passwordHash: _, ...userWithoutPassword } = updatedUser;
+    return {
+      message: 'User updated successfully',
+      user: userWithoutPassword,
     };
   }
 
@@ -96,6 +188,70 @@ export class AdminService {
 
     return {
       students,
+      pagination: {
+        page,
+        limit,
+        total,
+        pages: Math.ceil(total / limit),
+      },
+    };
+  }
+
+  async getAllTeachers(page: number = 1, limit: number = 10, search?: string) {
+    const offset = (page - 1) * limit;
+
+    let queryBuilder = this.userRepository
+      .createQueryBuilder('user')
+      .where('user.role = :role', { role: Role.Teacher })
+      .andWhere('user.isActive = :isActive', { isActive: true });
+
+    if (search) {
+      queryBuilder.andWhere(
+        '(user.firstName ILIKE :search OR user.lastName ILIKE :search OR user.email ILIKE :search)',
+        { search: `%${search}%` }
+      );
+    }
+
+    const [teachers, total] = await queryBuilder
+      .skip(offset)
+      .take(limit)
+      .orderBy('user.createdAt', 'DESC')
+      .getManyAndCount();
+
+    return {
+      teachers,
+      pagination: {
+        page,
+        limit,
+        total,
+        pages: Math.ceil(total / limit),
+      },
+    };
+  }
+
+  async getAllParents(page: number = 1, limit: number = 10, search?: string) {
+    const offset = (page - 1) * limit;
+
+    let queryBuilder = this.userRepository
+      .createQueryBuilder('user')
+      .where('user.role = :role', { role: Role.Parent })
+      .andWhere('user.isActive = :isActive', { isActive: true });
+
+    if (search) {
+      queryBuilder.andWhere(
+        '(user.firstName ILIKE :search OR user.lastName ILIKE :search OR user.email ILIKE :search)',
+        { search: `%${search}%` }
+      );
+    }
+
+    const [parents, total] = await queryBuilder
+      .skip(offset)
+      .take(limit)
+      .orderBy('user.createdAt', 'DESC')
+      .getManyAndCount();
+
+    return {
+      parents,
       pagination: {
         page,
         limit,
