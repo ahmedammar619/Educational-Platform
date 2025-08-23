@@ -10,6 +10,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
+import * as crypto from 'crypto';
 import { securityConfig } from '../../config/security.config';
 
 import { User } from '../users/entities/user.entity';
@@ -137,6 +138,69 @@ export class AuthService {
       message: 'Login successful',
       user: this.sanitizeUser(user),
       token,
+    };
+  }
+
+  async logout(userId: number) {
+    // In a real application, you might want to blacklist the token
+    // For now, we'll just return a success message
+    return {
+      message: 'Logout successful',
+    };
+  }
+
+  async forgotPassword(email: string) {
+    const user = await this.userRepository.findOne({
+      where: { email },
+    });
+
+    if (!user) {
+      // Don't reveal if user exists or not for security
+      return {
+        message: 'If an account with that email exists, a password reset link has been sent.',
+      };
+    }
+
+    // Generate secure reset token using crypto.randomBytes
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    const resetTokenExpiry = new Date(Date.now() + 3600000); // 1 hour
+
+    // Store reset token in user entity
+    await this.userRepository.update(user.id, {
+      resetToken,
+      resetTokenExpiry,
+    });
+
+    // In production, send email with reset link
+    // For now, just return the token (remove this in production)
+    return {
+      message: 'Password reset email sent',
+      resetToken, // Remove this in production
+    };
+  }
+
+  async resetPassword(token: string, newPassword: string) {
+    const user = await this.userRepository.findOne({
+      where: { resetToken: token },
+    });
+
+    if (!user || !user.resetTokenExpiry || user.resetTokenExpiry < new Date()) {
+      throw new BadRequestException('Invalid or expired reset token');
+    }
+
+    // Hash new password
+    const saltRounds = 12;
+    const newPasswordHash = await bcrypt.hash(newPassword, saltRounds);
+
+    // Update password and clear reset token
+    await this.userRepository.update(user.id, {
+      passwordHash: newPasswordHash,
+      resetToken: null,
+      resetTokenExpiry: null,
+    });
+
+    return {
+      message: 'Password reset successful',
     };
   }
 

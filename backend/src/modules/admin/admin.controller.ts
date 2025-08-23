@@ -2,9 +2,11 @@
 import {
   Controller,
   Get,
+  Post,
   Put,
   Delete,
   Param,
+  Body,
   Query,
   UseGuards,
 } from '@nestjs/common';
@@ -14,12 +16,15 @@ import {
   ApiResponse,
   ApiBearerAuth,
   ApiQuery,
+  ApiBody,
 } from '@nestjs/swagger';
 import { AdminService } from './admin.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { Role } from '../../common/enums/role.enum';
+import { CreateUserDto } from './dto/create-user.dto';
+import { UpdateUserDto } from './dto/update-user.dto';
 
 @ApiTags('Admin')
 @Controller('admin')
@@ -58,6 +63,28 @@ export class AdminController {
     return this.adminService.getAllUsers(page || 1, limit || 10, { role, search });
   }
 
+  @Post('users')
+  @ApiOperation({ summary: 'Create a new user (Admin only)' })
+  @ApiBody({ type: CreateUserDto })
+  @ApiResponse({
+    status: 201,
+    description: 'User created successfully',
+  })
+  async createUser(@Body() createUserDto: CreateUserDto) {
+    return this.adminService.createUser(createUserDto);
+  }
+
+  @Put('users/:id')
+  @ApiOperation({ summary: 'Update user information' })
+  @ApiBody({ type: UpdateUserDto })
+  @ApiResponse({
+    status: 200,
+    description: 'User updated successfully',
+  })
+  async updateUser(@Param('id') id: string, @Body() updateUserDto: UpdateUserDto) {
+    return this.adminService.updateUser(+id, updateUserDto);
+  }
+
   @Get('students')
   @ApiOperation({ summary: 'Get all students with pagination' })
   @ApiQuery({ name: 'page', required: false, description: 'Page number' })
@@ -73,6 +100,40 @@ export class AdminController {
     @Query('search') search?: string,
   ) {
     return this.adminService.getAllStudents(page || 1, limit || 10, search);
+  }
+
+  @Get('teachers')
+  @ApiOperation({ summary: 'Get all teachers with pagination' })
+  @ApiQuery({ name: 'page', required: false, description: 'Page number' })
+  @ApiQuery({ name: 'limit', required: false, description: 'Items per page' })
+  @ApiQuery({ name: 'search', required: false, description: 'Search by name or email' })
+  @ApiResponse({
+    status: 200,
+    description: 'Teachers retrieved successfully',
+  })
+  async getAllTeachers(
+    @Query('page') page?: number,
+    @Query('limit') limit?: number,
+    @Query('search') search?: string,
+  ) {
+    return this.adminService.getAllTeachers(page || 1, limit || 10, search);
+  }
+
+  @Get('parents')
+  @ApiOperation({ summary: 'Get all parents with pagination' })
+  @ApiQuery({ name: 'page', required: false, description: 'Page number' })
+  @ApiQuery({ name: 'limit', required: false, description: 'Items per page' })
+  @ApiQuery({ name: 'search', required: false, description: 'Search by name or email' })
+  @ApiResponse({
+    status: 200,
+    description: 'Parents retrieved successfully',
+  })
+  async getAllParents(
+    @Query('page') page?: number,
+    @Query('limit') limit?: number,
+    @Query('search') search?: string,
+  ) {
+    return this.adminService.getAllParents(page || 1, limit || 10, search);
   }
 
   @Put('users/:id/deactivate')
