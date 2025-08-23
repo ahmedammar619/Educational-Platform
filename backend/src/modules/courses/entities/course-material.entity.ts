@@ -11,6 +11,7 @@ import {
 import { Course } from './course.entity';
 import { User } from '../../users/entities/user.entity';
 import { MaterialAttachment } from './material-attachment.entity';
+import { SessionMaterial } from './session-material.entity';
 
 @Entity('course_materials')
 export class CourseMaterial {
@@ -89,4 +90,7 @@ export class CourseMaterial {
 
   @OneToMany(() => MaterialAttachment, (attachment) => attachment.material)
   attachments: MaterialAttachment[];
+
+  @OneToMany(() => SessionMaterial, (sessionMaterial) => sessionMaterial.material)
+  sessionMaterials: SessionMaterial[];
 }

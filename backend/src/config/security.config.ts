@@ -29,7 +29,11 @@ export const securityConfig = {
   // JWT Configuration
   jwt: {
     secret: process.env.JWT_SECRET || (() => {
-      throw new Error('JWT_SECRET environment variable is required');
+      if (process.env.NODE_ENV === 'production') {
+        throw new Error('JWT_SECRET environment variable is required in production');
+      }
+      console.warn('⚠️  Using default JWT secret for development. Change this in production!');
+      return 'dev-jwt-secret-change-in-production-at-least-32-characters-long';
     })(),
     expiresIn: '15m', // 15 minutes
     refreshExpiresIn: '7d', // 7 days

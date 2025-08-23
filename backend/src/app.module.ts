@@ -1,22 +1,28 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule, ConfigService } from '@nestjs/config';
+import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ThrottlerModule } from '@nestjs/throttler';
+import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
+
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-import { securityConfig } from './config/security.config';
-import { validate, validateRequiredEnvVars, validateProductionEnvVars, getEnvironmentConfig } from './config/env.validation';
+
+// Common modules
+import { CommonModule } from './common/common.module';
 
 // Feature modules
 import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
-import { StudentsModule } from './modules/students/students.module';
-import { TeachersModule } from './modules/teachers/teachers.module';
 import { AdminModule } from './modules/admin/admin.module';
+import { TeachersModule } from './modules/teachers/teachers.module';
+import { StudentsModule } from './modules/students/students.module';
 import { ParentsModule } from './modules/parents/parents.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { CoursesModule } from './modules/courses/courses.module';
-import { CommonModule } from './common/common.module';
+
+// Guards and Interceptors
+import { ThrottlerGuard } from '@nestjs/throttler';
+import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 
 // Entities
 import { User } from './modules/users/entities/user.entity';
@@ -34,71 +40,69 @@ import { CourseSchedule } from './modules/courses/entities/course-schedule.entit
 
 @Module({
   imports: [
+    // Configuration
     ConfigModule.forRoot({
       isGlobal: true,
-      envFilePath: '.env',
-      validate,
+      envFilePath: ['.env', '.env.local', '.env.development'],
       cache: true,
     }),
 
-    // Rate Limiting Configuration
-    ThrottlerModule.forRoot([{
-      ttl: securityConfig.rateLimit.ttl,
-      limit: securityConfig.rateLimit.limit,
-    }]),
-
+    // Database
     TypeOrmModule.forRootAsync({
-      imports: [ConfigModule],
-      useFactory: (configService: ConfigService) => {
-        const envConfig = getEnvironmentConfig();
-        const isProd = envConfig.isProduction;
-        const syncEnv = configService.get('DB_SYNC');
-        const synchronize = syncEnv != null ? syncEnv === 'true' : !isProd;
-        const loggingEnv = configService.get('DB_LOGGING');
-        const logging = loggingEnv != null ? loggingEnv === 'true' : envConfig.isDevelopment;
-
-        return {
-          type: 'postgres',
-          host: configService.get<string>('DB_HOST', 'localhost'),
-          port: Number(configService.get<number>('DB_PORT', 5432)),
-          username: configService.get<string>('DB_USERNAME', 'postgres'),
-          password: configService.get<string>('DB_PASSWORD', 'password'),
-          database: configService.get<string>('DB_DATABASE', 'education_db'),
-          entities: [
-            User,
-            Parent,
-            Course,
-            CourseSession,
-            CourseMaterial,
-            CourseFile,
-            CourseFolder,
-            CourseEnrollment,
-            SessionAttendance,
-            SessionMaterial,
-            MaterialAttachment,
-            CourseSchedule,
-          ],
-          synchronize,
-          logging,
-          ssl: isProd ? { rejectUnauthorized: false } : false,
-          extra: {
-            // Connection pool settings
-            max: configService.get<number>('DB_POOL_MAX', isProd ? 20 : 10),
-            min: configService.get<number>('DB_POOL_MIN', isProd ? 5 : 2),
-            acquire: 30000,
-            idle: 10000,
-          },
-        };
-      },
-      inject: [ConfigService],
+      useFactory: () => ({
+        type: 'postgres',
+        host: process.env.DB_HOST || 'localhost',
+        port: parseInt(process.env.DB_PORT || '5432', 10),
+        username: process.env.DB_USERNAME || 'postgres',
+        password: process.env.DB_PASSWORD || 'password',
+        database: process.env.DB_DATABASE || 'education_dev_db',
+        entities: [
+          User,
+          Parent,
+          Course,
+          CourseSession,
+          CourseMaterial,
+          CourseFile,
+          CourseFolder,
+          CourseEnrollment,
+          SessionAttendance,
+          SessionMaterial,
+          MaterialAttachment,
+          CourseSchedule,
+        ],
+        synchronize: process.env.DB_SYNC === 'true',
+        logging: process.env.DB_LOGGING === 'true',
+        ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+        extra: {
+          // Connection pool settings
+          max: parseInt(process.env.DB_POOL_MAX || '10', 10),
+          min: parseInt(process.env.DB_POOL_MIN || '2', 10),
+          acquire: 30000,
+          idle: 10000,
+        },
+      }),
     }),
 
-    CommonModule, // Added for global security services
+    // Rate Limiting
+    ThrottlerModule.forRoot([
+      {
+        ttl: parseInt(process.env.RATE_LIMIT_TTL || '60000', 10),
+        limit: parseInt(process.env.RATE_LIMIT_LIMIT || '1000', 10),
+      },
+      {
+        name: 'auth',
+        ttl: parseInt(process.env.RATE_LIMIT_AUTH_TTL || '300000', 10),
+        limit: parseInt(process.env.RATE_LIMIT_AUTH_LIMIT || '10', 10),
+      },
+    ]),
+
+    // Feature modules
+    CommonModule,
     AuthModule,
     UsersModule,
-    StudentsModule,
-    TeachersModule,
     AdminModule,
+    TeachersModule,
+    StudentsModule,
     ParentsModule,
     DashboardModule,
     CoursesModule,
@@ -107,13 +111,12 @@ import { CourseSchedule } from './modules/courses/entities/course-schedule.entit
   providers: [
     AppService,
     {
-      provide: 'APP_INTERCEPTOR',
-      useFactory: () => {
-        // Validate environment variables on app startup
-        validateRequiredEnvVars();
-        validateProductionEnvVars();
-        return null;
-      },
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    },
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: LoggingInterceptor,
     },
   ],
 })

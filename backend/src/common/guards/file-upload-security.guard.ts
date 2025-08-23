@@ -1,6 +1,12 @@
 import { Injectable, CanActivate, ExecutionContext, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { Request } from 'express';
 
+// Extend Express Request interface to include file properties
+interface FileRequest extends Request {
+  files?: Express.Multer.File[];
+  file?: Express.Multer.File;
+}
+
 @Injectable()
 export class FileUploadSecurityGuard implements CanActivate {
   // Allowed file types for different categories
@@ -61,7 +67,7 @@ export class FileUploadSecurityGuard implements CanActivate {
   ];
 
   canActivate(context: ExecutionContext): boolean {
-    const request = context.switchToHttp().getRequest<Request>();
+    const request = context.switchToHttp().getRequest<FileRequest>();
     const files = request.files || request.file;
 
     if (!files) {

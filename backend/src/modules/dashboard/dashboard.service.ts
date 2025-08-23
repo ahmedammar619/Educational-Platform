@@ -1,7 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from '../users/entities/user.entity';
+import { Role } from '../../common/enums/role.enum';
 
 @Injectable()
 export class DashboardService {
@@ -102,11 +103,10 @@ export class DashboardService {
   }
 
   async getAdminDashboard() {
-    // Mock data for now - replace with actual database queries
     const totalUsers = await this.userRepository.count();
-    const totalTeachers = await this.userRepository.count({ where: { role: 'teacher' } });
-    const totalStudents = await this.userRepository.count({ where: { role: 'student' } });
-    const totalParents = await this.userRepository.count({ where: { role: 'parent' } });
+    const totalTeachers = await this.userRepository.count({ where: { role: Role.Teacher } });
+    const totalStudents = await this.userRepository.count({ where: { role: Role.Student } });
+    const totalParents = await this.userRepository.count({ where: { role: Role.Parent } });
 
     return {
       totalUsers,
