@@ -376,14 +376,18 @@ export class AuditLogService {
   }
 
   private getClientIp(request: Request): string {
-    return (
-      request.ip ||
+    const ip = request.ip ||
       request.connection.remoteAddress ||
       request.socket.remoteAddress ||
       request.headers['x-forwarded-for'] ||
-      request.headers['x-real-ip'] ||
-      'unknown'
-    );
+      request.headers['x-real-ip'];
+
+    // Handle case where IP might be an array (multiple proxies)
+    if (Array.isArray(ip)) {
+      return ip[0] || 'unknown';
+    }
+
+    return ip || 'unknown';
   }
 
   private getRequestId(request: Request): string {

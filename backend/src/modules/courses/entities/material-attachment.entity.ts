@@ -45,7 +45,7 @@ export class MaterialAttachment {
   @Column()
   materialId: number;
 
-  @ManyToOne(() => CourseFile, (file) => file.materialAttachments, { onDelete: 'CASCADE' })
+  @ManyToOne(() => CourseFile, (file) => file.attachments, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'fileId' })
   file: CourseFile;
 

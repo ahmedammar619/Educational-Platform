@@ -6,12 +6,14 @@ import {
   UpdateDateColumn,
   ManyToOne,
   ManyToMany,
+  OneToMany,
   JoinColumn,
   JoinTable,
 } from 'typeorm';
 import { Course } from './course.entity';
 import { User } from '../../users/entities/user.entity';
 import { CourseFolder } from './course-folder.entity';
+import { MaterialAttachment } from './material-attachment.entity';
 
 @Entity('course_files')
 export class CourseFile {
@@ -86,4 +88,7 @@ export class CourseFile {
     inverseJoinColumn: { name: 'folderId', referencedColumnName: 'id' },
   })
   folders: CourseFolder[];
+
+  @OneToMany(() => MaterialAttachment, (attachment) => attachment.file)
+  attachments: MaterialAttachment[];
 }

@@ -42,7 +42,7 @@ export class SessionMaterial {
   @Column()
   sessionId: number;
 
-  @ManyToOne(() => CourseMaterial, (material) => material.sessions, { onDelete: 'CASCADE' })
+  @ManyToOne(() => CourseMaterial, (material) => material.sessionMaterials, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'materialId' })
   material: CourseMaterial;
 

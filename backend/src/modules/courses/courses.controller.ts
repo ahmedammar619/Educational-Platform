@@ -331,7 +331,7 @@ export class CoursesController {
 
   @Post(':courseId/folders')
   @Roles(Role.Teacher, Role.Admin)
-  @ApiOperation({ summary: 'Create a new folder (Teacher/Admin only)' })
+  @ApiOperation({ summary: 'Create a new folder for a course (Teacher/Admin only)' })
   @ApiResponse({
     status: 201,
     description: 'Folder created successfully',
@@ -341,7 +341,7 @@ export class CoursesController {
     @Body() body: { name: string; description?: string; parentFolderId?: number },
     @CurrentUser() user: User,
   ) {
-    return this.coursesService.createFolder(+courseId, body.name, body.description, body.parentFolderId, user.id);
+    return this.coursesService.createFolder(+courseId, user.id, body.name, body.description, body.parentFolderId);
   }
 
   @Get(':courseId/folders')

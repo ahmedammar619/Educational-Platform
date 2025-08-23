@@ -43,9 +43,6 @@ async function bootstrap() {
   // Global logging interceptor
   app.useGlobalInterceptors(new LoggingInterceptor());
 
-  // Global rate limiting guard
-  app.useGlobalGuards(new ThrottlerGuard());
-
   // Swagger configuration
   const config = new DocumentBuilder()
     .setTitle('Educational Platform API')

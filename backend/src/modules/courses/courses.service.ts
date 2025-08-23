@@ -461,7 +461,7 @@ export class CoursesService {
 
   // ================= File Management =================
 
-  async createFolder(courseId: number, name: string, description?: string, parentFolderId?: number, userId: number): Promise<CourseFolder> {
+  async createFolder(courseId: number, userId: number, name: string, description?: string, parentFolderId?: number): Promise<CourseFolder> {
     const course = await this.findCourseById(courseId);
 
     // Only teacher can create folders
