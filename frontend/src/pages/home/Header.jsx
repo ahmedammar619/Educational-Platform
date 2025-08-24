@@ -86,7 +86,7 @@ const Header = ({ onLoginClick }) => {
                     onLoginClick();
                     setMobileMenuOpen(false);
                   }}
-                  className="w-full bg-green-600 text-white px-4 py-3 rounded-lg hover:bg-green-700 transition-colors font-medium text-base"
+                  className="w-full bg-green-600 text-white px-4 py-3 rounded-lg hover:bg-green-700 transition-colors font-medium text-base mt-2"
                 >
                   Sign In
                 </button>

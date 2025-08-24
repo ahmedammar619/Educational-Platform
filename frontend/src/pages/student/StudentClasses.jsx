@@ -1,328 +1,301 @@
-import { useState, useEffect } from 'react';
-import { BookOpen, Clock, User, MapPin, Calendar, CheckCircle, Users, Search, Filter } from 'lucide-react';
-import { mockClasses, mockUsers } from '../../data/mockData';
+import React, { useState, useEffect } from 'react';
+import { studentsService, coursesService, usersService } from '../../services';
 
-const StudentClasses = ({ user, onOpenMaterials }) => {
+const StudentClasses = () => {
   const [enrolledClasses, setEnrolledClasses] = useState([]);
-  const [filteredClasses, setFilteredClasses] = useState([]);
+  const [availableClasses, setAvailableClasses] = useState([]);
+  const [teachers, setTeachers] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [filters, setFilters] = useState({
-    search: '',
-    teacher: '',
-    page: 1,
-    limit: 10
-  });
-  const [pagination, setPagination] = useState({
-    page: 1,
-    limit: 10,
-    total: 0,
-    pages: 0
-  });
+  const [error, setError] = useState(null);
+  const [showEnrollModal, setShowEnrollModal] = useState(false);
+  const [selectedClass, setSelectedClass] = useState(null);
 
   useEffect(() => {
-    loadStudentClasses();
-  }, [user]);
+    fetchData();
+  }, []);
 
-  useEffect(() => {
-    filterClasses();
-  }, [filters, enrolledClasses]);
-
-  const loadStudentClasses = () => {
-    setLoading(true);
-
-    // For demo purposes, let's show classes that have students enrolled
-    // In a real app, this would filter by the actual student ID
-    const studentId = user?.id || 201; // Default to Ahmad Al-Noor for demo
-
-    // Get classes where this student is enrolled
-    const studentClasses = mockClasses.filter(cls =>
-      cls.students && cls.students.includes(studentId)
-    );
-
-    // If no classes found for this student, show some sample classes for demo
-    if (studentClasses.length === 0) {
-      // Show classes that have students (for demo purposes)
-      const demoClasses = mockClasses.filter(cls => cls.students && cls.students.length > 0);
-      setEnrolledClasses(demoClasses);
-    } else {
-      setEnrolledClasses(studentClasses);
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      // Fetch all required data in parallel
+      const [enrolledResponse, availableResponse, teachersResponse] = await Promise.all([
+        studentsService.getStudentClasses(),
+        coursesService.getAllCourses(),
+        usersService.getUsersByRole('teacher')
+      ]);
+      
+      setEnrolledClasses(enrolledResponse.classes || []);
+      setAvailableClasses(availableResponse.courses || []);
+      setTeachers(teachersResponse.users || []);
+      
+    } catch (err) {
+      console.error('Error fetching data:', err);
+      setError(err.message || 'Failed to load class data');
+    } finally {
+      setLoading(false);
     }
-
-    setLoading(false);
   };
 
-  const filterClasses = () => {
-    let filtered = [...enrolledClasses];
-
-    // Apply search filter
-    if (filters.search) {
-      filtered = filtered.filter(classItem => {
-        const teacher = mockUsers.teachers.find(t => t.id === classItem.teacherId);
-        const teacherName = teacher ? `${teacher.firstName} ${teacher.lastName}` : 'Teacher TBD';
-
-        return classItem.name.toLowerCase().includes(filters.search.toLowerCase()) ||
-          teacherName.toLowerCase().includes(filters.search.toLowerCase());
-      });
+  const handleEnroll = async (classId) => {
+    try {
+      await studentsService.enrollInClass(classId);
+      
+      // Refresh the data
+      await fetchData();
+      
+      alert('Successfully enrolled in class!');
+      setShowEnrollModal(false);
+      setSelectedClass(null);
+      
+    } catch (err) {
+      console.error('Error enrolling in class:', err);
+      alert('Failed to enroll in class: ' + err.message);
     }
-
-    // Apply teacher filter
-    if (filters.teacher) {
-      filtered = filtered.filter(classItem => {
-        const teacher = mockUsers.teachers.find(t => t.id === classItem.teacherId);
-        const teacherName = teacher ? `${teacher.firstName} ${teacher.lastName}` : 'Teacher TBD';
-
-        return teacherName.toLowerCase().includes(filters.teacher.toLowerCase());
-      });
-    }
-
-    // Calculate pagination
-    const total = filtered.length;
-    const pages = Math.ceil(total / filters.limit);
-    const startIndex = (filters.page - 1) * filters.limit;
-    const endIndex = startIndex + parseInt(filters.limit);
-
-    setFilteredClasses(filtered.slice(startIndex, endIndex));
-    setPagination({
-      page: filters.page,
-      limit: filters.limit,
-      total,
-      pages
-    });
   };
 
-  const getSubjectColor = (subject) => {
-    const subjectLower = subject.toLowerCase();
-    if (subjectLower.includes('quran')) return 'bg-green-100 text-green-800';
-    if (subjectLower.includes('arabic')) return 'bg-blue-100 text-blue-800';
-    if (subjectLower.includes('islamic')) return 'bg-purple-100 text-purple-800';
-    if (subjectLower.includes('tajweed')) return 'bg-yellow-100 text-yellow-800';
-    if (subjectLower.includes('hadith')) return 'bg-pink-100 text-pink-800';
-    return 'bg-gray-100 text-gray-800';
+  const handleUnenroll = async (classId) => {
+    if (window.confirm('Are you sure you want to unenroll from this class?')) {
+      try {
+        await studentsService.unenrollFromClass(classId);
+        
+        // Refresh the data
+        await fetchData();
+        
+        alert('Successfully unenrolled from class!');
+        
+      } catch (err) {
+        console.error('Error unenrolling from class:', err);
+        alert('Failed to unenroll from class: ' + err.message);
+      }
+    }
+  };
+
+  const getTeacherName = (teacherId) => {
+    const teacher = teachers.find(t => t.id === teacherId);
+    return teacher ? `${teacher.firstName} ${teacher.lastName}` : 'Teacher TBD';
+  };
+
+  const getScheduleDisplay = (schedule) => {
+    if (!schedule || schedule.length === 0) return 'Schedule TBD';
+    
+    return schedule.map(session => 
+      `${session.day} ${session.startTime}-${session.endTime}`
+    ).join(', ');
   };
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading classes...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="text-red-500 text-xl mb-4">⚠️</div>
+          <p className="text-gray-600 mb-4">{error}</p>
+          <button 
+            onClick={fetchData} 
+            className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+          >
+            Retry
+          </button>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-4 sm:space-y-6 h-full">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">My Classes</h1>
-          <p className="text-sm sm:text-base text-gray-600">View and manage your enrolled classes</p>
+    <div className="min-h-screen bg-gray-50 p-6">
+      <div className="max-w-7xl mx-auto">
+        {/* Header */}
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">My Classes</h1>
+          <p className="text-gray-600">Manage your enrolled classes and discover new ones</p>
         </div>
-      </div>
 
-      {/* Filters */}
-      <div className="bg-white p-4 sm:p-6 rounded-lg shadow-sm border">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          <div className="relative">
-            <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Search classes..."
-              className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-              value={filters.search}
-              onChange={(e) => {
-                console.log('Search input changed:', e.target.value);
-                setFilters({ ...filters, search: e.target.value, page: 1 });
-              }}
-              style={{ colorScheme: 'light' }}
-              onFocus={(e) => e.target.placeholder = 'Search classes...'}
-              onBlur={(e) => e.target.placeholder = 'Search classes...'}
-            />
+        {/* Enrolled Classes */}
+        <div className="mb-8">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-2xl font-semibold text-gray-900">Enrolled Classes</h2>
+            <button
+              onClick={() => setShowEnrollModal(true)}
+              className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              + Enroll in New Class
+            </button>
           </div>
 
-          <select
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-            value={filters.teacher}
-            onChange={(e) => setFilters({ ...filters, teacher: e.target.value, page: 1 })}
-          >
-            <option value="">All Teachers</option>
-            {mockUsers.teachers.map((teacher) => (
-              <option key={teacher.id} value={`${teacher.firstName} ${teacher.lastName}`}>
-                {teacher.firstName} {teacher.lastName}
-              </option>
-            ))}
-          </select>
-
-          <select
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-            value={filters.limit}
-            onChange={(e) => setFilters({ ...filters, limit: e.target.value, page: 1 })}
-          >
-            <option value="10">10 per page</option>
-            <option value="25">25 per page</option>
-            <option value="50">50 per page</option>
-          </select>
-        </div>
-      </div>
-
-      {/* Classes Cards */}
-      {enrolledClasses.length === 0 ? (
-        <div className="bg-white rounded-lg shadow-sm border p-12 text-center">
-          <BookOpen className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">No Classes Enrolled</h3>
-          <p className="text-gray-600">You haven't enrolled in any classes yet.</p>
-        </div>
-      ) : (
-        <>
-          <div className="space-y-3 sm:space-y-4">
-            {filteredClasses.map((classItem) => {
-              const teacher = mockUsers.teachers.find(t => t.id === classItem.teacherId);
-              const teacherName = teacher ? `${teacher.firstName} ${teacher.lastName}` : 'Teacher TBD';
-
-              return (
-                <div
-                  key={classItem.id}
-                  className="bg-white rounded-xl shadow-sm border hover:shadow-md transition-all w-full p-3 sm:p-4 flex flex-col gap-3 sm:gap-4"
-                >
-                  {/* Top Row - Name, Teacher */}
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                    <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
-                      <div className="flex items-center gap-2 sm:gap-3">
-                        <BookOpen className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600" />
-                        <h3 className="text-base sm:text-lg font-semibold text-gray-900">{classItem.name}</h3>
-                      </div>
-                      <span className="hidden sm:inline text-sm text-gray-500">|</span>
-                      <p className="text-xs sm:text-sm font-medium text-gray-700 flex items-center gap-1">
-                        <User className="h-3 w-3 sm:h-4 sm:w-4 text-gray-400" />
-                        {teacherName}
-                      </p>
-                    </div>
+          {enrolledClasses.length === 0 ? (
+            <div className="text-center py-12 bg-white rounded-lg shadow">
+              <div className="text-gray-400 text-6xl mb-4">📚</div>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">No Classes Enrolled</h3>
+              <p className="text-gray-500 mb-4">
+                You haven't enrolled in any classes yet. Browse available classes to get started!
+              </p>
+              <button
+                onClick={() => setShowEnrollModal(true)}
+                className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                Browse Classes
+              </button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {enrolledClasses.map((cls) => (
+                <div key={cls.id} className="bg-white rounded-lg shadow p-6">
+                  <div className="flex justify-between items-start mb-4">
+                    <h3 className="text-lg font-semibold text-gray-900">{cls.name}</h3>
+                    <button
+                      onClick={() => handleUnenroll(cls.id)}
+                      className="text-red-600 hover:text-red-800 text-sm"
+                    >
+                      Unenroll
+                    </button>
                   </div>
-
-                  {/* Bottom Row - Students, Schedule, Class Material */}
-                  <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center w-full gap-3 sm:gap-0">
-                    <div className="text-center">
-                      <p className="text-xs text-gray-500 flex items-center justify-center gap-1">
-                        <Users className="h-3 w-3 sm:h-4 sm:w-4 text-gray-400" /> Students
-                      </p>
-                      <p className="font-medium text-gray-900 text-sm sm:text-base">{classItem.students?.length || 0}</p>
+                  
+                  <p className="text-gray-600 mb-4">{cls.description}</p>
+                  
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">Teacher:</span>
+                      <span className="text-gray-900">{getTeacherName(cls.teacherId)}</span>
                     </div>
-
-                    <div className="text-center">
-                      <p className="text-xs text-gray-500 flex items-center justify-center gap-1">
-                        <Calendar className="h-3 w-3 sm:h-4 sm:w-4 text-gray-400" /> Schedule
-                      </p>
-                      <p className="font-medium text-gray-900 text-xs sm:text-sm">
-                        {classItem.schedule && Array.isArray(classItem.schedule)
-                          ? classItem.schedule.map(item => `${item.day} ${item.startTime}-${item.endTime}`).join(', ')
-                          : 'Schedule TBD'
-                        }
-                      </p>
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">Schedule:</span>
+                      <span className="text-gray-900">{getScheduleDisplay(cls.schedule)}</span>
                     </div>
-
-                    <div className="text-center">
-                      <p className="text-xs text-gray-500 flex items-center justify-center gap-1">
-                        <Clock className="h-3 w-3 sm:h-4 sm:w-4 text-gray-400" /> Duration
-                      </p>
-                      <p className="font-medium text-gray-900 text-xs sm:text-sm">120 min</p>
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">Price:</span>
+                      <span className="text-gray-900">SAR {cls.price}</span>
                     </div>
-
-                    <div className="text-center">
-                      <button
-                        onClick={() => onOpenMaterials(classItem)}
-                        className="w-full sm:w-auto px-3 py-2 border-2 border-red-600 text-red-600 font-semibold text-xs rounded-lg hover:bg-red-600 hover:text-white transition-all duration-200 uppercase"
-                      >
-                        Class Material
-                      </button>
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">Status:</span>
+                      <span className="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800">
+                        Enrolled
+                      </span>
                     </div>
                   </div>
                 </div>
-              );
-            })}
-          </div>
-
-          {/* Pagination */}
-          {pagination && pagination.pages > 1 && (
-            <div className="bg-white px-3 sm:px-4 py-3 flex items-center justify-between border-t border-gray-200 mt-6 rounded-b-lg">
-              {/* Mobile */}
-              <div className="flex items-center justify-between w-full sm:hidden">
-                <button
-                  onClick={() => setFilters({ ...filters, page: Math.max(1, filters.page - 1) })}
-                  disabled={filters.page === 1}
-                  className="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Previous
-                </button>
-                <span className="text-sm text-gray-700">
-                  Page {filters.page} of {pagination.pages}
-                </span>
-                <button
-                  onClick={() => setFilters({ ...filters, page: Math.min(pagination.pages, filters.page + 1) })}
-                  disabled={filters.page === pagination.pages}
-                  className="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Next
-                </button>
-              </div>
-
-              {/* Desktop */}
-              <div className="hidden sm:flex items-center space-x-2">
-                <button
-                  onClick={() => setFilters({ ...filters, page: 1 })}
-                  disabled={filters.page === 1}
-                  className="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  First
-                </button>
-                <button
-                  onClick={() => setFilters({ ...filters, page: Math.max(1, filters.page - 1) })}
-                  disabled={filters.page === 1}
-                  className="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Previous
-                </button>
-
-                <div className="flex items-center space-x-1">
-                  {Array.from({ length: Math.min(5, pagination.pages) }, (_, i) => {
-                    const pageNum = Math.max(1, Math.min(pagination.pages - 4, filters.page - 2)) + i;
-                    if (pageNum > pagination.pages) return null;
-
-                    return (
-                      <button
-                        key={pageNum}
-                        onClick={() => setFilters({ ...filters, page: pageNum })}
-                        className={`px-3 py-2 text-sm font-medium rounded-md ${pageNum === filters.page
-                            ? 'bg-blue-600 text-white'
-                            : 'text-gray-500 bg-white border border-gray-300 hover:bg-gray-50'
-                          }`}
-                      >
-                        {pageNum}
-                      </button>
-                    );
-                  })}
-                </div>
-
-                <button
-                  onClick={() => setFilters({ ...filters, page: Math.min(pagination.pages, filters.page + 1) })}
-                  disabled={filters.page === pagination.pages}
-                  className="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Next
-                </button>
-                <button
-                  onClick={() => setFilters({ ...filters, page: pagination.pages })}
-                  disabled={filters.page === pagination.pages}
-                  className="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Last
-                </button>
-              </div>
-
-              <div className="text-sm text-gray-700">
-                Showing {((filters.page - 1) * filters.limit) + 1} to {Math.min(filters.page * filters.limit, pagination.total)} of {pagination.total} results
-              </div>
+              ))}
             </div>
           )}
-        </>
-      )}
+        </div>
+
+        {/* Available Classes */}
+        <div>
+          <h2 className="text-2xl font-semibold text-gray-900 mb-6">Available Classes</h2>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {availableClasses
+              .filter(cls => !enrolledClasses.some(enrolled => enrolled.id === cls.id))
+              .map((cls) => (
+                <div key={cls.id} className="bg-white rounded-lg shadow p-6">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">{cls.name}</h3>
+                  
+                  <p className="text-gray-600 mb-4">{cls.description}</p>
+                  
+                  <div className="space-y-2 text-sm mb-4">
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">Teacher:</span>
+                      <span className="text-gray-900">{getTeacherName(cls.teacherId)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">Schedule:</span>
+                      <span className="text-gray-900">{getScheduleDisplay(cls.schedule)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">Price:</span>
+                      <span className="text-gray-900">SAR {cls.price}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">Students:</span>
+                      <span className="text-gray-900">{cls.students?.length || 0}</span>
+                    </div>
+                  </div>
+                  
+                  <button
+                    onClick={() => {
+                      setSelectedClass(cls);
+                      setShowEnrollModal(true);
+                    }}
+                    className="w-full bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 transition-colors"
+                  >
+                    Enroll Now
+                  </button>
+                </div>
+              ))}
+          </div>
+          
+          {availableClasses.filter(cls => !enrolledClasses.some(enrolled => enrolled.id === cls.id)).length === 0 && (
+            <div className="text-center py-12 bg-white rounded-lg shadow">
+              <div className="text-gray-400 text-6xl mb-4">🎉</div>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">All Classes Enrolled!</h3>
+              <p className="text-gray-500">
+                You're enrolled in all available classes. Check back later for new offerings!
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* Enroll Modal */}
+        {showEnrollModal && selectedClass && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-lg p-6 w-full max-w-md">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Confirm Enrollment</h3>
+              
+              <div className="mb-6">
+                <p className="text-gray-600 mb-4">
+                  Are you sure you want to enroll in <strong>{selectedClass.name}</strong>?
+                </p>
+                
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">Teacher:</span>
+                      <span className="text-gray-900">{getTeacherName(selectedClass.teacherId)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">Schedule:</span>
+                      <span className="text-gray-900">{getScheduleDisplay(selectedClass.schedule)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">Price:</span>
+                      <span className="text-gray-900">SAR {selectedClass.price}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="flex justify-end space-x-3">
+                <button
+                  onClick={() => {
+                    setShowEnrollModal(false);
+                    setSelectedClass(null);
+                  }}
+                  className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => handleEnroll(selectedClass.id)}
+                  className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
+                >
+                  Confirm Enrollment
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 };

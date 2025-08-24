@@ -4,7 +4,7 @@ import { Request } from 'express';
 
 export interface AuditLogEntry {
   timestamp: Date;
-  userId: number;
+  userId: string;
   userEmail: string;
   userRole: string;
   action: string;
@@ -20,12 +20,12 @@ export interface AuditLogEntry {
 
 export interface SecurityEvent {
   timestamp: Date;
-  eventType: 'login_attempt' | 'login_success' | 'login_failure' | 'logout' | 'password_change' | 'role_change' | 'file_upload' | 'file_download' | 'data_access' | 'data_modification' | 'suspicious_activity';
-  userId?: number;
-  userEmail?: string;
+  eventType: 'login_attempt' | 'login_success' | 'login_failure' | 'logout' | 'password_change' | 'password_change_success' | 'password_change_failure' | 'role_change' | 'file_upload' | 'file_download' | 'data_access' | 'data_modification' | 'suspicious_activity';
+  userId?: string;
+  userEmail: string;
   ipAddress: string;
   userAgent: string;
-  details: Record<string, any>;
+  details?: Record<string, any>;
   severity: 'low' | 'medium' | 'high' | 'critical';
 }
 
@@ -44,7 +44,7 @@ export class AuditLogService {
 
   // ================= User Activity Logging =================
 
-  logUserLogin(request: Request, userId: number, userEmail: string, userRole: string, success: boolean, details?: Record<string, any>): void {
+  logUserLogin(request: Request, userId: string, userEmail: string, userRole: string, success: boolean, details?: Record<string, any>): void {
     const entry: AuditLogEntry = {
       timestamp: new Date(),
       userId,
@@ -76,7 +76,7 @@ export class AuditLogService {
     });
   }
 
-  logUserLogout(request: Request, userId: number, userEmail: string, userRole: string): void {
+  logUserLogout(request: Request, userId: string, userEmail: string, userRole: string): void {
     const entry: AuditLogEntry = {
       timestamp: new Date(),
       userId,
@@ -85,7 +85,7 @@ export class AuditLogService {
       action: 'LOGOUT',
       resource: 'AUTH',
       details: {
-        logoutMethod: 'user_initiated',
+        logoutMethod: 'manual',
       },
       ipAddress: this.getClientIp(request),
       userAgent: request.get('User-Agent') || 'Unknown',
@@ -106,16 +106,16 @@ export class AuditLogService {
     });
   }
 
-  logPasswordChange(request: Request, userId: number, userEmail: string, userRole: string, success: boolean): void {
+  logPasswordChange(request: Request, userId: string, userEmail: string, userRole: string, success: boolean): void {
     const entry: AuditLogEntry = {
       timestamp: new Date(),
       userId,
       userEmail,
       userRole,
-      action: 'PASSWORD_CHANGE',
-      resource: 'USER_PROFILE',
+      action: success ? 'PASSWORD_CHANGE_SUCCESS' : 'PASSWORD_CHANGE_FAILURE',
+      resource: 'AUTH',
       details: {
-        changeMethod: 'user_initiated',
+        changeMethod: 'manual',
         success,
       },
       ipAddress: this.getClientIp(request),
@@ -127,24 +127,24 @@ export class AuditLogService {
     this.logAuditEntry(entry);
     this.logSecurityEvent({
       timestamp: new Date(),
-      eventType: 'password_change',
-      userId,
+      eventType: success ? 'password_change_success' : 'password_change_failure',
+      userId: success ? userId : undefined,
       userEmail,
       ipAddress: this.getClientIp(request),
       userAgent: request.get('User-Agent') || 'Unknown',
       details: entry.details,
-      severity: 'high',
+      severity: success ? 'low' : 'medium',
     });
   }
 
-  logRoleChange(request: Request, adminUserId: number, adminEmail: string, targetUserId: number, targetEmail: string, oldRole: string, newRole: string): void {
+  logRoleChange(request: Request, adminUserId: string, adminEmail: string, targetUserId: string, targetEmail: string, oldRole: string, newRole: string): void {
     const entry: AuditLogEntry = {
       timestamp: new Date(),
       userId: adminUserId,
       userEmail: adminEmail,
       userRole: 'admin',
       action: 'ROLE_CHANGE',
-      resource: 'USER_MANAGEMENT',
+      resource: 'USER',
       resourceId: targetUserId,
       details: {
         targetUserId,
@@ -174,7 +174,7 @@ export class AuditLogService {
 
   // ================= Data Access Logging =================
 
-  logDataAccess(request: Request, userId: number, userEmail: string, userRole: string, resource: string, resourceId?: string | number, details?: Record<string, any>): void {
+  logDataAccess(request: Request, userId: string, userEmail: string, userRole: string, resource: string, resourceId?: string | number, details?: Record<string, any>): void {
     const entry: AuditLogEntry = {
       timestamp: new Date(),
       userId,
@@ -196,13 +196,13 @@ export class AuditLogService {
     this.logAuditEntry(entry);
   }
 
-  logDataModification(request: Request, userId: number, userEmail: string, userRole: string, action: string, resource: string, resourceId?: string | number, details?: Record<string, any>): void {
+  logDataModification(request: Request, userId: string, userEmail: string, userRole: string, action: string, resource: string, resourceId?: string | number, details?: Record<string, any>): void {
     const entry: AuditLogEntry = {
       timestamp: new Date(),
       userId,
       userEmail,
       userRole,
-      action,
+      action: action.toUpperCase(),
       resource,
       resourceId,
       details: {
@@ -230,14 +230,14 @@ export class AuditLogService {
 
   // ================= File Operation Logging =================
 
-  logFileUpload(request: Request, userId: number, userEmail: string, userRole: string, fileName: string, fileSize: number, courseId?: number): void {
+  logFileUpload(request: Request, userId: string, userEmail: string, userRole: string, fileName: string, fileSize: number, courseId?: number): void {
     const entry: AuditLogEntry = {
       timestamp: new Date(),
       userId,
       userEmail,
       userRole,
       action: 'FILE_UPLOAD',
-      resource: 'FILE_SYSTEM',
+      resource: 'FILE',
       resourceId: fileName,
       details: {
         fileName,
@@ -264,14 +264,14 @@ export class AuditLogService {
     });
   }
 
-  logFileDownload(request: Request, userId: number, userEmail: string, userRole: string, fileName: string, courseId?: number): void {
+  logFileDownload(request: Request, userId: string, userEmail: string, userRole: string, fileName: string, courseId?: number): void {
     const entry: AuditLogEntry = {
       timestamp: new Date(),
       userId,
       userEmail,
       userRole,
       action: 'FILE_DOWNLOAD',
-      resource: 'FILE_SYSTEM',
+      resource: 'FILE',
       resourceId: fileName,
       details: {
         fileName,
@@ -289,24 +289,14 @@ export class AuditLogService {
 
   // ================= Suspicious Activity Logging =================
 
-  logSuspiciousActivity(request: Request, activity: string, details: Record<string, any>, severity: 'low' | 'medium' | 'high' | 'critical'): void {
+  logSuspiciousActivity(request: Request, activity: string, severity: 'low' | 'medium' | 'high' | 'critical' = 'medium'): void {
     this.logSecurityEvent({
       timestamp: new Date(),
       eventType: 'suspicious_activity',
+      userEmail: 'unknown@system.local', // Default email for system events
       ipAddress: this.getClientIp(request),
       userAgent: request.get('User-Agent') || 'Unknown',
-      details: {
-        activity,
-        ...details,
-      },
-      severity,
-    });
-
-    // Log to console for immediate attention
-    this.logger.warn(`Suspicious activity detected: ${activity}`, {
-      ipAddress: this.getClientIp(request),
-      userAgent: request.get('User-Agent') || 'Unknown',
-      details,
+      details: { activity },
       severity,
     });
   }

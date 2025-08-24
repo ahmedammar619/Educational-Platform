@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Home, Users, BookOpen, Shield, Bell, LogOut, User, FileText, ArrowLeft } from 'lucide-react';
 import AdminDashboard from './AdminDashboard';
 import UserManagement from './UserManagement';
@@ -6,17 +7,44 @@ import ClassManagement from './ClassManagement';
 import MaterialPages from '../../components/common/class-material/MaterialPages';
 
 const AdminMain = ({ user, onLogout }) => {
+  const navigate = useNavigate();
+  const location = useLocation();
   const [activeTab, setActiveTab] = useState('dashboard');
   const [showMaterials, setShowMaterials] = useState(false);
   const [selectedClass, setSelectedClass] = useState(null);
 
+  // Sync URL with active tab
+  useEffect(() => {
+    const path = location.pathname;
+    if (path.includes('/admin/dashboard')) {
+      setActiveTab('dashboard');
+    } else if (path.includes('/admin/users')) {
+      setActiveTab('users');
+    } else if (path.includes('/admin/classes')) {
+      setActiveTab('classes');
+    }
+  }, [location.pathname]);
+
   const navigation = [
-    { id: 'dashboard', name: 'Dashboard', icon: Home, component: AdminDashboard },
-    { id: 'users', name: 'User Management', icon: Users, component: UserManagement },
-    { id: 'classes', name: 'Class Management', icon: BookOpen, component: ClassManagement },
+    { id: 'dashboard', name: 'Dashboard', icon: Home, component: AdminDashboard, path: '/admin/dashboard' },
+    { id: 'users', name: 'User Management', icon: Users, component: UserManagement, path: '/admin/users' },
+    { id: 'classes', name: 'Class Management', icon: BookOpen, component: ClassManagement, path: '/admin/classes' },
   ];
 
   const ActiveComponent = navigation.find(nav => nav.id === activeTab)?.component || AdminDashboard;
+
+  const handleTabChange = (tabId) => {
+    setActiveTab(tabId);
+    const navItem = navigation.find(nav => nav.id === tabId);
+    if (navItem) {
+      navigate(navItem.path);
+    }
+    // Close materials when switching tabs
+    if (showMaterials) {
+      setShowMaterials(false);
+      setSelectedClass(null);
+    }
+  };
 
   const handleOpenMaterials = (classData) => {
     setSelectedClass(classData);
@@ -114,14 +142,7 @@ const AdminMain = ({ user, onLogout }) => {
                   return (
                     <button
                       key={item.id}
-                      onClick={() => {
-                        setActiveTab(item.id);
-                        // Close materials when switching tabs
-                        if (showMaterials) {
-                          setShowMaterials(false);
-                          setSelectedClass(null);
-                        }
-                      }}
+                      onClick={() => handleTabChange(item.id)}
                       className={`w-full flex items-center space-x-3 px-3 py-2 rounded-md text-sm font-medium transition-colors ${activeTab === item.id
                         ? 'bg-green-100 text-green-700 border border-green-200'
                         : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'

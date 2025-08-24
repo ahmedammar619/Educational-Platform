@@ -30,7 +30,25 @@ async function bootstrap() {
   app.use(helmet.hsts(securityConfig.headers.helmet.hsts));
 
   // Enhanced CORS configuration
-  app.enableCors(securityConfig.cors);
+  const corsConfig = {
+    origin: process.env.FRONTEND_URL 
+      ? process.env.FRONTEND_URL.split(',').map(url => url.trim())
+      : [
+          'http://localhost:3000',
+          'http://localhost:5173',
+          'http://localhost:3001',
+          'http://127.0.0.1:3000',
+          'http://127.0.0.1:5173'
+        ],
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
+    exposedHeaders: ['Content-Length', 'X-Total-Count'],
+  };
+  
+  console.log('🔒 CORS Configuration:', JSON.stringify(corsConfig, null, 2));
+  console.log('🌐 Frontend URL from env:', process.env.FRONTEND_URL);
+  app.enableCors(corsConfig);
 
   // Global validation pipe with enhanced security
   app.useGlobalPipes(
@@ -49,12 +67,8 @@ async function bootstrap() {
     .setDescription('Simplified Educational Platform with Admin, Parent, Student, and Teacher management')
     .setVersion('1.0')
     .addServer(
-      configService.get('NODE_ENV') === 'production'
-        ? 'https://your-production-url.com'
-        : `http://localhost:${configService.get('PORT', 3001)}`,
-      configService.get('NODE_ENV') === 'production'
-        ? 'Production server'
-        : 'Development server',
+      `http://localhost:${configService.get('PORT', 3000)}`,
+      'Development server'
     )
     .addBearerAuth(
       {
@@ -68,7 +82,7 @@ async function bootstrap() {
     .addTag('System', 'System information and health checks')
     .addTag('Auth', 'Authentication operations (register, login, profile management)')
     .addTag('Users', 'User management and account operations')
-    .addTag('Admin', 'Administrative operations (dashboard, user management, account unlock)')
+    .addTag('Admin', 'Administrative operations (dashboard, user management)')
     .addTag('Parents', 'Parent-specific operations (signup, child management)')
     .addTag('Students', 'Student profile management')
     .addTag('Teachers', 'Teacher profile management')
@@ -171,11 +185,8 @@ async function bootstrap() {
 
   console.log('🚀 Educational Platform API Started');
   console.log('📍 Server running on port ' + port);
-  console.log('🌍 Environment: ' + configService.get('NODE_ENV', 'development'));
-  console.log('🔐 Security: Enhanced with rate limiting, account lockout, and security headers');
-  console.log('📊 Health check: http://localhost:' + port + '/api/health');
-  console.log('🔐 API endpoints: http://localhost:' + port + '/api');
   console.log('📚 API Documentation: http://localhost:' + port + '/api/docs');
+  console.log('🔐 API endpoints: http://localhost:' + port + '/api');
   console.log('─'.repeat(50));
 }
 

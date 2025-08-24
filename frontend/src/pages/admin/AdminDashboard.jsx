@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
-import { Users, TrendingUp, Calendar, Award, MessageCircle, Bell, BookOpen, Clock, UserPlus, BookOpen as BookOpenIcon, DollarSign, Activity, BarChart3, Settings, CheckCircle, AlertCircle } from 'lucide-react';
-import { mockAnalytics, mockUsers, mockClasses } from '../../data/mockData';
-import { format } from 'date-fns';
+import { Users, BookOpen, GraduationCap, UserCheck, TrendingUp, DollarSign, AlertCircle, UserPlus } from 'lucide-react';
+import { adminService, dashboardService } from '../../services';
 
 const AdminDashboard = ({ user }) => {
   const [dashboardData, setDashboardData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     fetchDashboardData();
@@ -14,24 +14,36 @@ const AdminDashboard = ({ user }) => {
   const fetchDashboardData = async () => {
     try {
       setLoading(true);
-      // Use mock dashboard data
-      const mockDashboardData = {
-        totalUsers: mockAnalytics.admin.totalUsers,
-        totalTeachers: mockAnalytics.admin.totalTeachers,
-        totalStudents: mockAnalytics.admin.totalStudents,
-        totalParents: mockAnalytics.admin.totalParents,
-        totalClasses: mockAnalytics.admin.totalClasses,
-        activeClasses: mockAnalytics.admin.activeClasses,
-        revenue: mockAnalytics.admin.revenue,
-        monthlyGrowth: mockAnalytics.admin.monthlyGrowth,
-        userGrowthData: mockAnalytics.admin.userGrowthData,
-        revenueData: mockAnalytics.admin.revenueData,
-        classDistribution: mockAnalytics.admin.classDistribution
+      setError(null);
+      
+      // Fetch admin dashboard data from backend
+      const [adminStats, dashboardStats] = await Promise.all([
+        adminService.getAdminDashboard(),
+        dashboardService.getAdminDashboard()
+      ]);
+
+      // Combine data from both services
+      const combinedData = {
+        ...dashboardStats,
+        ...adminStats,
+        // Fallback values if backend doesn't provide these
+        totalUsers: adminStats?.totalUsers || dashboardStats?.totalUsers || 0,
+        totalTeachers: adminStats?.totalTeachers || dashboardStats?.totalTeachers || 0,
+        totalStudents: adminStats?.totalStudents || dashboardStats?.totalStudents || 0,
+        totalParents: adminStats?.totalParents || dashboardStats?.totalParents || 0,
+        totalClasses: adminStats?.totalClasses || dashboardStats?.totalClasses || 0,
+        activeClasses: adminStats?.activeClasses || dashboardStats?.activeClasses || 0,
+        revenue: adminStats?.revenue || dashboardStats?.revenue || 0,
+        monthlyGrowth: adminStats?.monthlyGrowth || dashboardStats?.monthlyGrowth || 0,
+        userGrowthData: adminStats?.userGrowthData || dashboardStats?.userGrowthData || [],
+        revenueData: adminStats?.revenueData || dashboardStats?.revenueData || [],
+        classDistribution: adminStats?.classDistribution || dashboardStats?.classDistribution || []
       };
 
-      setDashboardData(mockDashboardData);
+      setDashboardData(combinedData);
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
+      setError('Failed to load dashboard data. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -41,6 +53,24 @@ const AdminDashboard = ({ user }) => {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <AlertCircle className="mx-auto h-12 w-12 text-red-500 mb-4" />
+          <h3 className="text-lg font-medium text-gray-900 mb-2">Error Loading Dashboard</h3>
+          <p className="text-gray-500 mb-4">{error}</p>
+          <button 
+            onClick={fetchDashboardData} 
+            className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+          >
+            Retry
+          </button>
+        </div>
       </div>
     );
   }

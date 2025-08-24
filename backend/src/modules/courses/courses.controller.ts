@@ -38,6 +38,7 @@ import { CreateSessionDto } from './dto/create-session.dto';
 import { CreateMaterialDto } from './dto/create-material.dto';
 import { MarkAttendanceDto, BulkMarkAttendanceDto } from './dto/mark-attendance.dto';
 import { CreateScheduleDto, UpdateScheduleDto, BulkCreateScheduleDto } from './dto/create-schedule.dto';
+import { UpdateMaterialDto } from './dto/update-material.dto';
 
 @ApiTags('Courses')
 @Controller('courses')
@@ -59,28 +60,22 @@ export class CoursesController {
     @Body() createCourseDto: CreateCourseDto,
     @CurrentUser() user: User,
   ) {
-    return this.coursesService.createCourse(createCourseDto, user.id);
+    return this.coursesService.createCourse(createCourseDto);
   }
 
   @Get()
-  @ApiOperation({ summary: 'Get all courses with filters' })
-  @ApiQuery({ name: 'category', required: false, description: 'Filter by category' })
-  @ApiQuery({ name: 'level', required: false, description: 'Filter by level' })
-  @ApiQuery({ name: 'isPublished', required: false, description: 'Filter by publication status' })
-  @ApiQuery({ name: 'teacherId', required: false, description: 'Filter by teacher' })
-  @ApiQuery({ name: 'search', required: false, description: 'Search by name or description' })
+  @ApiOperation({ summary: 'Get all courses with optional filters' })
+  @ApiQuery({ name: 'teacherId', required: false, description: 'Filter by teacher ID' })
+  @ApiQuery({ name: 'search', required: false, description: 'Search in name and description' })
   @ApiResponse({
     status: 200,
     description: 'Courses retrieved successfully',
   })
   async findAllCourses(
-    @Query('category') category?: string,
-    @Query('level') level?: string,
-    @Query('isPublished') isPublished?: boolean,
-    @Query('teacherId') teacherId?: number,
+    @Query('teacherId') teacherId?: string,
     @Query('search') search?: string,
   ) {
-    const filters = { category, level, isPublished, teacherId, search };
+    const filters = { teacherId, search };
     return this.coursesService.findAllCourses(filters);
   }
 
@@ -95,7 +90,7 @@ export class CoursesController {
     description: 'Course not found',
   })
   async findCourseById(@Param('id') id: string) {
-    return this.coursesService.findCourseById(+id);
+    return this.coursesService.findCourseById(id);
   }
 
   @Put(':id')
@@ -110,7 +105,7 @@ export class CoursesController {
     @Body() updateCourseDto: UpdateCourseDto,
     @CurrentUser() user: User,
   ) {
-    return this.coursesService.updateCourse(+id, updateCourseDto, user.id, user.role);
+    return this.coursesService.updateCourse(id, updateCourseDto, user.id, user.role);
   }
 
   @Delete(':id')
@@ -124,7 +119,7 @@ export class CoursesController {
     @Param('id') id: string,
     @CurrentUser() user: User,
   ) {
-    return this.coursesService.deleteCourse(+id, user.id, user.role);
+    return this.coursesService.deleteCourse(id, user.id, user.role);
   }
 
   // ================= Session Management =================
@@ -141,7 +136,7 @@ export class CoursesController {
     @Body() createSessionDto: CreateSessionDto,
     @CurrentUser() user: User,
   ) {
-    return this.coursesService.createSession(+courseId, createSessionDto, user.id);
+    return this.coursesService.createSession(courseId, createSessionDto, user.id);
   }
 
   @Get(':courseId/sessions')
@@ -160,7 +155,7 @@ export class CoursesController {
     @Query('date') date?: string,
   ) {
     const filters = { status, type, date };
-    return this.coursesService.findSessionsByCourse(+courseId, filters);
+    return this.coursesService.findSessionsByCourse(courseId, filters);
   }
 
   @Put('sessions/:sessionId')
@@ -175,7 +170,7 @@ export class CoursesController {
     @Body() updateData: Partial<CreateSessionDto>,
     @CurrentUser() user: User,
   ) {
-    return this.coursesService.updateSession(+sessionId, updateData, user.id);
+    return this.coursesService.updateSession(sessionId, updateData, user.id);
   }
 
   @Delete('sessions/:sessionId')
@@ -189,7 +184,7 @@ export class CoursesController {
     @Param('sessionId') sessionId: string,
     @CurrentUser() user: User,
   ) {
-    return this.coursesService.deleteSession(+sessionId, user.id);
+    return this.coursesService.deleteSession(sessionId, user.id);
   }
 
   // ================= Material Management =================
@@ -206,13 +201,12 @@ export class CoursesController {
     @Body() createMaterialDto: CreateMaterialDto,
     @CurrentUser() user: User,
   ) {
-    return this.coursesService.createMaterial(+courseId, createMaterialDto, user.id);
+    return this.coursesService.createMaterial(courseId, createMaterialDto, user.id);
   }
 
   @Get(':courseId/materials')
   @ApiOperation({ summary: 'Get all materials for a course' })
-  @ApiQuery({ name: 'type', required: false, description: 'Filter by type' })
-  @ApiQuery({ name: 'isPublished', required: false, description: 'Filter by publication status' })
+  @ApiQuery({ name: 'type', required: false, description: 'Filter by material type' })
   @ApiResponse({
     status: 200,
     description: 'Materials retrieved successfully',
@@ -220,10 +214,9 @@ export class CoursesController {
   async findMaterialsByCourse(
     @Param('courseId') courseId: string,
     @Query('type') type?: string,
-    @Query('isPublished') isPublished?: boolean,
   ) {
-    const filters = { type, isPublished };
-    return this.coursesService.findMaterialsByCourse(+courseId, filters);
+    const filters = { type };
+    return this.coursesService.findMaterialsByCourse(courseId, filters);
   }
 
   @Put('materials/:materialId')
@@ -235,10 +228,10 @@ export class CoursesController {
   })
   async updateMaterial(
     @Param('materialId') materialId: string,
-    @Body() updateData: Partial<CreateMaterialDto>,
+    @Body() updateMaterialDto: UpdateMaterialDto,
     @CurrentUser() user: User,
   ) {
-    return this.coursesService.updateMaterial(+materialId, updateData, user.id);
+    return this.coursesService.updateMaterial(materialId, updateMaterialDto, user.id);
   }
 
   @Delete('materials/:materialId')
@@ -252,7 +245,7 @@ export class CoursesController {
     @Param('materialId') materialId: string,
     @CurrentUser() user: User,
   ) {
-    return this.coursesService.deleteMaterial(+materialId, user.id);
+    return this.coursesService.deleteMaterial(materialId, user.id);
   }
 
   // ================= Attendance Management =================
@@ -269,7 +262,7 @@ export class CoursesController {
     @Body() markAttendanceDto: MarkAttendanceDto,
     @CurrentUser() user: User,
   ) {
-    return this.coursesService.markAttendance(+sessionId, markAttendanceDto, user.id);
+    return this.coursesService.markAttendance(sessionId, markAttendanceDto, user.id);
   }
 
   @Post('sessions/:sessionId/attendance/bulk')
@@ -284,7 +277,7 @@ export class CoursesController {
     @Body() bulkMarkAttendanceDto: BulkMarkAttendanceDto,
     @CurrentUser() user: User,
   ) {
-    return this.coursesService.bulkMarkAttendance(+sessionId, bulkMarkAttendanceDto, user.id);
+    return this.coursesService.bulkMarkAttendance(sessionId, bulkMarkAttendanceDto, user.id);
   }
 
   @Get('sessions/:sessionId/attendance')
@@ -294,7 +287,7 @@ export class CoursesController {
     description: 'Attendance retrieved successfully',
   })
   async getSessionAttendance(@Param('sessionId') sessionId: string) {
-    return this.coursesService.getSessionAttendance(+sessionId);
+    return this.coursesService.getSessionAttendance(sessionId);
   }
 
   // ================= Enrollment Management =================
@@ -310,7 +303,7 @@ export class CoursesController {
     @Param('courseId') courseId: string,
     @CurrentUser() user: User,
   ) {
-    return this.coursesService.enrollStudent(+courseId, user.id);
+    return this.coursesService.enrollStudent(courseId, user.id);
   }
 
   @Delete(':courseId/enroll')
@@ -324,7 +317,7 @@ export class CoursesController {
     @Param('courseId') courseId: string,
     @CurrentUser() user: User,
   ) {
-    return this.coursesService.unenrollStudent(+courseId, user.id);
+    return this.coursesService.unenrollStudent(courseId, user.id);
   }
 
   // ================= File Management =================
@@ -338,10 +331,10 @@ export class CoursesController {
   })
   async createFolder(
     @Param('courseId') courseId: string,
-    @Body() body: { name: string; description?: string; parentFolderId?: number },
+    @Body() body: { name: string; description?: string; parentFolderId?: string },
     @CurrentUser() user: User,
   ) {
-    return this.coursesService.createFolder(+courseId, user.id, body.name, body.description, body.parentFolderId);
+    return this.coursesService.createFolder(courseId, user.id, body.name, body.description, body.parentFolderId);
   }
 
   @Get(':courseId/folders')
@@ -353,9 +346,9 @@ export class CoursesController {
   })
   async findFoldersByCourse(
     @Param('courseId') courseId: string,
-    @Query('parentFolderId') parentFolderId?: number,
+    @Query('parentFolderId') parentFolderId?: string,
   ) {
-    return this.coursesService.findFoldersByCourse(+courseId, parentFolderId);
+    return this.coursesService.findFoldersByCourse(courseId, parentFolderId);
   }
 
   // ================= Schedule Management =================
@@ -372,7 +365,7 @@ export class CoursesController {
     @Body() createScheduleDto: CreateScheduleDto,
     @CurrentUser() user: User,
   ) {
-    return this.coursesService.createSchedule(+courseId, createScheduleDto, user.id);
+    return this.coursesService.createSchedule(courseId, createScheduleDto, user.id);
   }
 
   @Post(':courseId/schedules/bulk')
@@ -387,7 +380,7 @@ export class CoursesController {
     @Body() bulkCreateScheduleDto: BulkCreateScheduleDto,
     @CurrentUser() user: User,
   ) {
-    return this.coursesService.bulkCreateSchedules(+courseId, bulkCreateScheduleDto, user.id);
+    return this.coursesService.bulkCreateSchedules(courseId, bulkCreateScheduleDto, user.id);
   }
 
   @Get(':courseId/schedules')
@@ -397,7 +390,7 @@ export class CoursesController {
     description: 'Schedules retrieved successfully',
   })
   async findSchedulesByCourse(@Param('courseId') courseId: string) {
-    return this.coursesService.findSchedulesByCourse(+courseId);
+    return this.coursesService.findSchedulesByCourse(courseId);
   }
 
   @Put('schedules/:scheduleId')
@@ -412,7 +405,7 @@ export class CoursesController {
     @Body() updateScheduleDto: UpdateScheduleDto,
     @CurrentUser() user: User,
   ) {
-    return this.coursesService.updateSchedule(+scheduleId, updateScheduleDto, user.id);
+    return this.coursesService.updateSchedule(scheduleId, updateScheduleDto, user.id);
   }
 
   @Delete('schedules/:scheduleId')
@@ -426,7 +419,7 @@ export class CoursesController {
     @Param('scheduleId') scheduleId: string,
     @CurrentUser() user: User,
   ) {
-    return this.coursesService.deleteSchedule(+scheduleId, user.id);
+    return this.coursesService.deleteSchedule(scheduleId, user.id);
   }
 
   @Patch('schedules/:scheduleId/toggle')
@@ -440,7 +433,7 @@ export class CoursesController {
     @Param('scheduleId') scheduleId: string,
     @CurrentUser() user: User,
   ) {
-    return this.coursesService.toggleScheduleStatus(+scheduleId, user.id);
+    return this.coursesService.toggleScheduleStatus(scheduleId, user.id);
   }
 
   // ================= Analytics & Reports =================
@@ -452,7 +445,7 @@ export class CoursesController {
     description: 'Course statistics retrieved successfully',
   })
   async getCourseStats(@Param('courseId') courseId: string) {
-    return this.coursesService.getCourseStats(+courseId);
+    return this.coursesService.getCourseStats(courseId);
   }
 
   @Get(':courseId/attendance-report')
@@ -470,6 +463,6 @@ export class CoursesController {
   ) {
     const start = startDate ? new Date(startDate) : undefined;
     const end = endDate ? new Date(endDate) : undefined;
-    return this.coursesService.getAttendanceReport(+courseId, start, end);
+    return this.coursesService.getAttendanceReport(courseId, start, end);
   }
 }

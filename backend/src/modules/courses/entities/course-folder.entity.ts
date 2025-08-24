@@ -16,8 +16,8 @@ import { CourseFile } from './course-file.entity';
 
 @Entity('course_folders')
 export class CourseFolder {
-  @PrimaryGeneratedColumn()
-  id: number;
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
 
   @Column({ length: 255 })
   name: string;
@@ -56,21 +56,21 @@ export class CourseFolder {
   course: Course;
 
   @Column()
-  courseId: number;
+  courseId: string; // Changed to string to match Course UUID
 
   @ManyToOne(() => User, { eager: true })
   @JoinColumn({ name: 'createdBy' })
   createdBy: User;
 
   @Column()
-  createdById: number;
+  createdById: string;
 
   @ManyToOne(() => CourseFolder, (folder) => folder.subFolders, { nullable: true })
   @JoinColumn({ name: 'parentFolderId' })
   parentFolder: CourseFolder;
 
   @Column({ nullable: true })
-  parentFolderId: number;
+  parentFolderId: string; // Changed to string to match UUID pattern
 
   @OneToMany(() => CourseFolder, (folder) => folder.parentFolder)
   subFolders: CourseFolder[];

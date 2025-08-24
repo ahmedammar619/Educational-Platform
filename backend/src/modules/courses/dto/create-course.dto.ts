@@ -1,4 +1,4 @@
-import { IsString, IsNumber, IsDateString, IsOptional, IsBoolean, IsArray, IsEnum, Min, Max } from 'class-validator';
+import { IsString, IsNumber, IsDateString, IsOptional, IsArray, Min, Max, IsUUID } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class CreateCourseDto {
@@ -10,6 +10,10 @@ export class CreateCourseDto {
   @IsOptional()
   @IsString()
   description?: string;
+
+  @ApiProperty({ description: 'Teacher ID' })
+  @IsUUID()
+  teacherId: string;
 
   @ApiProperty({ description: 'Course price in USD' })
   @IsNumber()
@@ -35,37 +39,6 @@ export class CreateCourseDto {
   @IsDateString()
   endDate: string;
 
-  @ApiProperty({ description: 'Maximum number of students', required: false })
-  @IsOptional()
-  @IsNumber()
-  @Min(1)
-  maxStudents?: number;
-
-  @ApiProperty({ description: 'Course category', required: false })
-  @IsOptional()
-  @IsString()
-  category?: string;
-
-  @ApiProperty({ description: 'Course level', enum: ['beginner', 'intermediate', 'advanced'], required: false })
-  @IsOptional()
-  @IsEnum(['beginner', 'intermediate', 'advanced'])
-  level?: 'beginner' | 'intermediate' | 'advanced';
-
-  @ApiProperty({ description: 'Course location (room or Zoom link)', required: false })
-  @IsOptional()
-  @IsString()
-  location?: string;
-
-  @ApiProperty({ description: 'Course requirements', required: false })
-  @IsOptional()
-  @IsString()
-  requirements?: string;
-
-  @ApiProperty({ description: 'Learning outcomes', required: false })
-  @IsOptional()
-  @IsString()
-  learningOutcomes?: string;
-
   @ApiProperty({ description: 'Course schedule', required: false })
   @IsOptional()
   @IsArray()
@@ -74,9 +47,4 @@ export class CreateCourseDto {
     startTime: string;
     endTime: string;
   }[];
-
-  @ApiProperty({ description: 'Whether course is published', required: false })
-  @IsOptional()
-  @IsBoolean()
-  isPublished?: boolean;
 }

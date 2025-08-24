@@ -7,6 +7,9 @@ import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 
+// Configuration
+import { rateLimitConfig, getCurrentEnvironmentLimits } from './config/rate-limit.config';
+
 // Common modules
 import { CommonModule } from './common/common.module';
 
@@ -21,8 +24,9 @@ import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { CoursesModule } from './modules/courses/courses.module';
 
 // Guards and Interceptors
-import { ThrottlerGuard } from '@nestjs/throttler';
+import { CustomThrottlerGuard } from './common/guards/custom-throttler.guard';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
+import { RateLimitInterceptor } from './common/interceptors/rate-limit.interceptor';
 
 // Entities
 import { User } from './modules/users/entities/user.entity';
@@ -83,18 +87,8 @@ import { CourseSchedule } from './modules/courses/entities/course-schedule.entit
       }),
     }),
 
-    // Rate Limiting
-    ThrottlerModule.forRoot([
-      {
-        ttl: parseInt(process.env.RATE_LIMIT_TTL || '60000', 10),
-        limit: parseInt(process.env.RATE_LIMIT_LIMIT || '1000', 10),
-      },
-      {
-        name: 'auth',
-        ttl: parseInt(process.env.RATE_LIMIT_AUTH_TTL || '300000', 10),
-        limit: parseInt(process.env.RATE_LIMIT_AUTH_LIMIT || '10', 10),
-      },
-    ]),
+    // Rate Limiting - More generous limits for development
+    ThrottlerModule.forRoot(getCurrentEnvironmentLimits()),
 
     // Feature modules
     CommonModule,
@@ -112,11 +106,15 @@ import { CourseSchedule } from './modules/courses/entities/course-schedule.entit
     AppService,
     {
       provide: APP_GUARD,
-      useClass: ThrottlerGuard,
+      useClass: CustomThrottlerGuard,
     },
     {
       provide: APP_INTERCEPTOR,
       useClass: LoggingInterceptor,
+    },
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: RateLimitInterceptor,
     },
   ],
 })

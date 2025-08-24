@@ -12,8 +12,8 @@ import { User } from '../../users/entities/user.entity';
 
 @Entity('course_enrollments')
 export class CourseEnrollment {
-  @PrimaryGeneratedColumn()
-  id: number;
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
 
   @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   enrolledAt: Date;
@@ -65,12 +65,12 @@ export class CourseEnrollment {
   course: Course;
 
   @Column()
-  courseId: number;
+  courseId: string; // Changed to string to match Course UUID
 
   @ManyToOne(() => User, (user) => user.enrollments, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'studentId' })
   student: User;
 
   @Column()
-  studentId: number;
+  studentId: string;
 }

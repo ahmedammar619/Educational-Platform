@@ -8,29 +8,21 @@ import {
   Param,
   Body,
   Query,
-  UseGuards,
 } from '@nestjs/common';
 import {
   ApiTags,
   ApiOperation,
   ApiResponse,
-  ApiBearerAuth,
   ApiQuery,
   ApiBody,
 } from '@nestjs/swagger';
 import { AdminService } from './admin.service';
-import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
-import { RolesGuard } from '../../common/guards/roles.guard';
-import { Roles } from '../../common/decorators/roles.decorator';
-import { Role } from '../../common/enums/role.enum';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { Role } from '../../common/enums/role.enum';
 
 @ApiTags('Admin')
 @Controller('admin')
-@UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(Role.Admin)
-@ApiBearerAuth('JWT-auth')
 export class AdminController {
   constructor(private readonly adminService: AdminService) {}
 
@@ -44,12 +36,32 @@ export class AdminController {
     return this.adminService.getDashboardStats();
   }
 
+  @Get('users/recent')
+  @ApiOperation({ summary: 'Get recent users for admin dashboard' })
+  @ApiResponse({
+    status: 200,
+    description: 'Recent users retrieved successfully',
+  })
+  async getRecentUsers() {
+    return this.adminService.getRecentUsers();
+  }
+
+  @Get('classes/recent')
+  @ApiOperation({ summary: 'Get recent classes for admin dashboard' })
+  @ApiResponse({
+    status: 200,
+    description: 'Recent classes retrieved successfully',
+  })
+  async getRecentClasses() {
+    return this.adminService.getRecentClasses();
+  }
+
   @Get('users')
   @ApiOperation({ summary: 'Get all users with pagination' })
   @ApiQuery({ name: 'page', required: false, description: 'Page number' })
   @ApiQuery({ name: 'limit', required: false, description: 'Items per page' })
   @ApiQuery({ name: 'role', required: false, enum: Role, description: 'Filter by role' })
-  @ApiQuery({ name: 'search', required: false, description: 'Search by name or email' })
+  @ApiQuery({ name: 'search', required: false, description: 'Search by first name, last name, or email' })
   @ApiResponse({
     status: 200,
     description: 'Users retrieved successfully',
@@ -57,7 +69,7 @@ export class AdminController {
   async getAllUsers(
     @Query('page') page?: number,
     @Query('limit') limit?: number,
-    @Query('role') role?: Role,
+    @Query('role') role?: string,
     @Query('search') search?: string,
   ) {
     return this.adminService.getAllUsers(page || 1, limit || 10, { role, search });
@@ -75,21 +87,21 @@ export class AdminController {
   }
 
   @Put('users/:id')
-  @ApiOperation({ summary: 'Update user information' })
+  @ApiOperation({ summary: 'Update a user' })
   @ApiBody({ type: UpdateUserDto })
   @ApiResponse({
     status: 200,
     description: 'User updated successfully',
   })
   async updateUser(@Param('id') id: string, @Body() updateUserDto: UpdateUserDto) {
-    return this.adminService.updateUser(+id, updateUserDto);
+    return this.adminService.updateUser(id, updateUserDto);
   }
 
   @Get('students')
   @ApiOperation({ summary: 'Get all students with pagination' })
   @ApiQuery({ name: 'page', required: false, description: 'Page number' })
   @ApiQuery({ name: 'limit', required: false, description: 'Items per page' })
-  @ApiQuery({ name: 'search', required: false, description: 'Search by name or username' })
+  @ApiQuery({ name: 'search', required: false, description: 'Search by first name, last name, or email' })
   @ApiResponse({
     status: 200,
     description: 'Students retrieved successfully',
@@ -106,7 +118,7 @@ export class AdminController {
   @ApiOperation({ summary: 'Get all teachers with pagination' })
   @ApiQuery({ name: 'page', required: false, description: 'Page number' })
   @ApiQuery({ name: 'limit', required: false, description: 'Items per page' })
-  @ApiQuery({ name: 'search', required: false, description: 'Search by name or email' })
+  @ApiQuery({ name: 'search', required: false, description: 'Search by first name, last name, or email' })
   @ApiResponse({
     status: 200,
     description: 'Teachers retrieved successfully',
@@ -123,7 +135,7 @@ export class AdminController {
   @ApiOperation({ summary: 'Get all parents with pagination' })
   @ApiQuery({ name: 'page', required: false, description: 'Page number' })
   @ApiQuery({ name: 'limit', required: false, description: 'Items per page' })
-  @ApiQuery({ name: 'search', required: false, description: 'Search by name or email' })
+  @ApiQuery({ name: 'search', required: false, description: 'Search by first name, last name, or email' })
   @ApiResponse({
     status: 200,
     description: 'Parents retrieved successfully',
@@ -143,7 +155,7 @@ export class AdminController {
     description: 'User deactivated successfully',
   })
   async deactivateUser(@Param('id') id: string) {
-    return this.adminService.deactivateUser(+id);
+    return this.adminService.deactivateUser(id);
   }
 
   @Put('users/:id/reactivate')
@@ -153,17 +165,7 @@ export class AdminController {
     description: 'User reactivated successfully',
   })
   async reactivateUser(@Param('id') id: string) {
-    return this.adminService.reactivateUser(+id);
-  }
-
-  @Put('users/:id/unlock')
-  @ApiOperation({ summary: 'Unlock a user account (reset failed login attempts)' })
-  @ApiResponse({
-    status: 200,
-    description: 'User account unlocked successfully',
-  })
-  async unlockUser(@Param('id') id: string) {
-    return this.adminService.unlockUser(+id);
+    return this.adminService.reactivateUser(id);
   }
 
   @Delete('users/:id')
@@ -173,6 +175,6 @@ export class AdminController {
     description: 'User deleted successfully',
   })
   async deleteUser(@Param('id') id: string) {
-    return this.adminService.deleteUser(+id);
+    return this.adminService.deleteUser(id);
   }
 }

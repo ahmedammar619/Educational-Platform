@@ -1,4 +1,4 @@
-import { Injectable, ForbiddenException, NotFoundException, ConflictException } from '@nestjs/common';
+import { Injectable, ForbiddenException, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Parent } from './entities/parent.entity';
@@ -30,83 +30,93 @@ export class ParentsService {
   }
 
   // Parent creates a new student account for their child
-  async createChildAccount(parentUserId: number, dto: AddChildDto): Promise<{ user: User; parent: Parent }> {
-    const parentUser = await this.userRepo.findOne({ where: { id: parentUserId } });
-    if (!parentUser || parentUser.role !== Role.Parent) {
-      throw new ForbiddenException('Only parents can create child accounts.');
+  async createChildAccount(parentUserId: string, dto: AddChildDto): Promise<{ user: User; parent: Parent }> {
+    // Check if parent user exists and is actually a parent
+    const parentUser = await this.userRepo.findOne({
+      where: { id: parentUserId, role: Role.Parent },
+    });
+
+    if (!parentUser) {
+      throw new BadRequestException('Parent user not found or user is not a parent');
     }
 
-    // Check if username already exists
-    const existingUsername = await this.userRepo.findOne({ where: { username: dto.username } });
-    if (existingUsername) {
-      throw new ConflictException('Username already exists.');
+    // Check if child username already exists
+    const existingChild = await this.userRepo.findOne({
+      where: { username: dto.username },
+    });
+
+    if (existingChild) {
+      throw new ConflictException('A user with this username already exists');
     }
 
-    // Check if email already exists
-    const existingEmail = await this.userRepo.findOne({ where: { email: dto.username + '@student.local' } });
-    if (existingEmail) {
-      throw new ConflictException('Email already exists.');
-    }
-
-    // Hash password
-    const saltRounds = 12;
-    const passwordHash = await bcrypt.hash(dto.password, saltRounds);
-
-    // Create student user
-    const studentUser = this.userRepo.create({
+    // Create child user account
+    const childUser = this.userRepo.create({
       firstName: dto.firstName,
       lastName: dto.lastName,
       email: dto.username + '@student.local', // Generate email from username
       username: dto.username,
-      passwordHash,
+      passwordHash: await bcrypt.hash(dto.password, 12),
       role: Role.Student,
       birthDate: dto.birthDate ? new Date(dto.birthDate) : null,
     });
 
-    const savedStudent = await this.userRepo.save(studentUser);
+    const savedChildUser = await this.userRepo.save(childUser);
 
     // Create parent-child relationship
-    const parentRecord = this.parentRepo.create({
-      parent: parentUser,
-      child: savedStudent,
+    const parentRelation = this.parentRepo.create({
+      parentId: parentUserId,
+      childId: savedChildUser.id,
     });
 
-    const savedParentRecord = await this.parentRepo.save(parentRecord);
+    const savedParentRelation = await this.parentRepo.save(parentRelation);
 
     return {
-      user: savedStudent,
-      parent: savedParentRecord,
+      user: savedChildUser,
+      parent: savedParentRelation,
     };
   }
 
   // Get all children of the logged-in parent
-  async getMyChildren(parentUserId: number): Promise<User[]> {
-    const parentRecords = await this.parentRepo.find({
-      where: { parent: { id: parentUserId } },
+  async getMyChildren(parentUserId: string): Promise<User[]> {
+    const children = await this.parentRepo.find({
+      where: { parentId: parentUserId },
       relations: ['child'],
-      order: { id: 'ASC' },
     });
 
-    return parentRecords.map(record => record.child);
+    return children.map(relation => relation.child);
   }
 
   // Remove child from parent (delete student account)
-  async removeChild(parentUserId: number, childId: number): Promise<{ message: string }> {
-    const parentRecord = await this.parentRepo.findOne({
-      where: { parent: { id: parentUserId }, child: { id: childId } },
-      relations: ['parent', 'child'],
+  async removeChild(parentUserId: string, childId: string): Promise<{ message: string }> {
+    const relation = await this.parentRepo.findOne({
+      where: { parentId: parentUserId, childId },
     });
 
-    if (!parentRecord) {
-      throw new NotFoundException('Parent-child relationship not found.');
+    if (!relation) {
+      throw new NotFoundException('Child relationship not found');
     }
 
-    // Delete the parent-child relationship
-    await this.parentRepo.remove(parentRecord);
+    await this.parentRepo.remove(relation);
+    return { message: 'Child removed successfully' };
+  }
 
-    // Delete the child user account
-    await this.userRepo.remove(parentRecord.child);
+  // Get child progress
+  async getChildProgress(parentUserId: string, childId: string) {
+    // Verify the parent-child relationship
+    const relation = await this.parentRepo.findOne({
+      where: { parentId: parentUserId, childId },
+    });
 
-    return { message: 'Child account removed successfully' };
+    if (!relation) {
+      throw new ForbiddenException('Access denied: Child not found in your family');
+    }
+
+    // For now, return empty progress data structure
+    // This should be populated with actual database queries for courses, grades, attendance
+    return {
+      courses: [],
+      recentGrades: [],
+      attendanceSummary: []
+    };
   }
 }

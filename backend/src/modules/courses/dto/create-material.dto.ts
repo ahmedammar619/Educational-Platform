@@ -19,11 +19,6 @@ export class CreateMaterialDto {
   @IsString()
   content: string;
 
-  @ApiProperty({ description: 'Whether material is published', required: false })
-  @IsOptional()
-  @IsBoolean()
-  isPublished?: boolean;
-
   @ApiProperty({ description: 'Due date for assignments (YYYY-MM-DD)', required: false })
   @IsOptional()
   @IsDateString()

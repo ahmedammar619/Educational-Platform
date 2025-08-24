@@ -44,23 +44,11 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       // Get user from database
       const user = await this.authService.findById(payload.sub);
       
-      if (!user || !user.isActive) {
-        throw new UnauthorizedException('User not found or inactive');
+      if (!user) {
+        throw new UnauthorizedException('User not found');
       }
 
-      // Verify user role matches token
-      if (user.role !== payload.role) {
-        throw new UnauthorizedException('Token role mismatch');
-      }
-
-      // Return user object for request context
-      return {
-        id: user.id,
-        email: user.email,
-        role: user.role,
-        firstName: user.firstName,
-        lastName: user.lastName,
-      };
+      return user;
     } catch (error) {
       if (error instanceof UnauthorizedException) {
         throw error;

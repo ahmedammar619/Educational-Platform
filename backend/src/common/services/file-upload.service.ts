@@ -26,7 +26,7 @@ export class FileUploadService {
     this.ensureUploadDirectory();
   }
 
-  async uploadFile(file: Express.Multer.File, courseId: number, userId: number): Promise<{
+  async uploadFile(file: Express.Multer.File, courseId: number, userId: string): Promise<{
     fileName: string;
     originalName: string;
     filePath: string;

@@ -3,7 +3,6 @@ import {
   PrimaryGeneratedColumn,
   Column,
   CreateDateColumn,
-  UpdateDateColumn,
   ManyToOne,
   OneToMany,
   ManyToMany,
@@ -19,8 +18,8 @@ import { CourseSchedule } from './course-schedule.entity';
 
 @Entity('courses')
 export class Course {
-  @PrimaryGeneratedColumn()
-  id: number;
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
 
   @Column({ length: 255 })
   name: string;
@@ -43,17 +42,8 @@ export class Course {
   @Column({ type: 'date' })
   endDate: Date;
 
-  @Column({ type: 'int', default: 0 })
-  maxStudents: number;
-
-  @Column({ type: 'int', default: 0 })
-  currentStudents: number;
-
   @Column({ default: true })
   isActive: boolean;
-
-  @Column({ default: false })
-  isPublished: boolean;
 
   @Column({ type: 'jsonb', nullable: true })
   schedule: {
@@ -62,26 +52,8 @@ export class Course {
     endTime: string; // "18:00"
   }[];
 
-  @Column({ type: 'varchar', length: 100, nullable: true })
-  category: string; // e.g., "Quran", "Arabic", "Islamic Studies"
-
-  @Column({ type: 'varchar', length: 50, default: 'beginner' })
-  level: 'beginner' | 'intermediate' | 'advanced';
-
-  @Column({ type: 'varchar', length: 255, nullable: true })
-  location: string; // Room number or Zoom link
-
-  @Column({ type: 'text', nullable: true })
-  requirements: string;
-
-  @Column({ type: 'text', nullable: true })
-  learningOutcomes: string;
-
   @CreateDateColumn()
   createdAt: Date;
-
-  @UpdateDateColumn()
-  updatedAt: Date;
 
   // ================= Relations =================
 
@@ -89,7 +61,7 @@ export class Course {
   teacher: User;
 
   @Column()
-  teacherId: number;
+  teacherId: string;
 
   @OneToMany(() => CourseSession, (session) => session.course)
   sessions: CourseSession[];

@@ -1,738 +1,367 @@
-import { useState, useEffect, useRef } from 'react';
-import { Calendar, Clock, MapPin, User, Filter, ChevronLeft, ChevronRight, X, BookOpen, Users } from 'lucide-react';
-import { format, startOfWeek, endOfWeek, eachDayOfInterval, isSameDay, addWeeks, subWeeks, parseISO, addDays, isAfter, isBefore } from 'date-fns';
-import { mockClasses, mockUsers } from '../../data/mockData';
-import FullCalendar from '@fullcalendar/react';
-import timeGridPlugin from '@fullcalendar/timegrid';
-import dayGridPlugin from '@fullcalendar/daygrid';
-import interactionPlugin from '@fullcalendar/interaction';
+import React, { useState, useEffect } from 'react';
+import { teachersService, coursesService, usersService } from '../../services';
 
-const TeacherCalendar = ({ user }) => {
+const TeacherCalendar = () => {
   const [schedule, setSchedule] = useState([]);
-  const [courses, setCourses] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [currentWeek, setCurrentWeek] = useState(new Date());
-  const [viewMode, setViewMode] = useState('timeGridWeek'); // FullCalendar view modes
-  const [selectedDate, setSelectedDate] = useState(new Date());
-  const calendarRef = useRef(null);
+  const [classes, setClasses] = useState([]);
+  const [students, setStudents] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [selectedClass, setSelectedClass] = useState(null);
 
   useEffect(() => {
-    if (user) {
-      loadTeacherSchedule();
-    }
-  }, [user]);
+    fetchData();
+  }, []);
 
-  // Regenerate events when currentWeek changes (for navigation)
-  useEffect(() => {
-    if (courses.length > 0 && currentWeek) {
-      const weekStart = startOfWeek(currentWeek, { weekStartsOn: 1 });
-      const weekEnd = endOfWeek(currentWeek, { weekStartsOn: 1 });
-
-      // Generate events for the current week
-      const weekEvents = generateEventsForDateRange(weekStart, weekEnd);
-
-      // Update schedule with new week events
-      setSchedule(prevSchedule => {
-        // Remove old recurring events and add new ones
-        const nonRecurringEvents = prevSchedule.filter(event => !event.isRecurring);
-        const allEvents = [...nonRecurringEvents, ...weekEvents];
-        return allEvents.sort((a, b) => new Date(a.start_time) - new Date(b.start_time));
-      });
-
-      // Update selectedDate to match the first day of the new week
-      setSelectedDate(weekStart);
-
-      // Navigate FullCalendar to the correct week
-      if (calendarRef.current && calendarRef.current.getApi) {
-        const calendarApi = calendarRef.current.getApi();
-        calendarApi.gotoDate(weekStart);
-      }
-    }
-  }, [currentWeek, courses]);
-
-  const loadTeacherSchedule = () => {
-    setLoading(true);
-
+  const fetchData = async () => {
     try {
-      // Get teacher's classes from mock data
-      if (!user || !user.id) {
-        console.log('No valid user ID, using empty data');
-        setSchedule([]);
-        setCourses([]);
-        return;
-      }
-
-      // Find teacher in mock data
-      const teacher = mockUsers.teachers.find(t => t.id === user.id);
-      if (!teacher) {
-        console.log('Teacher not found in mock data');
-        setSchedule([]);
-        setCourses([]);
-        return;
-      }
-
-      // Get classes taught by this teacher
-      const teacherClasses = mockClasses.filter(c => c.teacherId === user.id);
-
-      console.log('User ID:', user.id);
-      console.log('Teacher classes:', teacherClasses);
-
-      if (teacherClasses.length === 0) {
-        console.log('No classes found for teacher');
-        setSchedule([]);
-        setCourses([]);
-        return;
-      }
-
-      // Convert class schedules to calendar events
-      const classEvents = convertClassesToEvents(teacherClasses);
-      console.log('Class events:', classEvents);
-
-      // Sort events by start time
-      const sortedEvents = classEvents.sort((a, b) => new Date(a.start_time) - new Date(b.start_time));
-
-      setSchedule(sortedEvents);
-      setCourses(teacherClasses);
-    } catch (error) {
-      console.error('Error loading teacher schedule:', error);
-      setSchedule([]);
-      setCourses([]);
+      setLoading(true);
+      setError(null);
+      
+      // Fetch all required data in parallel
+      const [scheduleResponse, classesResponse, studentsResponse] = await Promise.all([
+        teachersService.getTeacherSchedule(),
+        coursesService.getAllCourses(),
+        usersService.getUsersByRole('student')
+      ]);
+      
+      setSchedule(scheduleResponse.schedule || []);
+      setClasses(classesResponse.courses || []);
+      setStudents(studentsResponse.users || []);
+      
+    } catch (err) {
+      console.error('Error fetching data:', err);
+      setError(err.message || 'Failed to load calendar data');
     } finally {
       setLoading(false);
     }
   };
 
-  const convertClassesToEvents = (teacherClasses) => {
-    const events = [];
+  const getStudentName = (studentId) => {
+    const student = students.find(s => s.id === studentId);
+    return student ? `${student.firstName} ${student.lastName}` : 'Student TBD';
+  };
+
+  const getScheduleDisplay = (schedule) => {
+    if (!schedule || schedule.length === 0) return 'Schedule TBD';
+    
+    return schedule.map(session => 
+      `${session.day} ${session.startTime}-${session.endTime}`
+    ).join(', ');
+  };
+
+  const convert24To12Hour = (time24) => {
+    if (!time24) return '';
+    const [hours, minutes] = time24.split(':');
+    const hour = parseInt(hours);
+    const period = hour >= 12 ? 'PM' : 'AM';
+    const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+    return `${displayHour}:${minutes} ${period}`;
+  };
+
+  const getTimeRangeDisplay = (startTime, endTime) => {
+    if (!startTime || !endTime) return 'Time TBD';
+    return `${convert24To12Hour(startTime)} - ${convert24To12Hour(endTime)}`;
+  };
+
+  const getWeekDays = () => {
     const today = new Date();
-
-    teacherClasses.forEach((classItem) => {
-      // Use the course's actual start and end dates
-      const courseStartDate = new Date(classItem.startDate);
-      const courseEndDate = new Date(classItem.endDate);
-
-      // Only generate events if the course is active (end date is in the future)
-      if (courseEndDate > today) {
-        const classEvents = generateClassEvents(classItem, courseStartDate, courseEndDate);
-        events.push(...classEvents);
-      }
-    });
-
-    return events;
-  };
-
-  const generateClassEvents = (classItem, startDate, endDate) => {
-    const events = [];
-
-    // Parse schedule using the new data structure
-    const scheduleInfo = parseScheduleFromCourse(classItem);
-
-    if (!scheduleInfo) return events;
-
-    // Find the first occurrence of each scheduled day
-    const firstOccurrences = scheduleInfo.days.map(dayOfWeek => {
-      let date = new Date(startDate);
-      while (date.getDay() !== dayOfWeek) {
-        date = addDays(date, 1);
-      }
-      return date;
-    });
-
-    // Generate events for each scheduled day, repeating weekly
-    firstOccurrences.forEach(firstDate => {
-      let currentOccurrence = new Date(firstDate);
-
-      while (isBefore(currentOccurrence, endDate)) {
-        // Set the time for this occurrence
-        const eventDate = new Date(currentOccurrence);
-        eventDate.setHours(scheduleInfo.hour, scheduleInfo.minute, 0, 0);
-
-        // Calculate end time based on session duration (120 minutes)
-        const eventEndDate = new Date(eventDate);
-        eventEndDate.setMinutes(eventEndDate.getMinutes() + 120);
-
-        // Add all events within the course period (including past events for display purposes)
-        events.push({
-          id: `class-${classItem.id}-${eventDate.getTime()}`,
-          title: classItem.name,
-          type: 'lecture',
-          start_time: eventDate.toISOString(),
-          end_time: eventEndDate.toISOString(),
-          location: `Room ${getRoomForClass(classItem.id)}`,
-          instructor_name: `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || 'You',
-          course_title: classItem.name,
-          description: classItem.description,
-          classId: classItem.id,
-          isRecurring: true,
-          weekNumber: Math.floor((eventDate.getTime() - startDate.getTime()) / (7 * 24 * 60 * 60 * 1000)) + 1
-        });
-
-        // Move to next week (7 days later)
-        currentOccurrence = addDays(currentOccurrence, 7);
-      }
-    });
-
-    return events;
-  };
-
-  // Parse schedule using the new data structure
-  const parseScheduleFromCourse = (course) => {
-    if (course.schedule && Array.isArray(course.schedule)) {
-      // Use the new structured schedule data
-      const days = course.schedule.map(item => getDayNumber(item.day));
-
-      // Parse startTime (e.g., "16:00" -> hour: 16, minute: 0)
-      if (course.schedule.length > 0) {
-        const [startHour, startMinute] = course.schedule[0].startTime.split(':').map(Number);
-
-        if (startHour !== undefined && startMinute !== undefined) {
-          return {
-            days,
-            hour: startHour,
-            minute: startMinute
-          };
-        }
-      }
+    const weekStart = new Date(today);
+    weekStart.setDate(today.getDate() - today.getDay());
+    
+    const days = [];
+    for (let i = 0; i < 7; i++) {
+      const day = new Date(weekStart);
+      day.setDate(weekStart.getDate() + i);
+      days.push({
+        date: day,
+        dayName: day.toLocaleDateString('en-US', { weekday: 'long' }),
+        dayNumber: day.getDay()
+      });
     }
-
-    return null;
+    return days;
   };
 
-  // Helper function to convert day names to day numbers
-  const getDayNumber = (dayName) => {
-    const dayMap = {
-      'Sunday': 0,
-      'Monday': 1,
-      'Tuesday': 2,
-      'Wednesday': 3,
-      'Thursday': 4,
-      'Friday': 5,
-      'Saturday': 6
-    };
-    return dayMap[dayName] || 0;
+  const getClassesForDay = (dayName) => {
+    return schedule.filter(item => item.day === dayName);
   };
 
-  // Helper function to get room for class
-  const getRoomForClass = (classId) => {
-    const rooms = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2', 'D1', 'D2'];
-    return rooms[classId % rooms.length];
+  const getTotalWeeklyHours = () => {
+    let totalMinutes = 0;
+    schedule.forEach(item => {
+      totalMinutes += item.duration || 120;
+    });
+    return (totalMinutes / 60).toFixed(1);
   };
 
-  // Generate events for a specific date range (for navigation)
-  const generateEventsForDateRange = (startDate, endDate) => {
-    if (courses.length === 0) return [];
-
-    console.log('Generating events for date range:', format(startDate, 'yyyy-MM-dd'), 'to', format(endDate, 'yyyy-MM-dd'));
-    console.log('Available courses:', courses.map(c => ({ name: c.name, schedule: c.schedule })));
-
-    const events = [];
-    courses.forEach((classItem) => {
-      const scheduleInfo = parseScheduleFromCourse(classItem);
-      if (scheduleInfo) {
-        console.log('Parsed schedule for', classItem.name, ':', scheduleInfo);
-
-        // Find the first occurrence of each scheduled day in the range
-        scheduleInfo.days.forEach(dayOfWeek => {
-          let currentDate = new Date(startDate);
-
-          // Find the first occurrence of this day in the range
-          while (currentDate.getDay() !== dayOfWeek && isBefore(currentDate, endDate)) {
-            currentDate = addDays(currentDate, 1);
-          }
-
-          // Generate events for this day and subsequent weeks within the range
-          while (isBefore(currentDate, endDate)) {
-            const eventDate = new Date(currentDate);
-            eventDate.setHours(scheduleInfo.hour, scheduleInfo.minute, 0, 0);
-
-            // Calculate end time based on session duration (120 minutes)
-            const eventEndDate = new Date(eventDate);
-            eventEndDate.setMinutes(eventEndDate.getMinutes() + 120);
-
-            events.push({
-              id: `class-${classItem.id}-${eventDate.getTime()}`,
-              title: classItem.name,
-              type: 'lecture',
-              start_time: eventDate.toISOString(),
-              end_time: eventEndDate.toISOString(),
-              location: `Room ${getRoomForClass(classItem.id)}`,
-              instructor_name: `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || 'You',
-              course_title: classItem.name,
-              description: classItem.description,
-              classId: classItem.id,
-              isRecurring: true,
-              weekNumber: Math.floor((eventDate.getTime() - startDate.getTime()) / (7 * 24 * 60 * 60 * 1000)) + 1
-            });
-
-            // Move to next week
-            currentDate = addDays(currentDate, 7);
-          }
-        });
-      } else {
-        console.warn('Could not parse schedule for class:', classItem.name, classItem.schedule);
+  const getTotalStudents = () => {
+    const uniqueStudents = new Set();
+    classes.forEach(cls => {
+      if (cls.students && Array.isArray(cls.students)) {
+        cls.students.forEach(studentId => uniqueStudents.add(studentId));
       }
     });
+    return uniqueStudents.size;
+  };
 
-    console.log('Generated events:', events.length);
-
-    // Remove duplicate events before returning
-    const uniqueEvents = events.filter((event, index, self) =>
-      index === self.findIndex(e =>
-        e.id === event.id ||
-        (e.title === event.title && e.start_time === event.start_time)
-      )
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading calendar...</p>
+        </div>
+      </div>
     );
+  }
 
-    console.log('Unique events after deduplication:', uniqueEvents.length);
-    return uniqueEvents;
-  };
-
-  const getEventColor = (type, isRecurring = false) => {
-    if (isRecurring) {
-      return 'bg-blue-100 border-blue-300 text-blue-800';
-    }
-
-    const colors = {
-      'lecture': 'bg-blue-100 border-blue-300 text-blue-800',
-      'lab': 'bg-green-100 border-green-300 text-green-800',
-      'tutorial': 'bg-purple-100 border-purple-300 text-purple-800',
-      'seminar': 'bg-yellow-100 border-yellow-300 text-yellow-800',
-      'exam': 'bg-red-100 border-red-300 text-red-800',
-      'assignment_due': 'bg-orange-100 border-orange-300 text-orange-800',
-      'office_hours': 'bg-gray-100 border-gray-300 text-gray-800'
-    };
-    return colors[type] || 'bg-gray-100 border-gray-300 text-gray-800';
-  };
-
-  const getEventIcon = (type) => {
-    switch (type) {
-      case 'lecture': return '📚';
-      case 'lab': return '🔬';
-      case 'tutorial': return '👨‍🏫';
-      case 'seminar': return '💬';
-      case 'exam': return '📝';
-      case 'assignment_due': return '📋';
-      case 'office_hours': return '🏢';
-      default: return '📅';
-    }
-  };
-
-  const navigateWeek = (direction) => {
-    if (direction === 'prev') {
-      setCurrentWeek(subWeeks(currentWeek, 1));
-    } else {
-      setCurrentWeek(addWeeks(currentWeek, 1));
-    }
-  };
-
-  const goToToday = () => {
-    setCurrentWeek(new Date());
-    setSelectedDate(new Date());
-  };
-
-  // FullCalendar event handlers
-  const handleDateSelect = (selectInfo) => {
-    const title = prompt('Please enter a title for your event');
-    if (title) {
-      const calendarApi = selectInfo.view.calendar;
-      calendarApi.unselect(); // clear date selection
-
-      if (selectInfo.allDay) {
-        calendarApi.addEvent({
-          id: createEventId(),
-          title,
-          start: selectInfo.startStr,
-          end: selectInfo.endStr,
-          allDay: selectInfo.allDay
-        });
-      } else {
-        calendarApi.addEvent({
-          id: createEventId(),
-          title,
-          start: selectInfo.startStr,
-          end: selectInfo.endStr
-        });
-      }
-    }
-  };
-
-  const handleEventClick = (clickInfo) => {
-    if (confirm(`Are you sure you want to delete the event '${clickInfo.event.title}'`)) {
-      clickInfo.event.remove();
-    }
-  };
-
-  const createEventId = () => {
-    return String(Math.random()).replace(/\D/g, '');
-  };
-
-  // Convert our events to FullCalendar format
-  const getFullCalendarEvents = () => {
-    console.log('getFullCalendarEvents called');
-    console.log('Current schedule length:', schedule.length);
-    console.log('Schedule sample:', schedule.slice(0, 3));
-
-    const fullCalendarEvents = schedule.map(event => ({
-      id: event.id,
-      title: event.title,
-      start: event.start_time,
-      end: event.end_time,
-      extendedProps: {
-        location: event.location,
-        instructor: event.instructor_name,
-        description: event.description,
-        isRecurring: event.isRecurring,
-        classId: event.classId
-      }
-    }));
-
-    console.log('FullCalendar events:', fullCalendarEvents.length);
-    return fullCalendarEvents;
-  };
+  if (error) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="text-red-500 text-xl mb-4">⚠️</div>
+          <p className="text-gray-600 mb-4">{error}</p>
+          <button 
+            onClick={fetchData} 
+            className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-6 h-full">
-      {/* Header */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">My Teaching Schedule</h1>
-          <p className="text-gray-600">View your class schedule and teaching sessions (8 AM - 8 PM)</p>
+    <div className="min-h-screen bg-gray-50 p-6">
+      <div className="max-w-7xl mx-auto">
+        {/* Header */}
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Teaching Calendar</h1>
+          <p className="text-gray-600">Manage your class schedule and view upcoming sessions</p>
         </div>
 
-        <div className="flex items-center space-x-4">
-          <div className="flex items-center space-x-2">
-            <button
-              onClick={() => setViewMode('timeGridWeek')}
-              className={`px-3 py-2 rounded-md text-sm font-medium ${viewMode === 'timeGridWeek'
-                ? 'bg-blue-600 text-white'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-            >
-              Week
-            </button>
-            <button
-              onClick={() => setViewMode('timeGridDay')}
-              className={`px-3 py-2 rounded-md text-sm font-medium ${viewMode === 'timeGridDay'
-                ? 'bg-blue-600 text-white'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-            >
-              Day
-            </button>
-          </div>
-
-          <button
-            onClick={goToToday}
-            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm font-medium"
-          >
-            Today
-          </button>
-        </div>
-      </div>
-
-      {/* Navigation */}
-      <div className="bg-white p-4 rounded-lg shadow-sm border">
-        <div className="flex justify-between items-center">
-          <button
-            onClick={() => navigateWeek('prev')}
-            className="flex items-center space-x-2 px-3 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md"
-          >
-            <ChevronLeft className="h-4 w-4" />
-            <span>Previous</span>
-          </button>
-
-          <div className="text-center">
-            <h2 className="text-lg font-semibold text-gray-900">
-              {viewMode === 'timeGridWeek'
-                ? `Week of ${format(startOfWeek(currentWeek, { weekStartsOn: 1 }), 'MMM dd, yyyy')}`
-                : viewMode === 'timeGridDay'
-                  ? format(selectedDate, 'EEEE, MMM dd, yyyy')
-                  : format(currentWeek, 'MMMM yyyy')
-              }
-            </h2>
-            <p className="text-sm text-gray-600">
-              {viewMode === 'timeGridWeek'
-                ? `${format(startOfWeek(currentWeek, { weekStartsOn: 1 }), 'MMM dd')} - ${format(endOfWeek(currentWeek, { weekStartsOn: 1 }), 'MMM dd, yyyy')}`
-                : viewMode === 'timeGridDay'
-                  ? format(selectedDate, 'EEEE, MMMM dd, yyyy')
-                  : format(currentWeek, 'MMMM yyyy')
-              }
-            </p>
-          </div>
-
-          <button
-            onClick={() => navigateWeek('next')}
-            className="flex items-center space-x-2 px-3 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md"
-          >
-            <span>Next</span>
-            <ChevronRight className="h-4 w-4" />
-          </button>
-        </div>
-      </div>
-
-      {/* Schedule View */}
-      {loading ? (
-        <div className="flex items-center justify-center py-12">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-        </div>
-      ) : viewMode === 'timeGridDay' ? (
-        // Day View with Sidebar Layout
-        <div className="flex gap-6">
-          {/* Left Sidebar - Day Selection */}
-          <div className="w-64 bg-white rounded-lg shadow-sm border p-4">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Select Day</h3>
-            <div className="space-y-2">
-              {(() => {
-                const weekStart = startOfWeek(currentWeek, { weekStartsOn: 1 });
-                const days = [];
-                for (let i = 0; i < 7; i++) {
-                  const day = addDays(weekStart, i);
-                  const dayEvents = schedule.filter(event =>
-                    isSameDay(parseISO(event.start_time), day)
-                  );
-                  const isSelected = isSameDay(day, selectedDate);
-
-                  days.push(
-                    <button
-                      key={i}
-                      onClick={() => setSelectedDate(day)}
-                      className={`w-full p-3 text-left rounded-lg transition-colors ${isSelected
-                          ? 'bg-blue-100 border-2 border-blue-300'
-                          : 'bg-gray-50 hover:bg-gray-100 border-2 border-transparent'
-                        }`}
-                    >
-                      <div className="font-medium text-gray-900">
-                        {format(day, 'EEEE MMM dd')}
-                      </div>
-                      <div className="text-sm text-gray-600">
-                        {dayEvents.length} events
-                      </div>
-                    </button>
-                  );
-                }
-                return days;
-              })()}
+        {/* Calendar Overview */}
+        <div className="bg-white rounded-lg shadow p-6 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="text-center p-4 bg-blue-50 rounded-lg">
+              <div className="text-2xl font-bold text-blue-600">{classes.length}</div>
+              <div className="text-sm text-gray-600">Active Classes</div>
+            </div>
+            <div className="text-center p-4 bg-green-50 rounded-lg">
+              <div className="text-2xl font-bold text-green-600">{getTotalWeeklyHours()}</div>
+              <div className="text-sm text-gray-600">Hours per Week</div>
+            </div>
+            <div className="text-center p-4 bg-purple-50 rounded-lg">
+              <div className="text-2xl font-bold text-purple-600">{getTotalStudents()}</div>
+              <div className="text-sm text-gray-600">Total Students</div>
             </div>
           </div>
+        </div>
 
-          {/* Right Section - Day Schedule */}
-          <div className="flex-1 bg-white rounded-lg shadow-sm border overflow-hidden">
-            <div className="p-4 border-b border-gray-200">
-              <h2 className="text-xl font-semibold text-gray-900">
-                {format(selectedDate, 'EEEE, MMMM dd, yyyy')}
-              </h2>
-              <p className="text-gray-600">
-                {schedule.filter(event =>
-                  isSameDay(parseISO(event.start_time), selectedDate)
-                ).length} events scheduled
-              </p>
-            </div>
-
-            <div className="p-4">
-              {(() => {
-                const dayEvents = schedule.filter(event =>
-                  isSameDay(parseISO(event.start_time), selectedDate)
-                ).sort((a, b) => new Date(a.start_time) - new Date(b.start_time));
-
-                if (dayEvents.length === 0) {
-                  return (
-                    <div className="text-center py-8 text-gray-500">
-                      <Calendar className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-                      <p>No events scheduled for this day</p>
-                    </div>
-                  );
-                }
-
-                return (
-                  <div className="space-y-4 h-full">
-                    {dayEvents.map((event, index) => (
-                      <div key={event.id} className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                        <div className="flex justify-between items-start mb-2">
-                          <div className="flex items-center space-x-2">
-                            <BookOpen className="h-4 w-4 text-blue-600" />
-                            <h3 className="text-base font-semibold text-gray-900">{event.title}</h3>
-                          </div>
-                          <div className="text-right">
-                            <div className="text-xs text-blue-600 bg-blue-100 px-2 py-1 rounded-full">
-                              Teaching Class
+        {/* Weekly Schedule */}
+        <div className="bg-white rounded-lg shadow overflow-hidden">
+          <div className="px-6 py-4 border-b border-gray-200">
+            <h3 className="text-lg font-semibold text-gray-900">Weekly Schedule</h3>
+          </div>
+          
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Day
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Time
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Class
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Students
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Duration
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {getWeekDays().map(({ dayName, date }) => {
+                  const dayClasses = getClassesForDay(dayName);
+                  
+                  if (dayClasses.length === 0) {
+                    return (
+                      <tr key={dayName}>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center">
+                            <div className="text-sm font-medium text-gray-900">{dayName}</div>
+                            <div className="ml-2 text-xs text-gray-500">
+                              {date.toLocaleDateString()}
                             </div>
                           </div>
+                        </td>
+                        <td colSpan="4" className="px-6 py-4 text-center text-gray-500">
+                          No classes scheduled
+                        </td>
+                      </tr>
+                    );
+                  }
+                  
+                  return dayClasses.map((cls, index) => (
+                    <tr key={cls.id} className={index === 0 ? '' : 'border-t border-gray-100'}>
+                      {index === 0 && (
+                        <td className="px-6 py-4 whitespace-nowrap" rowSpan={dayClasses.length}>
+                          <div className="flex items-center">
+                            <div className="text-sm font-medium text-gray-900">{dayName}</div>
+                            <div className="ml-2 text-xs text-gray-500">
+                              {date.toLocaleDateString()}
+                            </div>
+                          </div>
+                        </td>
+                      )}
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {getTimeRangeDisplay(cls.startTime, cls.endTime)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center">
+                          <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                            <span className="text-sm font-medium text-blue-600">📚</span>
+                          </div>
+                          <div className="ml-3">
+                            <div className="text-sm font-medium text-gray-900">{cls.className}</div>
+                          </div>
                         </div>
-
-                        <p className="text-gray-600 mb-2 text-sm">{event.description}</p>
-
-                        <div className="grid grid-cols-2 gap-3 text-sm">
-                          <div className="flex items-center space-x-2">
-                            <Clock className="h-4 w-4 text-gray-500" />
-                            <span className="text-gray-700">
-                              {format(parseISO(event.start_time), 'HH:mm')} - {format(parseISO(event.end_time), 'HH:mm')}
-                            </span>
-                          </div>
-                          <div className="flex items-center space-x-2">
-                            <MapPin className="h-4 w-4 text-gray-500" />
-                            <span className="text-gray-700">{event.location}</span>
-                          </div>
-                          <div className="flex items-center space-x-2">
-                            <User className="h-4 w-4 text-gray-500" />
-                            <span className="text-gray-700">{event.instructor_name}</span>
-                          </div>
-                          <div className="flex items-center space-x-2">
-                            <Users className="h-4 w-4 text-gray-500" />
-                            <span className="text-gray-700">Students</span>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                );
-              })()}
-            </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {cls.students?.length || 0} students
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {cls.duration} min
+                      </td>
+                    </tr>
+                  ));
+                })}
+              </tbody>
+            </table>
           </div>
         </div>
-      ) : (
-        // Week View with FullCalendar
-        <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
-          {/* Custom Tailwind styles for FullCalendar */}
-          <style jsx>{`
-            .fc {
-              font-family: inherit;
-              background: white;
-            }
-            .fc-header-toolbar {
-              display: none;
-            }
-            .fc-timegrid-slot {
-              height: 4rem !important;
-              border-bottom: 1px solid #e5e7eb;
-            }
-            .fc-timegrid-slot-label {
-              font-size: 0.875rem;
-              font-weight: 500;
-              color: #374151;
-              padding: 0.5rem;
-              text-align: center;
-            }
-            .fc-col-header-cell {
-              background-color: #f9fafb;
-              border-right: 1px solid #e5e7eb;
-              padding: 1rem;
-              text-align: center;
-            }
-            .fc-col-header-cell:last-child {
-              border-right: none;
-            }
-            .fc-col-header-cell-cushion {
-              font-size: 0.875rem;
-              font-weight: 500;
-              color: #111827;
-              text-decoration: none;
-            }
-            .fc-col-header-cell-cushion:hover {
-              text-decoration: none;
-            }
-            .fc-timegrid-now-indicator-line {
-              border-color: #3b82f6;
-              border-width: 2px;
-            }
-            .fc-timegrid-now-indicator-arrow {
-              border-color: #3b82f6;
-              border-width: 5px;
-            }
-            .fc-scroller::-webkit-scrollbar {
-              width: 8px;
-              height: 8px;
-            }
-            .fc-scroller::-webkit-scrollbar-track {
-              background: #f1f1f1;
-              border-radius: 4px;
-            }
-            .fc-scroller::-webkit-scrollbar-thumb {
-              background: #c1c1c1;
-              border-radius: 4px;
-            }
-            .fc-scroller::-webkit-scrollbar-thumb:hover {
-              background: #a8a8a8;
-            }
-            /* Ensure 8 PM and later rows are visible */
-            .fc-timegrid-slot:nth-child(n+13) {
-              background-color: #fefefe;
-            }
-            .fc-timegrid-slot:nth-child(n+13):hover {
-              background-color: #f3f4f6;
-            }
-          `}</style>
-          <FullCalendar
-            ref={calendarRef}
-            plugins={[timeGridPlugin, dayGridPlugin, interactionPlugin]}
-            headerToolbar={false} // We're using our custom header
-            initialView={viewMode}
-            initialDate={currentWeek}
-            editable={false}
-            selectable={true}
-            selectMirror={true}
-            dayMaxEvents={true}
-            weekends={true}
-            events={getFullCalendarEvents()}
-            select={handleDateSelect}
-            eventClick={handleEventClick}
-            height="auto"
-            slotMinTime="08:00:00"
-            slotMaxTime="20:00:00"
-            allDaySlot={false}
-            slotDuration="01:00:00"
-            slotLabelFormat={{
-              hour: 'numeric',
-              minute: '2-digit',
-              hour12: true
-            }}
-            eventTimeFormat={{
-              hour: 'numeric',
-              minute: '2-digit',
-              hour12: true
-            }}
-            eventDisplay="block"
-            eventOverlap={false}
-            slotEventOverlap={false}
-            nowIndicator={true}
-            businessHours={{
-              daysOfWeek: [1, 2, 3, 4, 5, 6, 0], // Monday through Sunday
-              startTime: '08:00',
-              endTime: '20:00',
-            }}
-            dayHeaderFormat={{
-              weekday: 'short',
-              day: 'numeric'
-            }}
-            weekNumbers={false}
-            weekNumberCalculation="ISO"
-            firstDay={1} // Monday
-            locale="en"
-            timeZone="local"
-            eventClassNames={(arg) => {
-              const event = arg.event;
-              const isRecurring = event.extendedProps.isRecurring;
 
-              // Base Tailwind classes for all events
-              const baseClasses = 'rounded-md border-l-4 text-xs font-medium p-1 m-0.5 cursor-pointer transition-all duration-200 hover:scale-105 hover:shadow-md';
+        {/* No Schedule Message */}
+        {schedule.length === 0 && (
+          <div className="text-center py-12">
+            <div className="text-gray-400 text-6xl mb-4">📅</div>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">No Schedule Found</h3>
+            <p className="text-gray-500 mb-4">
+              You don't have any classes scheduled yet.
+            </p>
+            <button
+              onClick={() => window.location.href = '/teacher/classes'}
+              className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              Manage Classes
+            </button>
+          </div>
+        )}
 
-              // Color classes using Tailwind
-              let colorClasses = 'bg-blue-100 border-blue-300 text-blue-800';
-
-              return [baseClasses, colorClasses];
-            }}
-            eventContent={(arg) => {
-              return {
-                html: `
-                  <div class="p-1">
-                    <div class="font-semibold text-xs mb-0.5 text-blue-700">${arg.event.title}</div>
-                    <div class="text-xs opacity-75 mb-0.5 text-blue-700">${arg.timeText}</div>
+        {/* Class Details */}
+        {classes.length > 0 && (
+          <div className="mt-8">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Class Details</h3>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {classes.map((cls) => (
+                <div key={cls.id} className="bg-white rounded-lg shadow p-6">
+                  <h4 className="text-lg font-semibold text-gray-900 mb-4">{cls.name}</h4>
+                  
+                  <p className="text-gray-600 mb-4">{cls.description}</p>
+                  
+                  <div className="space-y-2 text-sm mb-4">
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">Schedule:</span>
+                      <span className="text-gray-900">{getScheduleDisplay(cls.schedule)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">Students:</span>
+                      <span className="text-gray-900">{cls.students?.length || 0}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">Price:</span>
+                      <span className="text-gray-900">SAR {cls.price}</span>
+                    </div>
                   </div>
-                `
-              };
-            }}
-          />
-        </div>
-      )}
+                  
+                  <button
+                    onClick={() => setSelectedClass(cls)}
+                    className="w-full bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition-colors"
+                  >
+                    View Details
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Class Details Modal */}
+        {selectedClass && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+              <div className="flex justify-between items-start mb-4">
+                <h3 className="text-xl font-semibold text-gray-900">{selectedClass.name}</h3>
+                <button
+                  onClick={() => setSelectedClass(null)}
+                  className="text-gray-400 hover:text-gray-600 text-2xl"
+                >
+                  ×
+                </button>
+              </div>
+              
+              <div className="space-y-4">
+                <div>
+                  <h4 className="font-medium text-gray-900 mb-2">Description</h4>
+                  <p className="text-gray-600">{selectedClass.description}</p>
+                </div>
+                
+                <div>
+                  <h4 className="font-medium text-gray-900 mb-2">Schedule</h4>
+                  <p className="text-gray-600">{getScheduleDisplay(selectedClass.schedule)}</p>
+                </div>
+                
+                <div>
+                  <h4 className="font-medium text-gray-900 mb-2">Students ({selectedClass.students?.length || 0})</h4>
+                  {selectedClass.students && selectedClass.students.length > 0 ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                      {selectedClass.students.map((studentId) => (
+                        <div key={studentId} className="flex items-center space-x-2 p-2 bg-gray-50 rounded">
+                          <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center">
+                            <span className="text-xs font-medium text-blue-600">
+                              {getStudentName(studentId).charAt(0)}
+                            </span>
+                          </div>
+                          <span className="text-sm text-gray-900">{getStudentName(studentId)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-gray-500">No students enrolled yet</p>
+                  )}
+                </div>
+                
+                <div className="flex justify-end pt-4">
+                  <button
+                    onClick={() => setSelectedClass(null)}
+                    className="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600"
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 };

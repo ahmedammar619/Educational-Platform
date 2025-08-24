@@ -33,7 +33,7 @@ export class TeachersController {
     status: 200,
     description: 'Teacher profile retrieved successfully',
   })
-  async getProfile(@CurrentUser('id') teacherId: number) {
+  async getProfile(@CurrentUser('id') teacherId: string) {
     const profile = await this.teachersService.getTeacherProfile(teacherId);
     return { profile };
   }
@@ -45,7 +45,7 @@ export class TeachersController {
     description: 'Teacher profile updated successfully',
   })
   async updateProfile(
-    @CurrentUser('id') teacherId: number,
+    @CurrentUser('id') teacherId: string,
     @Body() updateData: { firstName?: string; lastName?: string; phone?: string },
   ) {
     const profile = await this.teachersService.updateTeacherProfile(teacherId, updateData);
