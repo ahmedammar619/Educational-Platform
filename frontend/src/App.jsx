@@ -1,8 +1,47 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { HelmetProvider } from 'react-helmet-async';
 import { LoginForm } from './pages/auth';
 import { AppRouter } from './routers';
+import { authService } from './services';
 import './App.css';
+
+// Error Boundary Component
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error, errorInfo) {
+    console.error('Error caught by boundary:', error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+          <div className="text-center">
+            <div className="text-red-500 text-6xl mb-4">⚠️</div>
+            <h2 className="text-2xl font-bold text-gray-900 mb-4">Something went wrong</h2>
+            <p className="text-gray-600 mb-4">We're sorry, but something unexpected happened.</p>
+            <button 
+              onClick={() => window.location.reload()} 
+              className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+            >
+              Reload Page
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
 
 function App() {
   const [user, setUser] = useState(null);
@@ -10,55 +49,73 @@ function App() {
   const [showLogin, setShowLogin] = useState(false);
 
   useEffect(() => {
-    // Always start with home page - no automatic login
-    setLoading(false);
+    // Check if user is already authenticated on app start
+    const checkAuth = async () => {
+      try {
+        if (authService.isAuthenticated()) {
+          await validateToken();
+        } else {
+          setLoading(false);
+        }
+      } catch (error) {
+        console.error('Auth check failed:', error);
+        setLoading(false);
+      }
+    };
+    
+    checkAuth();
   }, []);
 
   const validateToken = async (savedToken) => {
     try {
-      // Mock token validation - check if token exists and is valid
-      if (savedToken && savedToken.startsWith('mock-token-')) {
-        // Extract user role from token
-        const role = savedToken.replace('mock-token-', '');
-        
-        // Get user from localStorage or mock data
-        const savedUser = localStorage.getItem('user');
-        if (savedUser) {
-          const userData = JSON.parse(savedUser);
-          if (userData.role === role) {
-            setUser(userData);
-            return;
-          }
+      // Check if user is authenticated using authService
+      if (authService.isAuthenticated()) {
+        const currentUser = authService.getCurrentUser();
+        if (currentUser) {
+          setUser(currentUser);
+          return;
         }
       }
       
-      // Invalid token, remove it
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
+      // Invalid or expired token, clear everything
+      authService.logout();
     } catch (error) {
       console.error('Token validation failed:', error);
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
+      authService.logout();
     } finally {
       setLoading(false);
     }
   };
 
   const handleLogin = (userData, userToken) => {
+    console.log('App: handleLogin called with:', { userData, userToken }); // Debug log
+    console.log('App: userData type:', typeof userData); // Debug log
+    console.log('App: userData keys:', userData ? Object.keys(userData) : 'No userData'); // Debug log
+    
+    // Ensure userData is valid
+    if (!userData || !userData.id) {
+      console.error('App: Invalid userData received:', userData);
+      return;
+    }
+    
     setUser(userData);
-    // Save user data to localStorage for persistence
-    localStorage.setItem('user', JSON.stringify(userData));
     setShowLogin(false);
+    
+    console.log('App: User state set to:', userData); // Debug log
+    console.log('App: Login modal closed, showLogin set to false'); // Debug log
+    console.log('App: Login successful, user set and modal closed'); // Debug log
   };
 
   const handleLoginClick = () => {
-    // Check if user has a saved token before showing login form
-    const savedToken = localStorage.getItem('token');
-    if (savedToken) {
-      validateToken(savedToken);
-    } else {
-      setShowLogin(true);
-    }
+    // Always show login modal when clicked, regardless of current auth state
+    setShowLogin(true);
+  };
+
+  const handleLogout = () => {
+    // Clear user state first
+    setUser(null);
+    // Then logout from authService
+    authService.logout();
   };
 
   if (loading) {
@@ -74,16 +131,19 @@ function App() {
 
   return (
     <HelmetProvider>
-      <div className="App">
-        {showLogin ? (
-          <LoginForm onLogin={handleLogin} onClose={() => setShowLogin(false)} />
-        ) : (
-          <AppRouter 
-            user={user} 
-            onLogin={handleLoginClick}
-          />
-        )}
-      </div>
+      <ErrorBoundary>
+        <div className="App">
+          {showLogin ? (
+            <LoginForm onLogin={handleLogin} onRegister={() => setShowLogin(false)} />
+          ) : (
+            <AppRouter 
+              user={user} 
+              onLogin={handleLoginClick}
+              onLogout={handleLogout}
+            />
+          )}
+        </div>
+      </ErrorBoundary>
     </HelmetProvider>
   );
 }

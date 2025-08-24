@@ -21,8 +21,8 @@ import { CourseSchedule } from '../../courses/entities/course-schedule.entity';
 
 @Entity('users')
 export class User {
-  @PrimaryGeneratedColumn()
-  id: number;
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
 
   @Column({ length: 255 })
   firstName: string;
@@ -48,21 +48,12 @@ export class User {
   role: Role;
 
   @Column({ nullable: true, length: 20 })
-  phone?: string; // For parents and teachers
+  phone?: string; // For parents and teachers - will store full phone with country code
 
   @Column({ type: 'date', nullable: true })
-  birthDate?: Date; // Only for students
-
-  @Column({ default: true })
-  isActive: boolean;
+  birthDate?: Date; // Only for students - required when role is student
 
   // ================= Security Fields =================
-  @Column({ default: 0 })
-  failedLoginAttempts: number;
-
-  @Column({ type: 'timestamp', nullable: true })
-  lockedUntil?: Date;
-
   @Column({ type: 'timestamp', nullable: true })
   lastLogin?: Date;
 

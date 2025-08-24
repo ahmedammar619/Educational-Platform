@@ -1,4 +1,4 @@
-import { IsEmail, IsString, IsEnum, IsOptional, IsBoolean } from 'class-validator';
+import { IsEmail, IsString, IsEnum, IsOptional, IsBoolean, MinLength } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { Role } from '../../../common/enums/role.enum';
 
@@ -18,6 +18,12 @@ export class UpdateUserDto {
   @IsEmail()
   email?: string;
 
+  @ApiProperty({ description: 'User password', minLength: 8, required: false })
+  @IsOptional()
+  @IsString()
+  @MinLength(8)
+  password?: string;
+
   @ApiProperty({ description: 'User role', enum: Role, required: false })
   @IsOptional()
   @IsEnum(Role)
@@ -28,18 +34,8 @@ export class UpdateUserDto {
   @IsString()
   phone?: string;
 
-  @ApiProperty({ description: 'Username (only for students)', required: false })
-  @IsOptional()
-  @IsString()
-  username?: string;
-
   @ApiProperty({ description: 'User active status', required: false })
   @IsOptional()
   @IsBoolean()
   isActive?: boolean;
-
-  @ApiProperty({ description: 'Specialization (only for teachers)', required: false })
-  @IsOptional()
-  @IsString()
-  specialization?: string;
 }

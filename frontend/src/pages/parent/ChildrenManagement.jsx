@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Users, Calendar, BookOpen, CheckCircle, Plus, ArrowLeft } from 'lucide-react';
 import ChildAccountCreation from './ChildAccountCreation';
+import { dashboardService, parentsService } from '../../services';
 
 const ChildrenManagement = ({ user }) => {
   const [children, setChildren] = useState([]);
@@ -23,38 +24,33 @@ const ChildrenManagement = ({ user }) => {
   const fetchChildren = async () => {
     try {
       setLoading(true);
-      // Use mock data for now
-      const mockChildren = [
-        {
-          id: 1,
-          name: 'Ahmad Al-Noor',
-          email: 'ahmad@student.com',
-          enrolled_courses: 2,
-          avg_progress: 85,
-          attended_sessions: 18,
-          total_sessions: 20,
-          avg_grade_percentage: 88,
-          relationship_type: 'son'
-        },
-        {
-          id: 2,
-          name: 'Fatima Al-Zahra',
-          email: 'fatima@student.com',
-          enrolled_courses: 2,
-          avg_progress: 92,
-          attended_sessions: 19,
-          total_sessions: 20,
-          avg_grade_percentage: 94,
-          relationship_type: 'daughter'
-        }
-      ];
-
-      setChildren(mockChildren);
-      if (mockChildren.length > 0 && !selectedChild) {
-        setSelectedChild(mockChildren[0]);
+      // Fetch children from backend
+      const response = await dashboardService.getParentDashboard();
+      if (response.children && response.children.length > 0) {
+        // Transform backend data to match the expected structure
+        const transformedChildren = response.children.map(child => ({
+          id: child.id,
+          name: `${child.firstName || ''} ${child.lastName || ''}`.trim() || child.name || 'Unknown',
+          firstName: child.firstName,
+          lastName: child.lastName,
+          email: child.email,
+          enrolled_courses: child.enrolledClasses?.length || 0,
+          avg_progress: child.avgProgress || 0,
+          attended_sessions: child.attendedSessions || 0,
+          total_sessions: child.totalSessions || 0,
+          avg_grade_percentage: child.avgGradePercentage || 0,
+          relationship_type: child.relationshipType || 'child'
+        }));
+        setChildren(transformedChildren);
+        setSelectedChild(transformedChildren[0]);
+      } else {
+        setChildren([]);
+        setSelectedChild(null);
       }
     } catch (error) {
       console.error('Failed to fetch children:', error);
+      setChildren([]);
+      setSelectedChild(null);
     } finally {
       setLoading(false);
     }
@@ -63,55 +59,25 @@ const ChildrenManagement = ({ user }) => {
   const fetchChildProgress = async (childId) => {
     try {
       setProgressLoading(true);
-      // Mock progress data
-      const mockProgress = {
-        courses: [
-          {
-            id: 1,
-            title: 'Quran Memorization - Juz 1',
-            instructor_name: 'Sheikh Abdullah Al-Mahmoud',
-            progress_percentage: 85,
-            attended_sessions: 18,
-            total_sessions: 20,
-            graded_assignments: 5,
-            total_assignments: 6,
-            avg_grade_percentage: 88
-          },
-          {
-            id: 2,
-            title: 'Arabic Language Basics',
-            instructor_name: 'Ustadha Aisha Al-Zahra',
-            progress_percentage: 92,
-            attended_sessions: 15,
-            total_sessions: 16,
-            graded_assignments: 4,
-            total_assignments: 4,
-            avg_grade_percentage: 94
-          }
-        ],
-        recentGrades: [
-          {
-            id: 1,
-            assignment_title: 'Surah Al-Baqarah Recitation',
-            course_title: 'Quran Memorization - Juz 1',
-            assignment_type: 'Recitation',
-            grade: 88,
-            max_points: 100,
-            feedback: 'Excellent memorization with good tajweed. Keep practicing.',
-            graded_by_name: 'Sheikh Abdullah Al-Mahmoud',
-            graded_at: '2024-02-10T10:00:00Z'
-          }
-        ],
-        attendanceSummary: [
-          { status: 'present', count: 33, percentage: 92 },
-          { status: 'absent', count: 2, percentage: 6 },
-          { status: 'late', count: 1, percentage: 2 }
-        ]
-      };
-
-      setChildProgress(mockProgress);
+      // Fetch child progress from backend
+      const response = await parentsService.getChildProgress(childId);
+      if (response && (response.courses?.length > 0 || response.recentGrades?.length > 0)) {
+        setChildProgress(response);
+      } else {
+        // Return empty progress data if backend returns empty
+        setChildProgress({
+          courses: [],
+          recentGrades: [],
+          attendanceSummary: []
+        });
+      }
     } catch (error) {
       console.error('Failed to fetch child progress:', error);
+      setChildProgress({
+        courses: [],
+        recentGrades: [],
+        attendanceSummary: []
+      });
     } finally {
       setProgressLoading(false);
     }
@@ -141,23 +107,50 @@ const ChildrenManagement = ({ user }) => {
 
   if (children.length === 0) {
     return (
-      <div className="text-center py-12">
-        <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-        <h2 className="text-xl font-semibold text-gray-900 mb-2">No Children Linked</h2>
-        <p className="text-gray-600">Contact support to link your children's accounts to your parent account.</p>
+      <div className="space-y-6 h-full">
+        {/* Header */}
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Children's Progress</h1>
+            <p className="text-gray-600">Monitor your children's academic performance and attendance</p>
+          </div>
+          <button
+            onClick={() => {
+              console.log('Add Your Child button clicked from empty state');
+              setShowAddChildForm(true);
+            }}
+            className="flex items-center space-x-2 bg-purple-600 text-white px-6 py-3 rounded-lg hover:bg-purple-700 transition-all duration-200 shadow-md"
+          >
+            <Plus className="h-5 w-5" />
+            <span>Add Your Child</span>
+          </button>
+        </div>
+
+        {/* Empty State */}
+        <div className="text-center py-16 bg-white rounded-lg shadow-sm border">
+          <Users className="h-24 w-24 text-gray-300 mx-auto mb-6" />
+          <h2 className="text-3xl font-bold text-gray-900 mb-4">No Children Added Yet</h2>
+          <p className="text-lg text-gray-600 mb-8 max-w-md mx-auto">
+            Start by adding your children to monitor their educational progress, track attendance, and view grades.
+          </p>
+        </div>
       </div>
     );
   }
 
   // Show Add Child Form as a separate page
   if (showAddChildForm) {
+    console.log('showAddChildForm is true, rendering ChildAccountCreation');
     return (
       <div className="space-y-6 h-full">
         {/* Header for Add Child Page */}
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
             <button
-              onClick={() => setShowAddChildForm(false)}
+              onClick={() => {
+                console.log('Back button clicked');
+                setShowAddChildForm(false);
+              }}
               className="flex items-center space-x-2 text-purple-600 hover:text-purple-800 font-medium"
             >
               <ArrowLeft className="h-4 w-4" />
@@ -171,15 +164,14 @@ const ChildrenManagement = ({ user }) => {
         </div>
 
         {/* Child Account Creation Form */}
-        <div className="bg-white rounded-lg shadow-sm border p-6">
-          <ChildAccountCreation user={user} />
-        </div>
+        <ChildAccountCreation user={user} />
       </div>
     );
   }
 
   return (
     <div className="space-y-6 h-full">
+      {console.log('Main component render - showAddChildForm:', showAddChildForm, 'children count:', children.length)}
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
@@ -187,7 +179,12 @@ const ChildrenManagement = ({ user }) => {
           <p className="text-gray-600">Monitor your children's academic performance and attendance</p>
         </div>
         <button
-          onClick={() => setShowAddChildForm(true)}
+          onClick={() => {
+            console.log('Add Children button clicked from main view');
+            console.log('Current showAddChildForm:', showAddChildForm);
+            setShowAddChildForm(true);
+            console.log('Set showAddChildForm to true');
+          }}
           className="flex items-center space-x-2 border-2 border-purple-600 text-purple-600 px-4 py-2 rounded-lg hover:bg-purple-600 hover:text-white transition-all duration-200"
         >
           <Plus className="h-4 w-4" />
@@ -228,7 +225,7 @@ const ChildrenManagement = ({ user }) => {
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
                   <p className="text-gray-600">Courses</p>
-                  <p className="font-semibold">{child.enrolled_courses}</p>
+                  <p className="font-semibold">{child.enrolled_courses || 0}</p>
                 </div>
                 <div>
                   <p className="text-gray-600">Avg Progress</p>
@@ -279,7 +276,7 @@ const ChildrenManagement = ({ user }) => {
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div className="text-center">
-                <p className="text-3xl font-bold">{selectedChild.enrolled_courses}</p>
+                <p className="text-3xl font-bold">{selectedChild.enrolled_courses || 0}</p>
                 <p className="text-purple-100">Enrolled Courses</p>
               </div>
               <div className="text-center">

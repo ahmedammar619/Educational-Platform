@@ -29,22 +29,8 @@ export class CreateUserDto {
   @IsString()
   phone?: string;
 
-  @ApiProperty({ description: 'Username (only for students)', required: false })
-  @IsOptional()
-  @IsString()
-  username?: string;
-
-  @ApiProperty({ description: 'Birth date (only for students)', required: false })
+  @ApiProperty({ description: 'Birth date (optional)', required: false })
   @IsOptional()
   @IsDateString()
   birthDate?: string;
-
-  @ApiProperty({ description: 'Specialization (only for teachers)', required: false })
-  @IsOptional()
-  @IsString()
-  specialization?: string;
-
-  @ApiProperty({ description: 'Age (only for students)', required: false })
-  @IsOptional()
-  age?: number;
 }

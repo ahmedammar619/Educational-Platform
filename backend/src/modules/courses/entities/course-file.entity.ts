@@ -17,8 +17,8 @@ import { MaterialAttachment } from './material-attachment.entity';
 
 @Entity('course_files')
 export class CourseFile {
-  @PrimaryGeneratedColumn()
-  id: number;
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
 
   @Column({ length: 255 })
   fileName: string; // System filename
@@ -72,14 +72,14 @@ export class CourseFile {
   course: Course;
 
   @Column()
-  courseId: number;
+  courseId: string; // Changed to string to match Course UUID
 
   @ManyToOne(() => User, { eager: true })
   @JoinColumn({ name: 'uploadedBy' })
   uploadedBy: User;
 
   @Column()
-  uploadedById: number;
+  uploadedById: string;
 
   @ManyToMany(() => CourseFolder)
   @JoinTable({

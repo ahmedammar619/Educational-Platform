@@ -123,30 +123,43 @@ export class AuthController {
   }
 
   @Put('profile')
-  @ApiBearerAuth('JWT-auth')
+  @UseGuards(JwtAuthGuard)
   @ApiOperation({ summary: 'Update user profile' })
+  @ApiBody({ type: UpdateProfileDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Profile updated successfully',
+  })
   async updateProfile(
-    @CurrentUser('id') userId: number,
+    @CurrentUser('id') userId: string,
     @Body() updateProfileDto: UpdateProfileDto,
   ) {
     return this.authService.updateProfile(userId, updateProfileDto);
   }
 
   @Put('change-password')
-  @ApiBearerAuth('JWT-auth')
+  @UseGuards(JwtAuthGuard)
   @ApiOperation({ summary: 'Change user password' })
   @ApiBody({ type: ChangePasswordDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Password changed successfully',
+  })
   async changePassword(
-    @CurrentUser('id') userId: number,
+    @CurrentUser('id') userId: string,
     @Body() changePasswordDto: ChangePasswordDto,
   ) {
     return this.authService.changePassword(userId, changePasswordDto);
   }
 
   @Put('deactivate')
-  @ApiBearerAuth('JWT-auth')
+  @UseGuards(JwtAuthGuard)
   @ApiOperation({ summary: 'Deactivate user account' })
-  async deactivateAccount(@CurrentUser() userId: number) {
+  @ApiResponse({
+    status: 200,
+    description: 'Account deactivated successfully',
+  })
+  async deactivateAccount(@CurrentUser() userId: string) {
     return this.authService.deactivateAccount(userId);
   }
 }

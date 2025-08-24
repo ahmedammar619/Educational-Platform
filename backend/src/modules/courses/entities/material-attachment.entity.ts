@@ -12,8 +12,8 @@ import { CourseFile } from './course-file.entity';
 
 @Entity('material_attachments')
 export class MaterialAttachment {
-  @PrimaryGeneratedColumn()
-  id: number;
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
 
   @Column({ type: 'text', nullable: true })
   description: string; // Description of this attachment
@@ -43,12 +43,12 @@ export class MaterialAttachment {
   material: CourseMaterial;
 
   @Column()
-  materialId: number;
+  materialId: string; // Changed to string to match CourseMaterial UUID
 
   @ManyToOne(() => CourseFile, (file) => file.attachments, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'fileId' })
   file: CourseFile;
 
   @Column()
-  fileId: number;
+  fileId: string; // Changed to string to match CourseFile UUID
 }

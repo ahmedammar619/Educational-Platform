@@ -3,7 +3,7 @@ import { ApiProperty } from '@nestjs/swagger';
 
 export class MarkAttendanceDto {
   @ApiProperty({ description: 'Student ID' })
-  studentId: number;
+  studentId: string;
 
   @ApiProperty({ description: 'Attendance status', enum: ['present', 'absent', 'late', 'not_marked'] })
   @IsEnum(['present', 'absent', 'late', 'not_marked'])

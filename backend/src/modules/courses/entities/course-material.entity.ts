@@ -15,8 +15,8 @@ import { SessionMaterial } from './session-material.entity';
 
 @Entity('course_materials')
 export class CourseMaterial {
-  @PrimaryGeneratedColumn()
-  id: number;
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
 
   @Column({ length: 255 })
   title: string;
@@ -33,9 +33,6 @@ export class CourseMaterial {
 
   @Column({ type: 'text' })
   content: string; // Rich text content
-
-  @Column({ default: false })
-  isPublished: boolean;
 
   @Column({ type: 'timestamp', nullable: true })
   publishDate: Date;
@@ -79,14 +76,14 @@ export class CourseMaterial {
   course: Course;
 
   @Column()
-  courseId: number;
+  courseId: string; // Changed to string to match Course UUID
 
   @ManyToOne(() => User, { eager: true })
   @JoinColumn({ name: 'authorId' })
   author: User;
 
   @Column()
-  authorId: number;
+  authorId: string;
 
   @OneToMany(() => MaterialAttachment, (attachment) => attachment.material)
   attachments: MaterialAttachment[];

@@ -16,17 +16,16 @@ export class AdminService {
 
   async getDashboardStats() {
     const [totalUsers, totalParents, totalStudents, totalTeachers] = await Promise.all([
-      this.userRepository.count({ where: { isActive: true } }),
-      this.userRepository.count({ where: { role: Role.Parent, isActive: true } }),
-      this.userRepository.count({ where: { role: Role.Student, isActive: true } }),
-      this.userRepository.count({ where: { role: Role.Teacher, isActive: true } }),
+      this.userRepository.count(),
+      this.userRepository.count({ where: { role: Role.Parent } }),
+      this.userRepository.count({ where: { role: Role.Student } }),
+      this.userRepository.count({ where: { role: Role.Teacher } }),
     ]);
 
     const usersByRole = await this.userRepository
       .createQueryBuilder('user')
       .select('user.role', 'role')
       .addSelect('COUNT(*)', 'count')
-      .where('user.isActive = :isActive', { isActive: true })
       .groupBy('user.role')
       .getRawMany();
 
@@ -40,8 +39,32 @@ export class AdminService {
     };
   }
 
+  async getRecentUsers(limit: number = 10) {
+    const recentUsers = await this.userRepository
+      .createQueryBuilder('user')
+      .select(['user.id', 'user.firstName', 'user.lastName', 'user.email', 'user.role', 'user.createdAt'])
+      .orderBy('user.createdAt', 'DESC')
+      .limit(limit)
+      .getMany();
+
+    return {
+      users: recentUsers.map(user => ({
+        ...user,
+        status: 'active' // All users are considered active now
+      }))
+    };
+  }
+
+  async getRecentClasses(limit: number = 10) {
+    // For now, return empty array since we don't have course/class entities yet
+    // This can be implemented when the course module is ready
+    return {
+      classes: []
+    };
+  }
+
   async createUser(createUserDto: CreateUserDto) {
-    const { email, password, username, role } = createUserDto;
+    const { email, password, role } = createUserDto;
 
     // Check if user already exists
     const existingUser = await this.userRepository.findOne({
@@ -52,17 +75,6 @@ export class AdminService {
       throw new ConflictException('User already exists with this email');
     }
 
-    // Check if username already exists (for students)
-    if (username && role === Role.Student) {
-      const existingUsername = await this.userRepository.findOne({
-        where: { username },
-      });
-
-      if (existingUsername) {
-        throw new ConflictException('Username already exists');
-      }
-    }
-
     // Hash password
     const saltRounds = 12;
     const passwordHash = await bcrypt.hash(password, saltRounds);
@@ -71,9 +83,6 @@ export class AdminService {
     const user = this.userRepository.create({
       ...createUserDto,
       passwordHash,
-      isActive: true,
-      failedLoginAttempts: 0,
-      lockedUntil: null,
     });
 
     const savedUser = await this.userRepository.save(user);
@@ -86,7 +95,7 @@ export class AdminService {
     };
   }
 
-  async updateUser(userId: number, updateUserDto: UpdateUserDto) {
+  async updateUser(userId: string, updateUserDto: UpdateUserDto) {
     const user = await this.userRepository.findOne({
       where: { id: userId },
     });
@@ -103,17 +112,6 @@ export class AdminService {
 
       if (existingUser) {
         throw new ConflictException('Email already exists');
-      }
-    }
-
-    // Check if username is being changed and if it already exists (for students)
-    if (updateUserDto.username && updateUserDto.username !== user.username && user.role === Role.Student) {
-      const existingUsername = await this.userRepository.findOne({
-        where: { username: updateUserDto.username },
-      });
-
-      if (existingUsername) {
-        throw new ConflictException('Username already exists');
       }
     }
 
@@ -134,8 +132,7 @@ export class AdminService {
     const offset = (page - 1) * limit;
 
     let queryBuilder = this.userRepository
-      .createQueryBuilder('user')
-      .where('user.isActive = :isActive', { isActive: true });
+      .createQueryBuilder('user');
 
     if (role) {
       queryBuilder.andWhere('user.role = :role', { role });
@@ -170,12 +167,11 @@ export class AdminService {
 
     let queryBuilder = this.userRepository
       .createQueryBuilder('user')
-      .where('user.role = :role', { role: Role.Student })
-      .andWhere('user.isActive = :isActive', { isActive: true });
+      .where('user.role = :role', { role: Role.Student });
 
     if (search) {
       queryBuilder.andWhere(
-        '(user.firstName ILIKE :search OR user.lastName ILIKE :search OR user.username ILIKE :search)',
+        '(user.firstName ILIKE :search OR user.lastName ILIKE :search OR user.email ILIKE :search)',
         { search: `%${search}%` }
       );
     }
@@ -202,8 +198,7 @@ export class AdminService {
 
     let queryBuilder = this.userRepository
       .createQueryBuilder('user')
-      .where('user.role = :role', { role: Role.Teacher })
-      .andWhere('user.isActive = :isActive', { isActive: true });
+      .where('user.role = :role', { role: Role.Teacher });
 
     if (search) {
       queryBuilder.andWhere(
@@ -234,8 +229,7 @@ export class AdminService {
 
     let queryBuilder = this.userRepository
       .createQueryBuilder('user')
-      .where('user.role = :role', { role: Role.Parent })
-      .andWhere('user.isActive = :isActive', { isActive: true });
+      .where('user.role = :role', { role: Role.Parent });
 
     if (search) {
       queryBuilder.andWhere(
@@ -261,25 +255,18 @@ export class AdminService {
     };
   }
 
-  async deactivateUser(userId: number) {
-    await this.userRepository.update(userId, { isActive: false });
-    return { message: 'User deactivated successfully' };
+  async deactivateUser(userId: string) {
+    // Since we removed isActive, we'll delete the user instead
+    await this.userRepository.delete(userId);
+    return { message: 'User deleted successfully' };
   }
 
-  async reactivateUser(userId: number) {
-    await this.userRepository.update(userId, { isActive: true });
-    return { message: 'User reactivated successfully' };
+  async reactivateUser(userId: string) {
+    // Since we removed isActive, this method is no longer needed
+    throw new BadRequestException('User reactivation is not supported');
   }
 
-  async unlockUser(userId: number) {
-    await this.userRepository.update(userId, {
-      failedLoginAttempts: 0,
-      lockedUntil: null,
-    });
-    return { message: 'User account unlocked successfully' };
-  }
-
-  async deleteUser(userId: number) {
+  async deleteUser(userId: string) {
     await this.userRepository.delete(userId);
     return { message: 'User deleted successfully' };
   }

@@ -19,13 +19,6 @@ export const securityConfig = {
     maxAge: 90 * 24 * 60 * 60 * 1000, // 90 days
   },
 
-  // Account Lockout
-  lockout: {
-    maxFailedAttempts: 5,
-    lockoutDuration: 15 * 60 * 1000, // 15 minutes
-    maxLockoutDuration: 24 * 60 * 60 * 1000, // 24 hours
-  },
-
   // JWT Configuration
   jwt: {
     secret: process.env.JWT_SECRET || (() => {
@@ -35,7 +28,7 @@ export const securityConfig = {
       console.warn('⚠️  Using default JWT secret for development. Change this in production!');
       return 'dev-jwt-secret-change-in-production-at-least-32-characters-long';
     })(),
-    expiresIn: '15m', // 15 minutes
+    expiresIn: '24h', // 24 hours
     refreshExpiresIn: '7d', // 7 days
     issuer: 'educational-platform',
     audience: 'educational-platform-users',
@@ -52,19 +45,19 @@ export const securityConfig = {
 
   // CORS Configuration
   cors: {
-    allowedOrigins: [
-      'http://localhost:3000',
-      'http://localhost:3001',
-      'http://localhost:5173',
-      'http://127.0.0.1:3000',
-      'http://127.0.0.1:3001',
-      'http://127.0.0.1:5173',
-    ],
-    allowedMethods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
-    exposedHeaders: ['X-Total-Count', 'X-Page-Count'],
+    origin: process.env.FRONTEND_URL 
+      ? process.env.FRONTEND_URL.split(',').map(url => url.trim())
+      : [
+          'http://localhost:3000',
+          'http://localhost:5173',
+          'http://localhost:3001',
+          'http://127.0.0.1:3000',
+          'http://127.0.0.1:5173'
+        ],
     credentials: true,
-    maxAge: 86400, // 24 hours
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
+    exposedHeaders: ['Content-Length', 'X-Total-Count'],
   },
 
   // Security Headers

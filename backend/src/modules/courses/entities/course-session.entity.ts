@@ -15,8 +15,8 @@ import { SessionMaterial } from './session-material.entity';
 
 @Entity('course_sessions')
 export class CourseSession {
-  @PrimaryGeneratedColumn()
-  id: number;
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
 
   @Column({ length: 255 })
   title: string;
@@ -32,9 +32,6 @@ export class CourseSession {
 
   @Column({ type: 'time' })
   endTime: string; // "18:00"
-
-  @Column({ type: 'varchar', length: 255, nullable: true })
-  location: string; // Room number or Zoom link
 
   @Column({
     type: 'enum',
@@ -78,14 +75,14 @@ export class CourseSession {
   course: Course;
 
   @Column()
-  courseId: number;
+  courseId: string; // Changed to string to match Course UUID
 
   @ManyToOne(() => User, { eager: true })
   @JoinColumn({ name: 'teacherId' })
   teacher: User;
 
   @Column()
-  teacherId: number;
+  teacherId: string;
 
   @OneToMany(() => SessionAttendance, (attendance) => attendance.session)
   attendances: SessionAttendance[];
@@ -98,5 +95,5 @@ export class CourseSession {
   createdBy: User;
 
   @Column()
-  createdById: number;
+  createdById: string;
 }

@@ -1,17 +1,27 @@
 # Frontend - Educational Platform
 
-This is the frontend application for the Educational Platform that works completely independently without requiring a backend server.
+This is the frontend application for the Educational Platform that connects to the NestJS backend API.
 
 ## Features
 
-- **Standalone Operation**: No backend connection required
-- **Mock Data**: Comprehensive mock data for all user roles (Admin, Teacher, Student, Parent)
+- **Backend Integration**: Connects to NestJS backend API
+- **Real Data**: Fetches data from backend services
 - **Responsive Design**: Built with React, Tailwind CSS, and modern UI components
 - **Role-Based Access**: Different dashboards and features for each user role
+- **Restricted Registration**: Only parents can register publicly; other users created by admins
 
-## Demo Accounts
+## User Registration Policy
 
-The application includes demo accounts for testing different user roles:
+**Important**: This platform has a restricted registration policy for security and administrative control:
+
+- **Parents**: Can register publicly through the website registration form
+- **Students, Teachers, Admins**: Must be created by administrators only through the admin panel
+
+For detailed information about user creation methods, see [USER_CREATION_POLICY.md](./USER_CREATION_POLICY.md)
+
+## Development Testing Accounts
+
+For development and testing purposes, you can use these accounts:
 
 ### Admin
 - **Email**: admin@education.com
@@ -73,15 +83,15 @@ src/
 └── App.jsx            # Main application component
 ```
 
-## Mock Data
+## Backend Services
 
-The application uses comprehensive mock data located in `src/data/mockData.js`:
+The application connects to backend services located in `src/services/`:
 
-- **Users**: Teachers, students, parents, and admins
-- **Classes**: Course information with schedules and enrollments
-- **Calendar Events**: Class schedules and events
-- **Analytics**: Dashboard statistics and charts
-- **Messages**: Communication between users
+- **Auth Service**: User authentication and registration
+- **Admin Service**: Administrative operations
+- **User Service**: User management
+- **Course Service**: Course and class management
+- **Dashboard Service**: Analytics and reporting
 
 ## Features by Role
 
@@ -123,7 +133,7 @@ The application uses comprehensive mock data located in `src/data/mockData.js`:
 ### Adding New Features
 
 1. Create new components in the appropriate directory
-2. Add mock data if needed to `mockData.js`
+2. Add backend services if needed in `src/services/`
 3. Update routing in `AppRouter.jsx`
 4. Test with different user roles
 
@@ -142,7 +152,7 @@ The frontend can be deployed to any static hosting service:
 
 ## Notes
 
-- All data is stored locally in the browser's localStorage
-- No persistent database connection
-- Perfect for demos, prototypes, and offline-first applications
-- Can be easily connected to a backend API in the future by updating the data fetching functions
+- Data is fetched from the NestJS backend API
+- JWT authentication is used for secure API access
+- Perfect for development and testing with real backend integration
+- Backend server must be running on `http://localhost:3000` for full functionality

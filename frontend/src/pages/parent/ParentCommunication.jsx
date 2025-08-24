@@ -1,289 +1,354 @@
-import { useState, useEffect } from 'react';
-import { MessageCircle, Send, Users, Mail, Phone, Search, Plus, Filter } from 'lucide-react';
-import { format } from 'date-fns';
-import { mockUsers, mockClasses } from '../../data/mockData';
+import React, { useState, useEffect } from 'react';
+import { parentsService, coursesService, usersService } from '../../services';
 
-const ParentCommunication = ({ user }) => {
+const ParentCommunication = () => {
   const [messages, setMessages] = useState([]);
-  const [teachers, setTeachers] = useState([]);
   const [children, setChildren] = useState([]);
+  const [teachers, setTeachers] = useState([]);
+  const [classes, setClasses] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [filters, setFilters] = useState({
     teacher_id: '',
-    child_id: ''
+    child_id: '',
+    class_id: '',
+    date_from: '',
+    date_to: ''
   });
-  const [showComposeModal, setShowComposeModal] = useState(false);
-  const [selectedMessage, setSelectedMessage] = useState(null);
+  const [newMessage, setNewMessage] = useState({
+    to: '',
+    subject: '',
+    content: '',
+    priority: 'normal'
+  });
 
   useEffect(() => {
-    fetchMessages();
-    fetchTeachers();
-    fetchChildren();
-  }, [filters]);
+    fetchData();
+  }, []);
 
-  const fetchMessages = async () => {
+  const fetchData = async () => {
     try {
       setLoading(true);
-      // Generate messages based on parent's children and their teachers
-      if (user && user.role === 'parent') {
-        const parent = mockUsers.parents.find(p => p.id === user.id);
-        if (parent && parent.children) {
-          const generatedMessages = [];
-
-          parent.children.forEach(childId => {
-            const child = mockUsers.students.find(s => s.id === childId);
-            if (child) {
-              // Get classes for this child
-              const childClasses = mockClasses.filter(cls => cls.students.includes(child.id));
-
-              childClasses.forEach(cls => {
-                const teacher = mockUsers.teachers.find(t => t.id === cls.teacherId);
-                if (teacher) {
-                  generatedMessages.push({
-                    id: `msg-${cls.id}-${teacher.id}`,
-                    from: `${teacher.firstName} ${teacher.lastName}`,
-                    fromId: teacher.id,
-                    fromRole: 'teacher',
-                    to: `${parent.firstName} ${parent.lastName}`,
-                    toId: parent.id,
-                    toRole: 'parent',
-                    subject: `${child.firstName || child.name}'s Progress in ${cls.name}`,
-                    message: `Assalamu Alaikum. ${child.firstName || child.name} is making good progress in ${cls.name}. Please encourage regular practice at home.`,
-                    timestamp: new Date().toISOString(),
-                    read: Math.random() > 0.5,
-                    replied: Math.random() > 0.7
-                  });
-                }
-              });
-            }
-          });
-
-          setMessages(generatedMessages);
-        }
-      }
-    } catch (error) {
-      console.error('Error fetching messages:', error);
+      setError(null);
+      
+      // Fetch all required data in parallel
+      const [childrenResponse, teachersResponse, classesResponse, messagesResponse] = await Promise.all([
+        parentsService.getMyChildren(),
+        usersService.getUsersByRole('teacher'),
+        coursesService.getAllCourses(),
+        parentsService.getMessages()
+      ]);
+      
+      setChildren(childrenResponse.children || []);
+      setTeachers(teachersResponse.users || []);
+      setClasses(classesResponse.courses || []);
+      setMessages(messagesResponse.messages || []);
+      
+    } catch (err) {
+      console.error('Error fetching data:', err);
+      setError(err.message || 'Failed to load data');
     } finally {
       setLoading(false);
     }
   };
 
-  const fetchTeachers = async () => {
-    try {
-      // Get teachers from mock data
-      setTeachers(mockUsers.teachers);
-    } catch (error) {
-      console.error('Error fetching teachers:', error);
+  const handleSendMessage = async (e) => {
+    e.preventDefault();
+    
+    if (!newMessage.to || !newMessage.subject || !newMessage.content) {
+      alert('Please fill in all required fields');
+      return;
     }
-  };
 
-  const fetchChildren = async () => {
     try {
-      if (user && user.role === 'parent') {
-        const parent = mockUsers.parents.find(p => p.id === user.id);
-        if (parent) {
-          const childrenData = parent.children.map(childId => {
-            const child = mockUsers.students.find(s => s.id === childId);
-            return child;
-          }).filter(Boolean);
-          setChildren(childrenData);
-        }
-      }
-    } catch (error) {
-      console.error('Error fetching children:', error);
-    }
-  };
+      const messageData = {
+        ...newMessage,
+        timestamp: new Date().toISOString()
+      };
 
-  const handleFilterChange = (key, value) => {
-    setFilters(prev => ({
-      ...prev,
-      [key]: value
-    }));
+      await parentsService.sendMessage(messageData);
+      
+      // Add the new message to the list
+      setMessages(prev => [messageData, ...prev]);
+      
+      // Reset form
+      setNewMessage({
+        to: '',
+        subject: '',
+        content: '',
+        priority: 'normal'
+      });
+      
+      alert('Message sent successfully!');
+      
+    } catch (err) {
+      console.error('Error sending message:', err);
+      alert('Failed to send message: ' + err.message);
+    }
   };
 
   const filteredMessages = messages.filter(message => {
-    if (filters.teacher_id && message.fromId !== parseInt(filters.teacher_id)) return false;
+    if (filters.teacher_id && message.fromId !== filters.teacher_id) return false;
     if (filters.child_id) {
-      const child = children.find(c => c.id === parseInt(filters.child_id));
+      const child = children.find(c => c.id === filters.child_id);
       if (!child) return false;
-      // Check if the message is related to this child's classes
-      const childClasses = mockClasses.filter(cls => cls.students.includes(child.id));
-      const messageTeacherId = message.fromId;
-      const isRelated = childClasses.some(cls => cls.teacherId === messageTeacherId);
-      if (!isRelated) return false;
+      // Add more filtering logic as needed
     }
+    if (filters.class_id && message.classId !== filters.class_id) return false;
+    if (filters.date_from && new Date(message.timestamp) < new Date(filters.date_from)) return false;
+    if (filters.date_to && new Date(message.timestamp) > new Date(filters.date_to)) return false;
+    
     return true;
   });
-
-  const getTeacherName = (teacherId) => {
-    const teacher = mockUsers.teachers.find(t => t.id === teacherId);
-    return teacher ? `${teacher.firstName} ${teacher.lastName}` : 'Unknown Teacher';
-  };
-
-  const getChildName = (childId) => {
-    const child = mockUsers.students.find(s => s.id === childId);
-    return child ? (child.firstName && child.lastName ? `${child.firstName} ${child.lastName}` : child.name) : 'Unknown Child';
-  };
 
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-purple-600"></div>
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading communication data...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="text-red-500 text-xl mb-4">⚠️</div>
+          <p className="text-gray-600 mb-4">{error}</p>
+          <button 
+            onClick={fetchData} 
+            className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+          >
+            Retry
+          </button>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-4 sm:space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Communication Center</h1>
-          <p className="text-sm sm:text-base text-gray-600">Stay connected with teachers and monitor your children's progress</p>
-        </div>
-      </div>
-
-      {/* Filters */}
-      <div className="bg-white rounded-lg shadow p-6 mb-6">
-        <div className="flex flex-wrap gap-4 items-center">
-          <div className="flex items-center space-x-2">
-            <Filter className="h-5 w-5 text-gray-400" />
-            <span className="text-sm font-medium text-gray-700">Filters:</span>
-          </div>
-
-          <select
-            value={filters.teacher_id}
-            onChange={(e) => handleFilterChange('teacher_id', e.target.value)}
-            className="border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
-          >
-            <option value="">All Teachers</option>
-            {teachers.map(teacher => (
-              <option key={teacher.id} value={teacher.id}>
-                {teacher.firstName && teacher.lastName ? `${teacher.firstName} ${teacher.lastName}` : teacher.name}
-              </option>
-            ))}
-          </select>
-
-          <select
-            value={filters.child_id}
-            onChange={(e) => handleFilterChange('child_id', e.target.value)}
-            className="border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
-          >
-            <option value="">All Children</option>
-            {children.map(child => (
-              <option key={child.id} value={child.id}>
-                {child.firstName && child.lastName ? `${child.firstName} ${child.lastName}` : child.name}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
-
-      {/* Messages */}
-      <div className="bg-white rounded-lg shadow">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-gray-900">Messages</h2>
-            <button
-              onClick={() => setShowComposeModal(true)}
-              className="flex items-center space-x-2 bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700 transition-colors"
-            >
-              <Plus className="h-4 w-4" />
-              <span>Compose</span>
-            </button>
-          </div>
+    <div className="min-h-screen bg-gray-50 p-6">
+      <div className="max-w-7xl mx-auto">
+        {/* Header */}
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Communication Center</h1>
+          <p className="text-gray-600">Stay connected with teachers and monitor your children's progress</p>
         </div>
 
-        <div className="p-6">
-          {filteredMessages.length === 0 ? (
-            <div className="text-center py-12">
-              <MessageCircle className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">No messages found</h3>
-              <p className="text-gray-500">Try adjusting your filters or compose a new message.</p>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {filteredMessages.map((message) => (
-                <div
-                  key={message.id}
-                  className={`border rounded-lg p-4 cursor-pointer transition-colors ${message.read ? 'bg-gray-50 border-gray-200' : 'bg-purple-50 border-purple-200'
-                    }`}
-                  onClick={() => setSelectedMessage(message)}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Message Composition */}
+          <div className="lg:col-span-1">
+            <div className="bg-white rounded-lg shadow p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Send New Message</h3>
+              
+              <form onSubmit={handleSendMessage} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">To *</label>
+                  <select
+                    required
+                    value={newMessage.to}
+                    onChange={(e) => setNewMessage({...newMessage, to: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">Select recipient</option>
+                    <optgroup label="Teachers">
+                      {teachers.map(teacher => (
+                        <option key={teacher.id} value={teacher.id}>
+                          {teacher.firstName} {teacher.lastName} (Teacher)
+                        </option>
+                      ))}
+                    </optgroup>
+                    <optgroup label="Administrators">
+                      <option value="admin">Administration</option>
+                    </optgroup>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Subject *</label>
+                  <input
+                    type="text"
+                    required
+                    value={newMessage.subject}
+                    onChange={(e) => setNewMessage({...newMessage, subject: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Priority</label>
+                  <select
+                    value={newMessage.priority}
+                    onChange={(e) => setNewMessage({...newMessage, priority: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="low">Low</option>
+                    <option value="normal">Normal</option>
+                    <option value="high">High</option>
+                    <option value="urgent">Urgent</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Message *</label>
+                  <textarea
+                    required
+                    rows="4"
+                    value={newMessage.content}
+                    onChange={(e) => setNewMessage({...newMessage, content: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  className="w-full bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition-colors"
                 >
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center space-x-3 mb-2">
-                        <h4 className="text-sm font-medium text-gray-900">
-                          {message.subject}
-                        </h4>
-                        {!message.read && (
-                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-                            New
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-sm text-gray-600 mb-2">
-                        From: <span className="font-medium">{getTeacherName(message.fromId)}</span>
-                      </p>
-                      <p className="text-sm text-gray-700 line-clamp-2">
-                        {message.message}
-                      </p>
-                      <p className="text-xs text-gray-500 mt-2">
-                        {format(new Date(message.timestamp), 'MMM dd, yyyy HH:mm')}
-                      </p>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      {message.replied && (
-                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                          Replied
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Teacher Directory */}
-      <div className="mt-8 bg-white rounded-lg shadow">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <h2 className="text-lg font-semibold text-gray-900">Teacher Directory</h2>
-        </div>
-        <div className="p-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {teachers.map((teacher) => (
-              <div key={teacher.id} className="border rounded-lg p-4">
-                <div className="flex items-center space-x-3 mb-3">
-                  <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center">
-                    <span className="text-purple-600 font-medium">
-                      {teacher.firstName ? teacher.firstName.charAt(0) : teacher.name.charAt(0)}
-                    </span>
-                  </div>
-                  <div>
-                    <h4 className="font-medium text-gray-900">
-                      {teacher.firstName && teacher.lastName ? `${teacher.firstName} ${teacher.lastName}` : teacher.name}
-                    </h4>
-                    <p className="text-sm text-gray-600">{teacher.specialization || 'Teacher'}</p>
-                  </div>
-                </div>
-                <div className="space-y-2 text-sm text-gray-600">
-                  <div className="flex items-center space-x-2">
-                    <Mail className="h-4 w-4" />
-                    <span>{teacher.email}</span>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Phone className="h-4 w-4" />
-                    <span>{teacher.phone}</span>
-                  </div>
-                </div>
-                <button className="mt-3 w-full bg-purple-600 text-white px-3 py-2 rounded-md text-sm hover:bg-purple-700 transition-colors">
                   Send Message
                 </button>
+              </form>
+            </div>
+          </div>
+
+          {/* Messages and Filters */}
+          <div className="lg:col-span-2">
+            {/* Filters */}
+            <div className="bg-white rounded-lg shadow p-6 mb-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Filters</h3>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Teacher</label>
+                  <select
+                    value={filters.teacher_id}
+                    onChange={(e) => setFilters({...filters, teacher_id: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">All Teachers</option>
+                    {teachers.map(teacher => (
+                      <option key={teacher.id} value={teacher.id}>
+                        {teacher.firstName} {teacher.lastName}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Child</label>
+                  <select
+                    value={filters.child_id}
+                    onChange={(e) => setFilters({...filters, child_id: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">All Children</option>
+                    {children.map(child => (
+                      <option key={child.id} value={child.id}>
+                        {child.firstName} {child.lastName}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Class</label>
+                  <select
+                    value={filters.class_id}
+                    onChange={(e) => setFilters({...filters, class_id: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">All Classes</option>
+                    {classes.map(cls => (
+                      <option key={cls.id} value={cls.id}>
+                        {cls.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">From Date</label>
+                  <input
+                    type="date"
+                    value={filters.date_from}
+                    onChange={(e) => setFilters({...filters, date_from: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">To Date</label>
+                  <input
+                    type="date"
+                    value={filters.date_to}
+                    onChange={(e) => setFilters({...filters, date_to: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
+                <div className="flex items-end">
+                  <button
+                    onClick={() => setFilters({
+                      teacher_id: '',
+                      child_id: '',
+                      class_id: '',
+                      date_from: '',
+                      date_to: ''
+                    })}
+                    className="w-full bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600"
+                  >
+                    Clear Filters
+                  </button>
+                </div>
               </div>
-            ))}
+            </div>
+
+            {/* Messages List */}
+            <div className="bg-white rounded-lg shadow">
+              <div className="px-6 py-4 border-b border-gray-200">
+                <h3 className="text-lg font-semibold text-gray-900">
+                  Messages ({filteredMessages.length})
+                </h3>
+              </div>
+              
+              <div className="divide-y divide-gray-200">
+                {filteredMessages.length === 0 ? (
+                  <div className="text-center py-8">
+                    <p className="text-gray-500">No messages found matching your criteria.</p>
+                  </div>
+                ) : (
+                  filteredMessages.map((message) => (
+                    <div key={message.id} className="p-6 hover:bg-gray-50">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center space-x-3 mb-2">
+                            <h4 className="text-lg font-medium text-gray-900">{message.subject}</h4>
+                            <span className={`px-2 py-1 text-xs rounded-full ${
+                              message.priority === 'urgent' ? 'bg-red-100 text-red-800' :
+                              message.priority === 'high' ? 'bg-orange-100 text-orange-800' :
+                              message.priority === 'normal' ? 'bg-blue-100 text-blue-800' :
+                              'bg-gray-100 text-gray-800'
+                            }`}>
+                              {message.priority}
+                            </span>
+                          </div>
+                          
+                          <p className="text-gray-600 mb-3">{message.content}</p>
+                          
+                          <div className="flex items-center space-x-4 text-sm text-gray-500">
+                            <span>From: {message.fromName || 'Unknown'}</span>
+                            <span>Date: {new Date(message.timestamp).toLocaleDateString()}</span>
+                            {message.className && <span>Class: {message.className}</span>}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
           </div>
         </div>
       </div>

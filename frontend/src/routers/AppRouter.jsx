@@ -1,36 +1,95 @@
+import { Routes, Route, Navigate } from 'react-router-dom';
 import { StudentMain } from '../pages/student';
 import { AdminMain } from '../pages/admin';
 import { ParentMain } from '../pages/parent';
 import TeacherMain from '../pages/teacher/TeacherMain';
 import HomePage from '../pages/home/HomePage';
+import { authService } from '../services';
 
-const Router = ({ user, onLogin, onRegister, onDemo }) => {
+const AppRouter = ({ user, onLogin, onLogout }) => {
   // Show HomePage if user is not logged in
   if (!user) {
     return <HomePage onLoginClick={onLogin} />;
   }
 
-  // All user roles now use their own main components with consistent theming
-  const handleLogout = () => {
-    localStorage.removeItem('token');
-    window.location.reload();
+  // Protected Route component
+  const ProtectedRoute = ({ children, allowedRoles }) => {
+    if (!user) {
+      return <Navigate to="/" replace />;
+    }
+    
+    if (allowedRoles && !allowedRoles.includes(user.role)) {
+      return <Navigate to="/" replace />;
+    }
+    
+    return children;
   };
 
-  switch (user?.role) {
-    case 'student':
-      return <StudentMain user={user} onLogout={handleLogout} />;
-    case 'admin':
-      return <AdminMain user={user} onLogout={handleLogout} />;
-    case 'parent':
-      return <ParentMain user={user} onLogout={handleLogout} />;
-    case 'teacher':
-      return <TeacherMain user={user} onLogout={handleLogout} />;
-    default:
-      return <div className="text-center py-12">
-        <h2 className="text-2xl font-bold text-gray-900 mb-4">Welcome!</h2>
-        <p className="text-gray-600">Dashboard loading...</p>
-      </div>;
-  }
+  return (
+    <Routes>
+      {/* Root path - redirect authenticated users to their dashboard */}
+      <Route 
+        path="/" 
+        element={
+          <Navigate 
+            to={`/${user.role === 'admin' ? 'admin' : user.role === 'student' ? 'student' : user.role === 'parent' ? 'parent' : 'teacher'}/dashboard`} 
+            replace 
+          />
+        } 
+      />
+      
+      {/* Admin routes */}
+      <Route 
+        path="/admin/*" 
+        element={
+          <ProtectedRoute allowedRoles={['admin']}>
+            <AdminMain user={user} onLogout={onLogout} />
+          </ProtectedRoute>
+        } 
+      />
+      
+      {/* Student routes */}
+      <Route 
+        path="/student/*" 
+        element={
+          <ProtectedRoute allowedRoles={['student']}>
+            <StudentMain user={user} onLogout={onLogout} />
+          </ProtectedRoute>
+        } 
+      />
+      
+      {/* Parent routes */}
+      <Route 
+        path="/parent/*" 
+        element={
+          <ProtectedRoute allowedRoles={['parent']}>
+            <ParentMain user={user} onLogout={onLogout} />
+          </ProtectedRoute>
+        } 
+      />
+      
+      {/* Teacher routes */}
+      <Route 
+        path="/teacher/*" 
+        element={
+          <ProtectedRoute allowedRoles={['teacher']}>
+            <TeacherMain user={user} onLogout={onLogout} />
+          </ProtectedRoute>
+        } 
+      />
+      
+      {/* Default redirect for authenticated users */}
+      <Route 
+        path="*" 
+        element={
+          <Navigate 
+            to={`/${user.role === 'admin' ? 'admin' : user.role === 'student' ? 'student' : user.role === 'parent' ? 'parent' : 'teacher'}/dashboard`} 
+            replace 
+          />
+        } 
+      />
+    </Routes>
+  );
 };
 
 const UnauthorizedPage = () => (
@@ -50,4 +109,4 @@ const ComingSoonPage = ({ title }) => (
   </div>
 );
 
-export default Router;
+export default AppRouter;

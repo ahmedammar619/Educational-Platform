@@ -11,7 +11,7 @@ export class DashboardService {
     private readonly userRepository: Repository<User>,
   ) {}
 
-  async getStudentDashboard(studentId: number) {
+  async getStudentDashboard(studentId: string) {
     // Mock data for now - replace with actual database queries
     return {
       enrolledClasses: 2,
@@ -44,61 +44,140 @@ export class DashboardService {
     };
   }
 
-  async getTeacherDashboard(teacherId: number) {
+  async getTeacherDashboard(teacherId: string) {
     // Mock data for now - replace with actual database queries
+    // This structure matches what the frontend TeacherDashboard expects
     return {
-      totalClasses: 3,
-      totalStudents: 24,
-      upcomingSessions: 8,
-      pendingGrading: 5,
-      recentAnnouncements: [
+      classes: [
         {
-          id: 1,
-          title: 'Class Schedule Update',
-          content: 'Next week\'s schedule has been updated',
-          date: '2025-02-15'
+          id: '1',
+          name: 'Quran Memorization - Juz 1',
+          description: 'Advanced Quran memorization course focusing on Juz 1',
+          students: ['student1', 'student2', 'student3', 'student4', 'student5', 'student6', 'student7', 'student8'],
+          schedule: [
+            { day: 'Sunday', startTime: '4:00 PM', endTime: '6:00 PM' },
+            { day: 'Wednesday', startTime: '4:00 PM', endTime: '6:00 PM' }
+          ],
+          sessionDuration: 120
+        },
+        {
+          id: '2',
+          name: 'Arabic Language Basics',
+          description: 'Fundamental Arabic language skills for beginners',
+          students: ['student9', 'student10', 'student11', 'student12', 'student13', 'student14', 'student15', 'student16'],
+          schedule: [
+            { day: 'Monday', startTime: '5:00 PM', endTime: '6:30 PM' },
+            { day: 'Thursday', startTime: '5:00 PM', endTime: '6:30 PM' }
+          ],
+          sessionDuration: 90
+        },
+        {
+          id: '3',
+          name: 'Islamic Studies - Fiqh',
+          description: 'Islamic jurisprudence and religious studies',
+          students: ['student17', 'student18', 'student19', 'student20', 'student21', 'student22', 'student23', 'student24'],
+          schedule: [
+            { day: 'Tuesday', startTime: '6:00 PM', endTime: '7:30 PM' },
+            { day: 'Saturday', startTime: '10:00 AM', endTime: '11:30 AM' }
+          ],
+          sessionDuration: 90
         }
       ],
-      classOverview: [
+      students: [
+        { id: 'student1', name: 'Ahmad Al-Noor', email: 'ahmad@example.com' },
+        { id: 'student2', name: 'Fatima Al-Zahra', email: 'fatima@example.com' },
+        { id: 'student3', name: 'Omar Al-Rashid', email: 'omar@example.com' },
+        { id: 'student4', name: 'Aisha Al-Mahmoud', email: 'aisha@example.com' },
+        { id: 'student5', name: 'Khalid Al-Sabah', email: 'khalid@example.com' },
+        { id: 'student6', name: 'Zainab Al-Qadir', email: 'zainab@example.com' },
+        { id: 'student7', name: 'Yusuf Al-Hamdan', email: 'yusuf@example.com' },
+        { id: 'student8', name: 'Mariam Al-Saadi', email: 'mariam@example.com' }
+      ],
+      upcomingSessions: [
         {
-          id: 1,
-          name: 'Quran Memorization - Juz 1',
-          students: 8,
-          nextSession: '2025-02-16 16:00'
+          id: 'session1',
+          className: 'Quran Memorization - Juz 1',
+          day: 'Sunday',
+          time: '4:00 PM - 6:00 PM',
+          studentCount: 8,
+          duration: 120
+        },
+        {
+          id: 'session2',
+          className: 'Arabic Language Basics',
+          day: 'Monday',
+          time: '5:00 PM - 6:30 PM',
+          studentCount: 8,
+          duration: 90
+        },
+        {
+          id: 'session3',
+          className: 'Islamic Studies - Fiqh',
+          day: 'Tuesday',
+          time: '6:00 PM - 7:30 PM',
+          studentCount: 8,
+          duration: 90
+        },
+        {
+          id: 'session4',
+          className: 'Quran Memorization - Juz 1',
+          day: 'Wednesday',
+          time: '4:00 PM - 6:00 PM',
+          studentCount: 8,
+          duration: 120
+        },
+        {
+          id: 'session5',
+          className: 'Arabic Language Basics',
+          day: 'Thursday',
+          time: '5:00 PM - 6:30 PM',
+          studentCount: 8,
+          duration: 90
+        }
+      ],
+      recentActivities: [
+        {
+          id: 'activity1',
+          description: 'Class "Quran Memorization - Juz 1" completed successfully',
+          timestamp: '2 hours ago',
+          type: 'class_completion'
+        },
+        {
+          id: 'activity2',
+          description: 'New student enrolled in "Arabic Language Basics"',
+          timestamp: '1 day ago',
+          type: 'enrollment'
+        },
+        {
+          id: 'activity3',
+          description: 'Updated schedule for "Islamic Studies - Fiqh"',
+          timestamp: '2 days ago',
+          type: 'schedule_update'
+        },
+        {
+          id: 'activity4',
+          description: 'Attendance marked for "Quran Memorization - Juz 1"',
+          timestamp: '3 days ago',
+          type: 'attendance'
+        },
+        {
+          id: 'activity5',
+          description: 'Created new assignment in "Arabic Language Basics"',
+          timestamp: '1 week ago',
+          type: 'assignment'
         }
       ]
     };
   }
 
-  async getParentDashboard(parentId: number) {
-    // Mock data for now - replace with actual database queries
+  async getParentDashboard(parentId: string) {
+    // Return real data structure for parent dashboard
+    // This will be populated with actual database queries
     return {
-      totalChildren: 2,
-      totalClasses: 6,
-      totalSessions: 48,
-      totalCost: 2400,
-      children: [
-        {
-          id: 1,
-          name: 'Ahmad Al-Noor',
-          classes: 3,
-          progress: 85
-        },
-        {
-          id: 2,
-          name: 'Fatima Al-Zahra',
-          classes: 3,
-          progress: 92
-        }
-      ],
-      upcomingClasses: [
-        {
-          title: 'Quran Memorization - Juz 1',
-          childName: 'Ahmad Al-Noor',
-          date: '2025-02-16',
-          time: '4:00 PM'
-        }
-      ]
+      children: [],
+      classes: [],
+      upcomingSessions: [],
+      recentActivities: []
     };
   }
 
@@ -109,14 +188,16 @@ export class DashboardService {
     const totalParents = await this.userRepository.count({ where: { role: Role.Parent } });
 
     return {
-      totalUsers,
-      totalTeachers,
-      totalStudents,
-      totalParents,
-      totalClasses: 12,
-      activeClasses: 12,
-      revenue: 13250,
-      monthlyGrowth: 15.2,
+      analytics: {
+        totalUsers,
+        totalTeachers,
+        totalStudents,
+        totalParents,
+        totalClasses: 12,
+        activeClasses: 12,
+        revenue: 13250,
+        monthlyGrowth: 15.2
+      },
       userGrowthData: [
         { month: 'Sep', users: 8 },
         { month: 'Oct', users: 12 },

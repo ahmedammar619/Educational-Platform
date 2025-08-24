@@ -14,11 +14,6 @@ export class CreateScheduleDto {
   @IsString()
   endTime: string;
 
-  @ApiProperty({ description: 'Location (room or Zoom link)', required: false })
-  @IsOptional()
-  @IsString()
-  location?: string;
-
   @ApiProperty({ description: 'Whether schedule is active', required: false })
   @IsOptional()
   @IsBoolean()

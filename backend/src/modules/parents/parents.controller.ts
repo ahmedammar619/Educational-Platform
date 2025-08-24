@@ -7,6 +7,7 @@ import {
   Param,
   UseGuards,
   Request,
+  Req,
 } from '@nestjs/common';
 import { ParentsService } from './parents.service';
 import { ParentSignupDto } from './dto/parent-signup.dto';
@@ -15,6 +16,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { Role } from '../../common/enums/role.enum';
+import { ApiOperation, ApiResponse } from '@nestjs/swagger';
 
 @Controller('parents')
 export class ParentsController {
@@ -43,10 +45,27 @@ export class ParentsController {
   }
 
   // 🗑️ Remove child account
+  @Delete('children/:childId')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Remove child from parent' })
+  @ApiResponse({
+    status: 200,
+    description: 'Child removed successfully',
+  })
+  async removeChild(@Req() req, @Param('childId') childId: string) {
+    return this.parentsService.removeChild(req.user.id, childId);
+  }
+
+  // 📊 Get child progress
+  @Get('children/:childId/progress')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.Parent)
-  @Delete('children/:childId')
-  async removeChild(@Request() req, @Param('childId') childId: number) {
-    return this.parentsService.removeChild(req.user.id, +childId);
+  @ApiOperation({ summary: 'Get child progress' })
+  @ApiResponse({
+    status: 200,
+    description: 'Child progress retrieved successfully',
+  })
+  async getChildProgress(@Request() req, @Param('childId') childId: string) {
+    return this.parentsService.getChildProgress(req.user.id, childId);
   }
 }

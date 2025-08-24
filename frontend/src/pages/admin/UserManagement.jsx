@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
-import { Search, Plus, Edit, Trash2, UserCheck, UserX, Eye, Key, Users, ChevronDown, ChevronUp } from 'lucide-react';
-import { mockUsers } from '../../data/mockData';
+import { useState, useEffect, useCallback } from 'react';
+import { Search, Plus, Edit, Trash2, UserCheck, Eye, Key, Users, ChevronDown, ChevronUp } from 'lucide-react';
+import { usersService } from '../../services';
+import PhoneInput from '../../components/ui/PhoneInput';
 
 const UserManagement = ({ user }) => {
   const [allUsers, setAllUsers] = useState([]);
@@ -24,48 +25,35 @@ const UserManagement = ({ user }) => {
   const [selectedUser, setSelectedUser] = useState(null);
 
   useEffect(() => {
-    loadMockUsers();
+    fetchUsers();
   }, []);
 
   useEffect(() => {
     filterUsers();
   }, [filters, allUsers]);
 
-  const loadMockUsers = () => {
-    setLoading(true);
-    // Combine all user types into one array
-    const combinedUsers = [
-      ...mockUsers.students.map(u => ({
+  const fetchUsers = async () => {
+    try {
+      setLoading(true);
+      const response = await usersService.getAllUsers();
+      const users = response.users || [];
+      
+      // Transform the API response to match the expected format
+      const transformedUsers = users.map(u => ({
         ...u,
-        is_active: u.status === 'active',
-        created_at: u.joinDate,
-        // Add fallback for name if firstName/lastName don't exist
-        name: u.firstName && u.lastName ? `${u.firstName} ${u.lastName}` : u.name
-      })),
-      ...mockUsers.teachers.map(u => ({
-        ...u,
-        is_active: u.status === 'active',
-        created_at: u.joinDate,
-        // Add fallback for name if firstName/lastName don't exist
-        name: u.firstName && u.lastName ? `${u.firstName} ${u.lastName}` : u.name
-      })),
-      ...mockUsers.parents.map(u => ({
-        ...u,
-        is_active: u.status === 'active',
-        created_at: u.joinDate,
-        // Add fallback for name if firstName/lastName don't exist
-        name: u.firstName && u.lastName ? `${u.firstName} ${u.lastName}` : u.name
-      })),
-      ...mockUsers.admins.map(u => ({
-        ...u,
-        is_active: u.status === 'active',
-        created_at: u.joinDate,
-        // Add fallback for name if firstName/lastName don't exist
-        name: u.firstName && u.lastName ? `${u.firstName} ${u.lastName}` : u.name
-      }))
-    ];
-    setAllUsers(combinedUsers);
-    setLoading(false);
+        created_at: u.createdAt ? new Date(u.createdAt).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+        name: u.firstName && u.lastName ? `${u.firstName} ${u.lastName}` : u.email,
+        children: u.children || []
+      }));
+      
+      setAllUsers(transformedUsers);
+    } catch (err) {
+      console.error('Error fetching users:', err);
+      // Fallback to empty array if API fails
+      setAllUsers([]);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const filterUsers = () => {
@@ -128,36 +116,84 @@ const UserManagement = ({ user }) => {
     });
   };
 
-  const handleCreateUser = (userData) => {
-    const newUser = {
-      id: Date.now(),
-      ...userData,
-      is_active: true,
-      created_at: new Date().toISOString().split('T')[0],
-      status: 'active'
-    };
+  const handleCreateUser = async (userData) => {
+    try {
+      console.log('Creating user with data:', userData); // Debug log
+      
+      // Call the backend API to create user
+      const response = await usersService.createUser(userData);
+      console.log('Backend response:', response); // Debug log
+      
+      // Add the new user to the local state
+      const newUser = {
+        ...response,
+        created_at: response.createdAt ? new Date(response.createdAt).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+        name: `${response.firstName} ${response.lastName}`,
+        children: []
+      };
 
-    setAllUsers(prev => [...prev, newUser]);
-    setShowCreateModal(false);
-    alert('User created successfully!');
+      setAllUsers(prev => [...prev, newUser]);
+      setShowCreateModal(false);
+      alert('User created successfully!');
+    } catch (error) {
+      console.error('Error creating user:', error);
+      const errorMessage = error.message || error.response?.data?.message || 'Unknown error occurred';
+      alert(`Error creating user: ${errorMessage}`);
+    }
   };
 
-  const handleUpdateUser = (userId, userData) => {
-    setAllUsers(prev => prev.map(user =>
-      user.id === userId ? { ...user, ...userData } : user
-    ));
-    setShowEditModal(false);
-    setSelectedUser(null);
-    alert('User updated successfully!');
+  const handleUpdateUser = async (userId, userData) => {
+    try {
+      console.log('Updating user with data:', userData); // Debug log
+      
+      // Call the backend API to update user
+      const response = await usersService.updateUser(userId, userData);
+      console.log('Backend response:', response); // Debug log
+      
+      // Update the user in local state
+      const updatedUser = {
+        ...response,
+        name: `${response.firstName} ${response.lastName}`
+      };
+
+      setAllUsers(prev => prev.map(user =>
+        user.id === userId ? { ...user, ...updatedUser } : user
+      ));
+      setShowEditModal(false);
+      setSelectedUser(null);
+      alert('User updated successfully!');
+    } catch (error) {
+      console.error('Error updating user:', error);
+      const errorMessage = error.message || error.response?.data?.message || 'Unknown error occurred';
+      alert(`Error updating user: ${errorMessage}`);
+    }
   };
 
-  const handleDeactivateUser = (userId) => {
-    if (!confirm('Are you sure you want to deactivate this user?')) return;
+  const handleDeleteUser = async (userId) => {
+    if (!confirm('Are you sure you want to delete this user? This action cannot be undone.')) return;
 
-    setAllUsers(prev => prev.map(user =>
-      user.id === userId ? { ...user, is_active: false, status: 'inactive' } : user
-    ));
-    alert('User deactivated successfully!');
+    try {
+      // Call the backend API to delete user
+      await usersService.deleteUser(userId);
+      
+      // Remove the user from local state after successful deletion
+      setAllUsers(prev => prev.filter(user => user.id !== userId));
+      alert('User deleted successfully!');
+    } catch (error) {
+      console.error('Error deleting user:', error);
+      
+      // Handle specific error cases
+      if (error.message && error.message.includes('related data')) {
+        alert(
+          'Cannot delete this user because they have related data (courses, enrollments, etc.).\n\n' +
+          'Please remove all related data first or consider deactivating the user instead.\n\n' +
+          'Error details: ' + error.message
+        );
+      } else {
+        const errorMessage = error.message || error.response?.data?.message || 'Unknown error occurred';
+        alert(`Error deleting user: ${errorMessage}`);
+      }
+    }
   };
 
   const getRoleColor = (role) => {
@@ -168,6 +204,19 @@ const UserManagement = ({ user }) => {
       case 'student': return 'bg-red-100 text-red-800';
       default: return 'bg-gray-100 text-gray-800';
     }
+  };
+
+  // Helper function to check if user can be deleted
+  const canUserBeDeleted = (user) => {
+    // Allow deletion of all users - let the backend handle validation
+    // The backend will check for actual related data and prevent deletion if needed
+    console.log('canUserBeDeleted called for user:', user.name, user.role, 'result: true');
+    return true;
+  };
+
+  // Get delete button tooltip
+  const getDeleteTooltip = (user) => {
+    return 'Delete User';
   };
 
   const toggleParentExpansion = (parentId) => {
@@ -362,13 +411,19 @@ const UserManagement = ({ user }) => {
               >
                 <Edit className="h-4 w-4" />
               </button>
+              {/* Debug info */}
+              {console.log('Parent row delete button - userItem.id:', userItem.id, 'user?.id:', user?.id, 'canUserBeDeleted:', canUserBeDeleted(userItem))}
               <button
-                onClick={() => handleDeactivateUser(userItem.id)}
-                className="text-red-600 hover:text-red-900"
-                title="Deactivate User"
-                disabled={userItem.id === user.id}
+                onClick={() => handleDeleteUser(userItem.id)}
+                className={`${
+                  canUserBeDeleted(userItem) 
+                    ? 'text-red-600 hover:text-red-900' 
+                    : 'text-gray-400 cursor-not-allowed'
+                } transition-colors duration-200`}
+                title={getDeleteTooltip(userItem)}
+                disabled={userItem.id === user?.id || !canUserBeDeleted(userItem)}
               >
-                <UserX className="h-4 w-4" />
+                <Trash2 className={`h-4 w-4 ${!canUserBeDeleted(userItem) ? 'opacity-50' : ''}`} />
               </button>
             </div>
           </td>
@@ -388,8 +443,8 @@ const UserManagement = ({ user }) => {
                 </div>
               </div>
               <div className="ml-3">
-                <div className="text-sm font-medium text-gray-900">{userItem.name}</div>
-                <div className="text-sm text-gray-500">{userItem.email}</div>
+                <div className="text-start text-sm font-medium text-gray-900">{userItem.name}</div>
+                <div className="text-start text-sm text-gray-500">{userItem.email}</div>
               </div>
             </div>
           </td>
@@ -411,12 +466,16 @@ const UserManagement = ({ user }) => {
                 <Edit className="h-4 w-4" />
               </button>
               <button
-                onClick={() => handleDeactivateUser(userItem.id)}
-                className="text-red-600 hover:text-red-900"
-                title="Deactivate User"
-                disabled={userItem.id === user.id}
+                onClick={() => handleDeleteUser(userItem.id)}
+                className={`${
+                  canUserBeDeleted(userItem) 
+                    ? 'text-red-600 hover:text-red-900' 
+                    : 'text-gray-400 cursor-not-allowed'
+                } transition-colors duration-200`}
+                title={getDeleteTooltip(userItem)}
+                disabled={userItem.id === user?.id || !canUserBeDeleted(userItem)}
               >
-                <UserX className="h-4 w-4" />
+                <Trash2 className={`h-4 w-4 ${!canUserBeDeleted(userItem) ? 'opacity-50' : ''}`} />
               </button>
             </div>
           </td>
@@ -459,12 +518,16 @@ const UserManagement = ({ user }) => {
                 <Edit className="h-4 w-4" />
               </button>
               <button
-                onClick={() => handleDeactivateUser(userItem.id)}
-                className="text-red-600 hover:text-red-900"
-                title="Deactivate User"
-                disabled={userItem.id === user.id}
+                onClick={() => handleDeleteUser(userItem.id)}
+                className={`${
+                  canUserBeDeleted(userItem) 
+                    ? 'text-red-600 hover:text-red-900' 
+                    : 'text-gray-400 cursor-not-allowed'
+                } transition-colors duration-200`}
+                title={getDeleteTooltip(userItem)}
+                disabled={userItem.id === user?.id || !canUserBeDeleted(userItem)}
               >
-                <UserX className="h-4 w-4" />
+                <Trash2 className={`h-4 w-4 ${!canUserBeDeleted(userItem) ? 'opacity-50' : ''}`} />
               </button>
             </div>
           </td>
@@ -490,22 +553,42 @@ const UserManagement = ({ user }) => {
         </button>
       </div>
 
+      {/* Deletion Rules Info */}
+      {/* <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <div className="flex items-start">
+          <div className="flex-shrink-0">
+            <svg className="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+            </svg>
+          </div>
+          <div className="ml-3">
+            <h3 className="text-sm font-medium text-blue-800">User Deletion Rules</h3>
+            <div className="mt-2 text-sm text-blue-700">
+              <p>• <strong>Teachers, Students, and Parents</strong> cannot be deleted if they have related data (courses, enrollments, materials, etc.)</p>
+              <p>• <strong>Admin users</strong> can be deleted if they don't have related data</p>
+              <p>• <strong>Disabled delete buttons</strong> indicate users that cannot be deleted</p>
+              <p>• Consider deactivating users instead of deleting them</p>
+            </div>
+          </div>
+        </div>
+      </div> */}
+
       {/* Filters */}
-      <div className="bg-white p-6 rounded-lg shadow-sm border">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="bg-white p-4 sm:p-6 rounded-lg shadow-sm border">
+        <div className="grid grid-cols-3 gap-4">
           <div className="relative">
             <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
             <input
               type="text"
               placeholder="Search users..."
-              className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full pl-10 pr-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
               value={filters.search}
               onChange={(e) => setFilters({ ...filters, search: e.target.value, page: 1 })}
             />
           </div>
 
           <select
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
             value={filters.role}
             onChange={(e) => setFilters({ ...filters, role: e.target.value, page: 1 })}
           >
@@ -517,7 +600,7 @@ const UserManagement = ({ user }) => {
           </select>
 
           <select
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
             value={filters.limit}
             onChange={(e) => setFilters({ ...filters, limit: e.target.value, page: 1 })}
           >
@@ -540,7 +623,7 @@ const UserManagement = ({ user }) => {
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
                       User
                     </th>
                     <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -573,7 +656,7 @@ const UserManagement = ({ user }) => {
                   <button
                     onClick={() => setFilters({ ...filters, page: Math.min(pagination?.pages || 1, filters.page + 1) })}
                     disabled={filters.page === (pagination?.pages || 1)}
-                    className="ml-3 relative inline-flex items-center px-4 py-2 border-2 border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 transition-all duration-200"
+                    className="ml-3 relative inline-flex items-center px-4 py-2 border-2 border-gray-300 text-sm font-medium rounded-md text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 transition-all duration-200"
                   >
                     Next
                   </button>
@@ -638,30 +721,57 @@ const UserManagement = ({ user }) => {
 // User Modal Component
 const UserModal = ({ title, user, onClose, onSubmit }) => {
   const [formData, setFormData] = useState({
-    name: user?.name || '',
+    firstName: user?.firstName || '',
+    lastName: user?.lastName || '',
     email: user?.email || '',
-    password: '',  // Always empty
-    role: '',      // Always empty for new users
-    phone: user?.phone || '',
-    date_of_birth: user?.date_of_birth || '',
-    is_active: user?.is_active !== undefined ? user.is_active : true
+    password: '',  // Always empty for edit mode
+    role: user?.role || '',  // Fill if editing existing user
+    phone: user?.role && user?.role !== 'student' ? (user?.phone || '') : '',  // Only for non-students
+    birthDate: user?.role === 'student' ? (user?.birthDate || '') : undefined,  // Only for students, undefined for others
   });
 
   // Reset form when user prop changes
   useEffect(() => {
     setFormData({
-      name: user?.name || '',
+      firstName: user?.firstName || '',
+      lastName: user?.lastName || '',
       email: user?.email || '',
-      password: '',  // Always empty
-      role: user?.role || '',  // Only fill if editing existing user
-      phone: user?.phone || '',
-      date_of_birth: user?.date_of_birth || '',
-      is_active: user?.is_active !== undefined ? user.is_active : true
+      password: '',  // Always empty for edit mode
+      role: user?.role || '',  // Fill if editing existing user
+      phone: user?.role && user?.role !== 'student' ? (user?.phone || '') : '',  // Only for non-students
+      birthDate: user?.role === 'student' ? (user?.birthDate || '') : undefined,  // Only for students, undefined for others
     });
   }, [user]);
 
+  // Memoize the phone onChange function to prevent infinite re-renders
+  const handlePhoneChange = useCallback((value) => {
+    setFormData(prev => ({ ...prev, phone: value }));
+  }, []);
+
   const handleSubmit = (e) => {
     e.preventDefault();
+    
+    // Validate required fields based on role
+    if (formData.role === 'student') {
+      if (!formData.birthDate) {
+        alert('Birth date is required for students');
+        return;
+      }
+      if (formData.phone) {
+        alert('Phone number is not allowed for students');
+        return;
+      }
+    } else if (formData.role === 'teacher' || formData.role === 'parent' || formData.role === 'admin') {
+      if (!formData.phone) {
+        alert('Phone number is required for teachers, parents, and admins');
+        return;
+      }
+      if (formData.birthDate) {
+        alert('Birth date is not allowed for teachers, parents, and admins');
+        return;
+      }
+    }
+
     const submitData = { ...formData };
 
     // Don't send password if it's empty (for edit mode)
@@ -669,25 +779,53 @@ const UserModal = ({ title, user, onClose, onSubmit }) => {
       delete submitData.password;
     }
 
+    // Clear phone and birthDate for students
+    if (submitData.role === 'student') {
+      submitData.phone = '';
+      // Keep birthDate for students (it's required)
+    } else {
+      // For non-students, completely remove birthDate field and keep phone
+      delete submitData.birthDate;
+    }
+
+    // Ensure birthDate is properly formatted
+    if (submitData.birthDate) {
+      submitData.birthDate = submitData.birthDate; // Keep as ISO string from date input
+    }
+
+    console.log('Submitting user data:', submitData); // Debug log
     onSubmit(submitData);
   };
 
   return (
-    <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 flex items-center justify-center" style={{ margin: 0 }}>
+    <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 flex items-center" style={{ margin: 0 }}>
       <div className="relative mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
         <div className="mt-1">
           <h3 className="text-lg font-medium text-gray-900 mb-4">{title}</h3>
-          <form onSubmit={handleSubmit} className="space-y-1">
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Name</label>
-              <input
-                type="text"
-                required
-                placeholder="Enter full name"
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              />
+          <form onSubmit={handleSubmit} className="space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700">First Name</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="First name"
+                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  value={formData.firstName}
+                  onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Last Name</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Last name"
+                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  value={formData.lastName}
+                  onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+                />
+              </div>
             </div>
 
             <div>
@@ -704,12 +842,13 @@ const UserModal = ({ title, user, onClose, onSubmit }) => {
 
             <div>
               <label className="block text-sm font-medium text-gray-700">
-                Password {user ? '(leave empty to keep current)' : ''}
+                Password {user ? '(leave empty to keep current)' : '(min 8 characters)'}
               </label>
               <input
                 type="password"
                 required={!user}
-                placeholder="Enter password (min 6 characters)"
+                minLength={8}
+                placeholder="Enter password"
                 className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 value={formData.password}
                 onChange={(e) => setFormData({ ...formData, password: e.target.value })}
@@ -719,9 +858,20 @@ const UserModal = ({ title, user, onClose, onSubmit }) => {
             <div>
               <label className="block text-sm font-medium text-gray-700">Role</label>
               <select
+                required
                 className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 value={formData.role}
-                onChange={(e) => setFormData({ ...formData, role: e.target.value })}
+                onChange={(e) => {
+                  const newRole = e.target.value;
+                  // Clear fields when switching roles based on strict requirements
+                  if (newRole === 'student') {
+                    setFormData({ ...formData, role: newRole, phone: '', birthDate: '' });
+                  } else if (newRole && newRole !== 'student') {
+                    setFormData({ ...formData, role: newRole, birthDate: undefined });
+                  } else {
+                    setFormData({ ...formData, role: newRole, phone: '', birthDate: undefined });
+                  }
+                }}
               >
                 <option value="">Select Role</option>
                 <option value="student">Student</option>
@@ -729,28 +879,44 @@ const UserModal = ({ title, user, onClose, onSubmit }) => {
                 <option value="parent">Parent</option>
                 <option value="admin">Admin</option>
               </select>
+              {formData.role === 'student' && (
+                <p className="mt-1 text-xs text-gray-500">
+                  Students: Birth date is required, phone number is forbidden
+                </p>
+              )}
+              {formData.role && formData.role !== 'student' && (
+                <p className="mt-1 text-xs text-gray-500">
+                  {formData.role.charAt(0).toUpperCase() + formData.role.slice(1)}s: Phone number is required, birth date is forbidden
+                </p>
+              )}
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Phone</label>
-              <input
-                type="tel"
-                placeholder="Enter phone number"
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                value={formData.phone}
-                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-              />
-            </div>
+            {/* Phone number - only show for admin, teacher, parent */}
+            {formData.role && formData.role !== 'student' && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Phone *</label>
+                <PhoneInput
+                  value={formData.phone}
+                  onChange={handlePhoneChange}
+                  placeholder="Enter phone number"
+                  required={true}
+                />
+              </div>
+            )}
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Date of Birth</label>
-              <input
-                type="date"
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                value={formData.date_of_birth}
-                onChange={(e) => setFormData({ ...formData, date_of_birth: e.target.value })}
-              />
-            </div>
+            {/* Date of Birth - only show for students */}
+            {formData.role === 'student' && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Date of Birth</label>
+                <input
+                  type="date"
+                  required
+                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  value={formData.birthDate}
+                  onChange={(e) => setFormData({ ...formData, birthDate: e.target.value })}
+                />
+              </div>
+            )}
 
             <div className="flex justify-end space-x-3 pt-4">
               <button

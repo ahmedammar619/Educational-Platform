@@ -12,8 +12,8 @@ import { CourseMaterial } from './course-material.entity';
 
 @Entity('session_materials')
 export class SessionMaterial {
-  @PrimaryGeneratedColumn()
-  id: number;
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
 
   @Column({ type: 'text', nullable: true })
   notes: string; // Additional notes for this material in this session
@@ -40,12 +40,12 @@ export class SessionMaterial {
   session: CourseSession;
 
   @Column()
-  sessionId: number;
+  sessionId: string; // Changed to string to match CourseSession UUID
 
   @ManyToOne(() => CourseMaterial, (material) => material.sessionMaterials, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'materialId' })
   material: CourseMaterial;
 
   @Column()
-  materialId: number;
+  materialId: string; // Changed to string to match CourseMaterial UUID
 }

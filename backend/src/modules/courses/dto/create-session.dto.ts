@@ -23,11 +23,6 @@ export class CreateSessionDto {
   @IsString()
   endTime: string;
 
-  @ApiProperty({ description: 'Session location (room or Zoom link)', required: false })
-  @IsOptional()
-  @IsString()
-  location?: string;
-
   @ApiProperty({ description: 'Session type', enum: ['regular', 'custom', 'makeup', 'exam'], required: false })
   @IsOptional()
   @IsEnum(['regular', 'custom', 'makeup', 'exam'])

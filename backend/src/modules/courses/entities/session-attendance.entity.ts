@@ -12,8 +12,8 @@ import { User } from '../../users/entities/user.entity';
 
 @Entity('session_attendance')
 export class SessionAttendance {
-  @PrimaryGeneratedColumn()
-  id: number;
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
 
   @Column({
     type: 'enum',
@@ -53,19 +53,19 @@ export class SessionAttendance {
   session: CourseSession;
 
   @Column()
-  sessionId: number;
+  sessionId: string; // Changed to string to match CourseSession UUID
 
   @ManyToOne(() => User, (user) => user.attendances, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'studentId' })
   student: User;
 
   @Column()
-  studentId: number;
+  studentId: string;
 
   @ManyToOne(() => User, (user) => user.markedAttendances)
   @JoinColumn({ name: 'markedBy' })
   markedBy: User;
 
   @Column()
-  markedById: number;
+  markedById: string;
 }

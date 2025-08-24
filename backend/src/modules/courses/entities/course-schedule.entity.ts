@@ -11,8 +11,8 @@ import { Course } from './course.entity';
 
 @Entity('course_schedules')
 export class CourseSchedule {
-  @PrimaryGeneratedColumn()
-  id: number;
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
 
   @Column({ length: 20 })
   day: string; // "Sunday", "Monday", "Tuesday", etc.
@@ -22,9 +22,6 @@ export class CourseSchedule {
 
   @Column({ length: 5 })
   endTime: string; // "18:00"
-
-  @Column({ type: 'varchar', length: 255, nullable: true })
-  location: string; // Room number or Zoom link
 
   @Column({ type: 'boolean', default: true })
   isActive: boolean;
@@ -48,5 +45,5 @@ export class CourseSchedule {
   course: Course;
 
   @Column()
-  courseId: number;
+  courseId: string; // Changed to string to match Course UUID
 }
