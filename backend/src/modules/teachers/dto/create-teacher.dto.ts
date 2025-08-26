@@ -1,20 +1,20 @@
+import { IsString, IsArray, IsOptional, IsUUID } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
-import { IsArray, IsString, IsUUID } from 'class-validator';
 
 export class CreateTeacherDto {
   @ApiProperty({
-    description: 'Teacher ID (must match User ID)',
+    description: 'User ID for the teacher',
     example: '123e4567-e89b-12d3-a456-426614174000'
   })
   @IsUUID()
   id: string;
 
   @ApiProperty({
-    description: 'Array of subjects the teacher teaches',
-    example: ['Quran', 'Arabic', 'Islamic Studies'],
-    default: []
+    description: 'Array of courses the teacher teaches',
+    example: ['Mathematics', 'Physics'],
+    type: [String]
   })
   @IsArray()
   @IsString({ each: true })
-  subjects: string[];
+  courses: string[];
 }

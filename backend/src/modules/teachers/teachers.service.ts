@@ -5,6 +5,7 @@ import { Teacher } from './entities/teacher.entity';
 import { User } from '../users/entities/user.entity';
 import { Role } from '../../common/enums/role.enum';
 import { NotFoundException } from '@nestjs/common';
+import { UpdateTeacherDto } from './dto/update-teacher.dto';
 
 @Injectable()
 export class TeachersService {
@@ -31,27 +32,26 @@ export class TeachersService {
       lastName: teacher.user.lastName,
       email: teacher.user.email,
       phone: teacher.user.phone,
-      subjects: teacher.subjects,
+      courses: teacher.courses,
       createdAt: teacher.user.createdAt,
     };
   }
 
-  async updateTeacherProfile(teacherId: string, updateData: Partial<Teacher>) {
+  async updateTeacher(teacherId: string, updateData: UpdateTeacherDto): Promise<Teacher> {
     const teacher = await this.teacherRepository.findOne({
       where: { id: teacherId },
-      relations: ['user'],
     });
 
     if (!teacher) {
-      throw new Error('Teacher not found');
+      throw new NotFoundException('Teacher not found');
     }
 
-    // Only allow updating subjects array
-    if (updateData.subjects) {
-      await this.teacherRepository.update(teacherId, { subjects: updateData.subjects });
+    // Only allow updating courses array
+    if (updateData.courses) {
+      await this.teacherRepository.update(teacherId, { courses: updateData.courses });
     }
 
-    return this.getTeacherProfile(teacherId);
+    return this.findOne(teacherId);
   }
 
   async getTeacherClasses(teacherId: string) {
@@ -83,10 +83,10 @@ export class TeachersService {
     ];
   }
 
-  async createTeacher(teacherData: { id: string; subjects: string[] }) {
+  async createTeacher(teacherData: { id: string; courses: string[] }) {
     const teacher = this.teacherRepository.create({
       id: teacherData.id,
-      subjects: teacherData.subjects,
+      courses: teacherData.courses,
     });
 
     return this.teacherRepository.save(teacher);
@@ -121,5 +121,25 @@ export class TeachersService {
     }
 
     await this.teacherRepository.remove(teacher);
+  }
+
+  // Method to create a teacher record from an existing user
+  async createTeacherFromUser(userId: string): Promise<Teacher> {
+    // Check if teacher record already exists
+    const existingTeacher = await this.teacherRepository.findOne({
+      where: { id: userId }
+    });
+
+    if (existingTeacher) {
+      throw new Error('Teacher record already exists for this user');
+    }
+
+    // Create teacher record with the existing user ID
+    const teacher = this.teacherRepository.create({
+      id: userId,
+      courses: [], // Start with empty courses array
+    });
+
+    return this.teacherRepository.save(teacher);
   }
 }
