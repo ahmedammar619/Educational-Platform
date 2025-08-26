@@ -11,6 +11,16 @@ class UsersService {
     }
   }
 
+  // Get all students
+  async getAllStudents() {
+    try {
+      const response = await api.get('/api/students');
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  }
+
   // Get user by ID
   async getUserById(userId) {
     try {

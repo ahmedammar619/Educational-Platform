@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Search, Plus, Edit, Trash2, UserCheck, Eye, Key, Users, ChevronDown, ChevronUp } from 'lucide-react';
-import { usersService } from '../../services';
+import { usersService, studentsService } from '../../services';
 import PhoneInput from '../../components/ui/PhoneInput';
 
 const UserManagement = ({ user }) => {
@@ -35,22 +35,75 @@ const UserManagement = ({ user }) => {
   const fetchUsers = async () => {
     try {
       setLoading(true);
-      const response = await usersService.getAllUsers();
-      const users = response.users || [];
       
-      // Transform the API response to match the expected format
-      const transformedUsers = users.map(u => ({
-        ...u,
-        created_at: u.createdAt ? new Date(u.createdAt).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
-        name: u.firstName && u.lastName ? `${u.firstName} ${u.lastName}` : u.email,
-        // For the new backend structure:
-        // - Students have a 'parent' field (either parent entity or null)
-        // - Parents have a 'children' array containing full student objects
-        children: u.children || [], // For parents
-        parent: u.parent || null,   // For students
-        parentId: u.parent?.id || null // For backward compatibility
-      }));
+      // Fetch both users and students to build the complete relationship structure
+      const [usersResponse, studentsResponse] = await Promise.all([
+        usersService.getAllUsers(),
+        studentsService.getAllStudents()
+      ]);
       
+      const users = usersResponse.users || [];
+      const students = studentsResponse.students || [];
+      
+      // Create a map of students by their user ID for quick lookup
+      const studentsMap = new Map();
+      students.forEach(student => {
+        studentsMap.set(student.user.id, {
+          ...student.user,
+          birthDate: student.birthDate,
+          parentId: student.parentId,
+          isStudent: true
+        });
+      });
+      
+      // Transform users and build parent-child relationships
+      const transformedUsers = users.map(u => {
+        const baseUser = {
+          ...u,
+          created_at: u.createdAt ? new Date(u.createdAt).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+          name: u.firstName && u.lastName ? `${u.firstName} ${u.lastName}` : u.email,
+        };
+        
+        if (u.role === 'parent') {
+          // For parents, find their children from the students data
+          const children = students.filter(s => s.parentId === u.id).map(s => ({
+            ...s.user,
+            birthDate: s.birthDate,
+            parentId: s.parentId,
+            isStudent: true
+          }));
+          
+          console.log(`Parent ${u.firstName} ${u.lastName} has children:`, children);
+          
+          return {
+            ...baseUser,
+            children: children,
+            studentIds: children.map(c => c.id)
+          };
+        } else if (u.role === 'student') {
+          // For students, find their parent info
+          const studentData = studentsMap.get(u.id);
+          if (studentData) {
+            const parentInfo = studentData.parentId ? {
+              id: studentData.parentId,
+              // Find parent user details
+              ...users.find(p => p.id === studentData.parentId)
+            } : null;
+            
+            console.log(`Student ${u.firstName} ${u.lastName} has parent:`, parentInfo);
+            
+            return {
+              ...baseUser,
+              ...studentData,
+              parent: parentInfo
+            };
+          }
+        }
+        
+        return baseUser;
+      });
+      
+      console.log('Transformed users:', transformedUsers);
       setAllUsers(transformedUsers);
     } catch (err) {
       console.error('Error fetching users:', err);
@@ -102,14 +155,43 @@ const UserManagement = ({ user }) => {
 
     // Apply role filter
     if (filters.role) {
-      filtered = filtered.filter(user => user.role === filters.role);
+      if (filters.role === 'student') {
+        // For student filter, include both students and their parents
+        const students = filtered.filter(user => user.role === 'student');
+        const parentIds = new Set();
+        
+        // Collect parent IDs of students
+        students.forEach(student => {
+          if (student.parent && student.parent.id) {
+            parentIds.add(student.parent.id);
+          }
+        });
+        
+        // Add parents to the filtered results
+        const parents = allUsers.filter(user => user.role === 'parent' && parentIds.has(user.id));
+        filtered = [...students, ...parents];
+      } else {
+        filtered = filtered.filter(user => user.role === filters.role);
+      }
     }
 
     // Set the filtered users (this will be used by getParentChildRows)
     setFilteredUsers(filtered);
 
-    // Calculate pagination based on the filtered results, excluding students
-    const paginationUsers = filtered.filter(user => user.role !== 'student');
+    // Calculate pagination based on the filtered results
+    let paginationUsers;
+    if (filters.role === 'student') {
+      // For student filter, count parents and individual students (not children under parents)
+      const parents = filtered.filter(user => user.role === 'parent');
+      const individualStudents = filtered.filter(user => 
+        user.role === 'student' && (!user.parent || !user.parent.id)
+      );
+      paginationUsers = [...parents, ...individualStudents];
+    } else {
+      // For other filters, exclude students from pagination count
+      paginationUsers = filtered.filter(user => user.role !== 'student');
+    }
+    
     const total = paginationUsers.length;
     const pages = Math.ceil(total / filters.limit);
 
@@ -405,6 +487,19 @@ const UserManagement = ({ user }) => {
       });
     });
 
+    // Add students without parents that haven't been processed yet
+    const studentsWithoutParents = usersToProcess.filter(u =>
+      u.role === 'student' && !u.parent && !processedUsers.has(u.id)
+    );
+
+    studentsWithoutParents.forEach(student => {
+      rows.push({
+        ...student,
+        rowSpan: 1
+      });
+      processedUsers.add(student.id);
+    });
+
     return rows;
   };
 
@@ -509,9 +604,6 @@ const UserManagement = ({ user }) => {
               <div className="ml-3">
                 <div className="text-start text-sm font-medium text-gray-900">{userItem.name}</div>
                 <div className="text-start text-sm text-gray-500">{userItem.email}</div>
-                <div className="text-start text-xs text-purple-600">
-                  📚 Linked to {userItem.parentName}
-                </div>
               </div>
             </div>
           </td>
@@ -555,7 +647,11 @@ const UserManagement = ({ user }) => {
           <td className="px-6 py-4 whitespace-nowrap">
             <div className="flex items-center">
               <div className="flex-shrink-0 h-10 w-10">
-                <div className="h-10 w-10 rounded-full bg-green-500 flex items-center justify-center">
+                <div className={`h-10 w-10 rounded-full flex items-center justify-center ${
+                  userItem.role === 'student' && !userItem.parent 
+                    ? 'bg-red-500' 
+                    : 'bg-green-500'
+                }`}>
                   <span className="text-white text-sm font-medium">
                     {userItem.name.charAt(0)}
                   </span>
@@ -564,11 +660,6 @@ const UserManagement = ({ user }) => {
               <div className="ml-4">
                 <div className="text-sm font-medium text-gray-900">{userItem.name}</div>
                 <div className="text-sm text-gray-500">{userItem.email}</div>
-                {userItem.role === 'student' && !userItem.parent && (
-                  <div className="text-xs text-orange-600">
-                    🎓 Individual Student (No Parent)
-                  </div>
-                )}
               </div>
             </div>
           </td>

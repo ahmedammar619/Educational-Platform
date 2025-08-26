@@ -62,4 +62,16 @@ export class DashboardController {
   async getParentDashboard(@Query('parentId') parentId: string) {
     return this.dashboardService.getParentDashboard(parentId);
   }
+
+  @Get('student')
+  @Public()
+  @ApiOperation({ summary: 'Get student dashboard data (Public - No Authorization Required)' })
+  @ApiQuery({ name: 'studentId', required: true, description: 'Student user ID' })
+  @ApiResponse({
+    status: 200,
+    description: 'Student dashboard data retrieved successfully',
+  })
+  async getStudentDashboard(@Query('studentId') studentId: string) {
+    return this.dashboardService.getStudentDashboard(studentId);
+  }
 }

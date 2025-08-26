@@ -65,6 +65,12 @@ export class DashboardService {
       relations: ['user']
     });
 
+    // Get parent user data to include createdAt
+    const parentUser = await this.userRepository.findOne({
+      where: { id: parentId },
+      select: ['id', 'firstName', 'lastName', 'email', 'createdAt']
+    });
+
     // Transform children data for the dashboard
     const transformedChildren = children.map(child => ({
       id: child.id,
@@ -80,12 +86,51 @@ export class DashboardService {
     const totalSessions = 0; // Will be calculated when enrollments are implemented
 
     return {
+      parent: parentUser,
       children: transformedChildren,
       stats: {
         totalChildren,
         totalClasses,
         totalSessions
       }
+    };
+  }
+
+  async getStudentDashboard(studentId: string) {
+    // Get student information
+    const student = await this.studentRepository.findOne({
+      where: { id: studentId },
+      relations: ['user']
+    });
+
+    if (!student) {
+      return {
+        profile: { id: studentId, role: 'student' },
+        stats: { totalClasses: 0, totalSessions: 0, attendanceRate: 0 },
+        upcomingClasses: [],
+        recentGrades: []
+      };
+    }
+
+    // Get student data (placeholder for now)
+    return {
+      profile: {
+        id: student.id,
+        firstName: student.user.firstName,
+        lastName: student.user.lastName,
+        email: student.user.email,
+        role: 'student',
+        birthdate: student.birthDate, // Include birthdate from student entity
+        age: student.age, // Use the age getter from student entity
+        createdAt: student.user.createdAt // Include createdAt for join date
+      },
+      stats: {
+        totalClasses: 0, // Will be calculated when enrollments are implemented
+        totalSessions: 0, // Will be calculated when attendance is implemented
+        attendanceRate: 0 // Will be calculated when attendance is implemented
+      },
+      upcomingClasses: [], // Will be populated when classes are implemented
+      recentGrades: [] // Will be populated when grades are implemented
     };
   }
 }

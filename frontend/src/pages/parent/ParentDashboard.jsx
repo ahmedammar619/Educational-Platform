@@ -121,7 +121,15 @@ const ParentDashboard = ({ user }) => {
             </div>
             <div className="text-center">
               <p className="text-sm text-gray-600">Join Date</p>
-              <p className="font-medium text-gray-900">{user?.joinDate || 'Jan 2024'}</p>
+              <p className="font-medium text-gray-900">
+                {dashboardData?.parent?.createdAt 
+                  ? new Date(dashboardData.parent.createdAt).toLocaleDateString('en-US', { 
+                      year: 'numeric', 
+                      month: 'short' 
+                    })
+                  : user?.joinDate || 'Jan 2024'
+                }
+              </p>
             </div>
           </div>
         </div>
@@ -172,7 +180,7 @@ const ParentDashboard = ({ user }) => {
             </div>
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-600">Total Investment</p>
-              <p className="text-2xl font-bold text-gray-900">SAR {totalCost.toLocaleString()}</p>
+              <p className="text-2xl font-bold text-gray-900">USD {totalCost.toLocaleString()}</p>
             </div>
           </div>
         </div>
@@ -220,7 +228,7 @@ const ParentDashboard = ({ user }) => {
                         {childClasses.slice(0, 3).map((cls) => (
                           <div key={cls.id} className="flex items-center justify-between text-sm">
                             <span className="text-gray-600">{cls.name || 'Course'}</span>
-                            <span className="text-gray-900 font-medium">SAR 150</span>
+                            <span className="text-gray-900 font-medium">USD 150</span>
                           </div>
                         ))}
                         {childClasses.length > 3 && (

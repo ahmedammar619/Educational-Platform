@@ -32,9 +32,9 @@ class DashboardService {
   }
 
   // Get student dashboard data
-  async getStudentDashboard() {
+  async getStudentDashboard(studentId) {
     try {
-      const response = await api.get('/api/dashboard/student');
+      const response = await api.get(`/api/dashboard/student?studentId=${studentId}`);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;

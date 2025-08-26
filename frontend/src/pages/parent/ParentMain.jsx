@@ -1,12 +1,32 @@
 import { useState, useEffect } from 'react';
+import { useNavigate, useLocation, Routes, Route } from 'react-router-dom';
 import { Home, Users, Calendar, MessageSquare, User, Bell, LogOut } from 'lucide-react';
+
+// Direct imports instead of lazy loading to fix React.lazy error
 import ParentDashboard from './ParentDashboard';
 import ChildrenManagement from './ChildrenManagement';
 import ParentSchedule from './ParentSchedule';
 import ParentCommunication from './ParentCommunication';
 
 const ParentMain = ({ user, onLogout }) => {
-  const [activeTab, setActiveTab] = useState('dashboard');
+  const navigate = useNavigate();
+  const location = useLocation();
+  
+  // Get the current tab from the URL path
+  const getCurrentTab = () => {
+    const path = location.pathname;
+    if (path.includes('/children')) return 'children';
+    if (path.includes('/schedule')) return 'schedule';
+    if (path.includes('/communication')) return 'communication';
+    return 'dashboard';
+  };
+
+  const [activeTab, setActiveTab] = useState(getCurrentTab());
+
+  // Update active tab when URL changes
+  useEffect(() => {
+    setActiveTab(getCurrentTab());
+  }, [location.pathname]);
 
   // Debug effect to monitor user object
   useEffect(() => {
@@ -22,14 +42,22 @@ const ParentMain = ({ user, onLogout }) => {
     }
   }, [user]);
 
+  const handleTabChange = (tabId) => {
+    setActiveTab(tabId);
+    // Navigate to the appropriate route
+    if (tabId === 'dashboard') {
+      navigate('/parent');
+    } else {
+      navigate(`/parent/${tabId}`);
+    }
+  };
+
   const navigation = [
     { id: 'dashboard', name: 'Dashboard', icon: Home, component: ParentDashboard },
     { id: 'children', name: 'Children', icon: Users, component: ChildrenManagement },
     { id: 'schedule', name: 'Schedule', icon: Calendar, component: ParentSchedule },
     { id: 'communication', name: 'Communication', icon: MessageSquare, component: ParentCommunication },
   ];
-
-  const ActiveComponent = navigation.find(nav => nav.id === activeTab)?.component || ParentDashboard;
 
   return (
     <div className="min-h-screen bg-gray-50 h-full">
@@ -136,7 +164,7 @@ const ParentMain = ({ user, onLogout }) => {
                   return (
                     <button
                       key={item.id}
-                      onClick={() => setActiveTab(item.id)}
+                      onClick={() => handleTabChange(item.id)}
                       className={`w-full flex items-center space-x-3 px-3 py-2 rounded-md text-sm font-medium transition-colors ${activeTab === item.id
                         ? 'bg-purple-100 text-purple-700 border border-purple-200'
                         : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
@@ -176,7 +204,12 @@ const ParentMain = ({ user, onLogout }) => {
 
           {/* Main Content - With left margin for fixed sidebar and gap */}
           <div className="flex-1 min-w-0 lg:ml-72">
-            <ActiveComponent user={user} />
+            <Routes>
+              <Route path="/" element={<ParentDashboard user={user} />} />
+              <Route path="/children" element={<ChildrenManagement user={user} />} />
+              <Route path="/schedule" element={<ParentSchedule user={user} />} />
+              <Route path="/communication" element={<ParentCommunication user={user} />} />
+            </Routes>
           </div>
         </div>
       </div>
