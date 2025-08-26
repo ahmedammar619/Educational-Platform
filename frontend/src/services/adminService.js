@@ -1,7 +1,17 @@
 import api from './api';
 
 class AdminService {
-  // Get admin dashboard
+  // Get admin dashboard stats
+  async getDashboardStats() {
+    try {
+      const response = await api.get('/api/admin/dashboard');
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  }
+
+  // Get admin dashboard (legacy method - keeping for backward compatibility)
   async getAdminDashboard() {
     try {
       const response = await api.get('/api/admin/dashboard');

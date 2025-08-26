@@ -117,10 +117,10 @@ export class AuthService {
   async login(loginDto: LoginDto) {
     const { email, password } = loginDto;
 
-    // Find user with password
+    // Find user with password and include createdAt
     const user = await this.userRepository.findOne({
       where: { email },
-      select: ['id', 'email', 'passwordHash', 'firstName', 'lastName', 'role'],
+      select: ['id', 'email', 'passwordHash', 'firstName', 'lastName', 'role', 'createdAt'],
     });
 
     if (!user) {
@@ -223,7 +223,7 @@ export class AuthService {
   async validateUser(email: string, password: string): Promise<any> {
     const user = await this.userRepository.findOne({
       where: { email },
-      select: ['id', 'email', 'passwordHash', 'firstName', 'lastName', 'role'],
+      select: ['id', 'email', 'passwordHash', 'firstName', 'lastName', 'role', 'createdAt'],
     });
 
     if (user) {
@@ -239,7 +239,7 @@ export class AuthService {
   async findById(id: string): Promise<User> {
     const user = await this.userRepository.findOne({
       where: { id },
-      select: ['id', 'email', 'firstName', 'lastName', 'role'],
+      select: ['id', 'email', 'firstName', 'lastName', 'role', 'createdAt'],
     });
 
     if (!user) {
