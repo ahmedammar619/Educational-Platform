@@ -8,39 +8,23 @@ export class TeacherResponseDto {
   id: string;
 
   @ApiProperty({
-    description: 'Teacher first name',
-    example: 'Ahmed'
+    description: 'Array of courses the teacher teaches',
+    example: ['Mathematics', 'Physics'],
+    type: [String]
   })
-  firstName: string;
+  courses: string[];
 
   @ApiProperty({
-    description: 'Teacher last name',
-    example: 'Mohammed'
+    description: 'Associated user information',
+    type: 'object'
   })
-  lastName: string;
-
-  @ApiProperty({
-    description: 'Teacher email',
-    example: 'ahmed.mohammed@example.com'
-  })
-  email: string;
-
-  @ApiProperty({
-    description: 'Teacher phone number',
-    example: '+201234567890',
-    nullable: true
-  })
-  phone?: string;
-
-  @ApiProperty({
-    description: 'Array of subjects the teacher teaches',
-    example: ['Quran', 'Arabic', 'Islamic Studies']
-  })
-  subjects: string[];
-
-  @ApiProperty({
-    description: 'Account creation date',
-    example: '2025-01-15T10:30:00.000Z'
-  })
-  createdAt: Date;
+  user: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+    phone: string | null;
+    role: string;
+    createdAt: string;
+  };
 }

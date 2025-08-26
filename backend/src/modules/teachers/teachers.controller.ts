@@ -115,7 +115,7 @@ export class TeachersController {
     @Param('id') id: string,
     @Body() updateTeacherDto: UpdateTeacherDto
   ) {
-    const teacher = await this.teachersService.updateTeacherProfile(id, updateTeacherDto);
+    const teacher = await this.teachersService.updateTeacher(id, updateTeacherDto);
     return { message: 'Teacher updated successfully', teacher };
   }
 
@@ -137,7 +137,7 @@ export class TeachersController {
     @Param('id') id: string,
     @Body() updateTeacherDto: UpdateTeacherDto
   ) {
-    const profile = await this.teachersService.updateTeacherProfile(id, updateTeacherDto);
+    const profile = await this.teachersService.updateTeacher(id, updateTeacherDto);
     return { message: 'Teacher profile updated successfully', profile };
   }
 

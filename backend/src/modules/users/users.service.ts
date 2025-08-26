@@ -6,12 +6,14 @@ import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { Role } from '../../common/enums/role.enum';
 import * as bcrypt from 'bcryptjs';
+import { TeachersService } from '../teachers/teachers.service';
 
 @Injectable()
 export class UsersService {
   constructor(
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
+    private readonly teachersService: TeachersService,
   ) {}
 
   async findAll(): Promise<User[]> {
@@ -70,6 +72,18 @@ export class UsersService {
     });
 
     const savedUser = await this.userRepository.save(user);
+    
+    // Also create record in the appropriate separate table based on role
+    try {
+      if (savedUser.role === Role.Teacher) {
+        await this.teachersService.createTeacherFromUser(savedUser.id);
+      }
+    } catch (error) {
+      // If creating in separate table fails, we should clean up the user
+      // For now, just log the error - in production you might want to handle this differently
+      console.error('Failed to create record in separate table:', error);
+      // Note: The user account is still created in the users table
+    }
     
     // Return user without password hash
     const { passwordHash: _, ...userWithoutPassword } = savedUser;
