@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { parentsService, coursesService, usersService } from '../../services';
+import { getMockData } from '../../data/mockData';
 
 const ParentCommunication = () => {
   const [messages, setMessages] = useState([]);
@@ -31,18 +31,48 @@ const ParentCommunication = () => {
       setLoading(true);
       setError(null);
       
-      // Fetch all required data in parallel
-      const [childrenResponse, teachersResponse, classesResponse, messagesResponse] = await Promise.all([
-        parentsService.getMyChildren(),
-        usersService.getUsersByRole('teacher'),
-        coursesService.getAllCourses(),
-        parentsService.getMessages()
-      ]);
+      // Use mock data instead of backend API
+      const mockData = getMockData('parentCommunications');
       
-      setChildren(childrenResponse.children || []);
-      setTeachers(teachersResponse.users || []);
-      setClasses(classesResponse.courses || []);
-      setMessages(messagesResponse.messages || []);
+      // Simulate API delay
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      if (mockData) {
+        // Extract children from parent schedule data
+        const parentScheduleData = getMockData('parentSchedule');
+        const childrenData = parentScheduleData?.children || [];
+        
+        // Extract teachers from conversations
+        const teachersData = mockData.conversations?.map(conv => conv.participant).filter(p => p.role === 'teacher') || [];
+        
+        // Extract classes from children's schedules
+        const classesData = childrenData.flatMap(child => 
+          child.schedule?.map(session => ({
+            id: session.courseId,
+            name: session.courseName
+          })) || []
+        );
+        
+        // Create mock messages from conversations
+        const messagesData = Object.values(mockData.messages || {}).flat().map(msg => ({
+          id: msg.id,
+          subject: msg.content.substring(0, 50) + (msg.content.length > 50 ? '...' : ''),
+          content: msg.content,
+          fromName: msg.senderName,
+          timestamp: msg.timestamp,
+          priority: 'normal',
+          fromId: msg.senderId,
+          classId: null,
+          className: null
+        }));
+        
+        setChildren(childrenData);
+        setTeachers(teachersData);
+        setClasses(classesData);
+        setMessages(messagesData);
+      } else {
+        throw new Error('Failed to load mock data');
+      }
       
     } catch (err) {
       console.error('Error fetching data:', err);
@@ -62,12 +92,17 @@ const ParentCommunication = () => {
 
     try {
       const messageData = {
-        ...newMessage,
-        timestamp: new Date().toISOString()
+        id: Date.now().toString(),
+        subject: newMessage.subject,
+        content: newMessage.content,
+        fromName: 'You',
+        timestamp: new Date().toISOString(),
+        priority: newMessage.priority,
+        fromId: 'parent',
+        classId: null,
+        className: null
       };
 
-      await parentsService.sendMessage(messageData);
-      
       // Add the new message to the list
       setMessages(prev => [messageData, ...prev]);
       

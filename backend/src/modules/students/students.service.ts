@@ -1,21 +1,59 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { User } from '../users/entities/user.entity';
+import { Student } from './entities/student.entity';
+import { CreateStudentDto } from './dto/create-student.dto';
+import { UpdateStudentDto } from './dto/update-student.dto';
 import { Role } from '../../common/enums/role.enum';
-import { NotFoundException } from '@nestjs/common';
+import * as bcrypt from 'bcryptjs';
 
 @Injectable()
 export class StudentsService {
   constructor(
-    @InjectRepository(User)
-    private readonly userRepository: Repository<User>
+    @InjectRepository(Student)
+    private readonly studentRepository: Repository<Student>,
   ) {}
 
-  async getStudentProfile(studentId: string) {
-    const student = await this.userRepository.findOne({
-      where: { id: studentId, role: Role.Student },
-      select: ['id', 'firstName', 'lastName', 'email', 'username', 'birthDate', 'createdAt'],
+  async createStudent(createStudentDto: CreateStudentDto): Promise<Student> {
+    const { email, password, birthDate, parentId, ...rest } = createStudentDto;
+
+    // Check if student already exists
+    const existingStudent = await this.studentRepository.findOne({
+      where: { email },
+    });
+
+    if (existingStudent) {
+      throw new ConflictException('Student with this email already exists');
+    }
+
+    // Hash password
+    const passwordHash = await bcrypt.hash(password, 10);
+
+    // Create student
+    const student = this.studentRepository.create({
+      ...rest,
+      email,
+      passwordHash,
+      role: Role.Student,
+      birthDate: new Date(birthDate),
+      parentId,
+      // Phone number is optional - can be null when created by parent
+      phone: rest.phone || null,
+    });
+
+    return this.studentRepository.save(student);
+  }
+
+  async findAll(): Promise<Student[]> {
+    return this.studentRepository.find({
+      select: ['id', 'firstName', 'lastName', 'email', 'role', 'birthDate', 'parentId', 'createdAt'],
+    });
+  }
+
+  async findOne(id: string): Promise<Student> {
+    const student = await this.studentRepository.findOne({
+      where: { id },
+      select: ['id', 'firstName', 'lastName', 'email', 'role', 'birthDate', 'parentId', 'createdAt'],
     });
 
     if (!student) {
@@ -25,54 +63,62 @@ export class StudentsService {
     return student;
   }
 
-  async updateStudentProfile(studentId: string, updateData: Partial<User>) {
-    const student = await this.userRepository.findOne({
-      where: { id: studentId, role: Role.Student },
+  async findByEmail(email: string): Promise<Student> {
+    return this.studentRepository.findOne({
+      where: { email },
     });
-
-    if (!student) {
-      throw new Error('Student not found');
-    }
-
-    // Only allow updating certain fields
-    const allowedFields = ['firstName', 'lastName', 'username'];
-    const filteredData = Object.keys(updateData)
-      .filter(key => allowedFields.includes(key))
-      .reduce((obj, key) => {
-        obj[key] = updateData[key];
-        return obj;
-      }, {});
-
-    await this.userRepository.update(studentId, filteredData);
-    return this.getStudentProfile(studentId);
   }
 
-  async getStudentClasses(studentId: string) {
-    const student = await this.userRepository.findOne({
-      where: { id: studentId, role: Role.Student },
-      select: ['id', 'firstName', 'lastName', 'email', 'username', 'birthDate', 'createdAt'],
+  async findByParentId(parentId: string): Promise<Student[]> {
+    return this.studentRepository.find({
+      where: { parentId },
+      select: ['id', 'firstName', 'lastName', 'email', 'role', 'birthDate', 'parentId', 'createdAt'],
     });
+  }
 
-    if (!student) {
-      throw new NotFoundException('Student not found');
+  async updateStudent(id: string, updateStudentDto: UpdateStudentDto): Promise<Student> {
+    const student = await this.findOne(id);
+
+    if (updateStudentDto.password) {
+      const passwordHash = await bcrypt.hash(updateStudentDto.password, 10);
+      Object.assign(student, { passwordHash });
+      delete updateStudentDto.password;
     }
 
-    // Mock data for now - replace with actual database queries
-    return [
-      {
-        id: 1,
-        name: 'Quran Memorization - Juz 1',
-        teacher: 'Sheikh Abdullah Al-Mahmoud',
-        progress: 85,
-        nextSession: '2025-02-16 16:00'
-      },
-      {
-        id: 2,
-        name: 'Arabic Language Basics',
-        teacher: 'Ustadha Aisha Al-Zahra',
-        progress: 88,
-        nextSession: '2025-02-17 15:00'
-      }
-    ];
+    if (updateStudentDto.birthDate) {
+      const birthDate = new Date(updateStudentDto.birthDate);
+      Object.assign(student, { birthDate });
+      delete updateStudentDto.birthDate;
+    }
+
+    Object.assign(student, updateStudentDto);
+    return this.studentRepository.save(student);
+  }
+
+  async deleteStudent(id: string): Promise<void> {
+    const student = await this.findOne(id);
+    await this.studentRepository.remove(student);
+  }
+
+  async linkToParent(studentId: string, parentId: string): Promise<Student> {
+    const student = await this.findOne(studentId);
+    
+    if (student.parentId) {
+      throw new ConflictException('Student already has a parent');
+    }
+
+    student.parentId = parentId;
+    return this.studentRepository.save(student);
+  }
+
+  async unlinkFromParent(studentId: string): Promise<Student> {
+    const student = await this.findOne(studentId);
+    
+    if (!student.parentId) {
+      throw new ConflictException('Student does not have a parent');
+    }
+
+    student.parentId = null;
+    return this.studentRepository.save(student);
   }
 }

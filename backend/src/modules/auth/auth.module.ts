@@ -6,34 +6,40 @@ import { User } from '../users/entities/user.entity';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { JwtStrategy } from './strategies/jwt.strategy';
-import { RolesGuard } from '../../common/guards/roles.guard';
-import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
-import { APP_GUARD } from '@nestjs/core';
+import { ConfigService } from '@nestjs/config';
+import { StudentsModule } from '../students/students.module';
+import { ParentsModule } from '../parents/parents.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([User]),
     PassportModule,
-    JwtModule.register({
-      secret: process.env.JWT_SECRET || 'changeme',
-      signOptions: { expiresIn: '24h' },
+    StudentsModule,
+    ParentsModule,
+    JwtModule.registerAsync({
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService) => {
+        const jwtSecret = configService.get<string>('JWT_SECRET');
+        if (!jwtSecret) {
+          throw new Error('JWT_SECRET is not defined in environment variables');
+        }
+        return {
+          secret: jwtSecret,
+          signOptions: { 
+            expiresIn: '24h',
+            issuer: 'educational-platform',
+            audience: 'educational-platform-users',
+            algorithm: 'HS256'
+          },
+        };
+      },
     }),
   ],
   controllers: [AuthController],
   providers: [
     AuthService,
     JwtStrategy,
-    // register the JWT guard globally (runs before RolesGuard)
-    {
-      provide: APP_GUARD,
-      useClass: JwtAuthGuard,
-    },
-    // then the roles guard globally
-    {
-      provide: APP_GUARD,
-      useClass: RolesGuard,
-    },
   ],
-  exports: [AuthService],
+  exports: [AuthService, JwtModule],
 })
 export class AuthModule {}

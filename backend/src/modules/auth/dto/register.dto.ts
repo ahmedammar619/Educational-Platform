@@ -8,7 +8,7 @@ import {
   IsOptional,
   IsPhoneNumber,
   IsDateString,
-  Matches,
+  ValidateIf,
 } from 'class-validator';
 import { Role } from '../../../common/enums/role.enum';
 
@@ -35,54 +35,37 @@ export class RegisterDto {
   email: string;
 
   @ApiProperty({
-    description: "User's password (must contain uppercase, lowercase, number, and special character)",
-    example: 'SecurePass123!',
+    description: "User's password (minimum 8 characters)",
+    example: 'SecurePass123',
     minLength: 8,
   })
   @IsString()
   @MinLength(8)
-  @Matches(
-    /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/,
-    { 
-      message: 'Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character (@$!%*?&)' 
-    }
-  )
   password: string;
 
   @ApiProperty({
     description: "User's role in the system",
-    enum: Role,
-    default: Role.Student,
-    required: false,
+    enum: [Role.Student, Role.Parent],
+    example: Role.Student,
   })
   @IsEnum(Role)
-  @IsOptional()
-  role?: Role = Role.Student;
+  role: Role;
 
   @ApiProperty({
-    description: "User's phone number (for parents and teachers)",
+    description: "User's phone number (required for students and parents)",
     example: '+1234567890',
     required: false,
   })
+  @ValidateIf((o) => o.role === Role.Student || o.role === Role.Parent)
   @IsPhoneNumber()
-  @IsOptional()
   phone?: string;
 
   @ApiProperty({
-    description: "User's username (for students only)",
-    example: 'johndoe123',
-    required: false,
-  })
-  @IsString()
-  @IsOptional()
-  username?: string;
-
-  @ApiProperty({
-    description: "User's birth date (for students only)",
+    description: "User's birth date (required for students)",
     example: '2000-01-01',
     required: false,
   })
+  @ValidateIf((o) => o.role === Role.Student)
   @IsDateString()
-  @IsOptional()
   birthDate?: string;
 }

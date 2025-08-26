@@ -22,9 +22,9 @@ class ParentsService {
   }
 
   // Get parent's children
-  async getMyChildren() {
+  async getMyChildren(parentId) {
     try {
-      const response = await api.get('/api/parents/children');
+      const response = await api.get(`/api/parents/children?parentId=${parentId}`);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -34,7 +34,8 @@ class ParentsService {
   // Create child account
   async createChildAccount(childData) {
     try {
-      const response = await api.post('/api/parents/children', childData);
+      const { parentId, ...childAccountData } = childData;
+      const response = await api.post(`/api/parents/${parentId}/create-child-account`, childAccountData);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -42,9 +43,9 @@ class ParentsService {
   }
 
   // Remove child account
-  async removeChild(childId) {
+  async removeChild(childId, parentId) {
     try {
-      const response = await api.delete(`/api/parents/children/${childId}`);
+      const response = await api.delete(`/api/parents/children/${childId}?parentId=${parentId}`);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -52,9 +53,9 @@ class ParentsService {
   }
 
   // Get child progress
-  async getChildProgress(childId) {
+  async getChildProgress(childId, parentId) {
     try {
-      const response = await api.get(`/api/parents/children/${childId}/progress`);
+      const response = await api.get(`/api/parents/children/${childId}/progress?parentId=${parentId}`);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -62,9 +63,9 @@ class ParentsService {
   }
 
   // Get child attendance
-  async getChildAttendance(childId) {
+  async getChildAttendance(childId, parentId) {
     try {
-      const response = await api.get(`/api/parents/children/${childId}/attendance`);
+      const response = await api.get(`/api/parents/children/${childId}/attendance?parentId=${parentId}`);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -72,9 +73,9 @@ class ParentsService {
   }
 
   // Get child grades
-  async getChildGrades(childId) {
+  async getChildGrades(childId, parentId) {
     try {
-      const response = await api.get(`/api/parents/children/${childId}/grades`);
+      const response = await api.get(`/api/parents/children/${childId}/grades?parentId=${parentId}`);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;

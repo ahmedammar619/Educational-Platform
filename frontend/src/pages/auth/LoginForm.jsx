@@ -11,8 +11,9 @@ const LoginForm = ({ onLogin, onRegister }) => {
     lastName: '',
     email: '',
     password: '',
-    role: 'parent', // Only parents can register
-    phone: ''
+    role: 'student', // Default to student, can be changed to parent
+    phone: '',
+    birthDate: ''
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -64,8 +65,9 @@ const LoginForm = ({ onLogin, onRegister }) => {
           lastName: formData.lastName,
           email: formData.email,
           password: formData.password,
-          role: 'parent', // Always set to parent (lowercase to match backend)
-          phone: formData.phone
+          role: formData.role, // Use selected role (teacher or student)
+          phone: formData.phone, // Phone required for both teachers and students
+          ...(formData.role === 'student' && { birthDate: formData.birthDate })
         };
 
         const result = await authService.register(registrationData);
@@ -74,15 +76,16 @@ const LoginForm = ({ onLogin, onRegister }) => {
         // Show success message for registration
         setSuccess('Account created successfully! Please sign in with your new credentials.');
         
-        // Clear form data for login
-        setFormData({
-          firstName: '',
-          lastName: '',
-          email: formData.email, // Keep email for convenience
-          password: '',
-          role: 'parent',
-          phone: ''
-        });
+                 // Clear form data for login
+         setFormData({
+           firstName: '',
+           lastName: '',
+           email: formData.email, // Keep email for convenience
+           password: '',
+           role: 'student', // Reset to default
+           phone: '',
+           birthDate: ''
+         });
         
         // Switch to login mode
         setIsLogin(true);
@@ -99,111 +102,114 @@ const LoginForm = ({ onLogin, onRegister }) => {
       // Extract error message from different possible error formats
       let errorMessage = 'An unexpected error occurred. Please try again.';
       
-      if (error.message) {
-        errorMessage = error.message;
-      } else if (error.response?.data?.message) {
+      if (error.response?.data?.message) {
         errorMessage = error.response.data.message;
+      } else if (error.message) {
+        errorMessage = error.message;
       } else if (typeof error === 'string') {
         errorMessage = error;
-      } else if (error.error) {
-        errorMessage = error.error;
       }
       
       setError(errorMessage);
-      
-      // Don't redirect or change state - stay on the login page
-      // The error will be displayed above the form
     } finally {
       setLoading(false);
     }
   };
 
-  // Memoize the phone onChange function to prevent infinite re-renders
-  const handlePhoneChange = useCallback((value) => {
-    setFormData(prev => ({ ...prev, phone: value }));
-  }, []);
-
   const handleInputChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value
-    });
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  const handlePhoneChange = (value) => {
+    setFormData(prev => ({
+      ...prev,
+      phone: value
+    }));
+  };
+
+  const handleRoleChange = (role) => {
+    setFormData(prev => ({
+      ...prev,
+      role: role
+    }));
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 via-blue-50 to-purple-50 flex items-center justify-center p-4 h-full">
-      <div className="w-full max-w-md bg-white rounded-lg shadow-xl p-6 sm:p-8 relative">
-        {/* Close button */}
-        <button
-          onClick={onRegister}
-          className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 p-1"
-          title="Close"
-        >
-          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        </button>
-        
-        <div className="text-center mb-6 sm:mb-8">
-          <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-br from-green-500 to-blue-600 rounded-lg flex items-center justify-center mx-auto mb-4">
-            <span className="text-white text-xl sm:text-2xl font-bold">ب</span>
-          </div>
-          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">براعم النور</h1>
-          <p className="text-xs sm:text-sm text-gray-600 mb-2">Baraem Al-Noor</p>
-          <p className="text-sm sm:text-base text-gray-600">
-            {isLogin ? 'Sign in to your account' : 'Create parent account'}
-          </p>
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-md w-full space-y-8">
+        <div>
+          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
+            {isLogin ? 'Sign in to your account' : 'Create your account'}
+          </h2>
+                     <p className="mt-2 text-center text-sm text-gray-600">
+             {isLogin 
+               ? 'Welcome back! Please sign in to continue.'
+               : 'Join our educational platform as a student or parent'
+             }
+           </p>
         </div>
 
         {error && (
-          <div className="mb-4 p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm relative">
-            <div className="flex items-start">
+          <div className="rounded-md bg-red-50 p-4">
+            <div className="flex">
               <div className="flex-shrink-0">
                 <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
                 </svg>
               </div>
-              <div className="ml-3 flex-1">
-                <p className="text-sm font-medium text-red-800">{error}</p>
+              <div className="ml-3">
+                <h3 className="text-sm font-medium text-red-800">Error</h3>
+                <div className="mt-2 text-sm text-red-700">
+                  <p>{error}</p>
+                </div>
               </div>
               <div className="ml-auto pl-3">
-                <button
-                  type="button"
-                  onClick={() => setError('')}
-                  className="inline-flex text-red-400 hover:text-red-600 focus:outline-none focus:text-red-600"
-                >
-                  <span className="sr-only">Close</span>
-                  <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L10 8.586 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-                  </svg>
-                </button>
+                <div className="-mx-1.5 -my-1.5">
+                  <button
+                    onClick={() => setError('')}
+                    className="inline-flex text-red-400 hover:text-red-600 focus:outline-none focus:text-red-600"
+                  >
+                    <span className="sr-only">Close</span>
+                    <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L10 8.586 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                    </svg>
+                  </button>
+                </div>
               </div>
             </div>
           </div>
         )}
 
         {success && (
-          <div className="mb-4 p-4 bg-green-50 border border-green-200 text-green-700 rounded-lg text-sm relative">
-            <div className="flex items-start">
+          <div className="rounded-md bg-green-50 p-4">
+            <div className="flex">
               <div className="flex-shrink-0">
                 <svg className="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
                 </svg>
               </div>
-              <div className="ml-3 flex-1">
-                <p className="text-sm font-medium text-green-800">{success}</p>
+              <div className="ml-3">
+                <h3 className="text-sm font-medium text-green-800">Success</h3>
+                <div className="mt-2 text-sm text-green-700">
+                  <p>{success}</p>
+                </div>
               </div>
               <div className="ml-auto pl-3">
-                <button
-                  type="button"
-                  onClick={() => setSuccess('')}
-                  className="inline-flex text-green-400 hover:text-green-600 focus:outline-none focus:text-green-600"
-                >
-                  <span className="sr-only">Close</span>
-                  <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L10 8.586 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-                  </svg>
-                </button>
+                <div className="-mx-1.5 -my-1.5">
+                  <button
+                    onClick={() => setSuccess('')}
+                    className="inline-flex text-green-400 hover:text-green-600 focus:outline-none focus:text-green-600"
+                  >
+                    <span className="sr-only">Close</span>
+                    <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L10 8.586 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                    </svg>
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -290,40 +296,87 @@ const LoginForm = ({ onLogin, onRegister }) => {
             </div>
           </div>
 
-                     {!isLogin && (
-             <div>
-               <label className="block text-sm font-medium text-gray-700 mb-1">
-                 Phone Number *
-               </label>
-               <PhoneInput
-                 value={formData.phone}
-                 onChange={handlePhoneChange}
-                 placeholder="Enter your phone number"
-                 required={true}
-               />
-             </div>
-           )}
-          
           {!isLogin && (
             <>
-              <div className="mb-4 p-3 bg-yellow-50 rounded-md">
-                <p className="text-sm text-yellow-800 font-medium">Parent Registration Only:</p>
-                <div className="text-xs text-yellow-700 mt-1">
-                  <div>• Only parents can register through this form</div>
-                  <div>• Students, teachers, and admins: Contact your administrator</div>
+              {/* Phone Number Field for Students and Parents */}
+              {(formData.role === 'student' || formData.role === 'parent') && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Phone Number *
+                  </label>
+                  <PhoneInput
+                    value={formData.phone}
+                    onChange={handlePhoneChange}
+                    placeholder="Enter your phone number"
+                    required={true}
+                  />
                 </div>
-              </div>
+              )}
 
+                             {/* Role Selection Radio Buttons */}
+               <div>
+                 <label className="block text-sm font-medium text-gray-700 mb-3">
+                   Account Type *
+                 </label>
+                 <div className="space-y-3">
+                   <label className="flex items-center">
+                     <input
+                       type="radio"
+                       name="role"
+                       value="student"
+                       checked={formData.role === 'student'}
+                       onChange={() => handleRoleChange('student')}
+                       className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300"
+                     />
+                     <span className="ml-3 text-sm text-gray-700">
+                       <span className="font-medium">Student</span>
+                       <span className="text-gray-500 ml-1">- Enroll in courses and learn</span>
+                     </span>
+                   </label>
+                   
+                   <label className="flex items-center">
+                     <input
+                       type="radio"
+                       name="role"
+                       value="parent"
+                       checked={formData.role === 'parent'}
+                       onChange={() => handleRoleChange('parent')}
+                       className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300"
+                     />
+                     <span className="ml-3 text-sm text-gray-700">
+                       <span className="font-medium">Parent</span>
+                       <span className="text-gray-500 ml-1">- Manage your children's education</span>
+                     </span>
+                   </label>
+                 </div>
+               </div>
 
+              {/* Birth Date Field for Students */}
+              {formData.role === 'student' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Birth Date *
+                  </label>
+                  <input
+                    type="date"
+                    name="birthDate"
+                    value={formData.birthDate}
+                    onChange={handleInputChange}
+                    className="w-full px-3 py-2 sm:py-2.5 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm sm:text-base"
+                    required={formData.role === 'student'}
+                  />
+                </div>
+              )}
 
-              <div className="hidden">
-                <input
-                  type="hidden"
-                  name="role"
-                  value="parent"
-                />
-              </div>
-
+                             <div className="mb-4 p-3 bg-blue-50 rounded-md">
+                 <p className="text-sm text-blue-800 font-medium">Registration Information:</p>
+                 <div className="text-xs text-blue-700 mt-1">
+                   <div>• Students and parents can register through this form</div>
+                   <div>• Teachers: Contact your administrator or use the teacher portal</div>
+                   <div>• Phone number required for all public registrations</div>
+                   <div>• Students created by parents don't require phone numbers</div>
+                 </div>
+               </div>
             </>
           )}
 
@@ -332,47 +385,48 @@ const LoginForm = ({ onLogin, onRegister }) => {
             disabled={loading}
             className="w-full bg-green-600 text-white py-2.5 sm:py-3 px-4 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm sm:text-base font-medium"
           >
-            {loading 
-              ? (isLogin ? 'Signing in...' : 'Creating account...') 
-              : (isLogin ? 'Sign In' : 'Create Parent Account')
-            }
+                         {loading 
+               ? (isLogin ? 'Signing in...' : 'Creating account...') 
+               : (isLogin ? 'Sign In' : `Create ${formData.role === 'parent' ? 'Parent' : 'Student'} Account`)
+             }
           </button>
         </form>
 
         <div className="mt-6 text-center">
           <button
-            onClick={() => {
-              setIsLogin(!isLogin);
-              setError('');
-              setSuccess('');
-              setFormData({
-                firstName: '',
-                lastName: '',
-                email: '',
-                password: '',
-                role: 'parent',
-                phone: ''
-              });
-            }}
+                         onClick={() => {
+               setIsLogin(!isLogin);
+               setError('');
+               setSuccess('');
+               setFormData({
+                 firstName: '',
+                 lastName: '',
+                 email: '',
+                 password: '',
+                 role: 'student',
+                 phone: '',
+                 birthDate: ''
+               });
+             }}
             className="text-green-600 hover:text-green-800 text-sm"
           >
-            {isLogin
-              ? "Don't have an account? Sign up as parent"
-              : "Already have an account? Sign in"
-            }
+                         {isLogin
+               ? "Don't have an account? Sign up as student or parent"
+               : "Already have an account? Sign in"
+             }
           </button>
         </div>
 
         {isLogin && (
-          <div className="mt-4 p-3 bg-blue-50 rounded-md">
-            <p className="text-sm text-blue-800 font-medium">Authentication Policy:</p>
-            <div className="text-xs text-blue-700 mt-2 space-y-1">
-              <div>• Use your real credentials to login</div>
-              <div>• Only parents can create accounts through registration</div>
-              <div>• Students, teachers, and admins are created by administrators</div>
-              <div>• All data is securely stored and managed</div>
-            </div>
-          </div>
+                     <div className="mt-4 p-3 bg-blue-50 rounded-md">
+             <p className="text-sm text-blue-800 font-medium">Authentication Policy:</p>
+             <div className="text-xs text-blue-700 mt-2 space-y-1">
+               <div>• Use your real credentials to login</div>
+               <div>• Students and parents can create accounts through registration</div>
+               <div>• Teachers: Contact your administrator or use the teacher portal</div>
+               <div>• All data is securely stored and managed</div>
+             </div>
+           </div>
         )}
       </div>
     </div>

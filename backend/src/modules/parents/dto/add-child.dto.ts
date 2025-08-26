@@ -1,24 +1,8 @@
-import { IsString, IsNotEmpty, MinLength, IsDateString, IsOptional } from 'class-validator';
+import { IsUUID } from 'class-validator';
+import { ApiProperty } from '@nestjs/swagger';
 
 export class AddChildDto {
-  @IsString()
-  @IsNotEmpty()
-  firstName: string;
-
-  @IsString()
-  @IsNotEmpty()
-  lastName: string;
-
-  @IsString()
-  @IsNotEmpty()
-  @MinLength(3)
-  username: string;
-
-  @IsString()
-  @MinLength(6)
-  password: string;
-
-  @IsDateString()
-  @IsOptional()
-  birthDate?: string;
+  @ApiProperty({ description: 'Student ID to add as child' })
+  @IsUUID()
+  studentId: string;
 }

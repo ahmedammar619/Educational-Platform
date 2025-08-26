@@ -3,7 +3,6 @@ import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { ConfigService } from '@nestjs/config';
 import { AuthService } from '../auth.service';
-import { securityConfig } from '../../../config/security.config';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
@@ -14,30 +13,41 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
-      secretOrKey: configService.get<string>('JWT_SECRET') || securityConfig.jwt.secret,
-      issuer: securityConfig.jwt.issuer,
-      audience: securityConfig.jwt.audience,
-      // Additional security options
-      algorithms: [securityConfig.jwt.algorithm],
-      clockTolerance: securityConfig.jwt.clockTolerance,
+      secretOrKey: configService.get<string>('JWT_SECRET') || 'dev-jwt-secret-change-in-production',
+      issuer: 'educational-platform',
+      audience: 'educational-platform-users',
+      algorithms: ['HS256'],
+      clockTolerance: 30, // 30 seconds
     });
   }
 
   async validate(payload: any) {
     try {
+      console.log('🔐 JWT Strategy - Validating payload:', {
+        sub: payload.sub,
+        email: payload.email,
+        role: payload.role,
+        exp: payload.exp,
+        iat: payload.iat,
+        now: Math.floor(Date.now() / 1000)
+      });
+
       // Validate payload structure
       if (!payload.sub || !payload.email || !payload.role) {
+        console.log('❌ JWT Strategy - Invalid payload structure');
         throw new UnauthorizedException('Invalid token payload');
       }
 
       // Check if token is expired
       const currentTime = Math.floor(Date.now() / 1000);
       if (payload.exp && payload.exp < currentTime) {
+        console.log('❌ JWT Strategy - Token expired');
         throw new UnauthorizedException('Token has expired');
       }
 
       // Check if token is issued in the future (clock skew protection)
-      if (payload.iat && payload.iat > currentTime + securityConfig.jwt.clockTolerance) {
+      if (payload.iat && payload.iat > currentTime + 30) {
+        console.log('❌ JWT Strategy - Token issued in future');
         throw new UnauthorizedException('Token issued in the future');
       }
 
@@ -45,11 +55,23 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       const user = await this.authService.findById(payload.sub);
       
       if (!user) {
+        console.log('❌ JWT Strategy - User not found in database');
         throw new UnauthorizedException('User not found');
       }
 
-      return user;
+      console.log('✅ JWT Strategy - User validated successfully:', {
+        userId: user.id,
+        email: user.email,
+        role: user.role
+      });
+
+      return {
+        sub: user.id,
+        email: user.email,
+        role: user.role,
+      };
     } catch (error) {
+      console.error('❌ JWT Strategy - Validation error:', error);
       if (error instanceof UnauthorizedException) {
         throw error;
       }

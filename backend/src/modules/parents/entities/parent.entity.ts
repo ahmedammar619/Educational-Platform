@@ -1,28 +1,57 @@
 import {
   Entity,
   PrimaryGeneratedColumn,
-  ManyToOne,
-  JoinColumn,
   Column,
+  CreateDateColumn,
+  OneToMany,
+  ManyToMany,
+  JoinTable,
 } from 'typeorm';
-import { User } from '../../users/entities/user.entity';
+import { Exclude } from 'class-transformer';
+import { Role } from '../../../common/enums/role.enum';
 
-@Entity('parent_children')
+@Entity('parents')
 export class Parent {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @ManyToOne(() => User, (user) => user.children, { onDelete: 'CASCADE' })
-  @JoinColumn({ name: 'parentId' })
-  parent: User;
+  @Column({ length: 255 })
+  firstName: string;
+
+  @Column({ length: 255 })
+  lastName: string;
+
+  @Column({ unique: true, length: 255 })
+  email: string;
 
   @Column()
-  parentId: string;
+  @Exclude()
+  passwordHash: string;
 
-  @ManyToOne(() => User, (user) => user.parents, { onDelete: 'CASCADE' })
-  @JoinColumn({ name: 'childId' })
-  child: User;
+  @Column({ nullable: true, length: 20 })
+  phone?: string;
 
-  @Column()
-  childId: string;
+  @Column({
+    type: 'enum',
+    enum: Role,
+    default: Role.Parent,
+  })
+  role: Role;
+
+  @Column({ nullable: true, length: 255 })
+  resetToken?: string;
+
+  @Column({ type: 'timestamp', nullable: true })
+  resetTokenExpiry?: Date;
+
+  @CreateDateColumn()
+  createdAt: Date;
+
+  // Parent-specific fields
+  @Column({ type: 'text', array: true, default: [] })
+  childrenIds: string[];
+
+  get fullName(): string {
+    return `${this.firstName} ${this.lastName}`;
+  }
 }

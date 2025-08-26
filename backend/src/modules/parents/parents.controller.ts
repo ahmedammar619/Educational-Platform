@@ -1,71 +1,245 @@
-import {
-  Body,
-  Controller,
-  Post,
-  Get,
-  Delete,
-  Param,
-  UseGuards,
-  Request,
-  Req,
-} from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Param, Body, UseGuards } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiBody, ApiBearerAuth } from '@nestjs/swagger';
 import { ParentsService } from './parents.service';
-import { ParentSignupDto } from './dto/parent-signup.dto';
+import { CreateParentDto } from './dto/create-parent.dto';
+import { UpdateParentDto } from './dto/update-parent.dto';
 import { AddChildDto } from './dto/add-child.dto';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../../common/guards/roles.guard';
-import { Roles } from '../../common/decorators/roles.decorator';
+import { CreateChildAccountDto } from './dto/create-child-account.dto';
+import { Public } from '../../common/decorators/public.decorator';
 import { Role } from '../../common/enums/role.enum';
-import { ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { Roles } from '../../common/decorators/roles.decorator';
+import { RolesGuard } from '../../common/guards/roles.guard';
+import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { ForbiddenException } from '@nestjs/common';
 
+@ApiTags('Parents')
 @Controller('parents')
+@ApiBearerAuth('JWT-auth')
 export class ParentsController {
   constructor(private readonly parentsService: ParentsService) {}
 
-  // 👤 Signup for parents
-  @Post('signup')
-  async signup(@Body() dto: ParentSignupDto) {
-    return this.parentsService.signupParent(dto);
+  @Post()
+  @Public()
+  @ApiOperation({ summary: 'Create a new parent account (Public)' })
+  @ApiBody({ type: CreateParentDto })
+  @ApiResponse({
+    status: 201,
+    description: 'Parent created successfully',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Bad request - Invalid data',
+  })
+  @ApiResponse({
+    status: 409,
+    description: 'Conflict - Parent with this email already exists',
+  })
+  async createParent(@Body() createParentDto: CreateParentDto) {
+    return this.parentsService.createParent(createParentDto);
   }
 
-  // 👨‍👦 Parent creates a new student account for their child
+  @Get()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.Parent)
-  @Post('children')
-  async createChildAccount(@Request() req, @Body() dto: AddChildDto) {
-    return this.parentsService.createChildAccount(req.user.id, dto);
+  @Roles(Role.Admin)
+  @ApiOperation({ summary: 'Get all parents (Admin only)' })
+  @ApiResponse({
+    status: 200,
+    description: 'Parents retrieved successfully',
+  })
+  async findAll() {
+    const parents = await this.parentsService.findAll();
+    return { parents };
   }
 
-  // 📋 Get all children of the logged-in parent
+  @Get(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.Parent)
-  @Get('my-children')
-  async getMyChildren(@Request() req) {
-    return this.parentsService.getMyChildren(req.user.id);
+  @ApiOperation({ summary: 'Get parent by ID (Protected)' })
+  @ApiResponse({
+    status: 200,
+    description: 'Parent retrieved successfully',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Parent not found',
+  })
+  async findOne(@Param('id') id: string) {
+    const parent = await this.parentsService.findOne(id);
+    return { parent };
   }
 
-  // 🗑️ Remove child account
-  @Delete('children/:childId')
-  @UseGuards(JwtAuthGuard)
-  @ApiOperation({ summary: 'Remove child from parent' })
+  @Put(':id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @ApiOperation({ summary: 'Update parent information (Protected)' })
+  @ApiBody({ type: UpdateParentDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Parent updated successfully',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Bad request - Invalid data',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Parent not found',
+  })
+  async updateParent(
+    @Param('id') id: string,
+    @Body() updateParentDto: UpdateParentDto,
+    @CurrentUser() currentUser: any
+  ) {
+    // Allow parents to update their own profile or admins to update any profile
+    if (currentUser.sub !== id && currentUser.role !== Role.Admin) {
+      throw new ForbiddenException('You do not have permission to update this parent');
+    }
+    return this.parentsService.updateParent(id, updateParentDto);
+  }
+
+  @Delete(':id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.Admin)
+  @ApiOperation({ summary: 'Delete a parent (Admin only)' })
+  @ApiResponse({
+    status: 200,
+    description: 'Parent deleted successfully',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - Admin privileges required',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Parent not found',
+  })
+  async deleteParent(@Param('id') id: string) {
+    return this.parentsService.deleteParent(id);
+  }
+
+  @Post(':id/children')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @ApiOperation({ summary: 'Add a child to parent (Protected)' })
+  @ApiBody({ type: AddChildDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Child added successfully',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Parent not found',
+  })
+  async addChild(
+    @Param('id') id: string,
+    @Body() addChildDto: AddChildDto,
+    @CurrentUser() currentUser: any
+  ) {
+    // Allow parents to add children to their own account or admins
+    if (currentUser.sub !== id && currentUser.role !== Role.Admin) {
+      throw new ForbiddenException('You do not have permission to modify this parent');
+    }
+    return this.parentsService.addChild(id, addChildDto);
+  }
+
+  @Delete(':id/children/:studentId')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @ApiOperation({ summary: 'Remove a child from parent (Protected)' })
   @ApiResponse({
     status: 200,
     description: 'Child removed successfully',
   })
-  async removeChild(@Req() req, @Param('childId') childId: string) {
-    return this.parentsService.removeChild(req.user.id, childId);
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Parent not found',
+  })
+  async removeChild(
+    @Param('id') id: string,
+    @Param('studentId') studentId: string,
+    @CurrentUser() currentUser: any
+  ) {
+    // Allow parents to remove children from their own account or admins
+    if (currentUser.sub !== id && currentUser.role !== Role.Admin) {
+      throw new ForbiddenException('You do not have permission to modify this parent');
+    }
+    return this.parentsService.removeChild(id, studentId);
   }
 
-  // 📊 Get child progress
-  @Get('children/:childId/progress')
+  @Get(':id/children')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.Parent)
-  @ApiOperation({ summary: 'Get child progress' })
+  @ApiOperation({ summary: 'Get parent children (Protected)' })
   @ApiResponse({
     status: 200,
-    description: 'Child progress retrieved successfully',
+    description: 'Children retrieved successfully',
   })
-  async getChildProgress(@Request() req, @Param('childId') childId: string) {
-    return this.parentsService.getChildProgress(req.user.id, childId);
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Parent not found',
+  })
+  async getChildren(
+    @Param('id') id: string,
+    @CurrentUser() currentUser: any
+  ) {
+    // Allow parents to view their own children or admins
+    if (currentUser.sub !== id && currentUser.role !== Role.Admin) {
+      throw new ForbiddenException('You do not have permission to view this parent');
+    }
+    const children = await this.parentsService.getChildren(id);
+    return { children };
+  }
+
+  @Post(':id/create-child-account')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.Parent)
+  @ApiOperation({ summary: 'Create child account (Parent only)' })
+  @ApiBody({ type: CreateChildAccountDto })
+  @ApiResponse({
+    status: 201,
+    description: 'Child account created successfully',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Bad request - Invalid data',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - Parent privileges required',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Parent not found',
+  })
+  async createChildAccount(
+    @Param('id') id: string,
+    @Body() createChildAccountDto: CreateChildAccountDto,
+    @CurrentUser() currentUser: any
+  ) {
+    // Allow parents to create child accounts for themselves only
+    if (currentUser.sub !== id) {
+      throw new ForbiddenException('You can only create child accounts for your own account');
+    }
+    return this.parentsService.createChildAccount(id, createChildAccountDto);
   }
 }

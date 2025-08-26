@@ -64,7 +64,23 @@ async function bootstrap() {
   // Swagger configuration
   const config = new DocumentBuilder()
     .setTitle('Educational Platform API')
-    .setDescription('Simplified Educational Platform with Admin, Parent, Student, and Teacher management')
+    .setDescription(`
+      Educational Platform API Documentation
+      
+      ## Authentication
+      Most endpoints require JWT authentication. To use protected endpoints:
+      1. Register or login to get your JWT token
+      2. Click the "Authorize" button at the top
+      3. Enter your token in the format: Bearer your-token-here
+      
+      ## Public Endpoints
+      - POST /api/auth/register
+      - POST /api/auth/login
+      - GET /api/users
+      - POST /api/users
+      
+      All other endpoints require authentication.
+    `)
     .setVersion('1.0')
     .addServer(
       `http://localhost:${configService.get('PORT', 3000)}`,
@@ -75,7 +91,9 @@ async function bootstrap() {
         type: 'http',
         scheme: 'bearer',
         bearerFormat: 'JWT',
-        description: 'Enter JWT token',
+        name: 'Authorization',
+        description: 'Enter your JWT token',
+        in: 'header',
       },
       'JWT-auth',
     )

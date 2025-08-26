@@ -15,10 +15,8 @@ export class AdminService {
   ) {}
 
   async getDashboardStats() {
-    const [totalUsers, totalParents, totalStudents, totalTeachers] = await Promise.all([
+    const [totalUsers, totalTeachers] = await Promise.all([
       this.userRepository.count(),
-      this.userRepository.count({ where: { role: Role.Parent } }),
-      this.userRepository.count({ where: { role: Role.Student } }),
       this.userRepository.count({ where: { role: Role.Teacher } }),
     ]);
 
@@ -31,8 +29,6 @@ export class AdminService {
 
     return {
       totalUsers,
-      totalParents,
-      totalStudents,
       totalTeachers,
       usersByRole,
       timestamp: new Date().toISOString(),
@@ -50,16 +46,8 @@ export class AdminService {
     return {
       users: recentUsers.map(user => ({
         ...user,
-        status: 'active' // All users are considered active now
+        status: 'active'
       }))
-    };
-  }
-
-  async getRecentClasses(limit: number = 10) {
-    // For now, return empty array since we don't have course/class entities yet
-    // This can be implemented when the course module is ready
-    return {
-      classes: []
     };
   }
 
@@ -162,37 +150,6 @@ export class AdminService {
     };
   }
 
-  async getAllStudents(page: number = 1, limit: number = 10, search?: string) {
-    const offset = (page - 1) * limit;
-
-    let queryBuilder = this.userRepository
-      .createQueryBuilder('user')
-      .where('user.role = :role', { role: Role.Student });
-
-    if (search) {
-      queryBuilder.andWhere(
-        '(user.firstName ILIKE :search OR user.lastName ILIKE :search OR user.email ILIKE :search)',
-        { search: `%${search}%` }
-      );
-    }
-
-    const [students, total] = await queryBuilder
-      .skip(offset)
-      .take(limit)
-      .orderBy('user.createdAt', 'DESC')
-      .getManyAndCount();
-
-    return {
-      students,
-      pagination: {
-        page,
-        limit,
-        total,
-        pages: Math.ceil(total / limit),
-      },
-    };
-  }
-
   async getAllTeachers(page: number = 1, limit: number = 10, search?: string) {
     const offset = (page - 1) * limit;
 
@@ -222,48 +179,6 @@ export class AdminService {
         pages: Math.ceil(total / limit),
       },
     };
-  }
-
-  async getAllParents(page: number = 1, limit: number = 10, search?: string) {
-    const offset = (page - 1) * limit;
-
-    let queryBuilder = this.userRepository
-      .createQueryBuilder('user')
-      .where('user.role = :role', { role: Role.Parent });
-
-    if (search) {
-      queryBuilder.andWhere(
-        '(user.firstName ILIKE :search OR user.lastName ILIKE :search OR user.email ILIKE :search)',
-        { search: `%${search}%` }
-      );
-    }
-
-    const [parents, total] = await queryBuilder
-      .skip(offset)
-      .take(limit)
-      .orderBy('user.createdAt', 'DESC')
-      .getManyAndCount();
-
-    return {
-      parents,
-      pagination: {
-        page,
-        limit,
-        total,
-        pages: Math.ceil(total / limit),
-      },
-    };
-  }
-
-  async deactivateUser(userId: string) {
-    // Since we removed isActive, we'll delete the user instead
-    await this.userRepository.delete(userId);
-    return { message: 'User deleted successfully' };
-  }
-
-  async reactivateUser(userId: string) {
-    // Since we removed isActive, this method is no longer needed
-    throw new BadRequestException('User reactivation is not supported');
   }
 
   async deleteUser(userId: string) {
