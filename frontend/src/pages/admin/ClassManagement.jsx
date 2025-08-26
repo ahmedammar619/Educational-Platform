@@ -1,14 +1,87 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Edit, Trash2, Users, Clock, DollarSign, Calendar, Search, Filter, User, BookOpen, X } from 'lucide-react';
-import { mockCourses, mockUsers } from '../../data/mockData';
+import { Plus, Edit, Trash2, Users, Calendar, DollarSign, BookOpen, Search, Filter, User, X, ChevronDown, ChevronRight } from 'lucide-react';
+import { mockUsers } from '../../data/mockData';
+
+// Mock data for the new structure
+const mockClasses = [
+  {
+    id: '1',
+    name: 'Islamic Studies Program 2024',
+    startDate: '2024-03-01',
+    endDate: '2024-06-30',
+    price: 450.00,
+    numberOfStudents: 12,
+    status: 'active',
+    courses: [
+      {
+        id: 'c1',
+        name: 'Islamic Studies - Level 1',
+        startDate: '2024-03-01',
+        endDate: '2024-06-30',
+        teacherName: 'Ahmed Al-Rashid',
+        courseMaterial: 'Quran, Hadith, Islamic History',
+        sessionTime: [
+          { day: 'Monday', startTime: '09:00', endTime: '10:30' },
+          { day: 'Wednesday', startTime: '09:00', endTime: '10:30' }
+        ]
+      },
+      {
+        id: 'c2',
+        name: 'Arabic Language - Beginner',
+        startDate: '2024-03-01',
+        endDate: '2024-06-30',
+        teacherName: 'Yusuf Al-Khalil',
+        courseMaterial: 'Arabic Alphabet, Vocabulary',
+        sessionTime: [
+          { day: 'Tuesday', startTime: '14:00', endTime: '15:30' },
+          { day: 'Thursday', startTime: '14:00', endTime: '15:30' }
+        ]
+      }
+    ]
+  },
+  {
+    id: '2',
+    name: 'Advanced Islamic Education',
+    startDate: '2024-04-01',
+    endDate: '2024-08-31',
+    price: 600.00,
+    numberOfStudents: 8,
+    status: 'active',
+    courses: [
+      {
+        id: 'c3',
+        name: 'Quran Recitation - Tajweed',
+        startDate: '2024-04-01',
+        endDate: '2024-08-31',
+        teacherName: 'Ahmed Al-Rashid',
+        courseMaterial: 'Quran Text, Tajweed Rules',
+        sessionTime: [
+          { day: 'Sunday', startTime: '10:00', endTime: '11:30' },
+          { day: 'Thursday', startTime: '10:00', endTime: '11:30' }
+        ]
+      },
+      {
+        id: 'c4',
+        name: 'Islamic History & Culture',
+        startDate: '2024-04-01',
+        endDate: '2024-08-31',
+        teacherName: 'Yusuf Al-Khalil',
+        courseMaterial: 'History Books, Cultural Resources',
+        sessionTime: [
+          { day: 'Saturday', startTime: '15:00', endTime: '16:30' }
+        ]
+      }
+    ]
+  }
+];
 
 const ClassManagement = ({ user, onOpenMaterials }) => {
   const [classes, setClasses] = useState([]);
   const [filteredClasses, setFilteredClasses] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [expandedClasses, setExpandedClasses] = useState(new Set());
   const [filters, setFilters] = useState({
     search: '',
-    teacher: '',
     page: 1,
     limit: 10
   });
@@ -18,10 +91,13 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
     total: 0,
     pages: 0
   });
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const [showEditModal, setShowEditModal] = useState(false);
+  const [showCreateClassModal, setShowCreateClassModal] = useState(false);
+  const [showCreateCourseModal, setShowCreateCourseModal] = useState(false);
+  const [showEditClassModal, setShowEditClassModal] = useState(false);
+  const [showEditCourseModal, setShowEditCourseModal] = useState(false);
   const [showEnrollModal, setShowEnrollModal] = useState(false);
   const [selectedClass, setSelectedClass] = useState(null);
+  const [selectedCourse, setSelectedCourse] = useState(null);
 
   useEffect(() => {
     loadMockClasses();
@@ -33,8 +109,7 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
 
   const loadMockClasses = () => {
       setLoading(true);
-    // Use mock courses data
-    setClasses(mockCourses || []);
+    setClasses(mockClasses || []);
         setLoading(false);
   };
 
@@ -44,21 +119,7 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
     // Apply search filter
     if (filters.search) {
       filtered = filtered.filter(classItem => {
-        const teacher = mockUsers.find(t => t.id === classItem.teacherId && t.role === 'teacher');
-        const teacherName = teacher ? `${teacher.firstName} ${teacher.lastName}` : 'Teacher TBD';
-
-        return classItem.name.toLowerCase().includes(filters.search.toLowerCase()) ||
-          teacherName.toLowerCase().includes(filters.search.toLowerCase());
-      });
-    }
-
-    // Apply teacher filter
-    if (filters.teacher) {
-      filtered = filtered.filter(classItem => {
-        const teacher = mockUsers.find(t => t.id === classItem.teacherId && t.role === 'teacher');
-        const teacherName = teacher ? `${teacher.firstName} ${teacher.lastName}` : 'Teacher TBD';
-
-        return teacherName.toLowerCase().includes(filters.teacher.toLowerCase());
+        return classItem.name.toLowerCase().includes(filters.search.toLowerCase());
       });
     }
 
@@ -77,24 +138,59 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
     });
   };
 
+  const toggleClassExpansion = (classId) => {
+    const newExpanded = new Set(expandedClasses);
+    if (newExpanded.has(classId)) {
+      newExpanded.delete(classId);
+    } else {
+      newExpanded.add(classId);
+    }
+    setExpandedClasses(newExpanded);
+  };
+
   const handleCreateClass = (classData) => {
     const newClass = {
-      id: Date.now(),
+      id: Date.now().toString(),
         name: classData.name,
-        description: classData.description,
-        teacherId: classData.teacherId,
+      startDate: classData.startDate,
+      endDate: classData.endDate,
       price: classData.price,
-      schedule: classData.schedule,
-      students: classData.students || [],
-        numberOfSessions: classData.numberOfSessions,
-        sessionDuration: classData.sessionDuration,
-      status: classData.status || 'active',
-      created_at: new Date().toISOString().split('T')[0]
+      numberOfStudents: 0,
+      status: 'active',
+      courses: []
     };
 
     setClasses(prev => [...prev, newClass]);
-      setShowCreateModal(false);
+    setShowCreateClassModal(false);
       alert('Class created successfully!');
+  };
+
+  const handleCreateCourse = (courseData) => {
+    if (!selectedClass) return;
+
+    const newCourse = {
+      id: Date.now().toString(),
+      name: courseData.name,
+      startDate: selectedClass.startDate,
+      endDate: selectedClass.endDate,
+      teacherName: courseData.teacherName,
+      courseMaterial: courseData.courseMaterial,
+      sessionTime: courseData.sessions
+    };
+
+    setClasses(prev => prev.map(classItem => {
+      if (classItem.id === selectedClass.id) {
+        return {
+          ...classItem,
+          courses: [...classItem.courses, newCourse]
+        };
+      }
+      return classItem;
+    }));
+
+    setShowCreateCourseModal(false);
+    setSelectedClass(null);
+    alert('Course created successfully!');
   };
 
   const handleUpdateClass = (classId, classData) => {
@@ -103,34 +199,74 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
           return {
             ...classItem,
             name: classData.name,
-            description: classData.description,
-            teacherId: classData.teacherId,
-            price: classData.price,
-            schedule: classData.schedule,
-            numberOfSessions: classData.numberOfSessions,
-            sessionDuration: classData.sessionDuration
+          startDate: classData.startDate,
+          endDate: classData.endDate,
+          price: classData.price
           };
         }
         return classItem;
       }));
-      setShowEditModal(false);
+    setShowEditClassModal(false);
       setSelectedClass(null);
       alert('Class updated successfully!');
   };
 
+  const handleUpdateCourse = (classId, courseId, courseData) => {
+    setClasses(prev => prev.map(classItem => {
+      if (classItem.id === classId) {
+        return {
+          ...classItem,
+          courses: classItem.courses.map(course => {
+            if (course.id === courseId) {
+              return {
+                ...course,
+                name: courseData.name,
+                teacherName: courseData.teacherName,
+                courseMaterial: courseData.courseMaterial,
+                sessionTime: courseData.sessions
+              };
+            }
+            return course;
+          })
+        };
+      }
+      return classItem;
+    }));
+    setShowEditCourseModal(false);
+    setSelectedClass(null);
+    setSelectedCourse(null);
+    alert('Course updated successfully!');
+  };
+
   const handleDeleteClass = (classId) => {
-    if (!confirm('Are you sure you want to delete this class?')) return;
+    if (!confirm('Are you sure you want to delete this class? This will also delete all courses within it.')) return;
       
       setClasses(prev => prev.filter(classItem => classItem.id !== classId));
       alert('Class deleted successfully!');
   };
 
+  const handleDeleteCourse = (classId, courseId) => {
+    if (!confirm('Are you sure you want to delete this course?')) return;
+    
+    setClasses(prev => prev.map(classItem => {
+      if (classItem.id === classId) {
+        return {
+          ...classItem,
+          courses: classItem.courses.filter(course => course.id !== courseId)
+        };
+      }
+      return classItem;
+    }));
+    alert('Course deleted successfully!');
+  };
+
   const handleEnrollStudents = (classId, studentIds) => {
     setClasses(prev => prev.map(classItem => {
       if (classItem.id === classId) {
-        const currentStudents = classItem.students || [];
-        const newStudents = [...new Set([...currentStudents, ...studentIds])];
-        return { ...classItem, students: newStudents };
+        return {
+          ...classItem,
+          numberOfStudents: studentIds.length
+        };
       }
       return classItem;
     }));
@@ -145,15 +281,17 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Class Management</h1>
-          <p className="text-sm sm:text-base text-gray-600">Manage classes and schedules</p>
+          <p className="text-sm sm:text-base text-gray-600">Manage classes and their courses</p>
         </div>
+        <div className="flex gap-2">
           <button
-            onClick={() => setShowCreateModal(true)}
+            onClick={() => setShowCreateClassModal(true)}
             className="flex items-center justify-center space-x-2 border-2 border-green-600 text-green-600 px-3 sm:px-4 py-2 rounded-lg hover:bg-green-600 hover:text-white transition-all duration-200 text-sm sm:text-base"
           >
             <Plus className="h-4 w-4" />
             <span>Add Class</span>
           </button>
+        </div>
       </div>
 
       {/* Filters */}
@@ -172,19 +310,6 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
 
           <select
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-            value={filters.teacher}
-            onChange={(e) => setFilters({ ...filters, teacher: e.target.value, page: 1 })}
-          >
-            <option value="">All Teachers</option>
-            {mockUsers.filter(user => user.role === 'teacher').map((teacher) => (
-              <option key={teacher.id} value={`${teacher.firstName} ${teacher.lastName}`}>
-                {teacher.firstName} {teacher.lastName}
-              </option>
-            ))}
-          </select>
-
-          <select
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
             value={filters.limit}
             onChange={(e) => setFilters({ ...filters, limit: e.target.value, page: 1 })}
           >
@@ -195,39 +320,38 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
         </div>
       </div>
 
-      {/* Classes Cards */}
+      {/* Classes List */}
       {loading ? (
         <div className="flex items-center justify-center py-12">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
         </div>
       ) : (
         <>
-          <div className="space-y-3 sm:space-y-4">
-            {filteredClasses.map((classItem) => {
-              const teacher = mockUsers.find(t => t.id === classItem.teacherId && t.role === 'teacher');
-                  const teacherName = teacher ? `${teacher.firstName} ${teacher.lastName}` : 'Teacher TBD';
-
-                  return (
-                    <div
-                      key={classItem.id}
-                      className="bg-white rounded-xl shadow-sm border hover:shadow-md transition-all w-full p-3 sm:p-4 flex flex-col gap-3 sm:gap-4"
-                    >
-                      {/* Top Row - Name, Teacher, Actions */}
+          <div className="space-y-4">
+            {filteredClasses.map((classItem) => (
+              <div key={classItem.id} className="bg-white rounded-xl shadow-sm border hover:shadow-md transition-all">
+                {/* Class Header */}
+                <div className="p-4 sm:p-6 border-b border-gray-100">
                   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                    <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
-                      <div className="flex items-center gap-2 sm:gap-3">
-                          <BookOpen className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600" />
-                          <h3 className="text-base sm:text-lg font-semibold text-gray-900">{classItem.name}</h3>
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={() => toggleClassExpansion(classItem.id)}
+                        className="text-gray-500 hover:text-gray-700 transition-colors"
+                      >
+                        {expandedClasses.has(classItem.id) ? (
+                          <ChevronDown className="h-5 w-5" />
+                        ) : (
+                          <ChevronRight className="h-5 w-5" />
+                        )}
+                      </button>
+                      <div className="flex items-center gap-2">
+                        <BookOpen className="h-5 w-5 text-blue-600" />
+                        <h3 className="text-lg sm:text-xl font-semibold text-gray-900">{classItem.name}</h3>
                       </div>
-                      <span className="hidden sm:inline text-sm text-gray-500">|</span>
-                      <p className="text-xs sm:text-sm font-medium text-gray-700 flex items-center gap-1">
-                            <User className="h-3 w-3 sm:h-4 sm:w-4 text-gray-400" />
-                            {teacherName}
-                          </p>
                         </div>
 
-                        {/* Actions */}
-                        <div className="flex items-center gap-2 sm:gap-3 opacity-80 hover:opacity-100 transition-opacity">
+                    {/* Class Actions */}
+                    <div className="flex items-center gap-2">
                           <button
                             onClick={() => {
                               setSelectedClass(classItem);
@@ -241,7 +365,17 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
                           <button
                             onClick={() => {
                               setSelectedClass(classItem);
-                              setShowEditModal(true);
+                          setShowCreateCourseModal(true);
+                        }}
+                        className="text-blue-600 hover:text-blue-800 p-2 rounded-lg hover:bg-blue-50 transition-colors"
+                        title="Add Course"
+                      >
+                        <Plus className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={() => {
+                          setSelectedClass(classItem);
+                          setShowEditClassModal(true);
                             }}
                             className="text-blue-600 hover:text-blue-800 p-2 rounded-lg hover:bg-blue-50 transition-colors"
                             title="Edit Class"
@@ -258,74 +392,126 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
                         </div>
                       </div>
 
-                      {/* Bottom Row - Students, Date, Price, Class Material */}
-                      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center w-full gap-3 sm:gap-0">
+                  {/* Class Info */}
+                  <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-4">
                         <div className="text-center">
                           <p className="text-xs text-gray-500 flex items-center justify-center gap-1">
-                            <Users className="h-3 w-3 sm:h-4 sm:w-4 text-gray-400" /> Students
+                        <Calendar className="h-3 w-3 text-gray-400" /> Start Date
                           </p>
-                          <p className="font-medium text-gray-900 text-sm sm:text-base">{classItem.students?.length || 0}</p>
+                      <p className="font-medium text-gray-900 text-sm">{classItem.startDate}</p>
                         </div>
-
                         <div className="text-center">
                           <p className="text-xs text-gray-500 flex items-center justify-center gap-1">
-                            <Calendar className="h-3 w-3 sm:h-4 sm:w-4 text-gray-400" /> Schedule
-                          </p>
-                          <p className="font-medium text-gray-900 text-xs sm:text-sm">
-                            {classItem.schedule && Array.isArray(classItem.schedule)
-                              ? classItem.schedule.map(item => `${item.day} ${item.startTime}-${item.endTime}`).join(', ')
-                              : classItem.schedule || 'Schedule TBD'
-                            }
-                          </p>
+                        <Calendar className="h-3 w-3 text-gray-400" /> End Date
+                      </p>
+                      <p className="font-medium text-gray-900 text-sm">{classItem.endDate}</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-xs text-gray-500 flex items-center justify-center gap-1">
+                        <DollarSign className="h-3 w-3 text-gray-400" /> Price
+                      </p>
+                      <p className="font-medium text-gray-900 text-sm">USD {classItem.price}</p>
                         </div>
-
-                        {classItem.price && (
                           <div className="text-center">
                             <p className="text-xs text-gray-500 flex items-center justify-center gap-1">
-                              <DollarSign className="h-3 w-3 sm:h-4 sm:w-4 text-gray-400" /> Price
+                        <Users className="h-3 w-3 text-gray-400" /> Students
                             </p>
-                        <p className="font-medium text-gray-900 text-sm sm:text-base">USD {classItem.price}</p>
+                      <p className="font-medium text-gray-900 text-sm">{classItem.numberOfStudents}</p>
                           </div>
-                        )}
+                  </div>
+                </div>
 
-                    <div className="text-center">
+                {/* Courses Section */}
+                {expandedClasses.has(classItem.id) && (
+                  <div className="p-4 sm:p-6 bg-gray-50">
+                    <div className="flex items-center justify-between mb-4">
+                      <h4 className="text-lg font-semibold text-gray-800">Courses ({classItem.courses.length})</h4>
+                    </div>
+                    
+                    {classItem.courses.length === 0 ? (
+                      <p className="text-gray-500 text-center py-4">No courses added yet. Click the + button to add a course.</p>
+                    ) : (
+                      <div className="space-y-3">
+                        {classItem.courses.map((course) => (
+                          <div key={course.id} className="bg-white rounded-lg border border-gray-200 p-4">
+                            <div className="flex items-center justify-between mb-3">
+                              <h5 className="font-semibold text-gray-900">{course.name}</h5>
+                              <div className="flex items-center gap-2">
                       <button
-                        onClick={() => onOpenMaterials && onOpenMaterials(classItem)}
-                        className="w-full sm:w-auto px-3 py-2 border-2 border-green-600 text-green-600 font-semibold text-xs rounded-lg hover:bg-green-600 hover:text-white transition-all duration-200 uppercase"
-                      >
-                        Class Material
-                      </button>
-                    </div>
+                                  onClick={() => {
+                                    setSelectedClass(classItem);
+                                    setSelectedCourse(course);
+                                    setShowEditCourseModal(true);
+                                  }}
+                                  className="text-blue-600 hover:text-blue-800 p-1 rounded hover:bg-blue-50 transition-colors"
+                                  title="Edit Course"
+                                >
+                                  <Edit className="h-4 w-4" />
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteCourse(classItem.id, course.id)}
+                                  className="text-red-600 hover:text-red-800 p-1 rounded hover:bg-red-50 transition-colors"
+                                  title="Delete Course"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </button>
+                              </div>
+                            </div>
+                            
+                                                        <div className="grid grid-cols-3 gap-4 text-sm items-center">
+                              <div>
+                                <p className="text-gray-500">Teacher</p>
+                                <p className="font-medium text-gray-900">{course.teacherName}</p>
+                              </div>
+                              <div>
+                                <p className="text-gray-500">Sessions</p>
+                                <p className="font-medium text-gray-900">
+                                  {course.sessionTime.map(session => 
+                                    `${session.day} ${session.startTime}-${session.endTime}`
+                                  ).join(', ')}
+                                </p>
+                              </div>
+                              <div className="flex justify-center ">
+                                <button
+                                  onClick={() => onOpenMaterials && onOpenMaterials(course)}
+                                  className="px-3 py-2 border-2 border-green-600 text-green-600 font-semibold text-xs rounded-lg hover:bg-green-600 hover:text-white transition-all duration-200 uppercase"
+                                >
+                                  Class Material
+                                </button>
+                              </div>
+                            </div>
                       </div>
+                        ))}
                     </div>
-                  );
-            })}
+                    )}
+                  </div>
+                )}
+              </div>
+            ))}
           </div>
 
           {/* Pagination */}
           {pagination && pagination.pages > 1 && (
-            <div className="bg-white px-3 sm:px-4 py-3 flex items-center justify-between border-t border-gray-200 mt-6 rounded-b-lg">
-              {/* Mobile */}
+            <div className="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 mt-6 rounded-b-lg">
               <div className="flex-1 flex justify-between sm:hidden">
                 <button
                   onClick={() => setFilters({ ...filters, page: Math.max(1, filters.page - 1) })}
                   disabled={filters.page === 1}
-                  className="px-3 sm:px-4 py-2 border-2 border-green-600 text-green-600 text-xs sm:text-sm rounded-md bg-white hover:bg-green-200 disabled:opacity-60 transition-all duration-200"
+                  className="px-4 py-2 border-2 border-green-600 text-green-600 text-sm rounded-md bg-white hover:bg-green-200 disabled:opacity-60 transition-all duration-200"
                 >
                   Previous
                 </button>
                 <button
                   onClick={() => setFilters({ ...filters, page: Math.min(pagination?.pages || 1, filters.page + 1) })}
                   disabled={filters.page === (pagination?.pages || 1)}
-                  className="px-3 sm:px-4 py-2 border-2 border-green-600 text-green-600 text-xs sm:text-sm rounded-md bg-white hover:bg-green-200 disabled:opacity-60 transition-all duration-200"
+                  className="px-4 py-2 border-2 border-green-600 text-green-600 text-sm rounded-md bg-white hover:bg-green-200 disabled:opacity-60 transition-all duration-200"
                 >
                   Next
                 </button>
               </div>
 
-              {/* Desktop */}
               <div className="hidden sm:flex sm:items-center sm:justify-between w-full">
-                <p className="text-xs sm:text-sm text-gray-700">
+                <p className="text-sm text-gray-700">
                   Showing <span className="font-medium">{((filters.page - 1) * filters.limit) + 1}</span> to{' '}
                   <span className="font-medium">{Math.min(filters.page * filters.limit, pagination?.total || 0)}</span> of{' '}
                   <span className="font-medium">{pagination?.total || 0}</span> results
@@ -335,7 +521,7 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
                     <button
                       key={page}
                       onClick={() => setFilters({ ...filters, page })}
-                      className={`px-2 sm:px-3 py-1 border-2 text-xs sm:text-sm rounded-md transition-all duration-200 ${page === filters.page
+                      className={`px-3 py-1 border-2 text-sm rounded-md transition-all duration-200 ${page === filters.page
                         ? 'bg-green-50 border-green-600 text-green-600'
                         : 'bg-white border-green-600 text-green-600 hover:bg-green-50'
                         }`}
@@ -351,24 +537,50 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
       )}
 
       {/* Create Class Modal */}
-      {showCreateModal && (
+      {showCreateClassModal && (
         <ClassModal
           title="Create New Class"
-          onClose={() => setShowCreateModal(false)}
+          onClose={() => setShowCreateClassModal(false)}
           onSubmit={handleCreateClass}
         />
       )}
 
       {/* Edit Class Modal */}
-      {showEditModal && selectedClass && (
+      {showEditClassModal && selectedClass && (
         <ClassModal
           title="Edit Class"
           classData={selectedClass}
           onClose={() => {
-            setShowEditModal(false);
+            setShowEditClassModal(false);
             setSelectedClass(null);
           }}
           onSubmit={(classData) => handleUpdateClass(selectedClass.id, classData)}
+        />
+      )}
+
+      {/* Create Course Modal */}
+      {showCreateCourseModal && selectedClass && (
+        <CourseModal
+          title="Add New Course"
+          onClose={() => {
+            setShowCreateCourseModal(false);
+            setSelectedClass(null);
+          }}
+          onSubmit={handleCreateCourse}
+        />
+      )}
+
+      {/* Edit Course Modal */}
+      {showEditCourseModal && selectedClass && selectedCourse && (
+        <CourseModal
+          title="Edit Course"
+          courseData={selectedCourse}
+          onClose={() => {
+            setShowEditCourseModal(false);
+            setSelectedClass(null);
+            setSelectedCourse(null);
+          }}
+          onSubmit={(courseData) => handleUpdateCourse(selectedClass.id, selectedCourse.id, courseData)}
         />
       )}
 
@@ -391,22 +603,117 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
 const ClassModal = ({ title, classData, onClose, onSubmit }) => {
   const [formData, setFormData] = useState({
     name: classData?.name || '',
-    description: classData?.description || '',
-    teacher: classData?.teacherId || '',
-    price: classData?.price || '',
-    sessions: classData?.schedule || []
+    startDate: classData?.startDate || '',
+    endDate: classData?.endDate || '',
+    price: classData?.price || ''
   });
 
-  // Reset form when user prop changes
   useEffect(() => {
     setFormData({
       name: classData?.name || '',
-      description: classData?.description || '',
-      teacher: classData?.teacherId || '',
-      price: classData?.price || '',
-      sessions: classData?.schedule || []
+      startDate: classData?.startDate || '',
+      endDate: classData?.endDate || '',
+      price: classData?.price || ''
     });
   }, [classData]);
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    onSubmit(formData);
+  };
+
+  return (
+    <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+      <div className="relative top-10 mx-auto p-5 border w-11/12 sm:w-96 shadow-lg rounded-md bg-white">
+        <div className="mt-3">
+          <h3 className="text-lg font-medium text-gray-900 mb-4">{title}</h3>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Class Name</label>
+              <input
+                type="text"
+                required
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Start Date</label>
+              <input
+                type="date"
+                required
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                value={formData.startDate}
+                onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700">End Date</label>
+              <input
+                type="date"
+                required
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                value={formData.endDate}
+                onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Price (USD)</label>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                placeholder="0.00"
+                required
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                value={formData.price}
+                onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+              />
+            </div>
+
+            <div className="flex justify-end space-x-3 pt-4">
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 text-sm"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="px-4 py-2 border-2 border-green-600 text-green-600 rounded-md hover:bg-green-500 hover:text-white transition-all duration-200 text-sm"
+              >
+                {classData ? 'Update' : 'Create'}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Course Modal Component (using the old class design)
+const CourseModal = ({ title, courseData, onClose, onSubmit }) => {
+  const [formData, setFormData] = useState({
+    name: courseData?.name || '',
+    teacherName: courseData?.teacherName || '',
+    courseMaterial: courseData?.courseMaterial || '',
+    sessions: courseData?.sessionTime || []
+  });
+
+  useEffect(() => {
+    setFormData({
+      name: courseData?.name || '',
+      teacherName: courseData?.teacherName || '',
+      courseMaterial: courseData?.courseMaterial || '',
+      sessions: courseData?.sessionTime || []
+    });
+  }, [courseData]);
 
   const [showAddSession, setShowAddSession] = useState(false);
   const [newSession, setNewSession] = useState({
@@ -472,35 +779,17 @@ const ClassModal = ({ title, classData, onClose, onSubmit }) => {
       return;
     }
 
-    // Convert sessions to the new schedule format
-    const schedule = formData.sessions.map(session => ({
-      day: session.day,
-      startTime: session.startTime,
-      endTime: session.endTime
-    }));
-
-    // Create the class data with the new structure
-    const classData = {
-      ...formData,
-      teacherId: parseInt(formData.teacher), // Convert to number
-      schedule: schedule,
-      students: [],
-      numberOfSessions: schedule.length,
-      sessionDuration: 120, // Default to 120 minutes
-      status: 'active'
-    };
-
-    onSubmit(classData);
+    onSubmit(formData);
   };
 
   return (
-    <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50" style={{ margin: 0 }}>
+    <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
       <div className="relative top-4 sm:top-10 mx-auto p-4 sm:p-5 border w-11/12 sm:w-96 shadow-lg rounded-md bg-white">
         <div className="mt-1">
           <h3 className="text-base sm:text-lg font-medium text-gray-900 mb-4">{title}</h3>
         <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700">Class Name</label>
+              <label className="block text-sm font-medium text-gray-700">Course Name</label>
               <input
                 type="text"
                 required
@@ -511,48 +800,29 @@ const ClassModal = ({ title, classData, onClose, onSubmit }) => {
             </div>
             
             <div>
-              <label className="block text-sm font-medium text-gray-700">Description</label>
-              <textarea
+              <label className="block text-sm font-medium text-gray-700">Teacher Name</label>
+              <input
+                type="text"
+                required
                 className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                rows="3"
-                value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                value={formData.teacherName}
+                onChange={(e) => setFormData({ ...formData, teacherName: e.target.value })}
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700">Teacher</label>
-              <select
-                required
+              <label className="block text-sm font-medium text-gray-700">Course Material</label>
+              <textarea
                 className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                value={formData.teacher}
-                onChange={(e) => setFormData({ ...formData, teacher: e.target.value })}
-              >
-                <option value="">Select a teacher</option>
-                {mockUsers.filter(user => user.role === 'teacher').map((teacher) => (
-                  <option key={teacher.id} value={teacher.id}>
-                    {teacher.firstName} {teacher.lastName}
-                  </option>
-                ))}
-              </select>
-          </div>
-
-          <div>
-              <label className="block text-sm font-medium text-gray-700">Price (USD)</label>
-              <input
-                type="number"
-                min="0"
-                step="0.01"
-                placeholder="0.00"
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                value={formData.price}
-                onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+                rows="3"
+                value={formData.courseMaterial}
+                onChange={(e) => setFormData({ ...formData, courseMaterial: e.target.value })}
               />
             </div>
             
             {/* Sessions Management */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Class Sessions</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Course Sessions</label>
 
               {/* Existing Sessions */}
               {formData.sessions.length > 0 && (
@@ -646,6 +916,7 @@ const ClassModal = ({ title, classData, onClose, onSubmit }) => {
               </div>
             )}
           </div>
+
           <div className="flex justify-end space-x-3 pt-4">
             <button
               type="button"
@@ -658,7 +929,7 @@ const ClassModal = ({ title, classData, onClose, onSubmit }) => {
               type="submit"
                 className="px-3 sm:px-4 py-2 border-2 border-green-600 text-green-600 rounded-md hover:bg-green-500 hover:text-white transition-all duration-200 text-sm"
             >
-                {classData ? 'Update' : 'Create'}
+                {courseData ? 'Update' : 'Create'}
             </button>
           </div>
         </form>
@@ -672,8 +943,8 @@ const ClassModal = ({ title, classData, onClose, onSubmit }) => {
 const EnrollModal = ({ classData, onClose, onSubmit }) => {
   const [selectedStudents, setSelectedStudents] = useState([]);
 
-  // Get available students (not already enrolled in this class)
-  const availableStudents = mockUsers.filter(user => user.role === 'student' && !classData.students?.includes(user.id));
+  // Get available students
+  const availableStudents = mockUsers.filter(user => user.role === 'student');
 
   const handleStudentToggle = (studentId) => {
     setSelectedStudents(prev =>

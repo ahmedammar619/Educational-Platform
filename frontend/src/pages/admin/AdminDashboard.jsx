@@ -19,7 +19,7 @@ const AdminDashboard = ({ user }) => {
       
       // Fetch admin dashboard data from backend
       const [adminStats, dashboardStats] = await Promise.all([
-        adminService.getAdminDashboard(),
+        adminService.getDashboardStats(),
         dashboardService.getAdminDashboard()
       ]);
       
@@ -112,7 +112,16 @@ const AdminDashboard = ({ user }) => {
             </div>
             <div className="text-center">
               <p className="text-sm text-gray-600">Join Date</p>
-              <p className="font-medium text-gray-900">{user?.joinDate || 'Jan 2024'}</p>
+              <p className="font-medium text-gray-900">
+                {user?.createdAt 
+                  ? new Date(user.createdAt).toLocaleDateString('en-US', {
+                      year: 'numeric',
+                      month: 'short',
+                      day: 'numeric'
+                    })
+                  : 'N/A'
+                }
+              </p>
             </div>
           </div>
         </div>
