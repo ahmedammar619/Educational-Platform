@@ -50,4 +50,16 @@ export class DashboardController {
   async getAnalytics(@Query('period') period: string = 'month') {
     return this.dashboardService.getAnalytics(period);
   }
+
+  @Get('parent')
+  @Public()
+  @ApiOperation({ summary: 'Get parent dashboard data (Public - No Authorization Required)' })
+  @ApiQuery({ name: 'parentId', required: true, description: 'Parent user ID' })
+  @ApiResponse({
+    status: 200,
+    description: 'Parent dashboard data retrieved successfully',
+  })
+  async getParentDashboard(@Query('parentId') parentId: string) {
+    return this.dashboardService.getParentDashboard(parentId);
+  }
 }

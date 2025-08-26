@@ -5,6 +5,7 @@ import { ConfigService } from '@nestjs/config';
 import { ThrottlerGuard } from '@nestjs/throttler';
 import { AppModule } from './app.module';
 import { HttpExceptionFilter, AllExceptionsFilter } from './common/filters/http-exception.filter';
+import { UniqueConstraintFilter } from './common/filters/unique-constraint.filter';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 import { securityConfig } from './config/security.config';
 import helmet from 'helmet';
@@ -56,7 +57,7 @@ async function bootstrap() {
   );
 
   // Global exception filters
-  app.useGlobalFilters(new AllExceptionsFilter(), new HttpExceptionFilter());
+  app.useGlobalFilters(new AllExceptionsFilter(), new HttpExceptionFilter(), new UniqueConstraintFilter());
 
   // Global logging interceptor
   app.useGlobalInterceptors(new LoggingInterceptor());

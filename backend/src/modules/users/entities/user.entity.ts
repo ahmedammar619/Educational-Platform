@@ -51,27 +51,6 @@ export class User {
     return `${this.firstName} ${this.lastName}`;
   }
 
-  // Parent-Student relationship
-  @Column({ nullable: true })
-  parentId?: string;
-
-  @Column({ type: 'date', nullable: true })
-  birthDate?: Date;
-
-  @ManyToMany(() => User, user => user.children)
-  @JoinTable({
-    name: 'parent_children',
-    joinColumn: {
-      name: 'parentId',
-      referencedColumnName: 'id',
-    },
-    inverseJoinColumn: {
-      name: 'childId',
-      referencedColumnName: 'id',
-    },
-  })
-  children?: User[];
-
-  @ManyToMany(() => User, user => user.children)
-  parents?: User[];
+  // Role-specific relationships - these are managed by the respective services
+  // No duplicate fields here - they belong in the role-specific entities
 }

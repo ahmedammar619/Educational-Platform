@@ -1,6 +1,7 @@
 import { IsEmail, IsString, IsOptional, MinLength, IsDateString } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { Role } from '../../../common/enums/role.enum';
+import { IsEmailUnique } from '../../../common/validators/unique-email.validator';
 
 export class CreateStudentDto {
   @ApiProperty({ description: 'Student first name' })
@@ -13,6 +14,7 @@ export class CreateStudentDto {
 
   @ApiProperty({ description: 'Student email address' })
   @IsEmail()
+  @IsEmailUnique({ message: 'This email is already registered. Please use a different email address.' })
   email: string;
 
   @ApiProperty({ description: 'Student password', minLength: 6 })

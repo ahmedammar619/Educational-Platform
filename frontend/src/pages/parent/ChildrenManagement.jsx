@@ -19,7 +19,7 @@ const ChildrenManagement = ({ user }) => {
 
   useEffect(() => {
     if (selectedChild) {
-      fetchChildProgress(selectedChild.id);
+      // fetchChildProgress(selectedChild.id); // This line is commented out as per the edit hint
     }
   }, [selectedChild]);
 
@@ -87,39 +87,39 @@ const ChildrenManagement = ({ user }) => {
     }
   };
 
-  const fetchChildProgress = async (childId) => {
-    try {
-      setProgressLoading(true);
-      setError(null);
-      const response = await parentsService.getChildProgress(childId, user.id);
+  // const fetchChildProgress = async (childId) => {
+  //   try {
+  //     setProgressLoading(true);
+  //     setError(null);
+  //     const response = await parentsService.getChildProgress(childId, user.id);
       
-      // Transform backend data to match frontend expectations
-      const transformedProgress = {
-        courses: response.courses || [],
-        recentGrades: response.recentGrades || [],
-        attendanceSummary: response.attendanceSummary || []
-      };
+  //     // Transform backend data to match frontend expectations
+  //     const transformedProgress = {
+  //       courses: response.courses || [],
+  //       recentGrades: response.recentGrades || [],
+  //       attendanceSummary: response.attendanceSummary || []
+  //     };
 
-      // If no data is available yet, show a message
-      if (transformedProgress.courses.length === 0 && 
-          transformedProgress.recentGrades.length === 0 && 
-          transformedProgress.attendanceSummary.length === 0) {
-        console.log('No progress data available yet for this child');
-      }
+  //     // If no data is available yet, show a message
+  //     if (transformedProgress.courses.length === 0 && 
+  //         transformedProgress.recentGrades.length === 0 && 
+  //         transformedProgress.attendanceSummary.length === 0) {
+  //         console.log('No progress data available yet for this child');
+  //     }
 
-      setChildProgress(transformedProgress);
-    } catch (error) {
-      console.error('Failed to fetch child progress:', error);
-      // Don't set error for progress - just show empty state
-      setChildProgress({
-        courses: [],
-        recentGrades: [],
-        attendanceSummary: []
-      });
-    } finally {
-      setProgressLoading(false);
-    }
-  };
+  //     setChildProgress(transformedProgress);
+  //   } catch (error) {
+  //       console.error('Failed to fetch child progress:', error);
+  //       // Don't set error for progress - just show empty state
+  //       setChildProgress({
+  //         courses: [],
+  //         recentGrades: [],
+  //         attendanceSummary: []
+  //       });
+  //   } finally {
+  //       setProgressLoading(false);
+  //   }
+  // };
 
   // Helper functions to calculate metrics from backend data
   const calculateAverageProgress = (child) => {
@@ -128,32 +128,39 @@ const ChildrenManagement = ({ user }) => {
     const totalProgress = child.enrollments.reduce((sum, enrollment) => {
       // Calculate progress based on completed sessions vs total sessions
       // This is a simplified calculation - adjust based on your actual data structure
-      return sum + (enrollment.progress || 0);
+      const progress = enrollment.progress || enrollment.completed_sessions || 0;
+      const total = enrollment.total_sessions || enrollment.sessions || 1;
+      return sum + (progress / total * 100);
     }, 0);
     
     return Math.round(totalProgress / child.enrollments.length);
   };
 
   const calculateAttendedSessions = (child) => {
-    if (!child.attendances) return 0;
+    if (!child.attendances || !Array.isArray(child.attendances)) return 0;
     return child.attendances.filter(attendance => 
       attendance.status === 'present' || attendance.status === 'late'
     ).length;
   };
 
   const calculateTotalSessions = (child) => {
-    if (!child.enrollments) return 0;
-    // This would need to be calculated from course sessions
-    // For now, return a default value
-    return 20; // Placeholder
+    if (!child.enrollments || child.enrollments.length === 0) return 0;
+    
+    // Calculate total sessions from enrollments
+    const totalSessions = child.enrollments.reduce((sum, enrollment) => {
+      return sum + (enrollment.total_sessions || enrollment.sessions || 0);
+    }, 0);
+    
+    // If no sessions data, return a reasonable default
+    return totalSessions > 0 ? totalSessions : 20;
   };
 
   const calculateAverageGrade = (child) => {
     if (!child.enrollments || child.enrollments.length === 0) return 0;
     
     const grades = child.enrollments
-      .map(enrollment => enrollment.grade)
-      .filter(grade => grade !== null && grade !== undefined);
+      .map(enrollment => enrollment.grade || enrollment.average_grade)
+      .filter(grade => grade !== null && grade !== undefined && !isNaN(grade));
     
     if (grades.length === 0) return 0;
     
@@ -453,7 +460,7 @@ const ChildrenManagement = ({ user }) => {
               )}
 
               {/* Course Progress */}
-              {childProgress.courses.length > 0 && (
+              {childProgress.courses && childProgress.courses.length > 0 && (
               <div className="bg-white rounded-lg shadow-sm border">
                 <div className="p-6 border-b">
                   <h3 className="text-lg font-semibold text-gray-900">Course Progress</h3>
@@ -461,17 +468,17 @@ const ChildrenManagement = ({ user }) => {
                 <div className="p-6">
                     <div className="space-y-4">
                       {childProgress.courses.map((course) => (
-                        <div key={course.id} className="border rounded-lg p-4">
+                        <div key={course.id || course.title} className="border rounded-lg p-4">
                           <div className="flex justify-between items-start mb-2">
-                            <h4 className="font-medium text-gray-900">{course.title}</h4>
-                            <span className="text-sm text-gray-500">{course.progress_percentage}%</span>
+                            <h4 className="font-medium text-gray-900">{course.title || course.name || 'Unknown Course'}</h4>
+                            <span className="text-sm text-gray-500">{course.progress_percentage || 0}%</span>
                           </div>
-                          <p className="text-sm text-gray-600 mb-2">Instructor: {course.instructor_name}</p>
+                          <p className="text-sm text-gray-600 mb-2">Instructor: {course.instructor_name || course.instructor || 'Unknown'}</p>
 
                           <div className="w-full bg-gray-200 rounded-full h-2 mb-3">
                             <div
                               className="bg-purple-600 h-2 rounded-full"
-                              style={{ width: `${course.progress_percentage}%` }}
+                              style={{ width: `${course.progress_percentage || 0}%` }}
                             ></div>
                           </div>
 
@@ -479,13 +486,13 @@ const ChildrenManagement = ({ user }) => {
                             <div>
                               <p className="text-gray-600">Attendance</p>
                               <p className="font-semibold">
-                                {course.attended_sessions}/{course.total_sessions}
+                                {course.attended_sessions || 0}/{course.total_sessions || 0}
                               </p>
                             </div>
                             <div>
                               <p className="text-gray-600">Assignments</p>
                               <p className="font-semibold">
-                                {course.graded_assignments}/{course.total_assignments}
+                                {course.graded_assignments || 0}/{course.total_assignments || 0}
                               </p>
                             </div>
                             <div>
@@ -503,29 +510,29 @@ const ChildrenManagement = ({ user }) => {
               )}
 
               {/* Recent Grades */}
-              {childProgress.recentGrades.length > 0 && (
+              {childProgress.recentGrades && childProgress.recentGrades.length > 0 && (
               <div className="bg-white rounded-lg shadow-sm border">
                 <div className="p-6 border-b">
                   <h3 className="text-lg font-semibold text-gray-900">Recent Grades</h3>
                 </div>
                 <div className="p-6">
                     <div className="space-y-4">
-                      {childProgress.recentGrades.slice(0, 10).map((grade) => (
-                        <div key={grade.id} className="border rounded-lg p-4">
+                      {childProgress.recentGrades.slice(0, 10).map((grade, index) => (
+                        <div key={grade.id || index} className="border rounded-lg p-4">
                           <div className="flex justify-between items-start mb-2">
-                            <h4 className="font-medium text-gray-900">{grade.assignment_title}</h4>
+                            <h4 className="font-medium text-gray-900">{grade.assignment_title || grade.title || 'Unknown Assignment'}</h4>
                             <div className="text-right">
-                              <span className={`text-lg font-bold ${getGradeColor((grade.grade / grade.max_points) * 100)}`}>
-                                {grade.grade}/{grade.max_points}
+                              <span className={`text-lg font-bold ${getGradeColor((grade.grade || 0) / (grade.max_points || 1) * 100)}`}>
+                                {grade.grade || 0}/{grade.max_points || 1}
                               </span>
                               <p className="text-xs text-gray-500">
-                                {Math.round((grade.grade / grade.max_points) * 100)}%
+                                {Math.round(((grade.grade || 0) / (grade.max_points || 1)) * 100)}%
                               </p>
                             </div>
                           </div>
 
-                          <p className="text-sm text-gray-600 mb-1">Course: {grade.course_title}</p>
-                          <p className="text-sm text-gray-600 mb-2">Type: {grade.assignment_type}</p>
+                          <p className="text-sm text-gray-600 mb-1">Course: {grade.course_title || grade.course || 'Unknown Course'}</p>
+                          <p className="text-sm text-gray-600 mb-2">Type: {grade.assignment_type || grade.type || 'Unknown'}</p>
 
                           {grade.feedback && (
                             <div className="bg-gray-50 p-3 rounded-md mb-2">
@@ -534,12 +541,12 @@ const ChildrenManagement = ({ user }) => {
                           )}
 
                           <div className="flex justify-between text-xs text-gray-500">
-                            <span>Graded by: {grade.graded_by_name}</span>
-                            <span>Date: {new Date(grade.graded_at).toLocaleDateString('en-US', {
+                            <span>Graded by: {grade.graded_by_name || grade.graded_by || 'Unknown'}</span>
+                            <span>Date: {grade.graded_at ? new Date(grade.graded_at).toLocaleDateString('en-US', {
                               month: 'short',
                               day: 'numeric',
                               year: 'numeric'
-                            })}</span>
+                            }) : 'Unknown'}</span>
                           </div>
                         </div>
                       ))}
@@ -549,20 +556,20 @@ const ChildrenManagement = ({ user }) => {
           )}
 
           {/* Attendance Summary */}
-              {childProgress.attendanceSummary.length > 0 && (
+              {childProgress.attendanceSummary && childProgress.attendanceSummary.length > 0 && (
             <div className="bg-white rounded-lg shadow-sm border">
               <div className="p-6 border-b">
                 <h3 className="text-lg font-semibold text-gray-900">Attendance Summary</h3>
               </div>
               <div className="p-6">
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  {childProgress.attendanceSummary.map((attendance) => (
-                    <div key={attendance.status} className="text-center">
-                      <div className={`inline-flex px-3 py-1 rounded-full text-sm font-semibold mb-2 ${getAttendanceColor(attendance.percentage)}`}>
-                        {attendance.status.charAt(0).toUpperCase() + attendance.status.slice(1)}
+                  {childProgress.attendanceSummary.map((attendance, index) => (
+                    <div key={attendance.status || index} className="text-center">
+                      <div className={`inline-flex px-3 py-1 rounded-full text-sm font-semibold mb-2 ${getAttendanceColor(attendance.percentage || 0)}`}>
+                        {attendance.status ? (attendance.status.charAt(0).toUpperCase() + attendance.status.slice(1)) : 'Unknown'}
                       </div>
-                      <p className="text-2xl font-bold text-gray-900">{attendance.count}</p>
-                      <p className="text-sm text-gray-600">{attendance.percentage}%</p>
+                      <p className="text-2xl font-bold text-gray-900">{attendance.count || 0}</p>
+                      <p className="text-sm text-gray-600">{attendance.percentage || 0}%</p>
                     </div>
                   ))}
                 </div>
