@@ -1,7 +1,8 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Search, Plus, Edit, Trash2, UserCheck, Eye, Key, Users, ChevronDown, ChevronUp } from 'lucide-react';
 import { usersService, studentsService } from '../../services';
 import PhoneInput from '../../components/ui/PhoneInput';
+import { showSuccessToast, showErrorToast, showConfirmToast, showLoadingToast, dismissToast } from '../../utils/toast.jsx';
 
 const UserManagement = ({ user }) => {
   const [allUsers, setAllUsers] = useState([]);
@@ -23,6 +24,7 @@ const UserManagement = ({ user }) => {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
+  const hasShownSuccessToast = useRef(false);
 
   useEffect(() => {
     fetchUsers();
@@ -32,7 +34,16 @@ const UserManagement = ({ user }) => {
     filterUsers();
   }, [filters, allUsers]);
 
+  // Cleanup effect to reset toast flags
+  useEffect(() => {
+    return () => {
+      hasShownSuccessToast.current = false;
+    };
+  }, []);
+
   const fetchUsers = async () => {
+    const loadingToast = showLoadingToast('Loading users...');
+    
     try {
       setLoading(true);
       
@@ -105,10 +116,21 @@ const UserManagement = ({ user }) => {
       
       console.log('Transformed users:', transformedUsers);
       setAllUsers(transformedUsers);
+      
+      // Dismiss loading toast and show success toast only once
+      dismissToast(loadingToast);
+      if (!hasShownSuccessToast.current) {
+        showSuccessToast(`Loaded ${transformedUsers.length} users successfully!`);
+        hasShownSuccessToast.current = true;
+      }
     } catch (err) {
       console.error('Error fetching users:', err);
       // Fallback to empty array if API fails
       setAllUsers([]);
+      
+      // Dismiss loading toast and show error toast
+      dismissToast(loadingToast);
+      showErrorToast('Failed to load users. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -204,6 +226,8 @@ const UserManagement = ({ user }) => {
   };
 
   const handleCreateUser = async (userData) => {
+    const loadingToast = showLoadingToast('Creating user...');
+    
     try {
       console.log('Creating user with data:', userData); // Debug log
       
@@ -221,15 +245,26 @@ const UserManagement = ({ user }) => {
 
       setAllUsers(prev => [...prev, newUser]);
       setShowCreateModal(false);
-      alert('User created successfully!');
+      
+      // Dismiss loading toast and show success toast
+      dismissToast(loadingToast);
+      showSuccessToast(`User ${response.firstName} ${response.lastName} created successfully!`);
+      
+      // Reset the success toast flag so it can show again on next fetch
+      hasShownSuccessToast.current = false;
     } catch (error) {
       console.error('Error creating user:', error);
       const errorMessage = error.message || error.response?.data?.message || 'Unknown error occurred';
-      alert(`Error creating user: ${errorMessage}`);
+      
+      // Dismiss loading toast and show error toast
+      dismissToast(loadingToast);
+      showErrorToast(`Error creating user: ${errorMessage}`);
     }
   };
 
   const handleUpdateUser = async (userId, userData) => {
+    const loadingToast = showLoadingToast('Updating user...');
+    
     try {
       console.log('Updating user with data:', userData); // Debug log
       
@@ -248,16 +283,27 @@ const UserManagement = ({ user }) => {
       ));
       setShowEditModal(false);
       setSelectedUser(null);
-      alert('User updated successfully!');
+      
+      // Dismiss loading toast and show success toast
+      dismissToast(loadingToast);
+      showSuccessToast(`User ${response.firstName} ${response.lastName} updated successfully!`);
+      
+      // Reset the success toast flag so it can show again on next fetch
+      hasShownSuccessToast.current = false;
     } catch (error) {
       console.error('Error updating user:', error);
       const errorMessage = error.message || error.response?.data?.message || 'Unknown error occurred';
-      alert(`Error updating user: ${errorMessage}`);
+      
+      // Dismiss loading toast and show error toast
+      dismissToast(loadingToast);
+      showErrorToast(`Error updating user: ${errorMessage}`);
     }
   };
 
   // Test token function
   const testToken = async () => {
+    const loadingToast = showLoadingToast('Testing token...');
+    
     try {
       const token = localStorage.getItem('token');
       console.log('🔐 Testing token:', {
@@ -284,62 +330,91 @@ const UserManagement = ({ user }) => {
       if (response.ok) {
         const data = await response.json();
         console.log('✅ Token test successful:', data);
-        alert('Token is working! You can now try to delete a user.');
+        
+        // Dismiss loading toast and show success toast
+        dismissToast(loadingToast);
+        showSuccessToast('Token is working! You can now try to delete a user.');
       } else {
         const errorData = await response.text();
         console.log('❌ Token test failed:', errorData);
-        alert(`Token test failed: ${response.status} ${response.statusText}`);
+        
+        // Dismiss loading toast and show error toast
+        dismissToast(loadingToast);
+        showErrorToast(`Token test failed: ${response.status} ${response.statusText}`);
       }
     } catch (error) {
       console.error('❌ Token test error:', error);
-      alert(`Token test error: ${error.message}`);
+      
+      // Dismiss loading toast and show error toast
+      dismissToast(loadingToast);
+      showErrorToast(`Token test error: ${error.message}`);
     }
   };
 
   const handleDeleteUser = async (userId) => {
-    if (!confirm('Are you sure you want to delete this user? This action cannot be undone.')) return;
-
-    try {
-      console.log('🗑️ Attempting to delete user:', userId);
-      
-      // Check if we have a token
-      const token = localStorage.getItem('token');
-      console.log('🔐 Token check:', {
-        hasToken: !!token,
-        tokenLength: token ? token.length : 0,
-        tokenPreview: token ? `${token.substring(0, 20)}...` : 'none'
-      });
-      
-      // Call the backend API to delete user
-      console.log('📡 Calling usersService.deleteUser...');
-      await usersService.deleteUser(userId);
-      
-      console.log('✅ User deleted successfully from backend');
-      
-      // Remove the user from local state after successful deletion
-      setAllUsers(prev => prev.filter(user => user.id !== userId));
-      alert('User deleted successfully!');
-    } catch (error) {
-      console.error('❌ Error deleting user:', error);
-      console.error('❌ Error details:', {
-        message: error.message,
-        response: error.response?.data,
-        status: error.response?.status,
-        statusText: error.response?.statusText
-      });
-      
-      // Handle specific error cases
-      if (error.message && error.message.includes('related data')) {
-        alert(
-          'Cannot delete this user because they have related data (courses, enrollments, etc.).\n\n' +
-          'Please remove all related data first or consider deactivating the user instead.\n\n' +
-          'Error details: ' + error.message
-        );
-      } else {
-        const errorMessage = error.message || error.response?.data?.message || 'Unknown error occurred';
-        alert(`Error deleting user: ${errorMessage}`);
+    // Find the user to get their name for the confirmation message
+    const userToDelete = allUsers.find(u => u.id === userId);
+    const userName = userToDelete?.name || 'this user';
+    
+    // Show beautiful confirmation toast
+    showConfirmToast(
+      `Are you sure you want to delete ${userName}? This action cannot be undone.`,
+      async () => {
+        // User confirmed deletion
+        const loadingToast = showLoadingToast('Deleting user...');
+        
+        try {
+          console.log('🗑️ Attempting to delete user:', userId);
+          
+          // Check if we have a token
+          const token = localStorage.getItem('token');
+          console.log('🔐 Token check:', {
+            hasToken: !!token,
+            tokenLength: token ? token.length : 0,
+            tokenPreview: token ? `${token.substring(0, 20)}...` : 'none'
+          });
+          
+          // Call the backend API to delete user
+          console.log('📡 Calling usersService.deleteUser...');
+          await usersService.deleteUser(userId);
+          
+          console.log('✅ User deleted successfully from backend');
+          
+          // Remove the user from local state after successful deletion
+          setAllUsers(prev => prev.filter(user => user.id !== userId));
+          
+          // Dismiss loading toast and show success toast
+          dismissToast(loadingToast);
+          showSuccessToast(`${userName} deleted successfully!`);
+        } catch (error) {
+          console.error('❌ Error deleting user:', error);
+          console.error('❌ Error details:', {
+            message: error.message,
+            response: error.response?.data,
+            status: error.response?.status,
+            statusText: error.response?.statusText
+          });
+          
+          // Dismiss loading toast and show error toast
+          dismissToast(loadingToast);
+          
+          // Handle specific error cases
+          if (error.message && error.message.includes('related data')) {
+            showErrorToast(
+              'Cannot delete this user because they have related data (courses, enrollments, etc.). ' +
+              'Please remove all related data first or consider deactivating the user instead.'
+            );
+          } else {
+            const errorMessage = error.message || error.response?.data?.message || 'Unknown error occurred';
+            showErrorToast(`Error deleting user: ${errorMessage}`);
+          }
+        }
+      },
+      () => {
+        // User cancelled deletion - no action needed
+        console.log('User cancelled deletion');
       }
-    }
+    );
   };
 
   const getRoleColor = (role) => {
@@ -922,8 +997,11 @@ const UserModal = ({ title, user, onClose, onSubmit }) => {
     email: user?.email || '',
     password: '',  // Always empty for edit mode
     role: user?.role || '',  // Fill if editing existing user
-    phone: user?.role && user?.role !== 'student' ? (user?.phone || '') : '',  // Only for non-students
-    birthDate: user?.role === 'student' ? (user?.birthDate || '') : undefined,  // Only for students, undefined for others
+    phone: user?.phone || '',  // Phone is optional for all users
+    birthDate: user?.birthDate || '',  // Birth date for students
+    courses: user?.courses || '',  // Courses for teachers
+    studentIds: user?.studentIds || '',  // Student IDs for parents
+    parentId: user?.parentId || '',  // Parent ID for students
   });
 
   // Reset form when user prop changes
@@ -934,8 +1012,11 @@ const UserModal = ({ title, user, onClose, onSubmit }) => {
       email: user?.email || '',
       password: '',  // Always empty for edit mode
       role: user?.role || '',  // Fill if editing existing user
-      phone: user?.role && user?.role !== 'student' ? (user?.phone || '') : '',  // Only for non-students
-      birthDate: user?.role === 'student' ? (user?.birthDate || '') : undefined,  // Only for students, undefined for others
+      phone: user?.phone || '',  // Phone is optional for all users
+      birthDate: user?.birthDate || '',  // Birth date for students
+      courses: user?.courses || '',  // Courses for teachers
+      studentIds: user?.studentIds || '',  // Student IDs for parents
+      parentId: user?.parentId || '',  // Parent ID for students
     });
   }, [user]);
 
@@ -950,20 +1031,7 @@ const UserModal = ({ title, user, onClose, onSubmit }) => {
     // Validate required fields based on role
     if (formData.role === 'student') {
       if (!formData.birthDate) {
-        alert('Birth date is required for students');
-        return;
-      }
-      if (formData.phone) {
-        alert('Phone number is not allowed for students');
-        return;
-      }
-    } else if (formData.role === 'teacher' || formData.role === 'parent' || formData.role === 'admin') {
-      if (!formData.phone) {
-        alert('Phone number is required for teachers, parents, and admins');
-        return;
-      }
-      if (formData.birthDate) {
-        alert('Birth date is not allowed for teachers, parents, and admins');
+        showErrorToast('Birth date is required for students');
         return;
       }
     }
@@ -975,16 +1043,58 @@ const UserModal = ({ title, user, onClose, onSubmit }) => {
       delete submitData.password;
     }
 
-    // Clear phone and birthDate for students
+    // Clean up the data based on role
     if (submitData.role === 'student') {
-      submitData.phone = '';
-      // Keep birthDate for students (it's required)
-    } else {
-      // For non-students, completely remove birthDate field and keep phone
+      // For students: keep birthDate, phone is optional, handle parentId
+      if (!submitData.phone) {
+        delete submitData.phone; // Don't send empty phone for students
+      }
+      delete submitData.courses; // Remove courses for students
+      delete submitData.studentIds; // Remove studentIds for students
+      // Handle parentId for students
+      if (!submitData.parentId) {
+        delete submitData.parentId; // Don't send empty parentId
+      }
+    } else if (submitData.role === 'teacher') {
+      // For teachers: remove birthDate, phone is optional, handle courses
       delete submitData.birthDate;
+      delete submitData.studentIds; // Remove studentIds for teachers
+      delete submitData.parentId; // Remove parentId for teachers
+      if (!submitData.phone) {
+        delete submitData.phone; // Don't send empty phone
+      }
+      // Convert courses string to array if provided
+      if (submitData.courses) {
+        submitData.courses = submitData.courses.split(',').map(course => course.trim()).filter(course => course);
+      } else {
+        delete submitData.courses; // Don't send empty courses
+      }
+    } else if (submitData.role === 'parent') {
+      // For parents: remove birthDate and courses, phone is optional, handle studentIds
+      delete submitData.birthDate;
+      delete submitData.courses; // Remove courses for parents
+      delete submitData.parentId; // Remove parentId for parents
+      if (!submitData.phone) {
+        delete submitData.phone; // Don't send empty phone
+      }
+      // Convert studentIds string to array if provided
+      if (submitData.studentIds) {
+        submitData.studentIds = submitData.studentIds.split(',').map(id => id.trim()).filter(id => id);
+      } else {
+        delete submitData.studentIds; // Don't send empty studentIds
+      }
+    } else {
+      // For other roles (admin): remove birthDate, courses, studentIds, and parentId, phone is optional
+      delete submitData.birthDate;
+      delete submitData.courses;
+      delete submitData.studentIds;
+      delete submitData.parentId;
+      if (!submitData.phone) {
+        delete submitData.phone; // Don't send empty phone
+      }
     }
 
-    // Ensure birthDate is properly formatted
+    // Ensure birthDate is properly formatted for students
     if (submitData.birthDate) {
       submitData.birthDate = submitData.birthDate; // Keep as ISO string from date input
     }
@@ -1059,13 +1169,15 @@ const UserModal = ({ title, user, onClose, onSubmit }) => {
                 value={formData.role}
                 onChange={(e) => {
                   const newRole = e.target.value;
-                  // Clear fields when switching roles based on strict requirements
+                  // Clear fields when switching roles
                   if (newRole === 'student') {
-                    setFormData({ ...formData, role: newRole, phone: '', birthDate: '' });
-                  } else if (newRole && newRole !== 'student') {
-                    setFormData({ ...formData, role: newRole, birthDate: undefined });
+                    setFormData({ ...formData, role: newRole, birthDate: '', courses: '', studentIds: '', parentId: '' });
+                  } else if (newRole === 'teacher') {
+                    setFormData({ ...formData, role: newRole, birthDate: '', courses: '', studentIds: '', parentId: '' });
+                  } else if (newRole === 'parent') {
+                    setFormData({ ...formData, role: newRole, birthDate: '', courses: '', studentIds: '', parentId: '' });
                   } else {
-                    setFormData({ ...formData, role: newRole, phone: '', birthDate: undefined });
+                    setFormData({ ...formData, role: newRole, birthDate: '', courses: '', studentIds: '', parentId: '' });
                   }
                 }}
               >
@@ -1077,33 +1189,43 @@ const UserModal = ({ title, user, onClose, onSubmit }) => {
               </select>
               {formData.role === 'student' && (
                 <p className="mt-1 text-xs text-gray-500">
-                  Students: Birth date is required, phone number is forbidden
+                  Students: Birth date is required, phone number and parent ID are optional
                 </p>
               )}
-              {formData.role && formData.role !== 'student' && (
+              {formData.role === 'teacher' && (
                 <p className="mt-1 text-xs text-gray-500">
-                  {formData.role.charAt(0).toUpperCase() + formData.role.slice(1)}s: Phone number is required, birth date is forbidden
+                  Teachers: Phone number and courses are optional
+                </p>
+              )}
+              {formData.role === 'parent' && (
+                <p className="mt-1 text-xs text-gray-500">
+                  Parents: Phone number and student IDs are optional
+                </p>
+              )}
+              {formData.role === 'admin' && (
+                <p className="mt-1 text-xs text-gray-500">
+                  Admins: Phone number is optional
                 </p>
               )}
             </div>
 
-            {/* Phone number - only show for admin, teacher, parent */}
-            {formData.role && formData.role !== 'student' && (
+            {/* Phone number - optional for all users */}
+            {formData.role && (
               <div>
-                <label className="block text-sm font-medium text-gray-700">Phone *</label>
+                <label className="block text-sm font-medium text-gray-700">Phone (Optional)</label>
                 <PhoneInput
                   value={formData.phone}
                   onChange={handlePhoneChange}
                   placeholder="Enter phone number"
-                  required={true}
+                  required={false}
                 />
               </div>
             )}
 
-            {/* Date of Birth - only show for students */}
+            {/* Date of Birth - required for students */}
             {formData.role === 'student' && (
               <div>
-                <label className="block text-sm font-medium text-gray-700">Date of Birth</label>
+                <label className="block text-sm font-medium text-gray-700">Date of Birth *</label>
                 <input
                   type="date"
                   required
@@ -1111,6 +1233,52 @@ const UserModal = ({ title, user, onClose, onSubmit }) => {
                   value={formData.birthDate}
                   onChange={(e) => setFormData({ ...formData, birthDate: e.target.value })}
                 />
+                <p className="mt-1 text-xs text-gray-500">Required for student accounts</p>
+              </div>
+            )}
+
+            {/* Courses - for teachers */}
+            {formData.role === 'teacher' && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Courses (Optional)</label>
+                <input
+                  type="text"
+                  placeholder="Enter courses separated by commas"
+                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  value={formData.courses || ''}
+                  onChange={(e) => setFormData({ ...formData, courses: e.target.value })}
+                />
+                <p className="mt-1 text-xs text-gray-500">Enter course names separated by commas (e.g., Math, Science)</p>
+              </div>
+            )}
+
+            {/* Student IDs - for parents */}
+            {formData.role === 'parent' && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Student IDs (Optional)</label>
+                <input
+                  type="text"
+                  placeholder="Enter student IDs separated by commas"
+                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  value={formData.studentIds || ''}
+                  onChange={(e) => setFormData({ ...formData, studentIds: e.target.value })}
+                />
+                <p className="mt-1 text-xs text-gray-500">Enter student IDs separated by commas (e.g., uuid1, uuid2)</p>
+              </div>
+            )}
+
+            {/* Parent ID - for students */}
+            {formData.role === 'student' && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Parent ID (Optional)</label>
+                <input
+                  type="text"
+                  placeholder="Enter parent user ID"
+                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  value={formData.parentId || ''}
+                  onChange={(e) => setFormData({ ...formData, parentId: e.target.value })}
+                />
+                <p className="mt-1 text-xs text-gray-500">Enter the UUID of the parent user (leave empty for individual students)</p>
               </div>
             )}
 

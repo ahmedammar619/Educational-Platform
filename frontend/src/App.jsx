@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { HelmetProvider } from 'react-helmet-async';
+import { Toaster } from 'react-hot-toast';
 import { LoginForm } from './pages/auth';
 import { AppRouter } from './routers';
 import { authService } from './services';
@@ -144,6 +145,7 @@ function App() {
               onLogout={handleLogout}
             />
           )}
+          <Toaster />
         </div>
       </ErrorBoundary>
     </HelmetProvider>
