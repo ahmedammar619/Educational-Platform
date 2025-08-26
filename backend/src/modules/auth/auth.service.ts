@@ -88,14 +88,11 @@ export class AuthService {
     // Also create record in the appropriate separate table
     try {
       if (role === Role.Student) {
-        await this.studentsService.createStudent({
-          firstName: userData.firstName,
-          lastName: userData.lastName,
-          email: email,
-          password: password, // We need to pass the original password
-          birthDate: userData.birthDate,
-          phone: userData.phone,
-        });
+        await this.studentsService.createStudentFromUser(
+          savedUser.id,
+          userData.birthDate,
+          userData.phone
+        );
       } else if (role === Role.Parent) {
         // Create parent record from the saved user
         await this.parentsService.createParentFromUser(savedUser.id);

@@ -1,22 +1,41 @@
-import { useState } from 'react';
-import { Home, BookOpen, Calendar, User, Bell, LogOut, FileText, ArrowLeft } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { useNavigate, useLocation, Routes, Route } from 'react-router-dom';
+import { Home, BookOpen, Calendar, FileText, Users, MessageSquare, User, Bell, LogOut } from 'lucide-react';
+import MaterialPages from '../../components/common/class-material/MaterialPages';
 import StudentDashboard from './StudentDashboard';
 import StudentClasses from './StudentClasses';
 import StudentSchedule from './StudentSchedule';
-import MaterialPages from '../../components/common/class-material/MaterialPages';
 
 const StudentMain = ({ user, onLogout }) => {
-  const [activeTab, setActiveTab] = useState('dashboard');
+  const navigate = useNavigate();
+  const location = useLocation();
+  
+  // Get the current tab from the URL path
+  const getCurrentTab = () => {
+    const path = location.pathname;
+    if (path.includes('/classes')) return 'classes';
+    if (path.includes('/schedule')) return 'schedule';
+    return 'dashboard';
+  };
+
+  const [activeTab, setActiveTab] = useState(getCurrentTab());
   const [showMaterials, setShowMaterials] = useState(false);
   const [selectedClass, setSelectedClass] = useState(null);
 
-  const navigation = [
-    { id: 'dashboard', name: 'Dashboard', icon: Home, component: StudentDashboard },
-    { id: 'classes', name: 'My Classes', icon: BookOpen, component: StudentClasses },
-    { id: 'calendar', name: 'Calendar', icon: Calendar, component: StudentSchedule },
-  ];
+  // Update active tab when URL changes
+  useEffect(() => {
+    setActiveTab(getCurrentTab());
+  }, [location.pathname]);
 
-  const ActiveComponent = navigation.find(nav => nav.id === activeTab)?.component || StudentDashboard;
+  const handleTabChange = (tabId) => {
+    setActiveTab(tabId);
+    // Navigate to the appropriate route
+    if (tabId === 'dashboard') {
+      navigate('/student');
+    } else {
+      navigate(`/student/${tabId}`);
+    }
+  };
 
   const handleOpenMaterials = (classData) => {
     setSelectedClass(classData);
@@ -28,12 +47,16 @@ const StudentMain = ({ user, onLogout }) => {
     setSelectedClass(null);
   };
 
-  // Render MaterialPages within the main content area
+  const navigation = [
+    { id: 'dashboard', name: 'Dashboard', icon: Home, component: StudentDashboard },
+    { id: 'classes', name: 'Classes', icon: BookOpen, component: StudentClasses },
+    { id: 'schedule', name: 'Schedule', icon: Calendar, component: StudentSchedule },
+  ];
+
   const renderMainContent = () => {
     if (showMaterials && selectedClass) {
       return (
         <div className="space-y-4 h-full">
-          {/* MaterialPages Component */}
           <MaterialPages
             classData={selectedClass}
             onBack={handleBackFromMaterials}
@@ -44,10 +67,11 @@ const StudentMain = ({ user, onLogout }) => {
     }
 
     return (
-      <ActiveComponent
-        user={user}
-        onOpenMaterials={activeTab === 'classes' ? handleOpenMaterials : undefined}
-      />
+      <Routes>
+        <Route path="/" element={<StudentDashboard user={user} />} />
+        <Route path="/classes" element={<StudentClasses user={user} onOpenMaterials={handleOpenMaterials} />} />
+        <Route path="/schedule" element={<StudentSchedule user={user} />} />
+      </Routes>
     );
   };
 
@@ -64,13 +88,13 @@ const StudentMain = ({ user, onLogout }) => {
                 </div>
                 <div>
                   <h1 className="text-xl font-bold text-gray-900">براعم النور</h1>
-                  <p className="text-xs text-gray-600">Baraem Al-Noor</p>
+                  <p className="text-xs text-gray-600">Baraem Al-Nour</p>
                 </div>
               </div>
             </div>
 
             <div className="flex items-center space-x-4">
-              <button className="p-2 text-gray-400 hover:text-red-600">
+              <button className="p-2 text-gray-400 hover:text-green-600">
                 <Bell className="h-5 w-5" />
               </button>
 
@@ -92,7 +116,7 @@ const StudentMain = ({ user, onLogout }) => {
 
                 <button
                   onClick={onLogout}
-                  className="p-2 text-gray-400 hover:text-red-600"
+                  className="p-2 text-gray-400 hover:text-green-600"
                   title="Logout"
                 >
                   <LogOut className="h-5 w-5" />
@@ -114,17 +138,10 @@ const StudentMain = ({ user, onLogout }) => {
                   return (
                     <button
                       key={item.id}
-                      onClick={() => {
-                        setActiveTab(item.id);
-                        // Close materials when switching tabs
-                        if (showMaterials) {
-                          setShowMaterials(false);
-                          setSelectedClass(null);
-                        }
-                      }}
+                      onClick={() => handleTabChange(item.id)}
                       className={`w-full flex items-center space-x-3 px-3 py-2 rounded-md text-sm font-medium transition-colors ${activeTab === item.id
-                          ? 'bg-red-100 text-red-700 border border-red-200'
-                          : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                        ? 'bg-red-100 text-red-700 border border-red-200'
+                        : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
                         }`}
                     >
                       <Icon className="h-5 w-5" />
@@ -135,17 +152,25 @@ const StudentMain = ({ user, onLogout }) => {
               </nav>
             </div>
 
-            {/* Upcoming Classes */}
+            {/* Quick Stats */}
             <div className="mt-6 bg-white rounded-lg shadow-sm border p-4">
-              <h3 className="text-sm font-medium text-gray-900 mb-3">Upcoming Classes</h3>
+              <h3 className="text-sm font-medium text-gray-900 mb-3">Student Stats</h3>
               <div className="space-y-3">
-                <div className="text-sm">
-                  <p className="text-sm font-medium text-gray-900">Quran Memorization</p>
-                  <p className="text-xs text-blue-600">Today at 4:00 PM</p>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600">Enrolled Classes</span>
+                  <span className="font-medium text-gray-900">4</span>
                 </div>
-                <div className="text-sm">
-                  <p className="text-sm font-medium text-gray-900">Arabic Language</p>
-                  <p className="text-xs text-green-600">Tomorrow at 5:00 PM</p>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600">This Week Sessions</span>
+                  <span className="font-medium text-gray-900">6</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600">Attendance Rate</span>
+                  <span className="font-medium text-green-600">92%</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600">Average Grade</span>
+                  <span className="font-medium text-blue-600">A-</span>
                 </div>
               </div>
             </div>

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, Routes, Route } from 'react-router-dom';
 import { Home, Users, BookOpen, Shield, Bell, LogOut, User, FileText, ArrowLeft } from 'lucide-react';
+import ComponentLoader from '../../components/ComponentLoader';
 import AdminDashboard from './AdminDashboard';
 import UserManagement from './UserManagement';
 import ClassManagement from './ClassManagement';
@@ -9,40 +10,31 @@ import MaterialPages from '../../components/common/class-material/MaterialPages'
 const AdminMain = ({ user, onLogout }) => {
   const navigate = useNavigate();
   const location = useLocation();
-  const [activeTab, setActiveTab] = useState('dashboard');
+  
+  // Get the current tab from the URL path
+  const getCurrentTab = () => {
+    const path = location.pathname;
+    if (path.includes('/users')) return 'users';
+    if (path.includes('/classes')) return 'classes';
+    return 'dashboard';
+  };
+
+  const [activeTab, setActiveTab] = useState(getCurrentTab());
   const [showMaterials, setShowMaterials] = useState(false);
   const [selectedClass, setSelectedClass] = useState(null);
 
-  // Sync URL with active tab
+  // Update active tab when URL changes
   useEffect(() => {
-    const path = location.pathname;
-    if (path.includes('/admin/dashboard')) {
-      setActiveTab('dashboard');
-    } else if (path.includes('/admin/users')) {
-      setActiveTab('users');
-    } else if (path.includes('/admin/classes')) {
-      setActiveTab('classes');
-    }
+    setActiveTab(getCurrentTab());
   }, [location.pathname]);
-
-  const navigation = [
-    { id: 'dashboard', name: 'Dashboard', icon: Home, component: AdminDashboard, path: '/admin/dashboard' },
-    { id: 'users', name: 'User Management', icon: Users, component: UserManagement, path: '/admin/users' },
-    { id: 'classes', name: 'Class Management', icon: BookOpen, component: ClassManagement, path: '/admin/classes' },
-  ];
-
-  const ActiveComponent = navigation.find(nav => nav.id === activeTab)?.component || AdminDashboard;
 
   const handleTabChange = (tabId) => {
     setActiveTab(tabId);
-    const navItem = navigation.find(nav => nav.id === tabId);
-    if (navItem) {
-      navigate(navItem.path);
-    }
-    // Close materials when switching tabs
-    if (showMaterials) {
-      setShowMaterials(false);
-      setSelectedClass(null);
+    // Navigate to the appropriate route
+    if (tabId === 'dashboard') {
+      navigate('/admin');
+    } else {
+      navigate(`/admin/${tabId}`);
     }
   };
 
@@ -56,12 +48,16 @@ const AdminMain = ({ user, onLogout }) => {
     setSelectedClass(null);
   };
 
-  // Render MaterialPages within the main content area
+  const navigation = [
+    { id: 'dashboard', name: 'Dashboard', icon: Home, component: AdminDashboard },
+    { id: 'users', name: 'User Management', icon: Users, component: UserManagement },
+    { id: 'classes', name: 'Class Management', icon: BookOpen, component: ClassManagement },
+  ];
+
   const renderMainContent = () => {
     if (showMaterials && selectedClass) {
       return (
         <div className="space-y-4">
-          {/* MaterialPages Component */}
           <MaterialPages
             classData={selectedClass}
             onBack={handleBackFromMaterials}
@@ -72,10 +68,11 @@ const AdminMain = ({ user, onLogout }) => {
     }
 
     return (
-      <ActiveComponent
-        user={user}
-        onOpenMaterials={activeTab === 'classes' ? handleOpenMaterials : undefined}
-      />
+      <Routes>
+        <Route path="/" element={<AdminDashboard user={user} />} />
+        <Route path="/users" element={<UserManagement user={user} />} />
+        <Route path="/classes" element={<ClassManagement user={user} onOpenMaterials={handleOpenMaterials} />} />
+      </Routes>
     );
   };
 
@@ -92,7 +89,7 @@ const AdminMain = ({ user, onLogout }) => {
                 </div>
                 <div>
                   <h1 className="text-xl font-bold text-gray-900">براعم النور</h1>
-                  <p className="text-xs text-gray-600">Baraem Al-Noor</p>
+                  <p className="text-xs text-gray-600">Baraem Al-Nour</p>
                 </div>
               </div>
             </div>
@@ -156,21 +153,25 @@ const AdminMain = ({ user, onLogout }) => {
               </nav>
             </div>
 
-            {/* System Stats */}
+            {/* Quick Stats */}
             <div className="mt-6 bg-white rounded-lg shadow-sm border p-4">
-              <h3 className="text-sm font-medium text-gray-900 mb-3">System Overview</h3>
+              <h3 className="text-sm font-medium text-gray-900 mb-3">System Stats</h3>
               <div className="space-y-3">
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-600">Total Users</span>
-                  <span className="font-medium text-gray-900">15</span>
+                  <span className="font-medium text-gray-900">156</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-600">Active Classes</span>
-                  <span className="font-medium text-gray-900">5</span>
+                  <span className="font-medium text-gray-900">24</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">System Health</span>
-                  <span className="font-medium text-green-600">Excellent</span>
+                  <span className="text-gray-600">Today's Sessions</span>
+                  <span className="font-medium text-gray-900">18</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600">System Status</span>
+                  <span className="font-medium text-green-600">Online</span>
                 </div>
               </div>
             </div>

@@ -116,6 +116,8 @@ function App() {
     setUser(null);
     // Then logout from authService
     authService.logout();
+    // Navigate to home page to clear the URL
+    window.location.href = '/';
   };
 
   if (loading) {

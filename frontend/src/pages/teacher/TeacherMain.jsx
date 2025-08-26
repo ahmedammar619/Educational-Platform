@@ -1,33 +1,44 @@
 import { useState, useEffect } from 'react';
-import { Home, BookOpen, Users, FileText, Calendar, BarChart3, FolderOpen, User, Bell, LogOut } from 'lucide-react';
+import { useNavigate, useLocation, Routes, Route } from 'react-router-dom';
+import { Home, BookOpen, Calendar, Users, BarChart3, MessageSquare, User, Bell, LogOut } from 'lucide-react';
 import TeacherDashboard from './TeacherDashboard';
-import TeacherSchedule from './TeacherSchedule';
 import TeacherClasses from './TeacherClasses';
+import TeacherSchedule from './TeacherSchedule';
 
 const TeacherMain = ({ user, onLogout }) => {
-  const [activeTab, setActiveTab] = useState('dashboard');
+  const navigate = useNavigate();
+  const location = useLocation();
+  
+  // Get the current tab from the URL path
+  const getCurrentTab = () => {
+    const path = location.pathname;
+    if (path.includes('/classes')) return 'classes';
+    if (path.includes('/schedule')) return 'schedule';
+    return 'dashboard';
+  };
 
-  // Debug effect to monitor user object
+  const [activeTab, setActiveTab] = useState(getCurrentTab());
+
+  // Update active tab when URL changes
   useEffect(() => {
-    console.log('TeacherMain - User object received:', user);
-    console.log('TeacherMain - User type:', typeof user);
-    console.log('TeacherMain - User keys:', user ? Object.keys(user) : 'No user');
-    if (user) {
-      console.log('TeacherMain - User firstName:', user.firstName);
-      console.log('TeacherMain - User lastName:', user.lastName);
-      console.log('TeacherMain - User name:', user.name);
-      console.log('TeacherMain - User email:', user.email);
-      console.log('TeacherMain - User role:', user.role);
+    setActiveTab(getCurrentTab());
+  }, [location.pathname]);
+
+  const handleTabChange = (tabId) => {
+    setActiveTab(tabId);
+    // Navigate to the appropriate route
+    if (tabId === 'dashboard') {
+      navigate('/teacher');
+    } else {
+      navigate(`/teacher/${tabId}`);
     }
-  }, [user]);
+  };
 
   const navigation = [
     { id: 'dashboard', name: 'Dashboard', icon: Home, component: TeacherDashboard },
-    { id: 'classes', name: 'My Classes', icon: BookOpen, component: TeacherClasses },
+    { id: 'classes', name: 'Classes', icon: BookOpen, component: TeacherClasses },
     { id: 'schedule', name: 'Schedule', icon: Calendar, component: TeacherSchedule },
   ];
-
-  const ActiveComponent = navigation.find(nav => nav.id === activeTab)?.component || TeacherDashboard;
 
   return (
     <div className="min-h-screen bg-gray-50 h-full">
@@ -37,12 +48,12 @@ const TeacherMain = ({ user, onLogout }) => {
           <div className="flex justify-between h-16">
             <div className="flex items-center">
               <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-blue-600 rounded-lg flex items-center justify-center">
+                <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center">
                   <span className="text-white text-xl font-bold">ب</span>
                 </div>
                 <div>
                   <h1 className="text-xl font-bold text-gray-900">براعم النور</h1>
-                  <p className="text-xs text-gray-600">Baraem Al-Noor</p>
+                  <p className="text-xs text-gray-600">Baraem Al-Nour</p>
                 </div>
               </div>
             </div>
@@ -140,7 +151,7 @@ const TeacherMain = ({ user, onLogout }) => {
                   return (
                     <button
                       key={item.id}
-                      onClick={() => setActiveTab(item.id)}
+                      onClick={() => handleTabChange(item.id)}
                       className={`w-full flex items-center space-x-3 px-3 py-2 rounded-md text-sm font-medium transition-colors ${activeTab === item.id
                         ? 'bg-blue-100 text-blue-700 border border-blue-200'
                         : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
@@ -154,29 +165,37 @@ const TeacherMain = ({ user, onLogout }) => {
               </nav>
             </div>
 
-            {/* Upcoming Sessions */}
+            {/* Quick Stats */}
             <div className="mt-6 bg-white rounded-lg shadow-sm border p-4">
-              <h3 className="text-sm font-medium text-gray-900 mb-3">Today's Sessions</h3>
+              <h3 className="text-sm font-medium text-gray-900 mb-3">Teaching Stats</h3>
               <div className="space-y-3">
-                <div className="text-sm">
-                  <p className="text-sm font-medium text-gray-900">Mathematics 101</p>
-                  <p className="text-xs text-blue-600">10:00 AM - 11:30 AM</p>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600">Active Classes</span>
+                  <span className="font-medium text-gray-900">5</span>
                 </div>
-                <div className="text-sm">
-                  <p className="text-sm font-medium text-gray-900">Physics Lab</p>
-                  <p className="text-xs text-green-600">2:00 PM - 4:00 PM</p>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600">Total Students</span>
+                  <span className="font-medium text-gray-900">32</span>
                 </div>
-                <div className="text-sm">
-                  <p className="text-sm font-medium text-gray-900">Office Hours</p>
-                  <p className="text-xs text-gray-600">4:30 PM - 5:30 PM</p>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600">This Week Sessions</span>
+                  <span className="font-medium text-gray-900">12</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600">Avg. Attendance</span>
+                  <span className="font-medium text-green-600">89%</span>
                 </div>
               </div>
             </div>
           </div>
 
           {/* Main Content - With left margin for fixed sidebar and gap */}
-          <div className="flex-1 min-w-0 lg:ml-72 ">
-            <ActiveComponent user={user} />
+          <div className="flex-1 min-w-0 lg:ml-72">
+            <Routes>
+              <Route path="/" element={<TeacherDashboard user={user} />} />
+              <Route path="/classes" element={<TeacherClasses user={user} />} />
+              <Route path="/schedule" element={<TeacherSchedule user={user} />} />
+            </Routes>
           </div>
         </div>
       </div>

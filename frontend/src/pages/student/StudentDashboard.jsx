@@ -19,7 +19,7 @@ const StudentDashboard = ({ user }) => {
       setError(null);
 
       // Fetch student dashboard data from backend
-      const response = await dashboardService.getStudentDashboard();
+      const response = await dashboardService.getStudentDashboard(user.id);
 
       // Combine backend data with mock data for components without backend
       const combinedData = {
@@ -70,6 +70,29 @@ const StudentDashboard = ({ user }) => {
   // Use fallback values if backend data is missing
   const data = dashboardData || getMockData('studentDashboard');
 
+  // Calculate age from birthdate if available
+  const calculateAge = (birthdate) => {
+    if (!birthdate) return 'N/A';
+    const today = new Date();
+    const birthDate = new Date(birthdate);
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const monthDiff = today.getMonth() - birthDate.getMonth();
+    
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+      age--;
+    }
+    return age;
+  };
+
+  // Format join date from createdAt
+  const formatJoinDate = (createdAt) => {
+    if (!createdAt) return 'Jan 2024';
+    return new Date(createdAt).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short'
+    });
+  };
+
   const getProgressColor = (percentage) => {
     if (percentage >= 80) return 'text-green-600';
     if (percentage >= 60) return 'text-yellow-600';
@@ -118,11 +141,15 @@ const StudentDashboard = ({ user }) => {
               </div>
               <div className="text-center">
                 <p className="text-sm text-gray-600">Age</p>
-                <p className="font-medium text-gray-900">{user?.age || 'N/A'}</p>
+                <p className="font-medium text-gray-900">
+                  {data.profile?.age || (data.profile?.birthdate ? calculateAge(data.profile.birthdate) : 'N/A')}
+                </p>
               </div>
               <div className="text-center">
                 <p className="text-sm text-gray-600">Join Date</p>
-                <p className="font-medium text-gray-900">{user?.joinDate || 'Jan 2024'}</p>
+                <p className="font-medium text-gray-900">
+                  {data.profile?.createdAt ? formatJoinDate(data.profile.createdAt) : 'Jan 2024'}
+                </p>
               </div>
             </div>
           </div>

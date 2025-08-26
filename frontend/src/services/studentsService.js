@@ -1,6 +1,16 @@
 import api from './api';
 
 class StudentsService {
+  // Get all students (for admin use)
+  async getAllStudents() {
+    try {
+      const response = await api.get('/api/students');
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  }
+
   // Get student profile
   async getStudentProfile() {
     try {

@@ -224,4 +224,25 @@ export class StudentsService {
     student.parentId = null;
     return this.studentRepository.save(student);
   }
+
+  // Method to create a student record from an existing user
+  async createStudentFromUser(userId: string, birthDate: string, phone?: string): Promise<Student> {
+    // Check if student record already exists
+    const existingStudent = await this.studentRepository.findOne({
+      where: { id: userId }
+    });
+
+    if (existingStudent) {
+      throw new ConflictException('Student record already exists for this user');
+    }
+
+    // Create student record with the existing user ID
+    const student = this.studentRepository.create({
+      id: userId,
+      birthDate: new Date(birthDate),
+      parentId: null, // Students created from signup have no parent initially
+    });
+
+    return this.studentRepository.save(student);
+  }
 }
