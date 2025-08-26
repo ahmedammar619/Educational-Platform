@@ -18,7 +18,7 @@ const ParentDashboard = ({ user }) => {
       setError(null);
       
       // Fetch parent dashboard data from backend
-      const response = await dashboardService.getParentDashboard();
+      const response = await dashboardService.getParentDashboard(user.id);
       
       // Combine backend data with mock data for components without backend
       const combinedData = {

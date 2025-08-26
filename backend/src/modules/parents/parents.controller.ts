@@ -52,78 +52,7 @@ export class ParentsController {
     return { parents };
   }
 
-  @Get(':id')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @ApiOperation({ summary: 'Get parent by ID (Protected)' })
-  @ApiResponse({
-    status: 200,
-    description: 'Parent retrieved successfully',
-  })
-  @ApiResponse({
-    status: 404,
-    description: 'Parent not found',
-  })
-  async findOne(@Param('id') id: string) {
-    const parent = await this.parentsService.findOne(id);
-    return { parent };
-  }
-
-  @Put(':id')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @ApiOperation({ summary: 'Update parent information (Protected)' })
-  @ApiBody({ type: UpdateParentDto })
-  @ApiResponse({
-    status: 200,
-    description: 'Parent updated successfully',
-  })
-  @ApiResponse({
-    status: 400,
-    description: 'Bad request - Invalid data',
-  })
-  @ApiResponse({
-    status: 401,
-    description: 'Unauthorized',
-  })
-  @ApiResponse({
-    status: 404,
-    description: 'Parent not found',
-  })
-  async updateParent(
-    @Param('id') id: string,
-    @Body() updateParentDto: UpdateParentDto,
-    @CurrentUser() currentUser: any
-  ) {
-    // Allow parents to update their own profile or admins to update any profile
-    if (currentUser.sub !== id && currentUser.role !== Role.Admin) {
-      throw new ForbiddenException('You do not have permission to update this parent');
-    }
-    return this.parentsService.updateParent(id, updateParentDto);
-  }
-
-  @Delete(':id')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.Admin)
-  @ApiOperation({ summary: 'Delete a parent (Admin only)' })
-  @ApiResponse({
-    status: 200,
-    description: 'Parent deleted successfully',
-  })
-  @ApiResponse({
-    status: 401,
-    description: 'Unauthorized',
-  })
-  @ApiResponse({
-    status: 403,
-    description: 'Forbidden - Admin privileges required',
-  })
-  @ApiResponse({
-    status: 404,
-    description: 'Parent not found',
-  })
-  async deleteParent(@Param('id') id: string) {
-    return this.parentsService.deleteParent(id);
-  }
-
+  // More specific routes must come before the wildcard :id route
   @Post(':id/children')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @ApiOperation({ summary: 'Add a child to parent (Protected)' })
@@ -240,6 +169,98 @@ export class ParentsController {
     if (currentUser.sub !== id) {
       throw new ForbiddenException('You can only create child accounts for your own account');
     }
+    
+    // Ensure parent record exists before creating child account
+    await this.parentsService.ensureParentRecordExists(id);
+    
     return this.parentsService.createChildAccount(id, createChildAccountDto);
+  }
+
+  @Post(':id/ensure-parent-record')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @ApiOperation({ summary: 'Ensure parent record exists (Utility endpoint)' })
+  @ApiResponse({
+    status: 200,
+    description: 'Parent record ensured successfully',
+  })
+  async ensureParentRecord(@Param('id') id: string, @CurrentUser() currentUser: any) {
+    // Allow users to ensure their own parent record exists
+    if (currentUser.sub !== id) {
+      throw new ForbiddenException('You can only ensure your own parent record');
+    }
+    
+    return this.parentsService.ensureParentRecordExists(id);
+  }
+
+  @Get(':id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @ApiOperation({ summary: 'Get parent by ID (Protected)' })
+  @ApiResponse({
+    status: 200,
+    description: 'Parent retrieved successfully',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Parent not found',
+  })
+  async findOne(@Param('id') id: string) {
+    const parent = await this.parentsService.findOne(id);
+    return { parent };
+  }
+
+  @Put(':id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @ApiOperation({ summary: 'Update parent information (Protected)' })
+  @ApiBody({ type: UpdateParentDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Parent updated successfully',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Bad request - Invalid data',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Parent not found',
+  })
+  async updateParent(
+    @Param('id') id: string,
+    @Body() updateParentDto: UpdateParentDto,
+    @CurrentUser() currentUser: any
+  ) {
+    // Allow parents to update their own profile or admins to update any profile
+    if (currentUser.sub !== id && currentUser.role !== Role.Admin) {
+      throw new ForbiddenException('You do not have permission to update this parent');
+    }
+    return this.parentsService.updateParent(id, updateParentDto);
+  }
+
+  @Delete(':id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.Admin)
+  @ApiOperation({ summary: 'Delete a parent (Admin only)' })
+  @ApiResponse({
+    status: 200,
+    description: 'Parent deleted successfully',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - Admin privileges required',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Parent not found',
+  })
+  async deleteParent(@Param('id') id: string) {
+    return this.parentsService.deleteParent(id);
   }
 }

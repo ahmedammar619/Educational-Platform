@@ -42,9 +42,9 @@ class DashboardService {
   }
 
   // Get parent dashboard data
-  async getParentDashboard() {
+  async getParentDashboard(parentId) {
     try {
-      const response = await api.get('/api/dashboard/parent');
+      const response = await api.get(`/api/dashboard/parent?parentId=${parentId}`);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;

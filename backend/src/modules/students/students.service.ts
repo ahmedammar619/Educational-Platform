@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Student } from './entities/student.entity';
 import { User } from '../users/entities/user.entity';
+import { Parent } from '../parents/entities/parent.entity';
 import { CreateStudentDto } from './dto/create-student.dto';
 import { UpdateStudentDto } from './dto/update-student.dto';
 import { Role } from '../../common/enums/role.enum';
@@ -15,6 +16,8 @@ export class StudentsService {
     private readonly studentRepository: Repository<Student>,
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
+    @InjectRepository(Parent)
+    private readonly parentRepository: Repository<Parent>,
   ) {}
 
   async createStudent(createStudentDto: CreateStudentDto): Promise<Student> {
@@ -76,6 +79,7 @@ export class StudentsService {
   async findByEmail(email: string): Promise<Student> {
     const user = await this.userRepository.findOne({
       where: { email, role: Role.Student },
+      select: ['id', 'firstName', 'lastName', 'email', 'role', 'phone', 'createdAt']
     });
 
     if (!user) {
@@ -85,6 +89,20 @@ export class StudentsService {
     return this.studentRepository.findOne({
       where: { id: user.id },
       relations: ['user'],
+      select: {
+        id: true,
+        birthDate: true,
+        parentId: true,
+        user: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          email: true,
+          role: true,
+          phone: true,
+          createdAt: true,
+        }
+      }
     });
   }
 
@@ -135,8 +153,42 @@ export class StudentsService {
 
   async deleteStudent(id: string): Promise<void> {
     const student = await this.findOne(id);
+    
+    // Check if student has a parent and remove from parent's children array
+    if (student.parentId) {
+      const parent = await this.parentRepository.findOne({
+        where: { id: student.parentId }
+      });
+      
+      if (parent && parent.studentIds) {
+        // Remove the student ID from parent's studentIds array
+        parent.studentIds = parent.studentIds.filter(studentId => studentId !== id);
+        await this.parentRepository.save(parent);
+      }
+    }
+    
     // Delete student record first (this will cascade to user due to the relationship)
     await this.studentRepository.remove(student);
+  }
+
+  // Method to safely remove a student from all parent relationships
+  async removeFromAllParents(studentId: string): Promise<void> {
+    const student = await this.findOne(studentId);
+    
+    if (student.parentId) {
+      const parent = await this.parentRepository.findOne({
+        where: { id: student.parentId }
+      });
+      
+      if (parent && parent.studentIds) {
+        parent.studentIds = parent.studentIds.filter(id => id !== studentId);
+        await this.parentRepository.save(parent);
+      }
+      
+      // Also update the student record
+      student.parentId = null;
+      await this.studentRepository.save(student);
+    }
   }
 
   async linkToParent(studentId: string, parentId: string): Promise<Student> {
@@ -155,6 +207,18 @@ export class StudentsService {
     
     if (!student.parentId) {
       throw new ConflictException('Student does not have a parent');
+    }
+
+    // Remove student ID from parent's studentIds array
+    if (student.parentId) {
+      const parent = await this.parentRepository.findOne({
+        where: { id: student.parentId }
+      });
+      
+      if (parent && parent.studentIds) {
+        parent.studentIds = parent.studentIds.filter(id => id !== studentId);
+        await this.parentRepository.save(parent);
+      }
     }
 
     student.parentId = null;

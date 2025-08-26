@@ -4,6 +4,7 @@ import {
   Column,
   OneToOne,
   JoinColumn,
+  ManyToOne,
 } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
 
@@ -19,10 +20,15 @@ export class Student {
   @Column({ nullable: true })
   parentId?: string;
 
-  // One-to-one relationship with User
+  // One-to-one relationship with User (no embedded object)
   @OneToOne(() => User, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'id' })
   user: User;
+
+  // Many-to-one relationship with Parent (User with role Parent)
+  @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'parentId' })
+  parent: User;
 
   get age(): number {
     const today = new Date();

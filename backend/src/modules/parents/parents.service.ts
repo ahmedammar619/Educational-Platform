@@ -60,6 +60,19 @@ export class ParentsService {
   async findAll(): Promise<Parent[]> {
     return this.parentRepository.find({
       relations: ['user'],
+      select: {
+        id: true,
+        studentIds: true,
+        user: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          email: true,
+          role: true,
+          phone: true,
+          createdAt: true,
+        }
+      }
     });
   }
 
@@ -67,6 +80,19 @@ export class ParentsService {
     const parent = await this.parentRepository.findOne({
       where: { id },
       relations: ['user'],
+      select: {
+        id: true,
+        studentIds: true,
+        user: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          email: true,
+          role: true,
+          phone: true,
+          createdAt: true,
+        }
+      }
     });
 
     if (!parent) {
@@ -79,6 +105,7 @@ export class ParentsService {
   async findByEmail(email: string): Promise<Parent> {
     const user = await this.userRepository.findOne({
       where: { email, role: Role.Parent },
+      select: ['id', 'firstName', 'lastName', 'email', 'role', 'phone', 'createdAt']
     });
 
     if (!user) {
@@ -88,6 +115,19 @@ export class ParentsService {
     return this.parentRepository.findOne({
       where: { id: user.id },
       relations: ['user'],
+      select: {
+        id: true,
+        studentIds: true,
+        user: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          email: true,
+          role: true,
+          phone: true,
+          createdAt: true,
+        }
+      }
     });
   }
 
@@ -126,6 +166,15 @@ export class ParentsService {
 
   async deleteParent(id: string): Promise<void> {
     const parent = await this.findOne(id);
+    
+    // Clean up all students that have this parent
+    if (parent.studentIds && parent.studentIds.length > 0) {
+      // Update all students to remove the parentId reference
+      for (const studentId of parent.studentIds) {
+        await this.studentsService.unlinkFromParent(studentId);
+      }
+    }
+    
     // Delete parent record first (this will cascade to user due to the relationship)
     await this.parentRepository.remove(parent);
   }
@@ -207,6 +256,125 @@ export class ParentsService {
       parent: {
         id: parent.id,
         name: `${parent.user.firstName} ${parent.user.lastName}`,
+      }
+    };
+  }
+
+  // Method to remove a specific student ID from all parents (useful for cleanup)
+  async removeStudentFromAllParents(studentId: string): Promise<void> {
+    // Find all parents that have this student ID in their studentIds array
+    const parents = await this.parentRepository
+      .createQueryBuilder('parent')
+      .where(':studentId = ANY(parent.studentIds)', { studentId })
+      .getMany();
+    
+    for (const parent of parents) {
+      parent.studentIds = parent.studentIds.filter(id => id !== studentId);
+      await this.parentRepository.save(parent);
+    }
+  }
+
+  // Method to ensure a parent record exists for a given user ID
+  async ensureParentRecordExists(userId: string): Promise<Parent> {
+    // First check if parent record already exists
+    let parent = await this.parentRepository.findOne({
+      where: { id: userId },
+      relations: ['user']
+    });
+
+    if (parent) {
+      return parent;
+    }
+
+    // If no parent record exists, verify the user exists and has Parent role
+    const user = await this.userRepository.findOne({
+      where: { id: userId, role: Role.Parent }
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found or does not have Parent role');
+    }
+
+    // Create the parent record
+    parent = this.parentRepository.create({
+      id: userId,
+      studentIds: []
+    });
+
+    return this.parentRepository.save(parent);
+  }
+
+  // Method to create a parent record from an existing user (for auth service)
+  async createParentFromUser(userId: string): Promise<Parent> {
+    // Check if parent record already exists
+    const existingParent = await this.parentRepository.findOne({
+      where: { id: userId }
+    });
+
+    if (existingParent) {
+      return existingParent;
+    }
+
+    // Create new parent record
+    const parent = this.parentRepository.create({
+      id: userId,
+      studentIds: []
+    });
+
+    return this.parentRepository.save(parent);
+  }
+
+  // Child-specific methods
+  async getChildProgress(parentId: string, childId: string): Promise<any> {
+    // Verify parent exists and has access to this child
+    const parent = await this.findOne(parentId);
+    
+    if (!parent.studentIds.includes(childId)) {
+      throw new NotFoundException('Child not found or not associated with this parent');
+    }
+
+    // For now, return mock data structure - you can implement actual data fetching later
+    return {
+      courses: [],
+      recentGrades: [],
+      attendanceSummary: []
+    };
+  }
+
+  async getChildAttendance(parentId: string, childId: string): Promise<any> {
+    // Verify parent exists and has access to this child
+    const parent = await this.findOne(parentId);
+    
+    if (!parent.studentIds.includes(childId)) {
+      throw new NotFoundException('Child not found or not associated with this parent');
+    }
+
+    // For now, return mock data structure - you can implement actual data fetching later
+    return {
+      attendance: [],
+      summary: {
+        totalSessions: 0,
+        attendedSessions: 0,
+        attendanceRate: 0
+      }
+    };
+  }
+
+  async getChildGrades(parentId: string, childId: string): Promise<any> {
+    // Verify parent exists and has access to this child
+    const parent = await this.findOne(parentId);
+    
+    if (!parent.studentIds.includes(childId)) {
+      throw new NotFoundException('Child not found or not associated with this parent');
+    }
+
+    // For now, return mock data structure - you can implement actual data fetching later
+    return {
+      grades: [],
+      summary: {
+        averageGrade: 0,
+        totalAssignments: 0,
+        completedAssignments: 0
       }
     };
   }

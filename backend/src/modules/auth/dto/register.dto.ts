@@ -11,6 +11,7 @@ import {
   ValidateIf,
 } from 'class-validator';
 import { Role } from '../../../common/enums/role.enum';
+import { IsEmailUnique } from '../../../common/validators/unique-email.validator';
 
 export class RegisterDto {
   @ApiProperty({
@@ -32,6 +33,7 @@ export class RegisterDto {
     example: 'john.doe@example.com',
   })
   @IsEmail()
+  @IsEmailUnique({ message: 'This email is already registered. Please use a different email address.' })
   email: string;
 
   @ApiProperty({

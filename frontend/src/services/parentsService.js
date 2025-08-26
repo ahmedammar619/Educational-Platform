@@ -24,7 +24,7 @@ class ParentsService {
   // Get parent's children
   async getMyChildren(parentId) {
     try {
-      const response = await api.get(`/api/parents/children?parentId=${parentId}`);
+      const response = await api.get(`/api/parents/${parentId}/children`);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -53,34 +53,34 @@ class ParentsService {
   }
 
   // Get child progress
-  async getChildProgress(childId, parentId) {
-    try {
-      const response = await api.get(`/api/parents/children/${childId}/progress?parentId=${parentId}`);
-      return response.data;
-    } catch (error) {
-      throw error.response?.data || error.message;
-    }
-  }
+  // async getChildProgress(childId, parentId) {
+  //   try {
+  //     const response = await api.get(`/api/parents/children/${childId}/progress?parentId=${parentId}`);
+  //     return response.data;
+  //   } catch (error) {
+  //     throw error.response?.data || error.message;
+  //   }
+  // }
 
   // Get child attendance
-  async getChildAttendance(childId, parentId) {
-    try {
-      const response = await api.get(`/api/parents/children/${childId}/attendance?parentId=${parentId}`);
-      return response.data;
-    } catch (error) {
-      throw error.response?.data || error.message;
-    }
-  }
+  // async getChildAttendance(childId, parentId) {
+  //   try {
+  //     const response = await api.get(`/api/parents/children/${childId}/attendance?parentId=${parentId}`);
+  //     return response.data;
+  //   } catch (error) {
+  //     throw error.response?.data || error.message;
+  //   }
+  // }
 
   // Get child grades
-  async getChildGrades(childId, parentId) {
-    try {
-      const response = await api.get(`/api/parents/children/${childId}/grades?parentId=${parentId}`);
-      return response.data;
-    } catch (error) {
-      throw error.response?.data || error.message;
-    }
-  }
+  // async getChildGrades(childId, parentId) {
+  //   try {
+  //     const response = await api.get(`/api/parents/children/${childId}/grades?parentId=${parentId}`);
+  //     return response.data;
+  //   } catch (error) {
+  //     throw error.response?.data || error.message;
+  //   }
+  // }
 
   // Get parent messages
   async getMessages() {

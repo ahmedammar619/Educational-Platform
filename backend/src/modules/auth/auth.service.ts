@@ -97,13 +97,8 @@ export class AuthService {
           phone: userData.phone,
         });
       } else if (role === Role.Parent) {
-        await this.parentsService.createParent({
-          firstName: userData.firstName,
-          lastName: userData.lastName,
-          email: email,
-          password: password, // We need to pass the original password
-          phone: userData.phone,
-        });
+        // Create parent record from the saved user
+        await this.parentsService.createParentFromUser(savedUser.id);
       }
     } catch (error) {
       // If creating in separate table fails, we should clean up the user
