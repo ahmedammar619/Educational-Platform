@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Home, BookOpen, Users, FileText, Calendar, BarChart3, FolderOpen, User, Bell, LogOut } from 'lucide-react';
 import TeacherDashboard from './TeacherDashboard';
-import TeacherCalendar from './TeacherCalendar';
+import TeacherSchedule from './TeacherSchedule';
 import TeacherClasses from './TeacherClasses';
 
 const TeacherMain = ({ user, onLogout }) => {
@@ -24,7 +24,7 @@ const TeacherMain = ({ user, onLogout }) => {
   const navigation = [
     { id: 'dashboard', name: 'Dashboard', icon: Home, component: TeacherDashboard },
     { id: 'classes', name: 'My Classes', icon: BookOpen, component: TeacherClasses },
-    { id: 'calendar', name: 'Calendar', icon: Calendar, component: TeacherCalendar },
+    { id: 'schedule', name: 'Schedule', icon: Calendar, component: TeacherSchedule },
   ];
 
   const ActiveComponent = navigation.find(nav => nav.id === activeTab)?.component || TeacherDashboard;

@@ -1,316 +1,331 @@
-import React, { useState, useEffect } from 'react';
-import { teachersService, coursesService, usersService } from '../../services';
+import { useState, useEffect } from 'react';
+import { Users, Clock, Calendar, BookOpen, Plus, Edit, Eye, MessageSquare, User, DollarSign, X } from 'lucide-react';
+import { mockCourses, mockUsers } from '../../data/mockData';
+import MaterialPages from '../../components/common/class-material/MaterialPages';
 
-const TeacherClasses = () => {
+const TeacherClasses = ({ user }) => {
   const [classes, setClasses] = useState([]);
-  const [students, setStudents] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [showCreateForm, setShowCreateForm] = useState(false);
-  const [formData, setFormData] = useState({
-    name: '',
-    description: '',
-    price: '',
-    startDate: '',
-    endDate: '',
-    schedule: []
-  });
+  const [showClassModal, setShowClassModal] = useState(false);
+  const [showStudentModal, setShowStudentModal] = useState(false);
+  const [showMaterialPages, setShowMaterialPages] = useState(false);
+  const [selectedClassForModal, setSelectedClassForModal] = useState(null);
+  const [selectedClassForMaterial, setSelectedClassForMaterial] = useState(null);
 
   useEffect(() => {
-    fetchData();
-  }, []);
+    loadClasses();
+  }, [user]);
 
-  const fetchData = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      
-      // Fetch all required data in parallel
-      const [classesResponse, studentsResponse] = await Promise.all([
-        teachersService.getTeacherClasses(),
-        usersService.getUsersByRole('student')
-      ]);
-      
-      setClasses(classesResponse.classes || []);
-      setStudents(studentsResponse.users || []);
-      
-    } catch (err) {
-      console.error('Error fetching data:', err);
-      setError(err.message || 'Failed to load class data');
-    } finally {
-      setLoading(false);
+  const loadClasses = () => {
+    if (user && user.id) {
+      // Get classes taught by this teacher
+      const teacherClasses = mockCourses.filter(c => c.teacherId === user.id);
+      setClasses(teacherClasses);
+    } else {
+      // Fallback: show all classes if no user is provided
+      setClasses(mockCourses);
     }
   };
 
-  const handleCreateClass = async (e) => {
-    e.preventDefault();
-    
-    if (!formData.name || !formData.description || !formData.price) {
-      alert('Please fill in all required fields');
-      return;
-    }
+  const getStudentDetails = (studentIds) => {
+    return studentIds.map(id =>
+      mockUsers.find(student => student.id === id && student.role === 'student')
+    ).filter(Boolean);
+  };
 
-    try {
-      const classData = {
-        ...formData,
-        price: parseFloat(formData.price)
-      };
-
-      await teachersService.createClass(classData);
-      
-      // Refresh the data
-      await fetchData();
-      
-      // Reset form and close modal
-      setFormData({
-        name: '',
-        description: '',
-        price: '',
-        startDate: '',
-        endDate: '',
-        schedule: []
-      });
-      setShowCreateForm(false);
-      
-      alert('Class created successfully!');
-      
-    } catch (err) {
-      console.error('Error creating class:', err);
-      alert('Failed to create class: ' + err.message);
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'active': return 'bg-green-100 text-green-800';
+      case 'upcoming': return 'bg-blue-100 text-blue-800';
+      case 'completed': return 'bg-gray-100 text-gray-800';
+      default: return 'bg-gray-100 text-gray-800';
     }
   };
 
-  const handleDeleteClass = async (classId) => {
-    if (window.confirm('Are you sure you want to delete this class? This action cannot be undone.')) {
-      try {
-        await teachersService.deleteClass(classId);
-        
-        // Refresh the data
-        await fetchData();
-        
-        alert('Class deleted successfully!');
-        
-      } catch (err) {
-        console.error('Error deleting class:', err);
-        alert('Failed to delete class: ' + err.message);
-      }
-    }
-  };
-
-  const getStudentCount = (classId) => {
-    const cls = classes.find(c => c.id === classId);
-    return cls?.students?.length || 0;
-  };
-
-  const getScheduleDisplay = (schedule) => {
-    if (!schedule || schedule.length === 0) return 'Schedule TBD';
-    
-    return schedule.map(session => 
-      `${session.day} ${session.startTime}-${session.endTime}`
-    ).join(', ');
-  };
-
-  if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading classes...</p>
+    <div className="space-y-4 sm:space-y-6 h-full">
+      {!showMaterialPages ? (
+        <>
+          {/* Header */}
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
+            <div>
+              <h1 className="text-xl sm:text-2xl font-bold text-gray-900">My Classes</h1>
+              <p className="text-sm sm:text-base text-gray-600">Manage your classes and track student progress</p>
         </div>
       </div>
-    );
-  }
 
-  if (error) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <div className="text-red-500 text-xl mb-4">⚠️</div>
-          <p className="text-gray-600 mb-4">{error}</p>
+          {/* Classes List */}
+          <div className="bg-white rounded-lg shadow-sm border">
+            <div className="p-4 sm:p-6 border-b">
+              <h2 className="text-base sm:text-lg font-semibold text-gray-900">All Classes</h2>
+            </div>
+            <div className="p-4 sm:p-6">
+              {classes.length === 0 ? (
+                <div className="text-center py-8">
+                  <BookOpen className="h-8 w-8 sm:h-12 sm:w-12 text-gray-400 mx-auto mb-4" />
+                  <p className="text-sm sm:text-base text-gray-600">No classes assigned yet</p>
+                  <p className="text-xs sm:text-sm text-gray-500">Create your first class to get started</p>
+                </div>
+              ) : (
+                <div className="space-y-3 sm:space-y-4">
+                  {classes.map((classItem) => (
+                    <div
+                      key={classItem.id}
+                      className="bg-white rounded-xl shadow-sm border hover:shadow-md transition-all w-full p-3 sm:p-4 flex flex-col gap-3 sm:gap-4"
+                    >
+                      {/* Top Row - Name, Actions */}
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                        <div className="flex items-center gap-2 sm:gap-3">
+                          <BookOpen className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600" />
+                          <h3 className="text-base sm:text-lg font-semibold text-gray-900">{classItem.name}</h3>
+                        </div>
+
+                        {/* Actions */}
+                        <div className="flex items-center gap-3 opacity-80 hover:opacity-100 transition-opacity">
           <button 
-            onClick={fetchData} 
-            className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
-          >
-            Retry
+                            onClick={() => {
+                              setSelectedClassForModal(classItem);
+                              setShowStudentModal(true);
+                            }}
+                            className="text-green-600 hover:text-green-800 p-2 rounded-lg hover:bg-green-50 transition-colors"
+                            title="View Students"
+                          >
+                            <Users className="h-4 w-4" />
           </button>
         </div>
       </div>
-    );
-  }
 
-  return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">My Classes</h1>
-          <p className="text-gray-600">Manage your teaching classes and student enrollments</p>
+                      {/* Bottom Row - Students, Date, Class Material */}
+                      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center w-full gap-3 sm:gap-0">
+                        <div className="text-center">
+                          <p className="text-xs text-gray-500 flex items-center justify-center gap-1">
+                            <Users className="h-3 w-3 sm:h-4 sm:w-4 text-gray-400" /> Students
+                          </p>
+                          <p className="font-medium text-gray-900 text-sm sm:text-base">{classItem.students?.length || 0}</p>
         </div>
 
-        {/* Create Class Button */}
-        <div className="mb-6">
-          <button
-            onClick={() => setShowCreateForm(true)}
-            className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            + Create New Class
-          </button>
+                        <div className="text-center">
+                          <p className="text-xs text-gray-500 flex items-center justify-center gap-1">
+                            <Calendar className="h-3 w-3 sm:h-4 sm:w-4 text-gray-400" /> Schedule
+                          </p>
+                          <p className="font-medium text-gray-900 text-sm sm:text-base">
+                            {classItem.schedule && Array.isArray(classItem.schedule)
+                              ? classItem.schedule.map(item => `${item.day} ${item.startTime}-${item.endTime}`).join(', ')
+                              : 'Schedule TBD'
+                            }
+                          </p>
         </div>
 
-        {/* Classes Grid */}
-        {classes.length === 0 ? (
-          <div className="text-center py-12 bg-white rounded-lg shadow">
-            <div className="text-gray-400 text-6xl mb-4">📚</div>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No Classes Created</h3>
-            <p className="text-gray-500 mb-4">
-              You haven't created any classes yet. Start by creating your first class!
-            </p>
-            <button
-              onClick={() => setShowCreateForm(true)}
-              className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              Create Your First Class
-            </button>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {classes.map((cls) => (
-              <div key={cls.id} className="bg-white rounded-lg shadow p-6">
-                <div className="flex justify-between items-start mb-4">
-                  <h3 className="text-lg font-semibold text-gray-900">{cls.name}</h3>
-                  <button
-                    onClick={() => handleDeleteClass(cls.id)}
-                    className="text-red-600 hover:text-red-800 text-sm"
-                  >
-                    Delete
-                  </button>
+                        <div className="text-center">
+                          <p className="text-xs text-gray-500 flex items-center justify-center gap-1">
+                            <Clock className="h-3 w-3 sm:h-4 sm:w-4 text-gray-400" /> Duration
+                          </p>
+                          <p className="font-medium text-gray-900 text-sm sm:text-base">{classItem.sessionDuration || 120} min</p>
                 </div>
                 
-                <p className="text-gray-600 mb-4">{cls.description}</p>
-                
-                <div className="space-y-2 text-sm mb-4">
-                  <div className="flex justify-between">
-                    <span className="text-gray-500">Students:</span>
-                    <span className="text-gray-900">{getStudentCount(cls.id)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-500">Schedule:</span>
-                    <span className="text-gray-900">{getScheduleDisplay(cls.schedule)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-500">Price:</span>
-                    <span className="text-gray-900">SAR {cls.price}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-500">Status:</span>
-                    <span className="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800">
-                      Active
-                    </span>
-                  </div>
-                </div>
-                
-                <div className="flex space-x-2">
+                        <div className="text-center">
                   <button
-                    onClick={() => window.location.href = `/teacher/classes/${cls.id}/students`}
-                    className="flex-1 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition-colors text-sm"
-                  >
-                    Manage Students
+                            onClick={() => {
+                              setSelectedClassForMaterial(classItem);
+                              setShowMaterialPages(true);
+                            }}
+                            className="w-full sm:w-auto px-3 py-2 border-2 border-blue-600 text-blue-600 font-semibold text-xs rounded-lg hover:bg-blue-600 hover:text-white transition-all duration-200 uppercase"
+                          >
+                            Class Material
                   </button>
-                  <button
-                    onClick={() => window.location.href = `/teacher/classes/${cls.id}/materials`}
-                    className="flex-1 bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 transition-colors text-sm"
-                  >
-                    Materials
-                  </button>
+                        </div>
                 </div>
               </div>
             ))}
           </div>
         )}
-
-        {/* Create Class Modal */}
-        {showCreateForm && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-lg p-6 w-full max-w-md">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Create New Class</h3>
-              
-              <form onSubmit={handleCreateClass} className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Class Name *</label>
-                  <input
-                    type="text"
-                    required
-                    value={formData.name}
-                    onChange={(e) => setFormData({...formData, name: e.target.value})}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
+            </div>
                 </div>
 
+          {/* Student Modal */}
+          {showStudentModal && selectedClassForModal && (
+            <StudentModal
+              classData={selectedClassForModal}
+              onClose={() => {
+                setShowStudentModal(false);
+                setSelectedClassForModal(null);
+              }}
+            />
+          )}
+        </>
+      ) : (
+        <MaterialPages
+          classData={selectedClassForMaterial}
+          onBack={() => {
+            setShowMaterialPages(false);
+            setSelectedClassForMaterial(null);
+          }}
+          currentUser={user}
+        />
+      )}
+                </div>
+  );
+};
+
+// Student Modal Component
+const StudentModal = ({ classData, onClose }) => {
+  const students = classData.students || [];
+
+  const getParentDetails = (parentId) => {
+    return mockUsers.find(parent => parent.id === parentId && parent.role === 'parent') || {
+      id: parentId,
+      firstName: 'Unknown',
+      lastName: 'Parent',
+      fullName: 'Unknown Parent',
+      email: 'unknown@example.com'
+    };
+  };
+
+  const groupStudentsByParent = (students) => {
+    const grouped = {};
+    const individualStudents = [];
+
+    students.forEach(student => {
+      // Check if student has a parent by looking at the mock data structure
+      // In your current mock data, students don't have parentId, so we'll group them as individuals
+      // But we'll create a structure that can handle both cases
+      
+      // For now, since your mock data doesn't have parent relationships, 
+      // we'll group all students as individuals
+      individualStudents.push(student);
+    });
+
+    // Create a group for individual students
+    if (individualStudents.length > 0) {
+      grouped['individual'] = {
+        parent: {
+          id: 'individual',
+          firstName: 'Individual',
+          lastName: 'Students',
+          fullName: 'Individual Students',
+          email: 'individual@example.com'
+        },
+        students: individualStudents
+      };
+    }
+
+    // Convert to array and sort by parent name
+    return Object.values(grouped).sort((a, b) =>
+      `${a.parent.firstName} ${a.parent.lastName}`.localeCompare(`${b.parent.firstName} ${b.parent.lastName}`)
+    );
+  };
+
+  const getAttendanceRate = (studentId) => {
+    // Mock attendance data - in real app this would come from database
+    const attendanceRates = {
+      '4': 95, // Aisha Al-Mahmoud
+      '6': 88, // Hassan Al-Rahman
+      '8': 92, // Zainab Al-Fatima
+    };
+
+    return attendanceRates[studentId] || Math.floor(Math.random() * 30) + 70;
+  };
+
+  const getAttendanceColor = (rate) => {
+    if (rate >= 90) return 'bg-green-500';
+    if (rate >= 80) return 'bg-yellow-500';
+    if (rate >= 70) return 'bg-orange-500';
+    return 'bg-red-500';
+  };
+
+  const groupedStudents = groupStudentsByParent(students);
+
+  return (
+    <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50" style={{ margin: 0 }}>
+      <div className="relative top-4 sm:top-20 mx-auto p-4 sm:p-5 border w-11/12 sm:w-3/4 md:w-1/2 max-w-4xl shadow-lg rounded-md bg-white">
+        <div className="mt-3">
+          <div className="flex justify-between items-center mb-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Description *</label>
-                  <textarea
-                    required
-                    rows="3"
-                    value={formData.description}
-                    onChange={(e) => setFormData({...formData, description: e.target.value})}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
+              <h3 className="text-base sm:text-lg font-medium text-gray-900">
+                Students in {classData.name}
+              </h3>
+            </div>
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100 transition-colors"
+            >
+              <span className="sr-only">Close</span>
+              <X className="h-5 w-5" />
+            </button>
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Price (SAR) *</label>
-                  <input
-                    type="number"
-                    required
-                    min="0"
-                    step="0.01"
-                    value={formData.price}
-                    onChange={(e) => setFormData({...formData, price: e.target.value})}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Start Date</label>
-                    <input
-                      type="date"
-                      value={formData.startDate}
-                      onChange={(e) => setFormData({...formData, startDate: e.target.value})}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
+          <div className="space-y-4">
+            {groupedStudents.map((group, groupIndex) => (
+              <div key={group.parent.id} className="border rounded-lg overflow-hidden">
+                {/* Parent Header */}
+                <div className="bg-blue-50 px-3 py-3 border-b">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-8 h-8 sm:w-10 sm:h-10 bg-blue-600 rounded-full flex items-center justify-center flex-shrink-0">
+                      <User className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
+                    </div>
+                    <div className="text-start min-w-0 flex-1">
+                      <h4 className="font-semibold text-blue-900 text-sm sm:text-base">
+                        {group.parent.firstName} {group.parent.lastName}
+                      </h4>
+                      <p className="text-xs sm:text-sm text-blue-700">{group.parent.email}</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button className="text-green-600 hover:text-green-900 text-xs sm:text-sm font-medium px-3 py-2 rounded-lg hover:bg-green-50 transition-colors">
+                        <MessageSquare className="h-4 w-4 inline mr-1" />
+                        Contact
+                      </button>
+                      {group.students.length > 1 && (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                          {group.students.length} Student{group.students.length !== 1 ? 's' : ''}
+                        </span>
+                      )}
+                    </div>
+                  </div>
                   </div>
                   
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">End Date</label>
-                    <input
-                      type="date"
-                      value={formData.endDate}
-                      onChange={(e) => setFormData({...formData, endDate: e.target.value})}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
+                {/* Students List */}
+                <div className="divide-y">
+                  {group.students.map((student, studentIndex) => (
+                    <div key={student.id} className="px-3 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between w-full gap-3">
+                      <div className="flex items-center space-x-3">
+                        <div className="relative">
+                          <div className="w-8 h-8 sm:w-10 sm:h-10 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0">
+                            <span className="text-white font-medium text-sm sm:text-base">
+                              {student.firstName ? student.firstName.charAt(0) : student.name?.charAt(0) || 'S'}
+                            </span>
+                          </div>
+                          {group.students.length > 1 && studentIndex === 0 && (
+                            <div className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-1 h-3 bg-blue-300 rounded-full"></div>
+                          )}
+                        </div>
+                        <div className="text-start min-w-0 flex-1">
+                          <h5 className="font-medium text-gray-900 text-sm sm:text-base truncate">
+                            {student.firstName && student.lastName
+                              ? `${student.firstName} ${student.lastName}`
+                              : student.name || `${student.firstName} ${student.lastName}`
+                            }
+                          </h5>
+                          <p className="text-xs sm:text-sm text-gray-500">{student.email}</p>
                   </div>
                 </div>
 
-                <div className="flex justify-end space-x-3 pt-4">
-                  <button
-                    type="button"
-                    onClick={() => setShowCreateForm(false)}
-                    className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-                  >
-                    Create Class
-                  </button>
+                      <div className="flex items-center gap-3">
+                        <div className="text-center">
+                          <p className="text-xs text-gray-500">Attendance</p>
+                          <div className="flex items-center gap-1">
+                            <div className={`w-3 h-3 rounded-full ${getAttendanceColor(getAttendanceRate(student.id))}`}></div>
+                            <span className="text-xs font-medium text-gray-900">
+                              {getAttendanceRate(student.id)}%
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              </form>
+                </div>
+            ))}
             </div>
           </div>
-        )}
       </div>
     </div>
   );

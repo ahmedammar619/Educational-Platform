@@ -1,12 +1,11 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Plus, Edit, Trash2, Users, Clock, DollarSign, Calendar, Search, Filter, User, BookOpen, X } from 'lucide-react';
-import { coursesService, usersService } from '../../services';
+import { mockCourses, mockUsers } from '../../data/mockData';
 
 const ClassManagement = ({ user, onOpenMaterials }) => {
   const [classes, setClasses] = useState([]);
   const [filteredClasses, setFilteredClasses] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
   const [filters, setFilters] = useState({
     search: '',
     teacher: '',
@@ -23,178 +22,29 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
   const [showEditModal, setShowEditModal] = useState(false);
   const [showEnrollModal, setShowEnrollModal] = useState(false);
   const [selectedClass, setSelectedClass] = useState(null);
-  const [teachers, setTeachers] = useState([]);
-  const [isFetching, setIsFetching] = useState(false);
-  const isMountedRef = useRef(true);
 
   useEffect(() => {
-    console.log('ClassManagement: useEffect triggered, fetching data...');
-    
-    // Only fetch data if component is mounted
-    if (isMountedRef.current) {
-      // Add a small delay to prevent immediate unmounting issues
-      const timer = setTimeout(() => {
-        if (isMountedRef.current) {
-          fetchData();
-        }
-      }, 100);
-      
-      return () => clearTimeout(timer);
-    }
-    
-    // Cleanup function to prevent setting state after unmount
-    return () => {
-      console.log('ClassManagement: Component unmounting, cleaning up...');
-      isMountedRef.current = false;
-    };
+    loadMockClasses();
   }, []);
 
   useEffect(() => {
-    // Only call filterClasses if classes is properly loaded and is an array
-    if (Array.isArray(classes)) {
       filterClasses();
-    }
   }, [filters, classes]);
 
-  const checkBackendHealth = async () => {
-    try {
-      // Try to connect to the backend - any response means server is running
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000);
-      
-      // Use the working health endpoint
-      const response = await fetch('http://localhost:3000/api/health', {
-        method: 'GET',
-        signal: controller.signal
-      });
-      
-      clearTimeout(timeoutId);
-      console.log('Health check response:', response.status, response.statusText);
-      
-      // If the response is successful (2xx status) or if it's a 401 (which means server is running but endpoint is protected)
-      return response.ok || response.status === 401;
-    } catch (error) {
-      console.log('Backend health check failed:', error);
-      return false;
-    }
-  };
-
-  const fetchData = async () => {
-    console.log('ClassManagement: fetchData called, isFetching:', isFetching);
-    
-    // Prevent multiple simultaneous calls
-    if (isFetching) {
-      console.log('ClassManagement: Already fetching, skipping...');
-      return;
-    }
-    
-    try {
-      setIsFetching(true);
+  const loadMockClasses = () => {
       setLoading(true);
-      setError(null);
-      
-      // Check backend health first
-      const isBackendHealthy = await checkBackendHealth();
-      if (!isBackendHealthy) {
-        throw new Error('Backend server is not responding');
-      }
-      
-      // Fetch classes and teachers in parallel with timeout
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Request timeout')), 10000)
-      );
-      
-      const [classesResponse, teachersResponse] = await Promise.race([
-        Promise.all([
-          coursesService.getAllCourses(),
-          usersService.getUsersByRole('teacher')
-        ]),
-        timeoutPromise
-      ]);
-      
-      // Only update state if component is still mounted
-      if (isMountedRef.current) {
-        console.log('Classes response:', classesResponse);
-        console.log('Teachers response:', teachersResponse);
-        
-        // Ensure classes is always an array
-        let classesArray = [];
-        if (Array.isArray(classesResponse)) {
-          classesArray = classesResponse;
-          console.log('Classes response is already an array, length:', classesArray.length);
-        } else if (classesResponse && typeof classesResponse === 'object') {
-          // Handle case where response is an object with numeric keys
-          console.log('Classes response is an object, keys:', Object.keys(classesResponse));
-          classesArray = Object.values(classesResponse).filter(item => 
-            item && typeof item === 'object' && !item._rateLimitInfo
-          );
-          console.log('Extracted classes array, length:', classesArray.length);
-        } else {
-          console.log('Classes response is unexpected type:', typeof classesResponse, classesResponse);
-        }
-        
-        // Final safety check - ensure we always have an array
-        if (!Array.isArray(classesArray)) {
-          console.warn('Failed to extract classes array, using empty array as fallback');
-          classesArray = [];
-        }
-        
-        // Debug: Check for classes without IDs
-        const classesWithoutIds = classesArray.filter(item => !item || !item.id);
-        if (classesWithoutIds.length > 0) {
-          console.warn('Found classes without IDs:', classesWithoutIds);
-        }
-        
-        console.log('Final classes array:', classesArray);
-        setClasses(classesArray);
-        setTeachers(teachersResponse.users || []);
-      }
-      
-    } catch (err) {
-      console.error('Error fetching data:', err);
-      
-      // Handle different error types
-      if (err.message === 'Backend server is not responding') {
-        setError('Backend server is not responding. Please check if the server is running.');
-      } else if (err.message === 'Request timeout') {
-        setError('Request timed out. The server is taking too long to respond.');
-      } else if (err.message === 'Network Error' || err.message?.includes('ERR_CONNECTION_REFUSED')) {
-        setError('Cannot connect to the server. Please check if the backend is running.');
-      } else if (err.statusCode === 429) {
-        setError('Too many requests. Please wait a moment and try again.');
-        // Auto-retry after 10 seconds for rate limiting (longer delay)
-        setTimeout(() => {
-          if (isMountedRef.current && !isFetching) {
-            console.log('Auto-retrying after rate limit...');
-            fetchData();
-          }
-        }, 10000);
-      } else if (err.statusCode === 401) {
-        setError('Authentication required. Please log in again.');
-      } else if (err.statusCode === 403) {
-        setError('Access denied. You do not have permission to view this data.');
-      } else if (err.statusCode >= 500) {
-        setError('Server error. Please try again later.');
-      } else {
-        setError(err.message || 'Failed to load data');
-      }
-    } finally {
-      if (isMountedRef.current) {
+    // Use mock courses data
+    setClasses(mockCourses || []);
         setLoading(false);
-        setIsFetching(false);
-      }
-    }
   };
 
   const filterClasses = () => {
-    // Ensure classes is always an array and filter out invalid items
-    const classesArray = Array.isArray(classes) ? classes.filter(item => item && item.id) : [];
-    let filtered = [...classesArray];
+    let filtered = [...classes];
 
     // Apply search filter
     if (filters.search) {
       filtered = filtered.filter(classItem => {
-        const teacher = teachers.find(t => t.id === classItem.teacherId);
+        const teacher = mockUsers.find(t => t.id === classItem.teacherId && t.role === 'teacher');
         const teacherName = teacher ? `${teacher.firstName} ${teacher.lastName}` : 'Teacher TBD';
 
         return classItem.name.toLowerCase().includes(filters.search.toLowerCase()) ||
@@ -205,7 +55,7 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
     // Apply teacher filter
     if (filters.teacher) {
       filtered = filtered.filter(classItem => {
-        const teacher = teachers.find(t => t.id === classItem.teacherId);
+        const teacher = mockUsers.find(t => t.id === classItem.teacherId && t.role === 'teacher');
         const teacherName = teacher ? `${teacher.firstName} ${teacher.lastName}` : 'Teacher TBD';
 
         return teacherName.toLowerCase().includes(filters.teacher.toLowerCase());
@@ -218,11 +68,7 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
     const startIndex = (filters.page - 1) * filters.limit;
     const endIndex = startIndex + parseInt(filters.limit);
 
-    // Ensure we don't exceed array bounds
-    const safeStartIndex = Math.max(0, Math.min(startIndex, total));
-    const safeEndIndex = Math.max(safeStartIndex, Math.min(endIndex, total));
-
-    setFilteredClasses(filtered.slice(safeStartIndex, safeEndIndex));
+    setFilteredClasses(filtered.slice(startIndex, endIndex));
     setPagination({
       page: filters.page,
       limit: filters.limit,
@@ -231,43 +77,27 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
     });
   };
 
-  const handleCreateClass = async (classData) => {
-    try {
-      const courseData = {
+  const handleCreateClass = (classData) => {
+    const newClass = {
+      id: Date.now(),
         name: classData.name,
         description: classData.description,
         teacherId: classData.teacherId,
-        price: parseFloat(classData.price),
+      price: classData.price,
+      schedule: classData.schedule,
+      students: classData.students || [],
         numberOfSessions: classData.numberOfSessions,
         sessionDuration: classData.sessionDuration,
-        startDate: new Date().toISOString().split('T')[0], // Default to today
-        endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // Default to 30 days from now
-        schedule: classData.schedule
-      };
-      
-      await coursesService.createCourse(courseData);
-      
-      // Refresh the classes list
-      await fetchData();
-      
+      status: classData.status || 'active',
+      created_at: new Date().toISOString().split('T')[0]
+    };
+
+    setClasses(prev => [...prev, newClass]);
       setShowCreateModal(false);
       alert('Class created successfully!');
-      
-    } catch (err) {
-      console.error('Error creating class:', err);
-      alert('Failed to create class: ' + err.message);
-    }
   };
 
-  const handleUpdateClass = async (classId, classData) => {
-    try {
-      console.log('Updating class with data:', classData); // Debug log
-      
-      // Call the backend API to update the course
-      const response = await coursesService.updateCourse(classId, classData);
-      console.log('Backend update response:', response); // Debug log
-      
-      // Update the local state after successful backend update
+  const handleUpdateClass = (classId, classData) => {
       setClasses(prev => prev.map(classItem => {
         if (classItem.id === classId) {
           return {
@@ -283,64 +113,16 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
         }
         return classItem;
       }));
-      
       setShowEditModal(false);
       setSelectedClass(null);
       alert('Class updated successfully!');
-    } catch (error) {
-      console.error('Error updating class:', error);
-      const errorMessage = error.message || error.response?.data?.message || 'Unknown error occurred';
-      alert(`Error updating class: ${errorMessage}`);
-    }
   };
 
-  const handleDeleteClass = async (classId) => {
-    // Safety check for undefined or invalid classId
-    if (!classId) {
-      console.error('Cannot delete class: classId is undefined or invalid');
-      alert('Cannot delete class: Invalid class ID');
-      return;
-    }
-
+  const handleDeleteClass = (classId) => {
     if (!confirm('Are you sure you want to delete this class?')) return;
-
-    try {
-      console.log('Attempting to delete class with ID:', classId);
-      console.log('Class details before deletion:', classes.find(c => c.id === classId));
-      
-      const response = await coursesService.deleteCourse(classId);
-      console.log('Delete API response:', response);
       
       setClasses(prev => prev.filter(classItem => classItem.id !== classId));
       alert('Class deleted successfully!');
-    } catch (err) {
-      console.error('Error deleting class:', err);
-      console.error('Full error object:', err);
-      console.error('Error response data:', err.response?.data);
-      console.error('Error status:', err.response?.status);
-      
-      let errorMessage = 'Unknown error occurred';
-      
-      // Check for specific backend error messages
-      if (err.response?.data?.message) {
-        errorMessage = err.response.data.message;
-      } else if (err.response?.data?.error) {
-        errorMessage = err.response.data.error;
-      } else if (err.message) {
-        errorMessage = err.message;
-      }
-      
-      // Check for common deletion issues
-      if (errorMessage.includes('foreign key') || errorMessage.includes('constraint')) {
-        errorMessage = 'Cannot delete class: It has related data (students, sessions, materials, etc.). Please remove all related data first.';
-      } else if (errorMessage.includes('not found')) {
-        errorMessage = 'Class not found. It may have been deleted by another user.';
-      } else if (errorMessage.includes('permission') || errorMessage.includes('unauthorized')) {
-        errorMessage = 'You do not have permission to delete this class.';
-      }
-      
-      alert('Failed to delete class: ' + errorMessage);
-    }
   };
 
   const handleEnrollStudents = (classId, studentIds) => {
@@ -357,74 +139,6 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
     alert('Students enrolled successfully!');
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600"></div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <div className="text-red-500 text-xl mb-4">⚠️</div>
-          <p className="text-gray-600 mb-4">{error}</p>
-          
-          {error.includes('Backend server is not responding') || error.includes('Cannot connect to the server') ? (
-            <div className="space-y-3">
-              <p className="text-sm text-gray-500">
-                The backend server is not running or not accessible. Please:
-              </p>
-              <ul className="text-sm text-gray-500 list-disc list-inside space-y-1">
-                <li>Check if the backend server is running on port 3000</li>
-                <li>Verify the backend URL in your configuration</li>
-                <li>Check for any firewall or network issues</li>
-              </ul>
-              <div className="bg-yellow-50 border border-yellow-200 rounded p-3">
-                <p className="text-sm text-yellow-800">
-                  <strong>Quick Fix:</strong> Open a terminal in the backend folder and run:
-                </p>
-                <code className="block bg-yellow-100 p-2 rounded mt-2 text-xs font-mono">
-                  npm run start:dev
-                </code>
-              </div>
-              <button 
-                onClick={fetchData} 
-                disabled={isFetching || loading}
-                className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
-              >
-                {isFetching || loading ? 'Retrying...' : 'Retry Connection'}
-              </button>
-            </div>
-          ) : error.includes('Too many requests') ? (
-            <div className="space-y-3">
-              <p className="text-sm text-gray-500">
-                The server is receiving too many requests. Please wait a moment.
-              </p>
-              <button 
-                onClick={fetchData} 
-                disabled={isFetching || loading}
-                className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
-              >
-                {isFetching || loading ? 'Loading...' : 'Retry Now'}
-              </button>
-            </div>
-          ) : (
-            <button 
-              onClick={fetchData} 
-              disabled={isFetching || loading}
-              className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
-            >
-              {isFetching || loading ? 'Loading...' : 'Retry'}
-            </button>
-          )}
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-4 sm:space-y-6 h-full">
       {/* Header */}
@@ -433,7 +147,6 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
           <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Class Management</h1>
           <p className="text-sm sm:text-base text-gray-600">Manage classes and schedules</p>
         </div>
-        <div className="flex items-center gap-2">
           <button
             onClick={() => setShowCreateModal(true)}
             className="flex items-center justify-center space-x-2 border-2 border-green-600 text-green-600 px-3 sm:px-4 py-2 rounded-lg hover:bg-green-600 hover:text-white transition-all duration-200 text-sm sm:text-base"
@@ -441,30 +154,29 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
             <Plus className="h-4 w-4" />
             <span>Add Class</span>
           </button>
-        </div>
       </div>
 
       {/* Filters */}
       <div className="bg-white p-4 sm:p-6 rounded-lg shadow-sm border">
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           <div className="relative">
             <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
             <input
               type="text"
               placeholder="Search classes..."
-              className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 text-sm"
+              className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
               value={filters.search}
               onChange={(e) => setFilters({ ...filters, search: e.target.value, page: 1 })}
             />
           </div>
 
           <select
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 text-sm"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
             value={filters.teacher}
             onChange={(e) => setFilters({ ...filters, teacher: e.target.value, page: 1 })}
           >
             <option value="">All Teachers</option>
-            {Array.isArray(teachers) && teachers.filter(teacher => teacher && teacher.id).map((teacher) => (
+            {mockUsers.filter(user => user.role === 'teacher').map((teacher) => (
               <option key={teacher.id} value={`${teacher.firstName} ${teacher.lastName}`}>
                 {teacher.firstName} {teacher.lastName}
               </option>
@@ -472,7 +184,7 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
           </select>
 
           <select
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 text-sm"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
             value={filters.limit}
             onChange={(e) => setFilters({ ...filters, limit: e.target.value, page: 1 })}
           >
@@ -486,16 +198,13 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
       {/* Classes Cards */}
       {loading ? (
         <div className="flex items-center justify-center py-12">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600"></div>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
         </div>
       ) : (
         <>
           <div className="space-y-3 sm:space-y-4">
-            {Array.isArray(filteredClasses) && filteredClasses.length > 0 ? (
-              filteredClasses
-                .filter(classItem => classItem && classItem.id) // Filter out invalid items
-                .map((classItem) => {
-                  const teacher = teachers.find(t => t.id === classItem.teacherId);
+            {filteredClasses.map((classItem) => {
+              const teacher = mockUsers.find(t => t.id === classItem.teacherId && t.role === 'teacher');
                   const teacherName = teacher ? `${teacher.firstName} ${teacher.lastName}` : 'Teacher TBD';
 
                   return (
@@ -504,12 +213,14 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
                       className="bg-white rounded-xl shadow-sm border hover:shadow-md transition-all w-full p-3 sm:p-4 flex flex-col gap-3 sm:gap-4"
                     >
                       {/* Top Row - Name, Teacher, Actions */}
-                      <div className="flex items-center justify-between gap-3">
-                        <div className="flex items-center gap-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
+                      <div className="flex items-center gap-2 sm:gap-3">
                           <BookOpen className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600" />
                           <h3 className="text-base sm:text-lg font-semibold text-gray-900">{classItem.name}</h3>
-                          <span className="text-sm text-gray-500">|</span>
-                          <p className="text-sm font-medium text-gray-700 flex items-center gap-1">
+                      </div>
+                      <span className="hidden sm:inline text-sm text-gray-500">|</span>
+                      <p className="text-xs sm:text-sm font-medium text-gray-700 flex items-center gap-1">
                             <User className="h-3 w-3 sm:h-4 sm:w-4 text-gray-400" />
                             {teacherName}
                           </p>
@@ -539,13 +250,8 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
                           </button>
                           <button
                             onClick={() => handleDeleteClass(classItem.id)}
-                            disabled={!classItem.id} // Disable if no ID
-                            className={`${
-                              classItem.id 
-                                ? 'text-red-600 hover:text-red-800' 
-                                : 'text-gray-400 cursor-not-allowed'
-                            } p-2 rounded-lg hover:bg-red-50 transition-colors`}
-                            title={classItem.id ? "Delete Class" : "Cannot delete - Invalid ID"}
+                        className="text-red-600 hover:text-red-800 p-2 rounded-lg hover:bg-red-50 transition-colors"
+                        title="Delete Class"
                           >
                             <Trash2 className="h-4 w-4" />
                           </button>
@@ -578,25 +284,22 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
                             <p className="text-xs text-gray-500 flex items-center justify-center gap-1">
                               <DollarSign className="h-3 w-3 sm:h-4 sm:w-4 text-gray-400" /> Price
                             </p>
-                            <p className="font-medium text-gray-900 text-sm sm:text-base">${classItem.price}</p>
+                        <p className="font-medium text-gray-900 text-sm sm:text-base">USD {classItem.price}</p>
                           </div>
                         )}
+
+                    <div className="text-center">
+                      <button
+                        onClick={() => onOpenMaterials && onOpenMaterials(classItem)}
+                        className="w-full sm:w-auto px-3 py-2 border-2 border-green-600 text-green-600 font-semibold text-xs rounded-lg hover:bg-green-600 hover:text-white transition-all duration-200 uppercase"
+                      >
+                        Class Material
+                      </button>
+                    </div>
                       </div>
                     </div>
                   );
-                })
-            ) : (
-              <div className="text-center py-8">
-                <BookOpen className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No classes found</h3>
-                <p className="text-gray-500">
-                  {Array.isArray(filteredClasses) && filteredClasses.length === 0 
-                    ? "No classes match your current filters. Try adjusting your search criteria."
-                    : "Loading classes..."
-                  }
-                </p>
-              </div>
-            )}
+            })}
           </div>
 
           {/* Pagination */}
@@ -651,7 +354,6 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
       {showCreateModal && (
         <ClassModal
           title="Create New Class"
-          teachers={teachers}
           onClose={() => setShowCreateModal(false)}
           onSubmit={handleCreateClass}
         />
@@ -662,7 +364,6 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
         <ClassModal
           title="Edit Class"
           classData={selectedClass}
-          teachers={teachers}
           onClose={() => {
             setShowEditModal(false);
             setSelectedClass(null);
@@ -687,15 +388,13 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
 };
 
 // Class Modal Component
-const ClassModal = ({ title, classData, teachers, onClose, onSubmit }) => {
+const ClassModal = ({ title, classData, onClose, onSubmit }) => {
   const [formData, setFormData] = useState({
     name: classData?.name || '',
     description: classData?.description || '',
     teacher: classData?.teacherId || '',
     price: classData?.price || '',
-    startDate: classData?.startDate || '',
-    endDate: classData?.endDate || '',
-    schedule: classData?.schedule || []
+    sessions: classData?.schedule || []
   });
 
   // Reset form when user prop changes
@@ -705,28 +404,24 @@ const ClassModal = ({ title, classData, teachers, onClose, onSubmit }) => {
       description: classData?.description || '',
       teacher: classData?.teacherId || '',
       price: classData?.price || '',
-      startDate: classData?.startDate || '',
-      endDate: classData?.endDate || '',
-      schedule: classData?.schedule || []
+      sessions: classData?.schedule || []
     });
   }, [classData]);
 
   const [showAddSession, setShowAddSession] = useState(false);
   const [newSession, setNewSession] = useState({
-    day: 'Monday',
-    startTime: '09:00',
-    endTime: '10:00'
+    day: 'Sunday',
+    startTime: '08:00',
+    endTime: '09:00'
   });
 
-  const weekDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+  const weekDays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
   const generateTimeOptions = () => {
     const times = [];
     for (let hour = 8; hour <= 20; hour++) {
-      ['00', '15', '30', '45'].forEach(minute => {
-        const timeString = `${hour.toString().padStart(2, '0')}:${minute}`;
+      const timeString = `${hour.toString().padStart(2, '0')}:00`;
         times.push(timeString);
-      });
     }
     return times;
   };
@@ -737,7 +432,7 @@ const ClassModal = ({ title, classData, teachers, onClose, onSubmit }) => {
       return;
     }
 
-    const sessionExists = formData.schedule.some(session =>
+    const sessionExists = formData.sessions.some(session =>
       session.day === newSession.day &&
       ((newSession.startTime >= session.startTime && newSession.startTime < session.endTime) ||
         (newSession.endTime > session.startTime && newSession.endTime <= session.endTime) ||
@@ -751,13 +446,13 @@ const ClassModal = ({ title, classData, teachers, onClose, onSubmit }) => {
 
     setFormData({
       ...formData,
-      schedule: [...formData.schedule, { ...newSession }]
+      sessions: [...formData.sessions, { ...newSession }]
     });
 
     setNewSession({
-      day: 'Monday',
-      startTime: '09:00',
-      endTime: '10:00'
+      day: 'Sunday',
+      startTime: '08:00',
+      endTime: '09:00'
     });
     setShowAddSession(false);
   };
@@ -765,40 +460,20 @@ const ClassModal = ({ title, classData, teachers, onClose, onSubmit }) => {
   const removeSession = (index) => {
     setFormData({
       ...formData,
-      schedule: formData.schedule.filter((_, i) => i !== index)
+      sessions: formData.sessions.filter((_, i) => i !== index)
     });
   };
 
   const handleSubmit = (e) => {
     e.preventDefault();
 
-    if (formData.schedule.length === 0) {
+    if (formData.sessions.length === 0) {
       alert('Please add at least one session');
       return;
     }
 
-    if (!formData.startDate || !formData.endDate) {
-      alert('Start date and end date are required');
-      return;
-    }
-
-    // Validate start date is not before today
-    const today = new Date();
-    today.setHours(0, 0, 0, 0); // Reset time to start of day
-    const startDate = new Date(formData.startDate);
-    
-    if (startDate < today) {
-      alert('Start date cannot be before today');
-      return;
-    }
-
-    if (new Date(formData.startDate) >= new Date(formData.endDate)) {
-      alert('End date must be after start date');
-      return;
-    }
-
     // Convert sessions to the new schedule format
-    const schedule = formData.schedule.map(session => ({
+    const schedule = formData.sessions.map(session => ({
       day: session.day,
       startTime: session.startTime,
       endTime: session.endTime
@@ -806,202 +481,116 @@ const ClassModal = ({ title, classData, teachers, onClose, onSubmit }) => {
 
     // Create the class data with the new structure
     const classData = {
-      name: formData.name,
-      description: formData.description,
-      teacherId: formData.teacher, // Keep as string for UUID
-      price: parseFloat(formData.price), // Convert to number
+      ...formData,
+      teacherId: parseInt(formData.teacher), // Convert to number
       schedule: schedule,
+      students: [],
       numberOfSessions: schedule.length,
       sessionDuration: 120, // Default to 120 minutes
-      startDate: formData.startDate,
-      endDate: formData.endDate
+      status: 'active'
     };
 
     onSubmit(classData);
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50" style={{ margin: 0 }}>
-      <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-        <h2 className="text-2xl font-bold mb-6">{title}</h2>
-        
+    <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50" style={{ margin: 0 }}>
+      <div className="relative top-4 sm:top-10 mx-auto p-4 sm:p-5 border w-11/12 sm:w-96 shadow-lg rounded-md bg-white">
+        <div className="mt-1">
+          <h3 className="text-base sm:text-lg font-medium text-gray-900 mb-4">{title}</h3>
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Class Name *</label>
+              <label className="block text-sm font-medium text-gray-700">Class Name</label>
               <input
                 type="text"
                 required
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                 value={formData.name}
-                onChange={(e) => setFormData({...formData, name: e.target.value})}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               />
             </div>
             
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Teacher *</label>
+              <label className="block text-sm font-medium text-gray-700">Description</label>
+              <textarea
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                rows="3"
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Teacher</label>
               <select
                 required
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                 value={formData.teacher}
-                onChange={(e) => setFormData({...formData, teacher: e.target.value})}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                onChange={(e) => setFormData({ ...formData, teacher: e.target.value })}
               >
-                <option value="">Select Teacher</option>
-                {teachers.map(teacher => (
+                <option value="">Select a teacher</option>
+                {mockUsers.filter(user => user.role === 'teacher').map((teacher) => (
                   <option key={teacher.id} value={teacher.id}>
                     {teacher.firstName} {teacher.lastName}
                   </option>
                 ))}
               </select>
-            </div>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
-            <textarea
-              value={formData.description}
-              onChange={(e) => setFormData({...formData, description: e.target.value})}
-              rows="3"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-            />
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Price (USD) *</label>
+              <label className="block text-sm font-medium text-gray-700">Price (USD)</label>
               <input
                 type="number"
-                required
                 min="0"
                 step="0.01"
+                placeholder="0.00"
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                 value={formData.price}
-                onChange={(e) => setFormData({...formData, price: e.target.value})}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                onChange={(e) => setFormData({ ...formData, price: e.target.value })}
               />
             </div>
             
+            {/* Sessions Management */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Start Date *</label>
-              <input
-                type="date"
-                required
-                min={new Date().toISOString().split('T')[0]}
-                value={formData.startDate}
-                onChange={(e) => setFormData({...formData, startDate: e.target.value})}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-              />
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">End Date *</label>
-              <input
-                type="date"
-                required
-                min={formData.startDate || new Date().toISOString().split('T')[0]}
-                value={formData.endDate}
-                onChange={(e) => setFormData({...formData, endDate: e.target.value})}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-              />
-            </div>
-          </div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Class Sessions</label>
 
-          {/* Schedule Section */}
-          <div>
-            <div className="flex justify-between items-center mb-4">
-              <label className="block text-sm font-medium text-gray-700">Schedule *</label>
-            </div>
-            
-            {formData.schedule.map((slot, index) => {
-              const start = new Date(`2000-01-01T${slot.startTime}:00`);
-              const end = new Date(`2000-01-01T${slot.endTime}:00`);
-              if (end < start) end.setDate(end.getDate() + 1);
-              const duration = Math.round((end - start) / (1000 * 60));
-              const isValidDuration = duration >= 15 && duration <= 480;
-              
-              return (
-                <div key={index} className="border rounded-lg p-3 mb-3">
-                  <div className="grid grid-cols-5 gap-2 mb-2">
-                    <select
-                      value={slot.day}
-                      onChange={(e) => {
-                        const newSchedule = [...formData.schedule];
-                        newSchedule[index].day = e.target.value;
-                        setFormData({...formData, schedule: newSchedule});
-                      }}
-                      className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-                    >
-                      {weekDays.map(day => (
-                        <option key={day} value={day}>{day}</option>
-                      ))}
-                    </select>
-                    <select
-                      value={slot.startTime}
-                      onChange={(e) => {
-                        const newSchedule = [...formData.schedule];
-                        newSchedule[index].startTime = e.target.value;
-                        setFormData({...formData, schedule: newSchedule});
-                      }}
-                      className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-                    >
-                      {generateTimeOptions().map(time => (
-                        <option key={time} value={time}>{time}</option>
-                      ))}
-                    </select>
-                    <select
-                      value={slot.endTime}
-                      onChange={(e) => {
-                        const newSchedule = [...formData.schedule];
-                        newSchedule[index].endTime = e.target.value;
-                        setFormData({...formData, schedule: newSchedule});
-                      }}
-                      className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-                    >
-                      {generateTimeOptions().map(time => (
-                        <option key={time} value={time}>{time}</option>
-                      ))}
-                    </select>
-                    <div className="flex items-center justify-center">
-                      <span className={`text-sm font-medium ${
-                        isValidDuration ? 'text-green-600' : 'text-red-600'
-                      }`}>
-                        {duration} min
+              {/* Existing Sessions */}
+              {formData.sessions.length > 0 && (
+                <div className="mb-4 space-y-2">
+                  {formData.sessions.map((session, index) => (
+                    <div key={index} className="flex items-center justify-between p-2 sm:p-3 bg-blue-50 border border-blue-200 rounded-md">
+                      <span className="text-xs sm:text-sm font-medium text-blue-900">
+                        {session.day}: {session.startTime} - {session.endTime}
                       </span>
-                    </div>
                     <button
                       type="button"
                       onClick={() => removeSession(index)}
-                      className="text-red-600 hover:text-red-800 px-2 py-2"
+                        className="text-red-600 hover:text-red-800 p-1 rounded hover:bg-red-100 transition-colors"
                     >
-                      Remove
+                        <Trash2 className="h-3 w-3 sm:h-4 sm:w-4" />
                     </button>
                   </div>
-                  {!isValidDuration && (
-                    <p className="text-xs text-red-600">
-                      Duration must be between 15-480 minutes
-                    </p>
-                  )}
+                  ))}
                 </div>
-              );
-            })}
+              )}
             
-
-            {/* Add Time Slot Section */}
+              {/* Add Session Button */}
             {!showAddSession ? (
               <button
                 type="button"
                 onClick={() => setShowAddSession(true)}
-                className="w-full p-3 border-2 border-dashed border-green-300 rounded-lg text-green-600 hover:border-green-400 hover:text-green-700 transition-colors text-sm font-medium"
+                  className="w-full p-2 sm:p-3 border-2 border-dashed border-green-300 rounded-md text-green-600 hover:border-green-400 hover:text-green-700 transition-colors text-sm"
               >
-                + Add Time Slot
+                  + Add Session
               </button>
             ) : (
-              <div className="p-4 border border-gray-300 rounded-lg bg-gray-50">
-                <h4 className="text-sm font-medium text-gray-700 mb-3">Add New Time Slot</h4>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
+                /* Add Session Form */
+                <div className="p-3 sm:p-4 border border-gray-300 rounded-md bg-gray-50">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3 mb-3">
                   <div>
                     <label className="block text-xs font-medium text-gray-700 mb-1">Day</label>
                     <select
-                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-green-500"
+                        className="w-full px-3 py-2 text-xs sm:text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
                       value={newSession.day}
                       onChange={(e) => setNewSession({ ...newSession, day: e.target.value })}
                     >
@@ -1014,7 +603,7 @@ const ClassModal = ({ title, classData, teachers, onClose, onSubmit }) => {
                   <div>
                     <label className="block text-xs font-medium text-gray-700 mb-1">Start Time</label>
                     <select
-                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-green-500"
+                        className="w-full px-3 py-2 text-xs sm:text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
                       value={newSession.startTime}
                       onChange={(e) => setNewSession({ ...newSession, startTime: e.target.value })}
                     >
@@ -1027,7 +616,7 @@ const ClassModal = ({ title, classData, teachers, onClose, onSubmit }) => {
                   <div>
                     <label className="block text-xs font-medium text-gray-700 mb-1">End Time</label>
                     <select
-                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-green-500"
+                        className="w-full px-3 py-2 text-xs sm:text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
                       value={newSession.endTime}
                       onChange={(e) => setNewSession({ ...newSession, endTime: e.target.value })}
                     >
@@ -1042,38 +631,38 @@ const ClassModal = ({ title, classData, teachers, onClose, onSubmit }) => {
                   <button
                     type="button"
                     onClick={() => setShowAddSession(false)}
-                    className="px-3 py-2 text-sm text-gray-600 hover:text-gray-800"
+                      className="px-2 sm:px-3 py-1 text-xs sm:text-sm text-gray-600 hover:text-gray-800"
                   >
                     Cancel
                   </button>
                   <button
                     type="button"
                     onClick={addSession}
-                    className="px-3 py-2 text-sm border-2 border-green-600 text-green-600 rounded hover:bg-green-500 hover:text-white transition-all duration-200"
+                      className="px-2 sm:px-3 py-1 text-xs sm:text-sm border-2 border-green-600 text-green-600 rounded hover:bg-green-500 hover:text-white transition-all duration-200"
                   >
-                    Add Time Slot
+                      Add Session
                   </button>
                 </div>
               </div>
             )}
           </div>
-
           <div className="flex justify-end space-x-3 pt-4">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+                className="px-3 sm:px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 text-sm"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
+                className="px-3 sm:px-4 py-2 border-2 border-green-600 text-green-600 rounded-md hover:bg-green-500 hover:text-white transition-all duration-200 text-sm"
             >
-              {classData ? 'Update' : 'Create Class'}
+                {classData ? 'Update' : 'Create'}
             </button>
           </div>
         </form>
+        </div>
       </div>
     </div>
   );
@@ -1083,8 +672,8 @@ const ClassModal = ({ title, classData, teachers, onClose, onSubmit }) => {
 const EnrollModal = ({ classData, onClose, onSubmit }) => {
   const [selectedStudents, setSelectedStudents] = useState([]);
 
-  // For now, we'll use an empty array since we don't have students service integrated
-  const availableStudents = [];
+  // Get available students (not already enrolled in this class)
+  const availableStudents = mockUsers.filter(user => user.role === 'student' && !classData.students?.includes(user.id));
 
   const handleStudentToggle = (studentId) => {
     setSelectedStudents(prev =>
@@ -1141,10 +730,10 @@ const EnrollModal = ({ classData, onClose, onSubmit }) => {
                         type="checkbox"
                         checked={selectedStudents.includes(student.id)}
                         onChange={() => handleStudentToggle(student.id)}
-                        className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
+                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                       />
                       <div className="ml-3 flex items-center">
-                        <div className="w-6 h-6 sm:w-8 sm:h-8 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0">
+                        <div className="w-6 h-6 sm:w-8 sm:h-8 bg-blue-500 rounded-full flex items-center justify-center flex-shrink-0">
                           <span className="text-white text-xs sm:text-sm font-medium">
                             {student.firstName ? student.firstName.charAt(0) : student.fullName.charAt(0)}
                           </span>

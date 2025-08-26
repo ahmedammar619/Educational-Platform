@@ -18,29 +18,21 @@ import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
 import { AdminModule } from './modules/admin/admin.module';
 import { TeachersModule } from './modules/teachers/teachers.module';
-import { StudentsModule } from './modules/students/students.module';
-import { ParentsModule } from './modules/parents/parents.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
-import { CoursesModule } from './modules/courses/courses.module';
+import { ParentsModule } from './modules/parents/parents.module';
+import { StudentsModule } from './modules/students/students.module';
 
 // Guards and Interceptors
 import { CustomThrottlerGuard } from './common/guards/custom-throttler.guard';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 import { RateLimitInterceptor } from './common/interceptors/rate-limit.interceptor';
+import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
+import { RolesGuard } from './common/guards/roles.guard';
 
 // Entities
 import { User } from './modules/users/entities/user.entity';
 import { Parent } from './modules/parents/entities/parent.entity';
-import { Course } from './modules/courses/entities/course.entity';
-import { CourseSession } from './modules/courses/entities/course-session.entity';
-import { CourseMaterial } from './modules/courses/entities/course-material.entity';
-import { CourseFile } from './modules/courses/entities/course-file.entity';
-import { CourseFolder } from './modules/courses/entities/course-folder.entity';
-import { CourseEnrollment } from './modules/courses/entities/course-enrollment.entity';
-import { SessionAttendance } from './modules/courses/entities/session-attendance.entity';
-import { SessionMaterial } from './modules/courses/entities/session-material.entity';
-import { MaterialAttachment } from './modules/courses/entities/material-attachment.entity';
-import { CourseSchedule } from './modules/courses/entities/course-schedule.entity';
+import { Student } from './modules/students/entities/student.entity';
 
 @Module({
   imports: [
@@ -60,20 +52,7 @@ import { CourseSchedule } from './modules/courses/entities/course-schedule.entit
         username: process.env.DB_USERNAME || 'postgres',
         password: process.env.DB_PASSWORD || 'password',
         database: process.env.DB_DATABASE || 'education_dev_db',
-        entities: [
-          User,
-          Parent,
-          Course,
-          CourseSession,
-          CourseMaterial,
-          CourseFile,
-          CourseFolder,
-          CourseEnrollment,
-          SessionAttendance,
-          SessionMaterial,
-          MaterialAttachment,
-          CourseSchedule,
-        ],
+        entities: [User, Parent, Student],
         synchronize: process.env.DB_SYNC === 'true',
         logging: process.env.DB_LOGGING === 'true',
         ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
@@ -96,18 +75,27 @@ import { CourseSchedule } from './modules/courses/entities/course-schedule.entit
     UsersModule,
     AdminModule,
     TeachersModule,
-    StudentsModule,
-    ParentsModule,
     DashboardModule,
-    CoursesModule,
+    ParentsModule,
+    StudentsModule,
   ],
   controllers: [AppController],
   providers: [
     AppService,
+    // Global Guards - Centralized here to avoid conflicts
     {
       provide: APP_GUARD,
       useClass: CustomThrottlerGuard,
     },
+    {
+      provide: APP_GUARD,
+      useClass: JwtAuthGuard,
+    },
+    {
+      provide: APP_GUARD,
+      useClass: RolesGuard,
+    },
+    // Global Interceptors
     {
       provide: APP_INTERCEPTOR,
       useClass: LoggingInterceptor,

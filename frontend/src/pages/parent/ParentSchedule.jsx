@@ -1,374 +1,985 @@
-import React, { useState, useEffect } from 'react';
-import { parentsService, coursesService, usersService } from '../../services';
+import { useState, useEffect, useRef } from 'react';
+import { Calendar, Clock, MapPin, User, Filter, ChevronLeft, ChevronRight, Users, BookOpen, GraduationCap } from 'lucide-react';
+import { format, startOfWeek, endOfWeek, eachDayOfInterval, isSameDay, addWeeks, subWeeks, parseISO, addDays, isAfter, isBefore, startOfDay, endOfDay } from 'date-fns';
+import { mockUsers, mockCourses } from '../../data/mockData';
+import FullCalendar from '@fullcalendar/react';
+import timeGridPlugin from '@fullcalendar/timegrid';
+import dayGridPlugin from '@fullcalendar/daygrid';
+import interactionPlugin from '@fullcalendar/interaction';
 
-const ParentSchedule = () => {
+
+const ParentSchedule = ({ user }) => {
   const [schedule, setSchedule] = useState([]);
-  const [children, setChildren] = useState([]);
-  const [classes, setClasses] = useState([]);
-  const [teachers, setTeachers] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [selectedChild, setSelectedChild] = useState('all');
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [courses, setCourses] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [currentWeek, setCurrentWeek] = useState(new Date());
+  const [viewMode, setViewMode] = useState('timeGridWeek'); // FullCalendar view modes
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [childrenSummary, setChildrenSummary] = useState([]);
+  const [selectedChildFilter, setSelectedChildFilter] = useState(''); // specific child ID or empty
+  const calendarRef = useRef(null);
 
   useEffect(() => {
-    fetchData();
-  }, []);
+    if (user) {
+      loadParentSchedule();
+    }
+  }, [user]);
 
-  const fetchData = async () => {
+  // Auto-select child when childrenSummary changes
+  useEffect(() => {
+    if (childrenSummary.length > 0 && !selectedChildFilter) {
+      setSelectedChildFilter(childrenSummary[0].id.toString());
+    }
+  }, [childrenSummary, selectedChildFilter]);
+
+  // Regenerate events when currentWeek changes (for navigation)
+  useEffect(() => {
+    if (courses.length > 0 && currentWeek) {
+      const weekStart = startOfWeek(currentWeek, { weekStartsOn: 1 });
+      const weekEnd = endOfWeek(currentWeek, { weekStartsOn: 1 });
+
+      // Generate events for the current week
+      const weekEvents = generateEventsForDateRange(weekStart, weekEnd);
+
+      // Update schedule with new week events
+      setSchedule(prevSchedule => {
+        // Remove old recurring events and add new ones
+        const nonRecurringEvents = prevSchedule.filter(event => !event.isRecurring);
+        const allEvents = [...nonRecurringEvents, ...weekEvents];
+        return allEvents.sort((a, b) => new Date(a.start_time) - new Date(b.start_time));
+      });
+
+      // Update selectedDate to match the first day of the new week
+      setSelectedDate(weekStart);
+
+      // Navigate FullCalendar to the correct week
+      if (calendarRef.current && calendarRef.current.getApi) {
+        const calendarApi = calendarRef.current.getApi();
+        calendarApi.gotoDate(weekStart);
+      }
+    }
+  }, [currentWeek, courses]);
+
+  const loadParentSchedule = () => {
+    setLoading(true);
+
     try {
-      setLoading(true);
-      setError(null);
-      
-      // Fetch all required data in parallel
-      const [childrenResponse, classesResponse, teachersResponse] = await Promise.all([
-        parentsService.getMyChildren(),
-        coursesService.getAllCourses(),
-        usersService.getUsersByRole('teacher')
-      ]);
-      
-      setChildren(childrenResponse.children || []);
-      setClasses(classesResponse.courses || []);
-      setTeachers(teachersResponse.users || []);
-      
-      // Generate schedule data
-      generateScheduleData(childrenResponse.children || [], classesResponse.courses || []);
-      
-    } catch (err) {
-      console.error('Error fetching data:', err);
-      setError(err.message || 'Failed to load schedule data');
+      // Mock children schedule data for demonstration
+      const mockChildrenSchedule = [
+        {
+          id: 1,
+          name: "Ahmad Al-Noor",
+          age: 12,
+          classesCount: 3,
+          classes: [
+            {
+              id: 1,
+              name: "Quran Memorization - Juz 1",
+              teacher: "Sheikh Abdullah Al-Mahmoud",
+              schedule: [
+                { day: "Monday", startTime: "16:00", endTime: "18:00" },
+                { day: "Wednesday", startTime: "16:00", endTime: "18:00" }
+              ]
+            },
+            {
+              id: 2,
+              name: "Islamic Studies - Level 1",
+              teacher: "Ustadha Fatima Al-Rashid",
+              schedule: [
+                { day: "Tuesday", startTime: "14:00", endTime: "16:00" },
+                { day: "Thursday", startTime: "14:00", endTime: "16:00" }
+              ]
+            },
+            {
+              id: 3,
+              name: "Arabic Language - Beginner",
+              teacher: "Ustadh Omar Al-Zahra",
+              schedule: [
+                { day: "Saturday", startTime: "10:00", endTime: "12:00" }
+              ]
+            }
+          ]
+        },
+        {
+          id: 2,
+          name: "Aisha Al-Noor",
+          age: 10,
+          classesCount: 2,
+          classes: [
+            {
+              id: 4,
+              name: "Quran Recitation - Tajweed",
+              teacher: "Ustadha Zainab Al-Khalil",
+              schedule: [
+                { day: "Monday", startTime: "14:00", endTime: "16:00" },
+                { day: "Wednesday", startTime: "14:00", endTime: "16:00" }
+              ]
+            },
+            {
+              id: 5,
+              name: "Islamic History - Stories of Prophets",
+              teacher: "Ustadh Khalid Al-Sabah",
+              schedule: [
+                { day: "Friday", startTime: "15:00", endTime: "17:00" }
+              ]
+            }
+          ]
+        }
+      ];
+
+      // Mock enrolled classes with proper schedule structure
+      const mockEnrolledClasses = [
+        {
+          id: 1,
+          name: "Quran Memorization - Juz 1",
+          description: "Learn to memorize the first Juz of the Holy Quran with proper tajweed rules",
+          teacherId: "teacher-1",
+          startDate: "2025-01-01",
+          endDate: "2025-12-31",
+          schedule: [
+            { day: "Monday", startTime: "16:00", endTime: "18:00" },
+            { day: "Wednesday", startTime: "16:00", endTime: "18:00" }
+          ],
+          childId: 1,
+          childName: "Ahmad Al-Noor"
+        },
+        {
+          id: 2,
+          name: "Islamic Studies - Level 1",
+          description: "Comprehensive Islamic education covering basic principles and practices",
+          teacherId: "teacher-2",
+          startDate: "2025-01-01",
+          endDate: "2025-12-31",
+          schedule: [
+            { day: "Tuesday", startTime: "14:00", endTime: "16:00" },
+            { day: "Thursday", startTime: "14:00", endTime: "16:00" }
+          ],
+          childId: 1,
+          childName: "Ahmad Al-Noor"
+        },
+        {
+          id: 3,
+          name: "Arabic Language - Beginner",
+          description: "Learn basic Arabic reading, writing, and conversation skills",
+          teacherId: "teacher-3",
+          startDate: "2025-01-01",
+          endDate: "2025-12-31",
+          schedule: [
+            { day: "Saturday", startTime: "10:00", endTime: "12:00" }
+          ],
+          childId: 1,
+          childName: "Ahmad Al-Noor"
+        },
+        {
+          id: 4,
+          name: "Quran Recitation - Tajweed",
+          description: "Master the rules of tajweed for beautiful Quran recitation",
+          teacherId: "teacher-4",
+          startDate: "2025-01-01",
+          endDate: "2025-12-31",
+          schedule: [
+            { day: "Monday", startTime: "14:00", endTime: "16:00" },
+            { day: "Wednesday", startTime: "14:00", endTime: "16:00" }
+          ],
+          childId: 2,
+          childName: "Aisha Al-Noor"
+        },
+        {
+          id: 5,
+          name: "Islamic History - Stories of Prophets",
+          description: "Learn about the lives and teachings of the prophets in Islamic tradition",
+          teacherId: "teacher-5",
+          startDate: "2025-01-01",
+          endDate: "2025-12-31",
+          schedule: [
+            { day: "Friday", startTime: "15:00", endTime: "17:00" }
+          ],
+          childId: 2,
+          childName: "Aisha Al-Noor"
+        }
+      ];
+
+      console.log('Using mock children schedule data');
+      console.log('Mock children:', mockChildrenSchedule);
+      console.log('Mock enrolled classes:', mockEnrolledClasses);
+
+      // Convert class schedules to calendar events
+      const classEvents = convertClassesToEvents(mockEnrolledClasses);
+      console.log('Class events:', classEvents);
+
+      // Sort events by start time
+      const sortedEvents = classEvents.sort((a, b) => new Date(a.start_time) - new Date(b.start_time));
+
+      setSchedule(sortedEvents);
+      setCourses(mockEnrolledClasses);
+      setChildrenSummary(mockChildrenSchedule);
+
+      // Auto-select the first child if only one child or no child is selected
+      if (mockChildrenSchedule.length === 1 && !selectedChildFilter) {
+        setSelectedChildFilter(mockChildrenSchedule[0].id.toString());
+      }
+    } catch (error) {
+      console.error('Error loading parent schedule:', error);
+      setSchedule([]);
+      setCourses([]);
+      setChildrenSummary([]);
     } finally {
       setLoading(false);
     }
   };
 
-  const generateScheduleData = (childrenData, classesData) => {
-    const scheduleData = [];
-    
-    childrenData.forEach(child => {
-      const childClasses = classesData.filter(cls => 
-        cls.students && cls.students.includes(child.id)
-      );
-      
-      childClasses.forEach(cls => {
-        if (cls.schedule && Array.isArray(cls.schedule)) {
-          cls.schedule.forEach(session => {
-            const teacher = teachers.find(t => t.id === cls.teacherId);
-            scheduleData.push({
-              id: `${cls.id}-${child.id}-${session.day}`,
-              childName: `${child.firstName} ${child.lastName}`,
-              childId: child.id,
-              className: cls.name,
-              classId: cls.id,
-              teacherName: teacher ? `${teacher.firstName} ${teacher.lastName}` : 'Teacher TBD',
-              day: session.day,
-              startTime: session.startTime,
-              endTime: session.endTime,
-              duration: cls.sessionDuration || 120,
-              price: cls.price || 0
-            });
-          });
-        }
-      });
+  const convertClassesToEvents = (enrolledClasses) => {
+    const events = [];
+    const today = new Date();
+
+    enrolledClasses.forEach((classItem) => {
+      // Use the course's actual start and end dates
+      const courseStartDate = new Date(classItem.startDate);
+      const courseEndDate = new Date(classItem.endDate);
+
+      // Only generate events if the course is active (end date is in the future)
+      if (courseEndDate > today) {
+        const classEvents = generateClassEvents(classItem, courseStartDate, courseEndDate);
+        events.push(...classEvents);
+      }
     });
-    
-    setSchedule(scheduleData);
+
+    return events;
   };
 
+  const generateClassEvents = (classItem, startDate, endDate) => {
+    const events = [];
+
+    // Parse schedule using the new data structure
+    const scheduleInfo = parseScheduleFromCourse(classItem);
+
+    if (!scheduleInfo) return events;
+
+    // Get teacher name from mockUsers
+    const teacher = mockUsers.find(t => t.id === classItem.teacherId && t.role === 'teacher');
+    const teacherName = teacher ? `${teacher.firstName} ${teacher.lastName}` : 'Teacher TBD';
+
+    // Find the first occurrence of each scheduled day
+    const firstOccurrences = scheduleInfo.days.map(dayOfWeek => {
+      let date = new Date(startDate);
+      while (date.getDay() !== dayOfWeek) {
+        date = addDays(date, 1);
+      }
+      return date;
+    });
+
+    // Generate events for each scheduled day, repeating weekly
+    firstOccurrences.forEach(firstDate => {
+      let currentOccurrence = new Date(firstDate);
+
+      while (isBefore(currentOccurrence, endDate)) {
+        // Set the time for this occurrence
+        const eventDate = new Date(currentOccurrence);
+        eventDate.setHours(scheduleInfo.hour, scheduleInfo.minute, 0, 0);
+
+        // Calculate end time based on session duration (120 minutes)
+        const eventEndDate = new Date(eventDate);
+        eventEndDate.setMinutes(eventEndDate.getMinutes() + 120);
+
+        // Add all events within the course period (including past events for display purposes)
+        events.push({
+          id: `class-${classItem.id}-${eventDate.getTime()}-${classItem.childId}`,
+          title: classItem.name,
+          type: 'lecture',
+          start_time: eventDate.toISOString(),
+          end_time: eventEndDate.toISOString(),
+          location: `Room ${getRoomForClass(classItem.id)}`,
+          instructor_name: teacherName,
+          course_title: classItem.name,
+          description: classItem.description,
+          classId: classItem.id,
+          childId: classItem.childId,
+          childName: classItem.childName,
+          isRecurring: true,
+          weekNumber: Math.floor((eventDate.getTime() - startDate.getTime()) / (7 * 24 * 60 * 60 * 1000)) + 1
+        });
+
+        // Move to next week (7 days later)
+        currentOccurrence = addDays(currentOccurrence, 7);
+      }
+    });
+
+    return events;
+  };
+
+  // Parse schedule using the new data structure
+  const parseScheduleFromCourse = (course) => {
+    if (course.schedule && Array.isArray(course.schedule)) {
+      // Use the new structured schedule data
+      const days = course.schedule.map(item => getDayNumber(item.day));
+
+      // Parse startTime (e.g., "16:00" -> hour: 16, minute: 0)
+      if (course.schedule.length > 0) {
+        const [startHour, startMinute] = course.schedule[0].startTime.split(':').map(Number);
+
+        if (startHour !== undefined && startMinute !== undefined) {
+          return {
+            days,
+            hour: startHour,
+            minute: startMinute
+          };
+        }
+      }
+    }
+
+    return null;
+  };
+
+  // Helper function to convert day names to day numbers
   const getDayNumber = (dayName) => {
     const dayMap = {
-      'Sunday': 0, 'Monday': 1, 'Tuesday': 2, 'Wednesday': 3,
-      'Thursday': 4, 'Friday': 5, 'Saturday': 6
+      'Sunday': 0,
+      'Monday': 1,
+      'Tuesday': 2,
+      'Wednesday': 3,
+      'Thursday': 4,
+      'Friday': 5,
+      'Saturday': 6
     };
     return dayMap[dayName] || 0;
   };
 
-  const convert24To12Hour = (time24) => {
-    if (!time24) return '';
-    const [hours, minutes] = time24.split(':');
-    const hour = parseInt(hours);
-    const period = hour >= 12 ? 'PM' : 'AM';
-    const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
-    return `${displayHour}:${minutes} ${period}`;
+  // Function to get a user-friendly schedule display
+  const getScheduleDisplay = (course) => {
+    if (course.schedule && Array.isArray(course.schedule)) {
+      return course.schedule.map(item =>
+        `${item.day} ${item.startTime}-${item.endTime}`
+      ).join(', ');
+    }
+    return 'Schedule TBD';
   };
 
-  const getTimeRangeDisplay = (startTime, endTime) => {
-    if (!startTime || !endTime) return 'Time TBD';
-    return `${convert24To12Hour(startTime)} - ${convert24To12Hour(endTime)}`;
+  const getRoomForClass = (classId) => {
+    // Simple room assignment based on class ID
+    const rooms = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2', 'D1', 'D2'];
+    return rooms[classId % rooms.length];
   };
 
-  const getWeekDays = () => {
+  const getUpcomingClasses = () => {
+    if (courses.length === 0) return [];
+
+    const upcoming = [];
     const today = new Date();
-    const weekStart = new Date(today);
-    weekStart.setDate(today.getDate() - today.getDay());
-    
-    const days = [];
-    for (let i = 0; i < 7; i++) {
-      const day = new Date(weekStart);
-      day.setDate(weekStart.getDate() + i);
-      days.push({
-        date: day,
-        dayName: day.toLocaleDateString('en-US', { weekday: 'long' }),
-        dayNumber: day.getDay()
-      });
-    }
-    return days;
-  };
+    const nextWeek = addDays(today, 7);
 
-  const getClassesForDay = (dayName) => {
-    let filteredSchedule = schedule;
-    
-    if (selectedChild !== 'all') {
-      filteredSchedule = filteredSchedule.filter(item => item.childId === selectedChild);
-    }
-    
-    return filteredSchedule.filter(item => item.day === dayName);
-  };
+    courses.forEach(course => {
+      const scheduleInfo = parseScheduleFromCourse(course);
+      if (scheduleInfo) {
+        // Find next occurrence of this class
+        scheduleInfo.days.forEach(dayOfWeek => {
+          let nextDate = new Date(today);
+          while (nextDate.getDay() !== dayOfWeek) {
+            nextDate = addDays(nextDate, 1);
+          }
 
-  const getTotalWeeklyHours = () => {
-    let totalMinutes = 0;
-    let filteredSchedule = schedule;
-    
-    if (selectedChild !== 'all') {
-      filteredSchedule = filteredSchedule.filter(item => item.childId === selectedChild);
-    }
-    
-    filteredSchedule.forEach(item => {
-      totalMinutes += item.duration || 120;
-    });
-    
-    return (totalMinutes / 60).toFixed(1);
-  };
+          if (isAfter(nextDate, today)) {
+            const teacher = mockUsers.find(t => t.id === course.teacherId && t.role === 'teacher');
+            const teacherName = teacher ? `${teacher.firstName} ${teacher.lastName}` : 'Teacher TBD';
 
-  const getTotalWeeklyCost = () => {
-    let totalCost = 0;
-    let filteredSchedule = schedule;
-    
-    if (selectedChild !== 'all') {
-      filteredSchedule = filteredSchedule.filter(item => item.childId === selectedChild);
-    }
-    
-    // Calculate cost based on sessions per week
-    const uniqueClasses = new Set(filteredSchedule.map(item => item.classId));
-    uniqueClasses.forEach(classId => {
-      const classData = classes.find(cls => cls.id === classId);
-      if (classData && classData.price) {
-        totalCost += classData.price;
+            upcoming.push({
+              course: course.name,
+              child: course.childName,
+              day: format(nextDate, 'EEEE'),
+              time: `${scheduleInfo.hour}:${scheduleInfo.minute.toString().padStart(2, '0')}`,
+              teacher: teacherName
+            });
+          }
+        });
       }
     });
-    
-    return totalCost;
+
+    return upcoming.sort((a, b) => {
+      const dayOrder = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+      return dayOrder.indexOf(a.day) - dayOrder.indexOf(b.day);
+    });
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading schedule...</p>
-        </div>
-      </div>
-    );
-  }
+  // Generate events for a specific date range (for navigation)
+  const generateEventsForDateRange = (startDate, endDate) => {
+    if (courses.length === 0) return [];
 
-  if (error) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <div className="text-red-500 text-xl mb-4">⚠️</div>
-          <p className="text-gray-600 mb-4">{error}</p>
-          <button 
-            onClick={fetchData} 
-            className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
-          >
-            Retry
-          </button>
-        </div>
-      </div>
+    console.log('Generating events for date range:', format(startDate, 'yyyy-MM-dd'), 'to', format(endDate, 'yyyy-MM-dd'));
+    console.log('Available courses:', courses.map(c => ({ name: c.name, schedule: c.schedule, child: c.childName })));
+
+    const events = [];
+    courses.forEach((classItem) => {
+      const scheduleInfo = parseScheduleFromCourse(classItem);
+      if (scheduleInfo) {
+        console.log('Parsed schedule for', classItem.name, ':', scheduleInfo);
+
+        // Get teacher name
+        const teacher = mockUsers.find(t => t.id === classItem.teacherId && t.role === 'teacher');
+        const teacherName = teacher ? `${teacher.firstName} ${teacher.lastName}` : 'Teacher TBD';
+
+        // Find the first occurrence of each scheduled day in the range
+        scheduleInfo.days.forEach(dayOfWeek => {
+          let currentDate = new Date(startDate);
+
+          // Find the first occurrence of this day in the range
+          while (currentDate.getDay() !== dayOfWeek && isBefore(currentDate, endDate)) {
+            currentDate = addDays(currentDate, 1);
+          }
+
+          // Generate events for this day and subsequent weeks within the range
+          while (isBefore(currentDate, endDate)) {
+            const eventDate = new Date(currentDate);
+            eventDate.setHours(scheduleInfo.hour, scheduleInfo.minute, 0, 0);
+
+            // Calculate end time based on session duration (120 minutes)
+            const eventEndDate = new Date(eventDate);
+            eventEndDate.setMinutes(eventEndDate.getMinutes() + 120);
+
+            events.push({
+              id: `class-${classItem.id}-${eventDate.getTime()}-${classItem.childId}`,
+              title: classItem.name,
+              type: 'lecture',
+              start_time: eventDate.toISOString(),
+              end_time: eventEndDate.toISOString(),
+              location: `Room ${getRoomForClass(classItem.id)}`,
+              instructor_name: teacherName,
+              course_title: classItem.name,
+              description: classItem.description,
+              classId: classItem.id,
+              childId: classItem.childId,
+              childName: classItem.childName,
+              isRecurring: true,
+              weekNumber: Math.floor((eventDate.getTime() - startDate.getTime()) / (7 * 24 * 60 * 60 * 1000)) + 1
+            });
+
+            // Move to next week
+            currentDate = addDays(currentDate, 7);
+          }
+        });
+      } else {
+        console.warn('Could not parse schedule for class:', classItem.name, classItem.schedule);
+      }
+    });
+
+    console.log('Generated events:', events.length);
+
+    // Remove duplicate events before returning
+    const uniqueEvents = events.filter((event, index, self) =>
+      index === self.findIndex(e =>
+        e.id === event.id ||
+        (e.title === event.title && e.start_time === event.start_time && e.childId === event.childId)
+      )
     );
-  }
+
+    console.log('Unique events after deduplication:', uniqueEvents.length);
+    return uniqueEvents;
+  };
+
+  // Convert our events to FullCalendar format
+  const getFullCalendarEvents = () => {
+    console.log('getFullCalendarEvents called with selectedChildFilter:', selectedChildFilter);
+    console.log('Current schedule length:', schedule.length);
+    console.log('Schedule sample:', schedule.slice(0, 3));
+
+    if (!selectedChildFilter) {
+      console.log('No child selected, returning empty array');
+      return [];
+    }
+
+    const filteredEvents = schedule.filter(event => {
+      const matches = event.childId === parseInt(selectedChildFilter);
+      console.log(`Event ${event.title} (childId: ${event.childId}) matches ${selectedChildFilter}: ${matches}`);
+      return matches;
+    });
+
+    console.log('Filtered events for child:', selectedChildFilter, filteredEvents);
+
+    const fullCalendarEvents = filteredEvents.map(event => ({
+      id: event.id,
+      title: event.title,
+      start: event.start_time,
+      end: event.end_time,
+      extendedProps: {
+        location: event.location,
+        instructor: event.instructor_name,
+        childName: event.childName,
+        description: event.description,
+        isRecurring: event.isRecurring,
+        childId: event.childId
+      }
+    }));
+
+    console.log('FullCalendar events:', fullCalendarEvents);
+    return fullCalendarEvents;
+  };
+
+  const getEventColor = (type, isRecurring = false, childId = null) => {
+    if (isRecurring) {
+      // Different colors for different children to distinguish them
+      if (childId) {
+        const colors = [
+          'bg-purple-100 border-purple-300 text-purple-800',
+          'bg-green-100 border-green-300 text-green-800',
+          'bg-blue-100 border-blue-300 text-blue-800',
+          'bg-orange-100 border-orange-300 text-orange-800',
+          'bg-pink-100 border-pink-300 text-pink-800',
+          'bg-indigo-100 border-indigo-300 text-indigo-800'
+        ];
+        return colors[childId % colors.length];
+      }
+      return 'bg-purple-100 border-purple-300 text-purple-800';
+    }
+
+    const colors = {
+      'lecture': 'bg-red-100 border-red-300 text-red-800',
+      'lab': 'bg-green-100 border-green-300 text-green-800',
+      'tutorial': 'bg-purple-100 border-purple-300 text-purple-800',
+      'seminar': 'bg-yellow-100 border-yellow-300 text-yellow-800',
+      'exam': 'bg-red-100 border-red-300 text-red-800',
+      'assignment_due': 'bg-orange-100 border-orange-300 text-orange-800',
+      'office_hours': 'bg-gray-100 border-gray-300 text-gray-800'
+    };
+    return colors[type] || 'bg-gray-100 border-gray-300 text-gray-800';
+  };
+
+  const getEventIcon = (type) => {
+    switch (type) {
+      case 'lecture': return '📚';
+      case 'lab': return '🔬';
+      case 'tutorial': return '👨‍🏫';
+      case 'seminar': return '💬';
+      case 'exam': return '📝';
+      case 'assignment_due': return '📋';
+      case 'office_hours': return '🏢';
+      default: return '📅';
+    }
+  };
+
+  const navigateWeek = (direction) => {
+    if (direction === 'prev') {
+      setCurrentWeek(subWeeks(currentWeek, 1));
+    } else {
+      setCurrentWeek(addWeeks(currentWeek, 1));
+    }
+  };
+
+  const goToToday = () => {
+    setCurrentWeek(new Date());
+    setSelectedDate(new Date());
+  };
+
+  // FullCalendar event handlers - Parents can only view, not modify
+  const handleDateSelect = (selectInfo) => {
+    // Parents cannot add events - just clear the selection
+    selectInfo.view.calendar.unselect();
+  };
+
+  const handleEventClick = (clickInfo) => {
+    // Parents cannot delete events - just show event info
+    const event = clickInfo.event;
+    const childName = event.extendedProps.childName || 'Child';
+    const location = event.extendedProps.location || 'TBD';
+    const instructor = event.extendedProps.instructor || 'TBD';
+
+    alert(`Class: ${event.title}\nChild: ${childName}\nTime: ${event.start.toLocaleString()}\nLocation: ${location}\nInstructor: ${instructor}`);
+  };
+
+  const createEventId = () => {
+    return String(Math.random()).replace(/\D/g, '');
+  };
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Weekly Schedule</h1>
-          <p className="text-gray-600">View your children's class schedules and activities</p>
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Children's Schedule</h1>
+          <p className="text-gray-600">View your children's class schedules and upcoming events</p>
         </div>
 
-        {/* Filters and Stats */}
-        <div className="bg-white rounded-lg shadow p-6 mb-6">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Select Child</label>
+        <div className="flex items-center space-x-4">
+          {/* Child Filter */}
+          {childrenSummary.length > 1 && (
+            <div className="flex items-center space-x-2">
+              <label className="text-sm font-medium text-gray-700">Filter by child:</label>
               <select
-                value={selectedChild}
-                onChange={(e) => setSelectedChild(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                value={selectedChildFilter}
+                onChange={(e) => setSelectedChildFilter(e.target.value)}
+                className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
               >
-                <option value="all">All Children</option>
-                {children.map(child => (
+                {childrenSummary.map((child) => (
                   <option key={child.id} value={child.id}>
-                    {child.firstName} {child.lastName}
+                    {child.name}
                   </option>
                 ))}
               </select>
             </div>
+          )}
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Week Starting</label>
-              <input
-                type="date"
-                value={selectedDate}
-                onChange={(e) => setSelectedDate(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={() => setViewMode('timeGridWeek')}
+              className={`px-3 py-2 rounded-md text-sm font-medium ${viewMode === 'timeGridWeek'
+                ? 'bg-purple-600 text-white'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+            >
+              Week
+            </button>
+            <button
+              onClick={() => setViewMode('timeGridDay')}
+              className={`px-3 py-2 rounded-md text-sm font-medium ${viewMode === 'timeGridDay'
+                ? 'bg-purple-600 text-white'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+            >
+              Day
+            </button>
 
-            <div className="flex items-end">
-              <button
-                onClick={() => {
-                  setSelectedChild('all');
-                  setSelectedDate(new Date().toISOString().split('T')[0]);
-                }}
-                className="w-full bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600"
-              >
-                Reset Filters
-              </button>
-            </div>
           </div>
 
-          {/* Summary Stats */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="text-center p-4 bg-blue-50 rounded-lg">
-              <div className="text-2xl font-bold text-blue-600">{children.length}</div>
-              <div className="text-sm text-gray-600">Children</div>
-            </div>
-            <div className="text-center p-4 bg-green-50 rounded-lg">
-              <div className="text-2xl font-bold text-green-600">{getTotalWeeklyHours()}</div>
-              <div className="text-sm text-gray-600">Hours per Week</div>
-            </div>
-            <div className="text-center p-4 bg-purple-50 rounded-lg">
-              <div className="text-2xl font-bold text-purple-600">SAR {getTotalWeeklyCost()}</div>
-              <div className="text-sm text-gray-600">Weekly Cost</div>
-            </div>
+          <button
+            onClick={goToToday}
+            className="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 text-sm font-medium"
+          >
+            Today
+          </button>
+        </div>
+      </div>
+
+      {/* Navigation */}
+      <div className="bg-white p-4 rounded-lg shadow-sm border">
+        <div className="flex justify-between items-center">
+          <button
+            onClick={() => navigateWeek('prev')}
+            className="flex items-center space-x-2 px-3 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md"
+          >
+            <ChevronLeft className="h-4 w-4" />
+            <span>Previous</span>
+          </button>
+
+          <div className="text-center">
+            <h2 className="text-lg font-semibold text-gray-900">
+              {viewMode === 'timeGridWeek'
+                ? `Week of ${format(startOfWeek(currentWeek, { weekStartsOn: 1 }), 'MMM dd, yyyy')}`
+                : viewMode === 'timeGridDay'
+                  ? format(selectedDate, 'EEEE, MMM dd, yyyy')
+                  : format(currentWeek, 'MMMM yyyy')
+              }
+            </h2>
+            <p className="text-sm text-gray-600">
+              {viewMode === 'timeGridWeek'
+                ? `${format(startOfWeek(currentWeek, { weekStartsOn: 1 }), 'MMM dd')} - ${format(endOfWeek(currentWeek, { weekStartsOn: 1 }), 'MMM dd, yyyy')}`
+                : viewMode === 'timeGridDay'
+                  ? format(selectedDate, 'EEEE, MMMM dd, yyyy')
+                  : format(currentWeek, 'MMMM yyyy')
+              }
+            </p>
+            {selectedChildFilter && (
+              <p className="text-xs text-purple-600 mt-1">
+                Showing classes for: {childrenSummary.find(c => c.id === parseInt(selectedChildFilter))?.name}
+              </p>
+            )}
+          </div>
+
+          <button
+            onClick={() => navigateWeek('next')}
+            className="flex items-center space-x-2 px-3 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md"
+          >
+            <span>Next</span>
+            <ChevronRight className="h-4 w-4" />
+          </button>
+        </div>
+      </div>
+
+      {/* Schedule View */}
+      {loading ? (
+        <div className="flex items-center justify-center py-12">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
+        </div>
+      ) : !selectedChildFilter ? (
+        <div className="bg-white rounded-lg shadow-sm border p-8 text-center">
+          <div className="text-gray-500">
+            <User className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+            <h3 className="text-lg font-medium text-gray-900 mb-2">Select a Child</h3>
+            <p className="text-gray-600">Please select a child from the dropdown above to view their schedule.</p>
+            {childrenSummary.length > 0 && (
+              <button
+                onClick={() => setSelectedChildFilter(childrenSummary[0].id.toString())}
+                className="mt-4 px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 text-sm font-medium"
+              >
+                View {childrenSummary[0].name}'s Schedule
+              </button>
+            )}
           </div>
         </div>
+      ) : viewMode === 'timeGridDay' ? (
+        // Day View with Sidebar Layout
+        <div className="flex gap-6">
+          {/* Left Sidebar - Day Selection */}
+          <div className="w-64 bg-white rounded-lg shadow-sm border p-4">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Select Day</h3>
+            <div className="space-y-2">
+              {(() => {
+                const weekStart = startOfWeek(currentWeek, { weekStartsOn: 1 });
+                const days = [];
+                for (let i = 0; i < 7; i++) {
+                  const day = addDays(weekStart, i);
+                  const dayEvents = schedule.filter(event =>
+                    isSameDay(parseISO(event.start_time), day) &&
+                    event.childId === parseInt(selectedChildFilter)
+                  );
+                  const isSelected = isSameDay(day, selectedDate);
 
-        {/* Weekly Schedule */}
-        <div className="bg-white rounded-lg shadow overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-200">
-            <h3 className="text-lg font-semibold text-gray-900">Weekly Schedule</h3>
+                  days.push(
+                    <button
+                      key={i}
+                      onClick={() => setSelectedDate(day)}
+                      className={`w-full p-3 text-left rounded-lg transition-colors ${isSelected
+                        ? 'bg-purple-100 border-2 border-purple-300'
+                        : 'bg-gray-50 hover:bg-gray-100 border-2 border-transparent'
+                        }`}
+                    >
+                      <div className="font-medium text-gray-900">
+                        {format(day, 'EEEE MMM dd')}
+                      </div>
+                      <div className="text-sm text-gray-600">
+                        {dayEvents.length} events
+                      </div>
+                    </button>
+                  );
+                }
+                return days;
+              })()}
+            </div>
           </div>
-          
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Day
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Time
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Child
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Class
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Teacher
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Duration
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {getWeekDays().map(({ dayName, date }) => {
-                  const dayClasses = getClassesForDay(dayName);
-                  
-                  if (dayClasses.length === 0) {
-                    return (
-                      <tr key={dayName}>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex items-center">
-                            <div className="text-sm font-medium text-gray-900">{dayName}</div>
-                            <div className="ml-2 text-xs text-gray-500">
-                              {date.toLocaleDateString()}
+
+          {/* Right Section - Day Schedule */}
+          <div className="flex-1 bg-white rounded-lg shadow-sm border overflow-hidden">
+            <div className="p-4 border-b border-gray-200">
+              <h2 className="text-xl font-semibold text-gray-900">
+                {format(selectedDate, 'EEEE, MMMM dd, yyyy')}
+              </h2>
+              <p className="text-gray-600">
+                {schedule.filter(event =>
+                  isSameDay(parseISO(event.start_time), selectedDate) &&
+                  event.childId === parseInt(selectedChildFilter)
+                ).length} events scheduled
+              </p>
+            </div>
+
+            <div className="p-4">
+              {(() => {
+                const dayEvents = schedule.filter(event =>
+                  isSameDay(parseISO(event.start_time), selectedDate) &&
+                  event.childId === parseInt(selectedChildFilter)
+                ).sort((a, b) => new Date(a.start_time) - new Date(b.start_time));
+
+                if (dayEvents.length === 0) {
+                  return (
+                    <div className="text-center py-8 text-gray-500">
+                      <Calendar className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+                      <p>No events scheduled for this day</p>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div className="space-y-4">
+                    {dayEvents.map((event, index) => (
+                      <div key={event.id} className="bg-purple-50 border border-purple-200 rounded-lg p-3">
+                        <div className="flex justify-between items-start mb-2">
+                          <div className="flex items-center space-x-2">
+                            <BookOpen className="h-4 w-4 text-purple-600" />
+                            <h3 className="text-base font-semibold text-gray-900">{event.title}</h3>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-xs text-purple-600 bg-purple-100 px-2 py-1 rounded-full">
+                              Enrolled Class
                             </div>
-                          </div>
-                        </td>
-                        <td colSpan="5" className="px-6 py-4 text-center text-gray-500">
-                          No classes scheduled
-                        </td>
-                      </tr>
-                    );
-                  }
-                  
-                  return dayClasses.map((cls, index) => (
-                    <tr key={cls.id} className={index === 0 ? '' : 'border-t border-gray-100'}>
-                      {index === 0 && (
-                        <td className="px-6 py-4 whitespace-nowrap" rowSpan={dayClasses.length}>
-                          <div className="flex items-center">
-                            <div className="text-sm font-medium text-gray-900">{dayName}</div>
-                            <div className="ml-2 text-xs text-gray-500">
-                              {date.toLocaleDateString()}
-                            </div>
-                          </div>
-                        </td>
-                      )}
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {getTimeRangeDisplay(cls.startTime, cls.endTime)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center">
-                          <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                            <span className="text-sm font-medium text-blue-600">
-                              {cls.childName.charAt(0)}
-                            </span>
-                          </div>
-                          <div className="ml-3">
-                            <div className="text-sm font-medium text-gray-900">{cls.childName}</div>
                           </div>
                         </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {cls.className}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {cls.teacherName}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {cls.duration} min
-                      </td>
-                    </tr>
-                  ));
-                })}
-              </tbody>
-            </table>
+
+                        <p className="text-gray-600 mb-2 text-sm">{event.description}</p>
+
+                        <div className="grid grid-cols-2 gap-3 text-sm">
+                          <div className="flex items-center space-x-2">
+                            <Clock className="h-4 w-4 text-gray-500" />
+                            <span className="text-gray-700">
+                              {format(parseISO(event.start_time), 'HH:mm')} - {format(parseISO(event.end_time), 'HH:mm')}
+                            </span>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <MapPin className="h-4 w-4 text-gray-500" />
+                            <span className="text-gray-700">{event.location}</span>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <User className="h-4 w-4 text-gray-500" />
+                            <span className="text-gray-700">{event.instructor_name}</span>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <Users className="h-4 w-4 text-gray-500" />
+                            <span className="text-purple-700 font-bold">{event.childName}</span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
+            </div>
           </div>
         </div>
+      ) : (
+        // Week View with FullCalendar
+        <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
+          {/* Custom Tailwind styles for FullCalendar */}
+          <style jsx>{`
+             .fc {
+               font-family: inherit;
+               background: white;
+             }
+             .fc-header-toolbar {
+               display: none;
+             }
+             .fc-timegrid-slot {
+               height: 4rem !important;
+               border-bottom: 1px solid #e5e7eb;
+             }
+             .fc-timegrid-slot-label {
+               font-size: 0.875rem;
+               font-weight: 500;
+               color: #374151;
+               padding: 0.5rem;
+               text-align: center;
+             }
+             .fc-col-header-cell {
+               background-color: #f9fafb;
+               border-right: 1px solid #e5e7eb;
+               padding: 1rem;
+               text-align: center;
+             }
+             .fc-col-header-cell:last-child {
+               border-right: none;
+             }
+             .fc-col-header-cell-cushion {
+               font-size: 0.875rem;
+               font-weight: 500;
+               color: #111827;
+               text-decoration: none;
+             }
+             .fc-col-header-cell-cushion:hover {
+               text-decoration: none;
+             }
+             .fc-timegrid-now-indicator-line {
+               border-color: #8b5cf6;
+               border-width: 2px;
+             }
+             .fc-timegrid-now-indicator-arrow {
+               border-color: #8b5cf6;
+               border-width: 5px;
+             }
+             .fc-scroller::-webkit-scrollbar {
+               width: 8px;
+               height: 8px;
+             }
+             .fc-scroller::-webkit-scrollbar-track {
+               background: #f1f1f1;
+               border-radius: 4px;
+             }
+             .fc-scroller::-webkit-scrollbar-thumb {
+               background: #c1c1c1;
+               border-radius: 4px;
+             }
+             .fc-scroller::-webkit-scrollbar-thumb:hover {
+               background: #a8a8a8;
+             }
+             /* Ensure 8 PM and later rows are visible */
+             .fc-timegrid-slot:nth-child(n+13) {
+               background-color: #fefefe;
+             }
+             .fc-timegrid-slot:nth-child(n+13):hover {
+               background-color: #f3f4f6;
+             }
+           `}</style>
+          <FullCalendar
+            ref={calendarRef}
+            plugins={[timeGridPlugin, dayGridPlugin, interactionPlugin]}
+            headerToolbar={false} // We're using our custom header
+            initialView={viewMode}
+            initialDate={currentWeek}
+            editable={false} // Parents cannot edit events
+            selectable={false} // Parents cannot select dates to add events
+            selectMirror={false}
+            dayMaxEvents={true}
+            weekends={true}
+            events={getFullCalendarEvents()}
+            select={handleDateSelect}
+            eventClick={handleEventClick}
+            height="auto"
+            slotMinTime="08:00:00"
+            slotMaxTime="20:00:00"
+            allDaySlot={false}
+            slotDuration="01:00:00"
+            slotLabelFormat={{
+              hour: 'numeric',
+              minute: '2-digit',
+              hour12: true
+            }}
+            eventTimeFormat={{
+              hour: 'numeric',
+              minute: '2-digit',
+              hour12: true
+            }}
+            eventDisplay="block"
+            eventOverlap={false}
+            slotEventOverlap={false}
+            nowIndicator={true}
+            businessHours={{
+              daysOfWeek: [1, 2, 3, 4, 5, 6, 0], // Monday through Sunday
+              startTime: '08:00',
+              endTime: '20:00',
+            }}
+            dayHeaderFormat={{
+              weekday: 'short',
+              day: 'numeric'
+            }}
+            weekNumbers={false}
+            weekNumberCalculation="ISO"
+            firstDay={1} // Monday
+            locale="en"
+            timeZone="local"
+            eventClassNames={(arg) => {
+              const event = arg.event;
+              const isRecurring = event.extendedProps.isRecurring;
+              const childId = event.extendedProps.childId;
 
-        {/* No Schedule Message */}
-        {schedule.length === 0 && (
-          <div className="text-center py-12">
-            <div className="text-gray-400 text-6xl mb-4">📅</div>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No Schedule Found</h3>
-            <p className="text-gray-500 mb-4">
-              Your children don't have any classes scheduled yet.
-            </p>
-            <button
-              onClick={() => window.location.href = '/parent/children/create'}
-              className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              Enroll in Classes
-            </button>
-          </div>
-        )}
-      </div>
+              // Base Tailwind classes for all events - read-only for parents
+              const baseClasses = 'rounded-md border-l-4 text-xs font-medium p-1 m-0.5 cursor-pointer transition-all duration-200 hover:shadow-md';
+
+              // Child-specific color classes using Tailwind - purple theme for parents
+              let colorClasses = 'bg-purple-100 border-purple-300 text-purple-800';
+
+              return [baseClasses, colorClasses];
+            }}
+            eventContent={(arg) => {
+              const event = arg.event;
+              const location = event.extendedProps.location || 'TBD';
+              const instructor = event.extendedProps.instructor || 'TBD';
+              const childName = event.extendedProps.childName || 'Child';
+
+              return {
+                html: `
+                   <div class="p-1">
+                     <div class="font-semibold text-xs mb-0.5 text-purple-700">${event.title}</div>
+                     <div class="text-xs opacity-75 mb-0.5 text-purple-700">${arg.timeText}</div>
+                     <div class="text-xs opacity-60 text-purple-600">${childName} • ${location} • ${instructor}</div>
+                   </div>
+                 `
+              };
+            }}
+          />
+        </div>
+      )}
     </div>
   );
 };

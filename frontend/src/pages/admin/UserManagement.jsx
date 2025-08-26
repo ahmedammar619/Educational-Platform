@@ -43,7 +43,12 @@ const UserManagement = ({ user }) => {
         ...u,
         created_at: u.createdAt ? new Date(u.createdAt).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
         name: u.firstName && u.lastName ? `${u.firstName} ${u.lastName}` : u.email,
-        children: u.children || []
+        // For the new backend structure:
+        // - Students have a 'parent' field (either parent entity or null)
+        // - Parents have a 'children' array containing full student objects
+        children: u.children || [], // For parents
+        parent: u.parent || null,   // For students
+        parentId: u.parent?.id || null // For backward compatibility
       }));
       
       setAllUsers(transformedUsers);
@@ -81,7 +86,7 @@ const UserManagement = ({ user }) => {
       const parentsToInclude = allUsers.filter(user =>
         user.role === 'parent' &&
         user.children &&
-        user.children.some(childId => matchingStudentIds.has(childId))
+        user.children.some(child => matchingStudentIds.has(child.id))
       );
 
       // Combine direct matches with parents of matching students
@@ -169,18 +174,77 @@ const UserManagement = ({ user }) => {
     }
   };
 
+  // Test token function
+  const testToken = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      console.log('🔐 Testing token:', {
+        hasToken: !!token,
+        tokenLength: token ? token.length : 0,
+        tokenPreview: token ? `${token.substring(0, 20)}...` : 'none'
+      });
+
+      // Test with a simple GET request first
+      console.log('🧪 Testing token with GET /api/users...');
+      const response = await fetch('http://localhost:3000/api/users', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      console.log('📡 Test response:', {
+        status: response.status,
+        statusText: response.statusText,
+        ok: response.ok
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('✅ Token test successful:', data);
+        alert('Token is working! You can now try to delete a user.');
+      } else {
+        const errorData = await response.text();
+        console.log('❌ Token test failed:', errorData);
+        alert(`Token test failed: ${response.status} ${response.statusText}`);
+      }
+    } catch (error) {
+      console.error('❌ Token test error:', error);
+      alert(`Token test error: ${error.message}`);
+    }
+  };
+
   const handleDeleteUser = async (userId) => {
     if (!confirm('Are you sure you want to delete this user? This action cannot be undone.')) return;
 
     try {
+      console.log('🗑️ Attempting to delete user:', userId);
+      
+      // Check if we have a token
+      const token = localStorage.getItem('token');
+      console.log('🔐 Token check:', {
+        hasToken: !!token,
+        tokenLength: token ? token.length : 0,
+        tokenPreview: token ? `${token.substring(0, 20)}...` : 'none'
+      });
+      
       // Call the backend API to delete user
+      console.log('📡 Calling usersService.deleteUser...');
       await usersService.deleteUser(userId);
+      
+      console.log('✅ User deleted successfully from backend');
       
       // Remove the user from local state after successful deletion
       setAllUsers(prev => prev.filter(user => user.id !== userId));
       alert('User deleted successfully!');
     } catch (error) {
-      console.error('Error deleting user:', error);
+      console.error('❌ Error deleting user:', error);
+      console.error('❌ Error details:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+        statusText: error.response?.statusText
+      });
       
       // Handle specific error cases
       if (error.message && error.message.includes('related data')) {
@@ -245,8 +309,8 @@ const UserManagement = ({ user }) => {
 
       // Collect all parent IDs for students
       students.forEach(student => {
-        if (student.parentId) {
-          parentIds.add(student.parentId);
+        if (student.parent && student.parent.id) {
+          parentIds.add(student.parent.id);
         }
       });
 
@@ -263,7 +327,7 @@ const UserManagement = ({ user }) => {
         // Add children if expanded
         if (expandedParents.has(parent.id) && parent.children) {
           const children = allUsers.filter(u =>
-            u.role === 'student' && parent.children.includes(u.id) &&
+            u.role === 'student' && parent.children.some(child => child.id === u.id) &&
             usersToProcess.some(filteredUser => filteredUser.id === u.id)
           );
 
@@ -280,8 +344,8 @@ const UserManagement = ({ user }) => {
         }
       });
 
-      // Add students without parents
-      const studentsWithoutParents = students.filter(s => !s.parentId);
+      // Add students without parents (individual students)
+      const studentsWithoutParents = students.filter(s => !s.parent || !s.parent.id);
       studentsWithoutParents.forEach(student => {
         rows.push({
           ...student,
@@ -311,7 +375,7 @@ const UserManagement = ({ user }) => {
       if (expandedParents.has(parent.id) && parent.children) {
         // Get children from the original allUsers to maintain relationships
         const children = allUsers.filter(u =>
-          u.role === 'student' && parent.children.includes(u.id)
+          u.role === 'student' && parent.children.some(child => child.id === u.id)
         );
 
         children.forEach(child => {
@@ -360,7 +424,7 @@ const UserManagement = ({ user }) => {
     if (userItem.isParent) {
       // Parent row with expandable children
       const children = allUsers.filter(u =>
-        u.role === 'student' && userItem.children?.includes(u.id)
+        u.role === 'student' && userItem.children?.some(child => child.id === u.id)
       );
       const hasChildren = children.length > 0;
       const isExpanded = expandedParents.has(userItem.id);
@@ -445,6 +509,9 @@ const UserManagement = ({ user }) => {
               <div className="ml-3">
                 <div className="text-start text-sm font-medium text-gray-900">{userItem.name}</div>
                 <div className="text-start text-sm text-gray-500">{userItem.email}</div>
+                <div className="text-start text-xs text-purple-600">
+                  📚 Linked to {userItem.parentName}
+                </div>
               </div>
             </div>
           </td>
@@ -497,6 +564,11 @@ const UserManagement = ({ user }) => {
               <div className="ml-4">
                 <div className="text-sm font-medium text-gray-900">{userItem.name}</div>
                 <div className="text-sm text-gray-500">{userItem.email}</div>
+                {userItem.role === 'student' && !userItem.parent && (
+                  <div className="text-xs text-orange-600">
+                    🎓 Individual Student (No Parent)
+                  </div>
+                )}
               </div>
             </div>
           </td>
@@ -544,13 +616,46 @@ const UserManagement = ({ user }) => {
           <h1 className="text-2xl font-bold text-gray-900">User Management</h1>
           <p className="text-gray-600">Manage student and teacher accounts</p>
         </div>
-        <button
-          onClick={() => setShowCreateModal(true)}
-          className="flex items-center space-x-2 border-2 border-green-600 text-green-600 px-4 py-2 rounded-lg hover:bg-green-600 hover:text-white transition-all duration-200"
-        >
-          <Plus className="h-4 w-4" />
-          <span>Add User</span>
-        </button>
+        <div className="flex items-center space-x-3">
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="flex items-center space-x-2 border-2 border-green-600 text-green-600 px-4 py-2 rounded-lg hover:bg-green-600 hover:text-white transition-all duration-200"
+          >
+            <Plus className="h-4 w-4" />
+            <span>Add User</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Relationship Summary */}
+      <div className="bg-white p-4 rounded-lg shadow-sm border">
+        <h3 className="text-sm font-medium text-gray-900 mb-3">Parent-Child Relationship Summary</h3>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+          <div className="text-center">
+            <div className="text-2xl font-bold text-purple-600">
+              {allUsers.filter(u => u.role === 'parent').length}
+            </div>
+            <div className="text-gray-600">Total Parents</div>
+          </div>
+          <div className="text-center">
+            <div className="text-2xl font-bold text-red-600">
+              {allUsers.filter(u => u.role === 'student' && u.parent).length}
+            </div>
+            <div className="text-gray-600">Students with Parents</div>
+          </div>
+          <div className="text-center">
+            <div className="text-2xl font-bold text-orange-600">
+              {allUsers.filter(u => u.role === 'student' && !u.parent).length}
+            </div>
+            <div className="text-gray-600">Individual Students</div>
+          </div>
+          <div className="text-center">
+            <div className="text-2xl font-bold text-blue-600">
+              {allUsers.filter(u => u.role === 'teacher').length}
+            </div>
+            <div className="text-gray-600">Teachers</div>
+          </div>
+        </div>
       </div>
 
       {/* Deletion Rules Info */}
@@ -581,7 +686,7 @@ const UserManagement = ({ user }) => {
             <input
               type="text"
               placeholder="Search users..."
-              className="w-full pl-10 pr-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+              className="w-full pl-10 py-2 pr-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
               value={filters.search}
               onChange={(e) => setFilters({ ...filters, search: e.target.value, page: 1 })}
             />

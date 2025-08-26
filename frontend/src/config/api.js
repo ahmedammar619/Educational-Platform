@@ -2,7 +2,7 @@
 export const API_CONFIG = {
   // Base URL for API calls
   // You can change this to match your backend URL
-  BASE_URL: 'http://localhost:3000',
+  BASE_URL: import.meta.env.VITE_API_URL || 'http://localhost:3000',
   
   // API endpoints
   ENDPOINTS: {
@@ -17,8 +17,12 @@ export const API_CONFIG = {
     TEACHERS: '/api/teachers',
     STUDENTS: '/api/students',
     PARENTS: '/api/parents',
-    ADMIN: '/api/admin',
-    DASHBOARD: '/api/dashboard',
+    ADMIN: {
+      ROOT: '/api/admin',
+      DASHBOARD: '/api/admin/dashboard',
+      USERS: '/api/admin/users',
+      TEACHERS: '/api/admin/teachers'
+    },
   },
   
   // Request configuration

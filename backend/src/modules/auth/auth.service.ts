@@ -17,6 +17,9 @@ import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
+import { Role } from '../../common/enums/role.enum';
+import { StudentsService } from '../students/students.service';
+import { ParentsService } from '../parents/parents.service';
 
 @Injectable()
 export class AuthService {
@@ -24,10 +27,17 @@ export class AuthService {
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
     private readonly jwtService: JwtService,
+    private readonly studentsService: StudentsService,
+    private readonly parentsService: ParentsService,
   ) {}
 
   async register(registerDto: RegisterDto) {
-    const { email, password, ...userData } = registerDto;
+    const { email, password, role, ...userData } = registerDto;
+
+    // Validate role - only allow student and parent registration
+    if (role !== Role.Student && role !== Role.Parent) {
+      throw new BadRequestException('Only students and parents can register through this endpoint');
+    }
 
     // Check if user already exists
     const existingUser = await this.userRepository.findOne({
@@ -38,35 +48,75 @@ export class AuthService {
       throw new ConflictException('User already exists with this email');
     }
 
-    // Check if username already exists (for students)
-    if (userData.username) {
-      const existingUsername = await this.userRepository.findOne({
-        where: { username: userData.username },
-      });
+    // Validate required fields based on role
+    if (role === Role.Parent && !userData.phone) {
+      throw new BadRequestException('Phone number is required for parents');
+    }
+    
+    if (role === Role.Student && !userData.birthDate) {
+      throw new BadRequestException('Birth date is required for students');
+    }
 
-      if (existingUsername) {
-        throw new ConflictException('Username already exists');
-      }
+    // Phone number is required for students when signing up publicly
+    if (role === Role.Student && !userData.phone) {
+      throw new BadRequestException('Phone number is required for students');
     }
 
     // Hash password
     const saltRounds = 12;
     const passwordHash = await bcrypt.hash(password, saltRounds);
 
-    // Create user
-    const user = this.userRepository.create({
+    // Prepare user data
+    const userDataToSave: any = {
       ...userData,
       email,
       passwordHash,
-    });
+      role: role, // Role is already validated as Teacher or Student
+    };
+
+    // Convert birthdate string to Date object for students
+    if (role === Role.Student && userData.birthDate) {
+      userDataToSave.birthDate = new Date(userData.birthDate);
+    }
+
+    // Create user with proper role
+    const user = new User();
+    Object.assign(user, userDataToSave);
 
     const savedUser = await this.userRepository.save(user);
+
+    // Also create record in the appropriate separate table
+    try {
+      if (role === Role.Student) {
+        await this.studentsService.createStudent({
+          firstName: userData.firstName,
+          lastName: userData.lastName,
+          email: email,
+          password: password, // We need to pass the original password
+          birthDate: userData.birthDate,
+          phone: userData.phone,
+        });
+      } else if (role === Role.Parent) {
+        await this.parentsService.createParent({
+          firstName: userData.firstName,
+          lastName: userData.lastName,
+          email: email,
+          password: password, // We need to pass the original password
+          phone: userData.phone,
+        });
+      }
+    } catch (error) {
+      // If creating in separate table fails, we should clean up the user
+      // For now, just log the error - in production you might want to handle this differently
+      console.error('Failed to create record in separate table:', error);
+      // Note: The user account is still created in the users table
+    }
 
     // Generate JWT token
     const token = this.generateToken(savedUser);
 
     return {
-      message: 'User created successfully',
+      message: `${role === Role.Parent ? 'Parent' : 'Student'} account created successfully`,
       user: this.sanitizeUser(savedUser),
       token,
     };
@@ -91,11 +141,6 @@ export class AuthService {
     if (!isPasswordValid) {
       throw new UnauthorizedException('Invalid credentials');
     }
-
-    // Update last login time
-    await this.userRepository.update(user.id, {
-      lastLogin: new Date(),
-    });
 
     // Generate JWT token
     const token = this.generateToken(user);
@@ -168,6 +213,19 @@ export class AuthService {
     return {
       message: 'Password reset successful',
     };
+  }
+
+  async getProfile(userId: string) {
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+      select: ['id', 'firstName', 'lastName', 'email', 'role', 'phone', 'createdAt'],
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    return this.sanitizeUser(user);
   }
 
   async validateUser(email: string, password: string): Promise<any> {
@@ -264,8 +322,7 @@ export class AuthService {
     };
 
     return this.jwtService.sign(payload, {
-      secret: process.env.JWT_SECRET || 'dev-jwt-secret-change-in-production',
-      expiresIn: '15m',
+      expiresIn: '24h',
       issuer: 'educational-platform',
       audience: 'educational-platform-users',
     });

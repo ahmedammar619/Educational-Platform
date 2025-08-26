@@ -1,42 +1,41 @@
 import { useState, useEffect } from 'react';
-import { User, Mail, Lock, BookOpen, Check, AlertCircle } from 'lucide-react';
-import { parentsService, coursesService } from '../../services';
+import { User, Mail, Lock, Calendar, Eye, EyeOff } from 'lucide-react';
+import parentsService from '../../services/parentsService';
 
-const ChildAccountCreation = ({ user }) => {
+const ChildAccountCreation = ({ user, onSuccess, onCancel }) => {
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
     email: '',
     password: '',
     confirmPassword: '',
-    interestedCourses: []
+    birthDate: ''
   });
-  const [availableCourses, setAvailableCourses] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitStatus, setSubmitStatus] = useState(null);
   const [errors, setErrors] = useState({});
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
+  // Add CSS to hide browser's default password visibility toggle
   useEffect(() => {
-    fetchAvailableCourses();
-  }, []);
-
-  const fetchAvailableCourses = async () => {
-    try {
-      const response = await coursesService.getAllCourses();
-      if (response && Array.isArray(response)) {
-        // Transform backend course data to match expected structure
-        const courseNames = response.map(course => course.name || course.title || 'Unknown Course');
-        setAvailableCourses(courseNames);
-      } else {
-        // Return empty array if backend fails or returns no data
-        setAvailableCourses([]);
+    const style = document.createElement('style');
+    style.textContent = `
+      input[type="password"]::-ms-reveal,
+      input[type="password"]::-ms-clear {
+        display: none !important;
       }
-    } catch (err) {
-      console.error('Error fetching courses:', err);
-      // Return empty array if backend fails
-      setAvailableCourses([]);
-    }
-  };
+      input[type="password"]::-webkit-contacts-auto-fill-button,
+      input[type="password"]::-webkit-credentials-auto-fill-button {
+        display: none !important;
+      }
+    `;
+    document.head.appendChild(style);
+
+    return () => {
+      document.head.removeChild(style);
+    };
+  }, []);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -44,53 +43,50 @@ const ChildAccountCreation = ({ user }) => {
       ...prev,
       [name]: value
     }));
-  };
-
-  const handleCourseToggle = (courseName) => {
-    setFormData(prev => ({
-      ...prev,
-      interestedCourses: prev.interestedCourses.includes(courseName)
-        ? prev.interestedCourses.filter(name => name !== courseName)
-        : [...prev.interestedCourses, courseName]
-    }));
+    // Clear error when user starts typing
+    if (errors[name]) {
+      setErrors(prev => ({
+        ...prev,
+        [name]: ''
+      }));
+    }
   };
 
   const validateForm = () => {
-    let isValid = true;
     const newErrors = {};
 
-    if (!formData.firstName) {
-      newErrors.firstName = 'First Name is required';
-      isValid = false;
+    if (!formData.firstName.trim()) {
+      newErrors.firstName = 'First name is required';
     }
-    if (!formData.lastName) {
-      newErrors.lastName = 'Last Name is required';
-      isValid = false;
+
+    if (!formData.lastName.trim()) {
+      newErrors.lastName = 'Last name is required';
     }
+
     if (!formData.email) {
       newErrors.email = 'Email is required';
-      isValid = false;
-    } else if (!/\S+@\S+\.\S/.test(formData.email)) {
-      newErrors.email = 'Email address is invalid';
-      isValid = false;
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      newErrors.email = 'Please enter a valid email address';
     }
+
     if (!formData.password) {
       newErrors.password = 'Password is required';
-      isValid = false;
     } else if (formData.password.length < 6) {
-      newErrors.password = 'Password must be at least 6 characters long';
-      isValid = false;
+      newErrors.password = 'Password must be at least 6 characters';
     }
+
     if (!formData.confirmPassword) {
-      newErrors.confirmPassword = 'Confirm Password is required';
-      isValid = false;
+      newErrors.confirmPassword = 'Confirm password is required';
     } else if (formData.password !== formData.confirmPassword) {
       newErrors.confirmPassword = 'Passwords do not match';
-      isValid = false;
+    }
+
+    if (!formData.birthDate) {
+      newErrors.birthDate = 'Date of birth is required';
     }
 
     setErrors(newErrors);
-    return isValid;
+    return Object.keys(newErrors).length === 0;
   };
 
   const handleSubmit = async (e) => {
@@ -102,19 +98,21 @@ const ChildAccountCreation = ({ user }) => {
 
     setIsSubmitting(true);
     setSubmitStatus(null);
-    setErrors({});
 
     try {
+      // Prepare data according to backend AddChildDto
       const childData = {
+        parentId: user.id, // Include the parent ID
         firstName: formData.firstName,
         lastName: formData.lastName,
-        username: formData.email.split('@')[0], // Generate username from email
+        email: formData.email,
         password: formData.password,
-        birthDate: null, // Optional field
-        selectedCourses: formData.interestedCourses
+        birthDate: formData.birthDate
       };
 
-      await parentsService.createChildAccount(childData);
+      console.log('Submitting child data:', childData);
+      const response = await parentsService.createChildAccount(childData);
+      console.log('Child account created successfully:', response);
       
       setSubmitStatus('success');
       setFormData({
@@ -123,185 +121,273 @@ const ChildAccountCreation = ({ user }) => {
         email: '',
         password: '',
         confirmPassword: '',
-        interestedCourses: []
+        birthDate: ''
       });
       
-      // Reset success message after 5 seconds
-      setTimeout(() => setSubmitStatus(null), 5000);
+      // Call onSuccess callback after 2 seconds to show success message
+      setTimeout(() => {
+        if (onSuccess) {
+          onSuccess();
+        }
+      }, 2000);
       
     } catch (err) {
       console.error('Error creating child account:', err);
       setSubmitStatus('error');
-      setErrors({ submit: err.message || 'Failed to create child account' });
+      
+      // Handle different types of errors
+      if (err.message) {
+        setErrors({ submit: err.message });
+      } else if (err.error) {
+        setErrors({ submit: err.error });
+      } else {
+        setErrors({ submit: 'Failed to create child account. Please try again.' });
+      }
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  if (isSubmitting) {
+  if (submitStatus === 'success') {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Creating account...</p>
+      <div className="text-center py-8">
+        <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+          <svg className="h-8 w-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+          </svg>
+        </div>
+        <h3 className="text-2xl font-bold text-gray-900 mb-2">Account Created Successfully!</h3>
+        <p className="text-gray-600 mb-4">
+          Your child's account has been created and linked to your parent account.
+        </p>
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+          <p className="text-sm text-blue-800">
+            <strong>Login Details:</strong><br />
+            Email: <span className="font-mono">{formData.email}</span><br />
+            Password: <span className="font-mono">[The password you set]</span>
+          </p>
+        </div>
+        <p className="text-gray-600 mb-6">
+          Your child can now log in using their email and password to access their student dashboard.
+        </p>
+        <div className="flex justify-center space-x-3">
+          <button
+            onClick={() => setSubmitStatus(null)}
+            className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors"
+          >
+            Create Another Account
+          </button>
+          {onCancel && (
+            <button
+              onClick={onCancel}
+              className="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors"
+            >
+              Close
+            </button>
+          )}
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-4xl mx-auto">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Create Child Account</h1>
-          <p className="text-gray-600">Set up a new student account for your child</p>
-        </div>
-
-        {/* Success Message */}
-        {submitStatus === 'success' && (
-          <div className="mb-6 p-4 bg-green-100 border border-green-400 text-green-700 rounded">
-            ✅ Child account created successfully! You can now enroll them in classes.
-          </div>
-        )}
-
-        {/* Error Message */}
-        {submitStatus === 'error' && (
-          <div className="mb-6 p-4 bg-red-100 border border-red-400 text-red-700 rounded">
-            ⚠️ {errors.submit || 'Failed to create child account'}
-          </div>
-        )}
-
-        <div className="bg-white rounded-lg shadow p-6">
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Personal Information */}
+    <div className="space-y-6" style={{ margin:'0px' }}>
+      <form onSubmit={handleSubmit} className="space-y-6">
+        {/* Personal Information */}
+        <div className="bg-gray-50 p-4 rounded-lg">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+            <User className="h-5 w-5 mr-2 text-purple-600" />
+            Personal Information
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Personal Information</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">First Name *</label>
-                  <input
-                    type="text"
-                    name="firstName"
-                    required
-                    value={formData.firstName}
-                    onChange={handleInputChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                  {errors.firstName && <p className="text-xs text-red-500 mt-1">{errors.firstName}</p>}
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Last Name *</label>
-                  <input
-                    type="text"
-                    name="lastName"
-                    required
-                    value={formData.lastName}
-                    onChange={handleInputChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                  {errors.lastName && <p className="text-xs text-red-500 mt-1">{errors.lastName}</p>}
-                </div>
-              </div>
-            </div>
-
-            {/* Account Information */}
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Account Information</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Email *</label>
-                  <input
-                    type="email"
-                    name="email"
-                    required
-                    value={formData.email}
-                    onChange={handleInputChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                  {errors.email && <p className="text-xs text-red-500 mt-1">{errors.email}</p>}
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Password *</label>
-                  <input
-                    type="password"
-                    name="password"
-                    required
-                    value={formData.password}
-                    onChange={handleInputChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                  {errors.password && <p className="text-xs text-red-500 mt-1">{errors.password}</p>}
-                  <p className="text-xs text-gray-500 mt-1">Minimum 6 characters</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Password */}
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Confirm Password</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Confirm Password *</label>
-                  <input
-                    type="password"
-                    name="confirmPassword"
-                    required
-                    value={formData.confirmPassword}
-                    onChange={handleInputChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                  {errors.confirmPassword && <p className="text-xs text-red-500 mt-1">{errors.confirmPassword}</p>}
-                </div>
-              </div>
-            </div>
-
-            {/* Course Selection */}
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Course Selection (Optional)</h3>
-              <p className="text-sm text-gray-600 mb-4">
-                Select courses you'd like to enroll your child in. You can change this later.
-              </p>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                {availableCourses.map((courseName) => (
-                  <label key={courseName} className="flex items-center p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={formData.interestedCourses.includes(courseName)}
-                      onChange={() => handleCourseToggle(courseName)}
-                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                    />
-                    <div className="ml-3">
-                      <p className="text-sm font-medium text-gray-900">{courseName}</p>
-                      <p className="text-xs text-gray-500">Course available</p>
-                    </div>
-                  </label>
-                ))}
-              </div>
-              
-              {availableCourses.length === 0 && (
-                <div className="text-center py-6">
-                  <p className="text-gray-500">No courses available at the moment</p>
-                </div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                First Name *
+              </label>
+              <input
+                type="text"
+                name="firstName"
+                value={formData.firstName}
+                onChange={handleInputChange}
+                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 ${errors.firstName ? 'border-red-500' : 'border-gray-300'}`}
+                placeholder="Enter first name"
+              />
+              {errors.firstName && (
+                <p className="text-red-500 text-sm mt-1">{errors.firstName}</p>
               )}
             </div>
-
-            {/* Submit Button */}
-            <div className="flex justify-end pt-6">
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                {isSubmitting ? 'Creating...' : 'Create Child Account'}
-              </button>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Last Name *
+              </label>
+              <input
+                type="text"
+                name="lastName"
+                value={formData.lastName}
+                onChange={handleInputChange}
+                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 ${errors.lastName ? 'border-red-500' : 'border-gray-300'}`}
+                placeholder="Enter last name"
+              />
+              {errors.lastName && (
+                <p className="text-red-500 text-sm mt-1">{errors.lastName}</p>
+              )}
             </div>
-          </form>
+          </div>
         </div>
-      </div>
+
+        {/* Account Information */}
+        <div className="bg-gray-50 p-4 rounded-lg">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+            <Mail className="h-5 w-5 mr-2 text-purple-600" />
+            Account Information
+          </h3>
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Email *
+              </label>
+              <input
+                type="email"
+                name="email"
+                value={formData.email}
+                onChange={handleInputChange}
+                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 ${errors.email ? 'border-red-500' : 'border-gray-300'}`}
+                placeholder="Enter email address"
+              />
+              {errors.email && (
+                <p className="text-red-500 text-sm mt-1">{errors.email}</p>
+              )}
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Password *
+                </label>
+                <div className="relative">
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    name="password"
+                    value={formData.password}
+                    onChange={handleInputChange}
+                    className={`w-full px-3 py-2 pr-10 border rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 ${errors.password ? 'border-red-500' : 'border-gray-300'}`}
+                    placeholder="Enter password"
+                    style={{ WebkitTextSecurity: showPassword ? 'none' : 'disc' }}
+                  />
+                  <button
+                    type="button"
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-500 hover:text-gray-700 transition-colors"
+                    onClick={() => setShowPassword(!showPassword)}
+                  >
+                    {showPassword ? (
+                      <EyeOff className="h-5 w-5" />
+                    ) : (
+                      <Eye className="h-5 w-5" />
+                    )}
+                  </button>
+                </div>
+                {errors.password && (
+                  <p className="text-red-500 text-sm mt-1">{errors.password}</p>
+                )}
+                <p className="text-xs text-gray-500 mt-1">Minimum 6 characters</p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Confirm Password *
+                </label>
+                <div className="relative">
+                  <input
+                    type={showConfirmPassword ? "text" : "password"}
+                    name="confirmPassword"
+                    value={formData.confirmPassword}
+                    onChange={handleInputChange}
+                    className={`w-full px-3 py-2 pr-10 border rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 ${errors.confirmPassword ? 'border-red-500' : 'border-gray-300'}`}
+                    placeholder="Confirm password"
+                    style={{ WebkitTextSecurity: showConfirmPassword ? 'none' : 'disc' }}
+                  />
+                  <button
+                    type="button"
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-500 hover:text-gray-700 transition-colors"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  >
+                    {showConfirmPassword ? (
+                      <EyeOff className="h-5 w-5" />
+                    ) : (
+                      <Eye className="h-5 w-5" />
+                    )}
+                  </button>
+                </div>
+                {errors.confirmPassword && (
+                  <p className="text-red-500 text-sm mt-1">{errors.confirmPassword}</p>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Additional Information */}
+        <div className="bg-gray-50 p-4 rounded-lg">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+            <Calendar className="h-5 w-5 mr-2 text-purple-600" />
+            Additional Information
+          </h3>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Date of Birth *
+            </label>
+            <input
+              type="date"
+              name="birthDate"
+              value={formData.birthDate}
+              onChange={handleInputChange}
+              className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 ${errors.birthDate ? 'border-red-500' : 'border-gray-300'}`}
+            />
+            {errors.birthDate && (
+              <p className="text-red-500 text-sm mt-1">{errors.birthDate}</p>
+            )}
+            <p className="text-xs text-gray-500 mt-1">Required for student accounts</p>
+          </div>
+        </div>
+
+        {/* Submit Button */}
+        <div className="pt-6 border-t border-gray-200">
+          <div className="flex justify-end space-x-3">
+            {onCancel && (
+              <button
+                type="button"
+                onClick={onCancel}
+                className="px-6 py-3 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+            )}
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="px-6 py-3 bg-purple-600 text-white rounded-md hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
+            >
+              {isSubmitting ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  Creating Account...
+                </>
+              ) : (
+                'Create Child Account'
+              )}
+            </button>
+          </div>
+        </div>
+
+        {submitStatus === 'error' && (
+          <div className="flex items-center p-4 bg-red-50 border border-red-200 rounded-md">
+            <svg className="h-5 w-5 text-red-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+            </svg>
+            <p className="text-red-700">
+              {errors.submit || 'Failed to create account. Please try again.'}
+            </p>
+          </div>
+        )}
+      </form>
     </div>
   );
 };

@@ -1,78 +1,47 @@
 import {
   Controller,
   Get,
-  UseGuards,
   Query,
 } from '@nestjs/common';
 import {
   ApiTags,
   ApiOperation,
   ApiResponse,
-  ApiBearerAuth,
   ApiQuery,
 } from '@nestjs/swagger';
-import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
-import { RolesGuard } from '../../common/guards/roles.guard';
-import { Roles } from '../../common/decorators/roles.decorator';
-import { Role } from '../../common/enums/role.enum';
-import { CurrentUser } from '../../common/decorators/current-user.decorator';
-import { User } from '../users/entities/user.entity';
+import { Public } from '../../common/decorators/public.decorator';
 import { DashboardService } from './dashboard.service';
 
 @ApiTags('Dashboard')
 @Controller('dashboard')
-@UseGuards(JwtAuthGuard, RolesGuard)
-@ApiBearerAuth('JWT-auth')
 export class DashboardController {
   constructor(private readonly dashboardService: DashboardService) {}
 
-  @Get('student')
-  @Roles(Role.Student)
-  @ApiOperation({ summary: 'Get student dashboard data' })
-  @ApiResponse({
-    status: 200,
-    description: 'Student dashboard data retrieved successfully',
-  })
-  async getStudentDashboard(@CurrentUser() user: User) {
-    return this.dashboardService.getStudentDashboard(user.id);
-  }
-
   @Get('teacher')
-  @Roles(Role.Teacher)
-  @ApiOperation({ summary: 'Get teacher dashboard data' })
+  @Public()
+  @ApiOperation({ summary: 'Get teacher dashboard data (Public - No Authorization Required)' })
   @ApiResponse({
     status: 200,
     description: 'Teacher dashboard data retrieved successfully',
   })
-  async getTeacherDashboard(@CurrentUser() user: User) {
-    return this.dashboardService.getTeacherDashboard(user.id);
-  }
-
-  @Get('parent')
-  @Roles(Role.Parent)
-  @ApiOperation({ summary: 'Get parent dashboard data' })
-  @ApiResponse({
-    status: 200,
-    description: 'Parent dashboard data retrieved successfully',
-  })
-  async getParentDashboard(@CurrentUser() user: User) {
-    return this.dashboardService.getParentDashboard(user.id);
+  async getTeacherDashboard(@Query('userId') userId: string) {
+    return this.dashboardService.getTeacherDashboard(userId);
   }
 
   @Get('admin')
-  @Roles(Role.Admin)
-  @ApiOperation({ summary: 'Get admin dashboard data' })
+  @Public()
+  @ApiOperation({ summary: 'Get admin dashboard data (Public - No Authorization Required)' })
   @ApiResponse({
     status: 200,
     description: 'Admin dashboard data retrieved successfully',
   })
-  async getAdminDashboard(@CurrentUser() user: User) {
+  async getAdminDashboard() {
     return this.dashboardService.getAdminDashboard();
   }
 
   @Get('analytics')
-  @Roles(Role.Admin)
-  @ApiOperation({ summary: 'Get system analytics (Admin only)' })
+  @Public()
+  @ApiOperation({ summary: 'Get system analytics (Public - No Authorization Required)' })
   @ApiQuery({ name: 'period', required: false, description: 'Analytics period (week, month, year)' })
   @ApiResponse({
     status: 200,

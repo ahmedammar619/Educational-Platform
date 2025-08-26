@@ -1,15 +1,19 @@
 // src/modules/users/users.controller.ts
-import { Controller, Get, Post, Put, Delete, Param, Body, Query, UseGuards } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBody, ApiQuery } from '@nestjs/swagger';
+import { Controller, Get, Post, Put, Delete, Param, Body, Query, UnauthorizedException, ForbiddenException, UseGuards } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiBody, ApiQuery, ApiBearerAuth } from '@nestjs/swagger';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { Public } from '../../common/decorators/public.decorator';
-import { Roles } from '../../common/decorators/roles.decorator';
 import { Role } from '../../common/enums/role.enum';
+import { Roles } from '../../common/decorators/roles.decorator';
+import { RolesGuard } from '../../common/guards/roles.guard';
+import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
 
 @ApiTags('Users')
 @Controller('users')
+@ApiBearerAuth('JWT-auth')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
@@ -49,8 +53,8 @@ export class UsersController {
   }
 
   @Get(':id')
-  @Roles(Role.Admin, Role.Teacher)
-  @ApiOperation({ summary: 'Get user by ID (Admin/Teacher access required)' })
+  @Public()
+  @ApiOperation({ summary: 'Get user by ID (Public - No Authorization Required)' })
   @ApiResponse({
     status: 200,
     description: 'User retrieved successfully',
@@ -81,48 +85,72 @@ export class UsersController {
   }
 
   @Put(':id')
-  @Roles(Role.Admin)
-  @ApiOperation({ summary: 'Update user information (Admin access required)' })
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @ApiOperation({ summary: 'Update user information (Protected)' })
   @ApiBody({ type: UpdateUserDto })
   @ApiResponse({
     status: 200,
     description: 'User updated successfully',
   })
   @ApiResponse({
+    status: 400,
+    description: 'Bad request - Invalid data',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - Insufficient privileges',
+  })
+  @ApiResponse({
     status: 404,
     description: 'User not found',
   })
-  async updateUser(@Param('id') id: string, @Body() updateUserDto: UpdateUserDto) {
+  async updateUser(
+    @Param('id') id: string,
+    @Body() updateUserDto: UpdateUserDto,
+    @CurrentUser() currentUser: any
+  ) {
+    // Allow users to update their own profile or admins to update any profile
+    if (currentUser.sub !== id && currentUser.role !== Role.Admin) {
+      throw new ForbiddenException('You do not have permission to update this user');
+    }
     return this.usersService.updateUser(id, updateUserDto);
   }
 
   @Delete(':id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.Admin)
-  @ApiOperation({ summary: 'Delete a user (Admin access required)' })
+  @ApiOperation({ summary: 'Delete a user (Admin only)' })
   @ApiResponse({
     status: 200,
     description: 'User deleted successfully',
   })
   @ApiResponse({
+    status: 401,
+    description: 'Unauthorized',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - Admin privileges required',
+  })
+  @ApiResponse({
     status: 404,
     description: 'User not found',
   })
-  async deleteUser(@Param('id') id: string) {
+  async deleteUser(
+    @Param('id') id: string,
+    @CurrentUser() currentUser: any
+  ) {
+    // Double-check admin role and prevent self-deletion
+    if (currentUser.role !== Role.Admin) {
+      throw new ForbiddenException('Only administrators can delete users');
+    }
+    if (currentUser.sub === id) {
+      throw new ForbiddenException('Administrators cannot delete their own account');
+    }
     return this.usersService.deleteUser(id);
-  }
-
-  @Get(':id/relationships')
-  @Roles(Role.Admin)
-  @ApiOperation({ summary: 'Get user relationship details (Admin access required)' })
-  @ApiResponse({
-    status: 200,
-    description: 'User relationship details retrieved successfully',
-  })
-  @ApiResponse({
-    status: 404,
-    description: 'User not found',
-  })
-  async getUserRelationships(@Param('id') id: string) {
-    return this.usersService.getUserRelationshipDetails(id);
   }
 }

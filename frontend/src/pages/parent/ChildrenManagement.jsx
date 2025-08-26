@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Users, Calendar, BookOpen, CheckCircle, Plus, ArrowLeft } from 'lucide-react';
 import ChildAccountCreation from './ChildAccountCreation';
-import { dashboardService, parentsService } from '../../services';
+import parentsService from '../../services/parentsService';
 
 const ChildrenManagement = ({ user }) => {
   const [children, setChildren] = useState([]);
@@ -10,6 +10,8 @@ const ChildrenManagement = ({ user }) => {
   const [loading, setLoading] = useState(true);
   const [progressLoading, setProgressLoading] = useState(false);
   const [showAddChildForm, setShowAddChildForm] = useState(false);
+  const [error, setError] = useState(null);
+  const [forceRender, setForceRender] = useState(0); // Force re-render mechanism
 
   useEffect(() => {
     fetchChildren();
@@ -21,36 +23,65 @@ const ChildrenManagement = ({ user }) => {
     }
   }, [selectedChild]);
 
+  // Debug useEffect to monitor showAddChildForm changes
+  useEffect(() => {
+    console.log('showAddChildForm changed to:', showAddChildForm);
+  }, [showAddChildForm]);
+
   const fetchChildren = async () => {
     try {
       setLoading(true);
-      // Fetch children from backend
-      const response = await dashboardService.getParentDashboard();
-      if (response.children && response.children.length > 0) {
-        // Transform backend data to match the expected structure
-        const transformedChildren = response.children.map(child => ({
-          id: child.id,
-          name: `${child.firstName || ''} ${child.lastName || ''}`.trim() || child.name || 'Unknown',
-          firstName: child.firstName,
-          lastName: child.lastName,
-          email: child.email,
-          enrolled_courses: child.enrolledClasses?.length || 0,
-          avg_progress: child.avgProgress || 0,
-          attended_sessions: child.attendedSessions || 0,
-          total_sessions: child.totalSessions || 0,
-          avg_grade_percentage: child.avgGradePercentage || 0,
-          relationship_type: child.relationshipType || 'child'
-        }));
-        setChildren(transformedChildren);
-        setSelectedChild(transformedChildren[0]);
-      } else {
+      setError(null);
+      const response = await parentsService.getMyChildren(user.id);
+      
+      console.log('Backend response:', response);
+      console.log('Response type:', typeof response);
+      console.log('Is array:', Array.isArray(response));
+      
+      // Handle case where response might be undefined or null
+      if (!response) {
+        console.log('No response from API, setting empty children array');
         setChildren([]);
-        setSelectedChild(null);
+        return;
+      }
+      
+      // Ensure response is an array and handle empty responses
+      let childrenArray = [];
+      if (Array.isArray(response)) {
+        childrenArray = response;
+      } else if (response && typeof response === 'object') {
+        // If response is an object, try to extract children array
+        childrenArray = response.children || response.data || [];
+      }
+      
+      console.log('Processed children array:', childrenArray);
+      
+      // Transform backend data to match the expected format
+      // The backend now returns full student objects with parent field
+      const transformedChildren = childrenArray.map(child => ({
+        id: child.id,
+        name: `${child.firstName} ${child.lastName}`,
+        firstName: child.firstName,
+        lastName: child.lastName,
+        email: child.email,
+        enrolled_courses: child.enrollments?.length || 0,
+        avg_progress: calculateAverageProgress(child),
+        attended_sessions: calculateAttendedSessions(child),
+        total_sessions: calculateTotalSessions(child),
+        avg_grade_percentage: calculateAverageGrade(child),
+        relationship_type: 'child', // Default relationship type
+        parent: child.parent // Include parent information if available
+      }));
+
+      setChildren(transformedChildren);
+      if (transformedChildren.length > 0 && !selectedChild) {
+        setSelectedChild(transformedChildren[0]);
       }
     } catch (error) {
       console.error('Failed to fetch children:', error);
+      // Set empty children array instead of error to show the "no children" state
       setChildren([]);
-      setSelectedChild(null);
+      setError(null); // Clear any previous errors
     } finally {
       setLoading(false);
     }
@@ -59,20 +90,27 @@ const ChildrenManagement = ({ user }) => {
   const fetchChildProgress = async (childId) => {
     try {
       setProgressLoading(true);
-      // Fetch child progress from backend
-      const response = await parentsService.getChildProgress(childId);
-      if (response && (response.courses?.length > 0 || response.recentGrades?.length > 0)) {
-        setChildProgress(response);
-      } else {
-        // Return empty progress data if backend returns empty
-        setChildProgress({
-          courses: [],
-          recentGrades: [],
-          attendanceSummary: []
-        });
+      setError(null);
+      const response = await parentsService.getChildProgress(childId, user.id);
+      
+      // Transform backend data to match frontend expectations
+      const transformedProgress = {
+        courses: response.courses || [],
+        recentGrades: response.recentGrades || [],
+        attendanceSummary: response.attendanceSummary || []
+      };
+
+      // If no data is available yet, show a message
+      if (transformedProgress.courses.length === 0 && 
+          transformedProgress.recentGrades.length === 0 && 
+          transformedProgress.attendanceSummary.length === 0) {
+        console.log('No progress data available yet for this child');
       }
+
+      setChildProgress(transformedProgress);
     } catch (error) {
       console.error('Failed to fetch child progress:', error);
+      // Don't set error for progress - just show empty state
       setChildProgress({
         courses: [],
         recentGrades: [],
@@ -81,6 +119,46 @@ const ChildrenManagement = ({ user }) => {
     } finally {
       setProgressLoading(false);
     }
+  };
+
+  // Helper functions to calculate metrics from backend data
+  const calculateAverageProgress = (child) => {
+    if (!child.enrollments || child.enrollments.length === 0) return 0;
+    
+    const totalProgress = child.enrollments.reduce((sum, enrollment) => {
+      // Calculate progress based on completed sessions vs total sessions
+      // This is a simplified calculation - adjust based on your actual data structure
+      return sum + (enrollment.progress || 0);
+    }, 0);
+    
+    return Math.round(totalProgress / child.enrollments.length);
+  };
+
+  const calculateAttendedSessions = (child) => {
+    if (!child.attendances) return 0;
+    return child.attendances.filter(attendance => 
+      attendance.status === 'present' || attendance.status === 'late'
+    ).length;
+  };
+
+  const calculateTotalSessions = (child) => {
+    if (!child.enrollments) return 0;
+    // This would need to be calculated from course sessions
+    // For now, return a default value
+    return 20; // Placeholder
+  };
+
+  const calculateAverageGrade = (child) => {
+    if (!child.enrollments || child.enrollments.length === 0) return 0;
+    
+    const grades = child.enrollments
+      .map(enrollment => enrollment.grade)
+      .filter(grade => grade !== null && grade !== undefined);
+    
+    if (grades.length === 0) return 0;
+    
+    const totalGrade = grades.reduce((sum, grade) => sum + grade, 0);
+    return Math.round(totalGrade / grades.length);
   };
 
   const getGradeColor = (percentage) => {
@@ -98,6 +176,7 @@ const ChildrenManagement = ({ user }) => {
   };
 
   if (loading) {
+    console.log('Rendering loading state');
     return (
       <div className="flex items-center justify-center py-12">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
@@ -105,52 +184,43 @@ const ChildrenManagement = ({ user }) => {
     );
   }
 
-  if (children.length === 0) {
+  if (error) {
+    console.log('Rendering error state');
     return (
-      <div className="space-y-6 h-full">
-        {/* Header */}
-        <div className="flex justify-between items-center">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Children's Progress</h1>
-            <p className="text-gray-600">Monitor your children's academic performance and attendance</p>
-          </div>
-          <button
-            onClick={() => {
-              console.log('Add Your Child button clicked from empty state');
-              setShowAddChildForm(true);
-            }}
-            className="flex items-center space-x-2 bg-purple-600 text-white px-6 py-3 rounded-lg hover:bg-purple-700 transition-all duration-200 shadow-md"
-          >
-            <Plus className="h-5 w-5" />
-            <span>Add Your Child</span>
-          </button>
+      <div className="text-center py-12">
+        <div className="text-red-600 mb-4">
+          <Users className="h-12 w-12 mx-auto mb-2" />
+          <p className="text-lg font-semibold">{error}</p>
         </div>
-
-        {/* Empty State */}
-        <div className="text-center py-16 bg-white rounded-lg shadow-sm border">
-          <Users className="h-24 w-24 text-gray-300 mx-auto mb-6" />
-          <h2 className="text-3xl font-bold text-gray-900 mb-4">No Children Added Yet</h2>
-          <p className="text-lg text-gray-600 mb-8 max-w-md mx-auto">
-            Start by adding your children to monitor their educational progress, track attendance, and view grades.
-          </p>
-        </div>
+        <button
+          onClick={fetchChildren}
+          className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+        >
+          Try Again
+        </button>
       </div>
     );
   }
 
-  // Show Add Child Form as a separate page
+  // Debug: Log current state
+  console.log('Current render state:', {
+    children: children.length,
+    showAddChildForm,
+    selectedChild: !!selectedChild,
+    forceRender
+  });
+
+  // Show Add Child Form as a separate page - CHECK THIS FIRST
+  console.log('Checking showAddChildForm condition:', showAddChildForm);
   if (showAddChildForm) {
-    console.log('showAddChildForm is true, rendering ChildAccountCreation');
+    console.log('Rendering child account creation form');
     return (
       <div className="space-y-6 h-full">
         {/* Header for Add Child Page */}
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
             <button
-              onClick={() => {
-                console.log('Back button clicked');
-                setShowAddChildForm(false);
-              }}
+              onClick={() => setShowAddChildForm(false)}
               className="flex items-center space-x-2 text-purple-600 hover:text-purple-800 font-medium"
             >
               <ArrowLeft className="h-4 w-4" />
@@ -164,14 +234,64 @@ const ChildrenManagement = ({ user }) => {
         </div>
 
         {/* Child Account Creation Form */}
-        <ChildAccountCreation user={user} />
+        <div className="bg-white rounded-lg shadow-sm border p-6">
+          <ChildAccountCreation 
+            user={user} 
+            onSuccess={() => {
+              fetchChildren();
+              setShowAddChildForm(false);
+            }}
+            onCancel={() => setShowAddChildForm(false)}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  if (children.length === 0) {
+    console.log('Rendering no children state, showAddChildForm:', showAddChildForm);
+  return (
+    <div className="space-y-6 h-full">
+      {/* Header */}
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Children's Progress</h1>
+          <p className="text-gray-600">Monitor your children's academic performance and attendance</p>
+        </div>
+        <button
+            onClick={() => {
+              console.log('Add Children button clicked');
+              console.log('Current showAddChildForm state:', showAddChildForm);
+              setShowAddChildForm(prevState => {
+                console.log('Previous state was:', prevState);
+                const newState = true;
+                console.log('Setting new state to:', newState);
+                return newState;
+              });
+              // Force a re-render
+              setForceRender(prev => prev + 1);
+              console.log('State update function called, force render triggered');
+            }}
+            className="flex items-center space-x-2 border-2 border-purple-600 text-purple-600 px-4 py-2 rounded-lg hover:bg-purple-600 hover:text-white transition-all duration-200"
+          >
+            <Plus className="h-4 w-4" />
+            <span>Add Children</span>
+          </button>
+        </div>
+
+        {/* No Children Message */}
+        <div className="text-center py-12">
+          <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">No Children Linked</h2>
+          <p className="text-gray-600 mb-6">You haven't added any children to your account yet.</p>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="space-y-6 h-full">
-      {console.log('Main component render - showAddChildForm:', showAddChildForm, 'children count:', children.length)}
+      {console.log('Rendering main view, showAddChildForm:', showAddChildForm)}
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
@@ -180,10 +300,17 @@ const ChildrenManagement = ({ user }) => {
         </div>
         <button
           onClick={() => {
-            console.log('Add Children button clicked from main view');
-            console.log('Current showAddChildForm:', showAddChildForm);
-            setShowAddChildForm(true);
-            console.log('Set showAddChildForm to true');
+            console.log('Add Children button clicked (main view)');
+            console.log('Current showAddChildForm state:', showAddChildForm);
+            setShowAddChildForm(prevState => {
+              console.log('Previous state was:', prevState);
+              const newState = true;
+              console.log('Setting new state to:', newState);
+              return newState;
+            });
+            // Force a re-render
+            setForceRender(prev => prev + 1);
+            console.log('State update function called, force render triggered');
           }}
           className="flex items-center space-x-2 border-2 border-purple-600 text-purple-600 px-4 py-2 rounded-lg hover:bg-purple-600 hover:text-white transition-all duration-200"
         >
@@ -225,7 +352,7 @@ const ChildrenManagement = ({ user }) => {
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
                   <p className="text-gray-600">Courses</p>
-                  <p className="font-semibold">{child.enrolled_courses || 0}</p>
+                  <p className="font-semibold">{child.enrolled_courses}</p>
                 </div>
                 <div>
                   <p className="text-gray-600">Avg Progress</p>
@@ -270,13 +397,20 @@ const ChildrenManagement = ({ user }) => {
                   }
                 </h2>
                 <p className="text-purple-100">{selectedChild.email}</p>
-                <p className="text-purple-100 capitalize">{selectedChild.relationship_type}</p>
+                <p className="text-purple-100 capitalize">
+                  {selectedChild.parent ? 'Linked to Parent Account' : 'Individual Student Account'}
+                </p>
+                {selectedChild.parent && (
+                  <p className="text-purple-100 text-sm">
+                    Parent: {selectedChild.parent.firstName} {selectedChild.parent.lastName}
+                  </p>
+                )}
               </div>
             </div>
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div className="text-center">
-                <p className="text-3xl font-bold">{selectedChild.enrolled_courses || 0}</p>
+                <p className="text-3xl font-bold">{selectedChild.enrolled_courses}</p>
                 <p className="text-purple-100">Enrolled Courses</p>
               </div>
               <div className="text-center">
@@ -304,16 +438,27 @@ const ChildrenManagement = ({ user }) => {
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
             </div>
           ) : childProgress && (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="space-y-6">
+              {/* Show message if no progress data */}
+              {childProgress.courses.length === 0 && 
+               childProgress.recentGrades.length === 0 && 
+               childProgress.attendanceSummary.length === 0 && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 text-center">
+                  <BookOpen className="h-12 w-12 text-blue-400 mx-auto mb-3" />
+                  <h3 className="text-lg font-semibold text-blue-900 mb-2">No Progress Data Available</h3>
+                  <p className="text-blue-700">
+                    Progress data will appear here once your child starts attending classes and completing assignments.
+                  </p>
+                </div>
+              )}
+
               {/* Course Progress */}
+              {childProgress.courses.length > 0 && (
               <div className="bg-white rounded-lg shadow-sm border">
                 <div className="p-6 border-b">
                   <h3 className="text-lg font-semibold text-gray-900">Course Progress</h3>
                 </div>
                 <div className="p-6">
-                  {childProgress.courses.length === 0 ? (
-                    <p className="text-gray-500 text-center py-4">No courses enrolled</p>
-                  ) : (
                     <div className="space-y-4">
                       {childProgress.courses.map((course) => (
                         <div key={course.id} className="border rounded-lg p-4">
@@ -353,19 +498,17 @@ const ChildrenManagement = ({ user }) => {
                         </div>
                       ))}
                     </div>
-                  )}
                 </div>
               </div>
+              )}
 
               {/* Recent Grades */}
+              {childProgress.recentGrades.length > 0 && (
               <div className="bg-white rounded-lg shadow-sm border">
                 <div className="p-6 border-b">
                   <h3 className="text-lg font-semibold text-gray-900">Recent Grades</h3>
                 </div>
                 <div className="p-6">
-                  {childProgress.recentGrades.length === 0 ? (
-                    <p className="text-gray-500 text-center py-4">No grades yet</p>
-                  ) : (
                     <div className="space-y-4">
                       {childProgress.recentGrades.slice(0, 10).map((grade) => (
                         <div key={grade.id} className="border rounded-lg p-4">
@@ -400,15 +543,13 @@ const ChildrenManagement = ({ user }) => {
                           </div>
                         </div>
                       ))}
-                    </div>
-                  )}
                 </div>
               </div>
             </div>
           )}
 
           {/* Attendance Summary */}
-          {childProgress && childProgress.attendanceSummary.length > 0 && (
+              {childProgress.attendanceSummary.length > 0 && (
             <div className="bg-white rounded-lg shadow-sm border">
               <div className="p-6 border-b">
                 <h3 className="text-lg font-semibold text-gray-900">Attendance Summary</h3>
@@ -428,6 +569,8 @@ const ChildrenManagement = ({ user }) => {
               </div>
             </div>
           )}
+        </div>
+      )}
         </div>
       )}
     </div>
