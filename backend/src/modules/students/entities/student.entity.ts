@@ -1,59 +1,28 @@
 import {
   Entity,
-  PrimaryGeneratedColumn,
+  PrimaryColumn,
   Column,
-  CreateDateColumn,
+  OneToOne,
+  JoinColumn,
 } from 'typeorm';
-import { Exclude } from 'class-transformer';
-import { Role } from '../../../common/enums/role.enum';
+import { User } from '../../users/entities/user.entity';
 
 @Entity('students')
 export class Student {
-  @PrimaryGeneratedColumn('uuid')
+  @PrimaryColumn('uuid')
   id: string;
-
-  @Column({ length: 255 })
-  firstName: string;
-
-  @Column({ length: 255 })
-  lastName: string;
-
-  @Column({ unique: true, length: 255 })
-  email: string;
-
-  @Column()
-  @Exclude()
-  passwordHash: string;
-
-  @Column({
-    type: 'enum',
-    enum: Role,
-    default: Role.Student,
-  })
-  role: Role;
-
-  @Column({ nullable: true, length: 255 })
-  resetToken?: string;
-
-  @Column({ type: 'timestamp', nullable: true })
-  resetTokenExpiry?: Date;
-
-  @CreateDateColumn()
-  createdAt: Date;
 
   // Student-specific fields
   @Column({ type: 'date' })
   birthDate: Date;
 
-  @Column({ nullable: true, length: 20 })
-  phone?: string;
-
   @Column({ nullable: true })
   parentId?: string;
 
-  get fullName(): string {
-    return `${this.firstName} ${this.lastName}`;
-  }
+  // One-to-one relationship with User
+  @OneToOne(() => User, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'id' })
+  user: User;
 
   get age(): number {
     const today = new Date();

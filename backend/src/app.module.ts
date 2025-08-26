@@ -33,6 +33,7 @@ import { RolesGuard } from './common/guards/roles.guard';
 import { User } from './modules/users/entities/user.entity';
 import { Parent } from './modules/parents/entities/parent.entity';
 import { Student } from './modules/students/entities/student.entity';
+import { Teacher } from './modules/teachers/entities/teacher.entity';
 
 @Module({
   imports: [
@@ -52,7 +53,7 @@ import { Student } from './modules/students/entities/student.entity';
         username: process.env.DB_USERNAME || 'postgres',
         password: process.env.DB_PASSWORD || 'password',
         database: process.env.DB_DATABASE || 'education_dev_db',
-        entities: [User, Parent, Student],
+        entities: [User, Parent, Student, Teacher],
         synchronize: process.env.DB_SYNC === 'true',
         logging: process.env.DB_LOGGING === 'true',
         ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,

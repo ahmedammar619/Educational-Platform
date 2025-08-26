@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, ConflictException } from '@nestjs/common
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Student } from './entities/student.entity';
+import { User } from '../users/entities/user.entity';
 import { CreateStudentDto } from './dto/create-student.dto';
 import { UpdateStudentDto } from './dto/update-student.dto';
 import { Role } from '../../common/enums/role.enum';
@@ -12,33 +13,42 @@ export class StudentsService {
   constructor(
     @InjectRepository(Student)
     private readonly studentRepository: Repository<Student>,
+    @InjectRepository(User)
+    private readonly userRepository: Repository<User>,
   ) {}
 
   async createStudent(createStudentDto: CreateStudentDto): Promise<Student> {
-    const { email, password, birthDate, parentId, ...rest } = createStudentDto;
+    const { email, password, firstName, lastName, birthDate, parentId, ...rest } = createStudentDto;
 
-    // Check if student already exists
-    const existingStudent = await this.studentRepository.findOne({
+    // Check if user already exists
+    const existingUser = await this.userRepository.findOne({
       where: { email },
     });
 
-    if (existingStudent) {
-      throw new ConflictException('Student with this email already exists');
+    if (existingUser) {
+      throw new ConflictException('User with this email already exists');
     }
 
     // Hash password
     const passwordHash = await bcrypt.hash(password, 10);
 
-    // Create student
-    const student = this.studentRepository.create({
-      ...rest,
+    // Create user first
+    const user = this.userRepository.create({
+      firstName,
+      lastName,
       email,
       passwordHash,
       role: Role.Student,
+    });
+
+    const savedUser = await this.userRepository.save(user);
+
+    // Create student record with the same ID
+    const student = this.studentRepository.create({
+      id: savedUser.id,
       birthDate: new Date(birthDate),
       parentId,
-      // Phone number is optional - can be null when created by parent
-      phone: rest.phone || null,
+      ...rest,
     });
 
     return this.studentRepository.save(student);
@@ -46,14 +56,14 @@ export class StudentsService {
 
   async findAll(): Promise<Student[]> {
     return this.studentRepository.find({
-      select: ['id', 'firstName', 'lastName', 'email', 'role', 'birthDate', 'parentId', 'createdAt'],
+      relations: ['user'],
     });
   }
 
   async findOne(id: string): Promise<Student> {
     const student = await this.studentRepository.findOne({
       where: { id },
-      select: ['id', 'firstName', 'lastName', 'email', 'role', 'birthDate', 'parentId', 'createdAt'],
+      relations: ['user'],
     });
 
     if (!student) {
@@ -64,15 +74,24 @@ export class StudentsService {
   }
 
   async findByEmail(email: string): Promise<Student> {
+    const user = await this.userRepository.findOne({
+      where: { email, role: Role.Student },
+    });
+
+    if (!user) {
+      return null;
+    }
+
     return this.studentRepository.findOne({
-      where: { email },
+      where: { id: user.id },
+      relations: ['user'],
     });
   }
 
   async findByParentId(parentId: string): Promise<Student[]> {
     return this.studentRepository.find({
       where: { parentId },
-      select: ['id', 'firstName', 'lastName', 'email', 'role', 'birthDate', 'parentId', 'createdAt'],
+      relations: ['user'],
     });
   }
 
@@ -81,22 +100,42 @@ export class StudentsService {
 
     if (updateStudentDto.password) {
       const passwordHash = await bcrypt.hash(updateStudentDto.password, 10);
-      Object.assign(student, { passwordHash });
+      await this.userRepository.update(id, { passwordHash });
       delete updateStudentDto.password;
     }
 
-    if (updateStudentDto.birthDate) {
-      const birthDate = new Date(updateStudentDto.birthDate);
-      Object.assign(student, { birthDate });
-      delete updateStudentDto.birthDate;
+    // Update user fields if provided
+    const userFields = ['firstName', 'lastName', 'email'];
+    const userUpdateData = {};
+    const studentUpdateData = {};
+
+    Object.keys(updateStudentDto).forEach(key => {
+      if (userFields.includes(key)) {
+        userUpdateData[key] = updateStudentDto[key];
+      } else {
+        studentUpdateData[key] = updateStudentDto[key];
+      }
+    });
+
+    if (Object.keys(userUpdateData).length > 0) {
+      await this.userRepository.update(id, userUpdateData);
     }
 
-    Object.assign(student, updateStudentDto);
-    return this.studentRepository.save(student);
+    if (Object.keys(studentUpdateData).length > 0) {
+      // Handle birthDate conversion if it exists
+      if ('birthDate' in studentUpdateData && studentUpdateData.birthDate) {
+        const birthDateValue = studentUpdateData.birthDate as string | Date;
+        studentUpdateData.birthDate = new Date(birthDateValue);
+      }
+      await this.studentRepository.update(id, studentUpdateData);
+    }
+
+    return this.findOne(id);
   }
 
   async deleteStudent(id: string): Promise<void> {
     const student = await this.findOne(id);
+    // Delete student record first (this will cascade to user due to the relationship)
     await this.studentRepository.remove(student);
   }
 
