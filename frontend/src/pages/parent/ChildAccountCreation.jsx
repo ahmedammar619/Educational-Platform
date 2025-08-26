@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { User, Mail, Lock, Calendar, Eye, EyeOff } from 'lucide-react';
+import { showSuccessToast, showErrorToast, showLoadingToast, dismissToast } from '../../utils/toast.jsx';
 import parentsService from '../../services/parentsService';
 
 const ChildAccountCreation = ({ user, onSuccess, onCancel }) => {
@@ -98,6 +99,8 @@ const ChildAccountCreation = ({ user, onSuccess, onCancel }) => {
 
     setIsSubmitting(true);
     setSubmitStatus(null);
+    
+    const loadingToast = showLoadingToast('Creating child account...');
 
     try {
       // Prepare data according to backend AddChildDto
@@ -113,6 +116,10 @@ const ChildAccountCreation = ({ user, onSuccess, onCancel }) => {
       console.log('Submitting child data:', childData);
       const response = await parentsService.createChildAccount(childData);
       console.log('Child account created successfully:', response);
+      
+      // Dismiss loading toast and show success toast
+      dismissToast(loadingToast);
+      showSuccessToast(`Child account for ${formData.firstName} ${formData.lastName} created successfully!`);
       
       setSubmitStatus('success');
       setFormData({
@@ -135,14 +142,19 @@ const ChildAccountCreation = ({ user, onSuccess, onCancel }) => {
       console.error('Error creating child account:', err);
       setSubmitStatus('error');
       
+      // Dismiss loading toast and show error toast
+      dismissToast(loadingToast);
+      
       // Handle different types of errors
+      let errorMessage = 'Failed to create child account. Please try again.';
       if (err.message) {
-        setErrors({ submit: err.message });
+        errorMessage = err.message;
       } else if (err.error) {
-        setErrors({ submit: err.error });
-      } else {
-        setErrors({ submit: 'Failed to create child account. Please try again.' });
+        errorMessage = err.error;
       }
+      
+      setErrors({ submit: errorMessage });
+      showErrorToast(errorMessage);
     } finally {
       setIsSubmitting(false);
     }

@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import { Eye, EyeOff, User, Lock } from 'lucide-react';
+import { showSuccessToast, showErrorToast, showLoadingToast, dismissToast } from '../../utils/toast.jsx';
 import { authService } from '../../services';
 import PhoneInput from '../../components/ui/PhoneInput';
 
@@ -43,6 +44,8 @@ const LoginForm = ({ onLogin, onRegister }) => {
     try {
       if (isLogin) {
         // Login flow
+        const loadingToast = showLoadingToast('Signing in...');
+        
         console.log('Login attempt with:', formData.email);
         console.log('Calling authenticateUser...'); // Debug log
         const authResult = await authenticateUser(formData.email, formData.password);
@@ -51,14 +54,25 @@ const LoginForm = ({ onLogin, onRegister }) => {
         if (authResult && authResult.user) {
           console.log('Authentication successful:', authResult);
           console.log('Calling onLogin...'); // Debug log
+          
+          // Dismiss loading toast and show success toast
+          dismissToast(loadingToast);
+          showSuccessToast(`Welcome back, ${authResult.user.firstName || authResult.user.name || 'User'}!`);
+          
           onLogin(authResult.user, authResult.token);
           return;
         } else {
           console.log('Authentication failed - no user in result'); // Debug log
+          
+          // Dismiss loading toast and show error toast
+          dismissToast(loadingToast);
+          showErrorToast('Authentication failed. Please check your credentials.');
           setError('Authentication failed. Please check your credentials.');
         }
       } else {
         // Registration flow
+        const loadingToast = showLoadingToast('Creating account...');
+        
         console.log('Registration attempt for:', formData.email);
         const registrationData = {
           firstName: formData.firstName,
@@ -73,19 +87,23 @@ const LoginForm = ({ onLogin, onRegister }) => {
         const result = await authService.register(registrationData);
         console.log('Registration successful:', result);
         
+        // Dismiss loading toast and show success toast
+        dismissToast(loadingToast);
+        showSuccessToast(`Account for ${formData.firstName} ${formData.lastName} created successfully! Please sign in.`);
+        
         // Show success message for registration
         setSuccess('Account created successfully! Please sign in with your new credentials.');
         
-                 // Clear form data for login
-         setFormData({
-           firstName: '',
-           lastName: '',
-           email: formData.email, // Keep email for convenience
-           password: '',
-           role: 'student', // Reset to default
-           phone: '',
-           birthDate: ''
-         });
+        // Clear form data for login
+        setFormData({
+          firstName: '',
+          lastName: '',
+          email: formData.email, // Keep email for convenience
+          password: '',
+          role: 'student', // Reset to default
+          phone: '',
+          birthDate: ''
+        });
         
         // Switch to login mode
         setIsLogin(true);
@@ -95,6 +113,7 @@ const LoginForm = ({ onLogin, onRegister }) => {
 
       // If we reach here, something went wrong but no exception was thrown
       console.log('Reached end of handleSubmit without success'); // Debug log
+      showErrorToast('Operation failed. Please try again.');
       setError('Operation failed. Please try again.');
     } catch (error) {
       console.error('Operation error:', error);
@@ -110,6 +129,7 @@ const LoginForm = ({ onLogin, onRegister }) => {
         errorMessage = error;
       }
       
+      showErrorToast(errorMessage);
       setError(errorMessage);
     } finally {
       setLoading(false);
