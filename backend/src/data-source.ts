@@ -6,6 +6,9 @@ dotenv.config();
 
 // Entities
 import { User } from './modules/users/entities/user.entity';
+import { Parent } from './modules/parents/entities/parent.entity';
+import { Student } from './modules/students/entities/student.entity';
+import { Teacher } from './modules/teachers/entities/teacher.entity';
 
 export const AppDataSource = new DataSource({
   type: 'postgres',
@@ -16,8 +19,8 @@ export const AppDataSource = new DataSource({
   database: process.env.DB_DATABASE || 'education_dev_db',
   synchronize: process.env.DB_SYNC === 'true',
   logging: process.env.DB_LOGGING === 'true',
-  entities: [User],
-  migrations: ['src/migrations/1709123456796-AddParentStudentRelationship.ts', 'src/migrations/*.ts'],
+  entities: [User, Parent, Student, Teacher],
+  migrations: ['src/migrations/*.ts'],
   subscribers: [],
   ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
   extra: {

@@ -7,14 +7,14 @@ import {
 } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
 
-@Entity('parents')
-export class Parent {
+@Entity('teachers')
+export class Teacher {
   @PrimaryColumn('uuid')
   id: string;
 
-  // Only additional field: student IDs array
+  // Only additional field: subjects array
   @Column({ type: 'text', array: true, default: [] })
-  studentIds: string[];
+  subjects: string[];
 
   // One-to-one relationship with User
   @OneToOne(() => User, { onDelete: 'CASCADE' })
