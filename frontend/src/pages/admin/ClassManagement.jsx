@@ -11,15 +11,11 @@ const mockClasses = [
     endDate: '2024-06-30',
     price: 450.00,
     numberOfStudents: 12,
-    status: 'active',
     courses: [
       {
         id: 'c1',
         name: 'Islamic Studies - Level 1',
-        startDate: '2024-03-01',
-        endDate: '2024-06-30',
         teacherName: 'Ahmed Al-Rashid',
-        courseMaterial: 'Quran, Hadith, Islamic History',
         sessionTime: [
           { day: 'Monday', startTime: '09:00', endTime: '10:30' },
           { day: 'Wednesday', startTime: '09:00', endTime: '10:30' }
@@ -28,10 +24,7 @@ const mockClasses = [
       {
         id: 'c2',
         name: 'Arabic Language - Beginner',
-        startDate: '2024-03-01',
-        endDate: '2024-06-30',
         teacherName: 'Yusuf Al-Khalil',
-        courseMaterial: 'Arabic Alphabet, Vocabulary',
         sessionTime: [
           { day: 'Tuesday', startTime: '14:00', endTime: '15:30' },
           { day: 'Thursday', startTime: '14:00', endTime: '15:30' }
@@ -46,15 +39,11 @@ const mockClasses = [
     endDate: '2024-08-31',
     price: 600.00,
     numberOfStudents: 8,
-    status: 'active',
     courses: [
       {
         id: 'c3',
         name: 'Quran Recitation - Tajweed',
-        startDate: '2024-04-01',
-        endDate: '2024-08-31',
         teacherName: 'Ahmed Al-Rashid',
-        courseMaterial: 'Quran Text, Tajweed Rules',
         sessionTime: [
           { day: 'Sunday', startTime: '10:00', endTime: '11:30' },
           { day: 'Thursday', startTime: '10:00', endTime: '11:30' }
@@ -63,10 +52,7 @@ const mockClasses = [
       {
         id: 'c4',
         name: 'Islamic History & Culture',
-        startDate: '2024-04-01',
-        endDate: '2024-08-31',
         teacherName: 'Yusuf Al-Khalil',
-        courseMaterial: 'History Books, Cultural Resources',
         sessionTime: [
           { day: 'Saturday', startTime: '15:00', endTime: '16:30' }
         ]
@@ -375,7 +361,7 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
                   </div>
 
                   {/* Class Info */}
-                  <div className="mt-4 grid grid-cols-3 gap-4">
+                  <div className="mt-4 grid grid-cols-4 gap-4">
                     <div className="text-center">
                       <p className="text-xs text-gray-500 flex items-center justify-center gap-1">
                         <Calendar className="h-3 w-3 text-gray-400" /> Start Date
@@ -387,6 +373,12 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
                         <Calendar className="h-3 w-3 text-gray-400" /> End Date
                       </p>
                       <p className="font-medium text-gray-900 text-sm">{classItem.endDate}</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-xs text-gray-500 flex items-center justify-center gap-1">
+                        <DollarSign className="h-3 w-3 text-gray-400" /> Price
+                      </p>
+                      <p className="font-medium text-gray-900 text-sm">{classItem.price}</p>
                     </div>
                     <div className="text-center">
                       <p className="text-xs text-gray-500 flex items-center justify-center gap-1">

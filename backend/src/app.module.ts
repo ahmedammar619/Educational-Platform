@@ -21,6 +21,9 @@ import { TeachersModule } from './modules/teachers/teachers.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { ParentsModule } from './modules/parents/parents.module';
 import { StudentsModule } from './modules/students/students.module';
+import { ClassesModule } from './modules/classes/classes.module';
+import { CoursesModule } from './modules/courses/courses.module';
+import { MaterialsModule } from './modules/materials/materials.module';
 
 // Guards and Interceptors
 import { CustomThrottlerGuard } from './common/guards/custom-throttler.guard';
@@ -34,6 +37,16 @@ import { User } from './modules/users/entities/user.entity';
 import { Parent } from './modules/parents/entities/parent.entity';
 import { Student } from './modules/students/entities/student.entity';
 import { Teacher } from './modules/teachers/entities/teacher.entity';
+import { Class } from './modules/classes/entities/class.entity';
+import { Course } from './modules/courses/entities/course.entity';
+import { CourseSession } from './modules/courses/entities/course-session.entity';
+import { Post } from './modules/materials/entities/post.entity';
+import { PostAttachment } from './modules/materials/entities/post-attachment.entity';
+import { Folder } from './modules/materials/entities/folder.entity';
+import { File } from './modules/materials/entities/file.entity';
+import { Assignment } from './modules/materials/entities/assignment.entity';
+import { AssignmentSubmission } from './modules/materials/entities/assignment-submission.entity';
+import { Attendance } from './modules/materials/entities/attendance.entity';
 
 @Module({
   imports: [
@@ -53,7 +66,22 @@ import { Teacher } from './modules/teachers/entities/teacher.entity';
         username: process.env.DB_USERNAME || 'postgres',
         password: process.env.DB_PASSWORD || 'password',
         database: process.env.DB_DATABASE || 'education_dev_db',
-        entities: [User, Parent, Student, Teacher],
+        entities: [
+          User, 
+          Parent, 
+          Student, 
+          Teacher,
+          Class,
+          Course,
+          CourseSession,
+          Post,
+          PostAttachment,
+          Folder,
+          File,
+          Assignment,
+          AssignmentSubmission,
+          Attendance
+        ],
         synchronize: process.env.DB_SYNC === 'true',
         logging: process.env.DB_LOGGING === 'true',
         ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
@@ -79,6 +107,9 @@ import { Teacher } from './modules/teachers/entities/teacher.entity';
     DashboardModule,
     ParentsModule,
     StudentsModule,
+    ClassesModule,
+    CoursesModule,
+    MaterialsModule,
   ],
   controllers: [AppController],
   providers: [

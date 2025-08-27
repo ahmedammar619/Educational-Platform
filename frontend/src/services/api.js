@@ -58,7 +58,12 @@ api.interceptors.response.use(
       console.log('🚨 401 Unauthorized - Clearing token and redirecting to login');
       // Unauthorized - clear token and redirect to login
       localStorage.removeItem('token');
-      window.location.href = '/login';
+      
+      // Don't redirect if this is a login attempt (to avoid redirecting away from login page)
+      const isLoginAttempt = error.config?.url?.includes('/auth/login');
+      if (!isLoginAttempt) {
+        window.location.href = '/login';
+      }
     }
     return Promise.reject(error);
   }
