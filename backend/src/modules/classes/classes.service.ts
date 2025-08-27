@@ -1,0 +1,101 @@
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository, In } from 'typeorm';
+import { Class } from './entities/class.entity';
+import { User } from '../users/entities/user.entity';
+import { CreateClassDto } from './dto/create-class.dto';
+import { UpdateClassDto } from './dto/update-class.dto';
+import { EnrollStudentsDto } from './dto/enroll-students.dto';
+import { Role } from '../../common/enums/role.enum';
+
+@Injectable()
+export class ClassesService {
+  constructor(
+    @InjectRepository(Class)
+    private readonly classRepository: Repository<Class>,
+    @InjectRepository(User)
+    private readonly userRepository: Repository<User>,
+  ) {}
+
+  async createClass(createClassDto: CreateClassDto): Promise<Class> {
+    const { startDate, endDate } = createClassDto;
+    
+    // Validate date range
+    if (new Date(startDate) >= new Date(endDate)) {
+      throw new BadRequestException('End date must be after start date');
+    }
+
+    const classEntity = this.classRepository.create(createClassDto);
+    return await this.classRepository.save(classEntity);
+  }
+
+  async findAllClasses(): Promise<Class[]> {
+    return await this.classRepository.find({
+      relations: ['students'],
+      order: { createdAt: 'DESC' }
+    });
+  }
+
+  async findClassById(id: string): Promise<Class> {
+    const classEntity = await this.classRepository.findOne({
+      where: { id },
+      relations: ['students', 'courses']
+    });
+
+    if (!classEntity) {
+      throw new NotFoundException(`Class with ID ${id} not found`);
+    }
+
+    return classEntity;
+  }
+
+  async updateClass(id: string, updateClassDto: UpdateClassDto): Promise<Class> {
+    const classEntity = await this.findClassById(id);
+    
+    if (updateClassDto.startDate && updateClassDto.endDate) {
+      if (new Date(updateClassDto.startDate) >= new Date(updateClassDto.endDate)) {
+        throw new BadRequestException('End date must be after start date');
+      }
+    }
+
+    Object.assign(classEntity, updateClassDto);
+    return await this.classRepository.save(classEntity);
+  }
+
+  async deleteClass(id: string): Promise<void> {
+    const classEntity = await this.findClassById(id);
+    await this.classRepository.remove(classEntity);
+  }
+
+  async enrollStudents(classId: string, enrollDto: EnrollStudentsDto): Promise<void> {
+    const classEntity = await this.findClassById(classId);
+    
+    // Verify all students exist and are actually students
+    const students = await this.userRepository.find({
+      where: { 
+        id: In(enrollDto.studentIds),
+        role: Role.Student 
+      }
+    });
+
+    if (students.length !== enrollDto.studentIds.length) {
+      throw new BadRequestException('Some student IDs are invalid or not students');
+    }
+
+    // Add students to class (TypeORM will handle duplicates)
+    classEntity.students = [...(classEntity.students || []), ...students];
+    await this.classRepository.save(classEntity);
+  }
+
+  async removeStudentFromClass(classId: string, studentId: string): Promise<void> {
+    const classEntity = await this.findClassById(classId);
+    
+    classEntity.students = classEntity.students.filter(student => student.id !== studentId);
+    await this.classRepository.save(classEntity);
+  }
+
+  async getClassStudents(classId: string): Promise<User[]> {
+    const classEntity = await this.findClassById(classId);
+    return classEntity.students || [];
+  }
+}

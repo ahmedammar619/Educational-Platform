@@ -48,26 +48,56 @@ const LoginForm = ({ onLogin, onRegister }) => {
         
         console.log('Login attempt with:', formData.email);
         console.log('Calling authenticateUser...'); // Debug log
-        const authResult = await authenticateUser(formData.email, formData.password);
-        console.log('authenticateUser result:', authResult); // Debug log
+        
+        try {
+          const authResult = await authenticateUser(formData.email, formData.password);
+          console.log('authenticateUser result:', authResult); // Debug log
 
-        if (authResult && authResult.user) {
-          console.log('Authentication successful:', authResult);
-          console.log('Calling onLogin...'); // Debug log
+          if (authResult && authResult.user) {
+            console.log('Authentication successful:', authResult);
+            console.log('Calling onLogin...'); // Debug log
+            
+            // Dismiss loading toast and show success toast
+            dismissToast(loadingToast);
+            showSuccessToast(`Welcome back, ${authResult.user.firstName || authResult.user.name || 'User'}!`);
+            
+            onLogin(authResult.user, authResult.token);
+            return;
+          } else {
+            console.log('Authentication failed - no user in result'); // Debug log
+            
+            // Dismiss loading toast and show error toast
+            dismissToast(loadingToast);
+            showErrorToast('Authentication failed. Please check your credentials.');
+            setError('Authentication failed. Please check your credentials.');
+          }
+        } catch (authError) {
+          console.error('Authentication error:', authError);
+          console.error('AuthError type:', typeof authError);
+          console.error('AuthError response:', authError.response);
+          console.error('AuthError message:', authError.message);
           
-          // Dismiss loading toast and show success toast
+          // Dismiss loading toast
           dismissToast(loadingToast);
-          showSuccessToast(`Welcome back, ${authResult.user.firstName || authResult.user.name || 'User'}!`);
           
-          onLogin(authResult.user, authResult.token);
-          return;
-        } else {
-          console.log('Authentication failed - no user in result'); // Debug log
+          // Extract error message from authentication error
+          let errorMessage = 'Invalid credentials. Please check your email and password.';
           
-          // Dismiss loading toast and show error toast
-          dismissToast(loadingToast);
-          showErrorToast('Authentication failed. Please check your credentials.');
-          setError('Authentication failed. Please check your credentials.');
+          if (authError.response?.data?.message) {
+            errorMessage = authError.response.data.message;
+          } else if (authError.message) {
+            errorMessage = authError.message;
+          } else if (typeof authError === 'string') {
+            errorMessage = authError;
+          }
+          
+          console.log('Setting error message:', errorMessage);
+          showErrorToast(errorMessage);
+          setError(errorMessage);
+          setLoading(false);
+          
+          console.log('LoginForm: Authentication failed, staying on login page');
+          return; // Exit early to prevent further processing
         }
       } else {
         // Registration flow
@@ -142,6 +172,11 @@ const LoginForm = ({ onLogin, onRegister }) => {
       ...prev,
       [name]: value
     }));
+    
+    // Clear error when user starts typing
+    if (error) {
+      setError('');
+    }
   };
 
   const handlePhoneChange = (value) => {

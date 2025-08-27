@@ -93,12 +93,22 @@ function App() {
     console.log('App: userData type:', typeof userData); // Debug log
     console.log('App: userData keys:', userData ? Object.keys(userData) : 'No userData'); // Debug log
     
-    // Ensure userData is valid
-    if (!userData || !userData.id) {
-      console.error('App: Invalid userData received:', userData);
+    // Ensure userData is valid and has required properties
+    if (!userData || !userData.id || !userData.email || !userData.role) {
+      console.error('App: Invalid userData received - missing required fields:', userData);
+      console.error('App: userData.id:', userData?.id);
+      console.error('App: userData.email:', userData?.email);
+      console.error('App: userData.role:', userData?.role);
       return;
     }
     
+    // Additional validation - ensure userData is a proper object
+    if (typeof userData !== 'object' || Array.isArray(userData)) {
+      console.error('App: Invalid userData type - expected object, got:', typeof userData);
+      return;
+    }
+    
+    console.log('App: Valid userData received, proceeding with login');
     setUser(userData);
     setShowLogin(false);
     
