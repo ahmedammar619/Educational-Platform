@@ -1,11 +1,85 @@
 import { useState, useEffect } from 'react';
-import { BookOpen, Clock, User, MapPin, Calendar, CheckCircle, Users, Search, Filter } from 'lucide-react';
+import { BookOpen, Clock, User, MapPin, Calendar, CheckCircle, Users, Search, Filter, ChevronDown, ChevronRight } from 'lucide-react';
 import { mockCourses, mockUsers } from '../../data/mockData';
+
+// Mock data for the new class structure (matching ClassManagement.jsx)
+const mockClasses = [
+  {
+    id: '1',
+    name: 'Islamic Studies Program 2024',
+    startDate: '2024-03-01',
+    endDate: '2024-06-30',
+    price: 450.00,
+    numberOfStudents: 12,
+    status: 'active',
+    courses: [
+      {
+        id: 'c1',
+        name: 'Islamic Studies - Level 1',
+        startDate: '2024-03-01',
+        endDate: '2024-06-30',
+        teacherName: 'Ahmed Al-Rashid',
+        courseMaterial: 'Quran, Hadith, Islamic History',
+        sessionTime: [
+          { day: 'Monday', startTime: '09:00', endTime: '10:30' },
+          { day: 'Wednesday', startTime: '09:00', endTime: '10:30' }
+        ]
+      },
+      {
+        id: 'c2',
+        name: 'Arabic Language - Beginner',
+        startDate: '2024-03-01',
+        endDate: '2024-06-30',
+        teacherName: 'Yusuf Al-Khalil',
+        courseMaterial: 'Arabic Alphabet, Vocabulary',
+        sessionTime: [
+          { day: 'Tuesday', startTime: '14:00', endTime: '15:30' },
+          { day: 'Thursday', startTime: '14:00', endTime: '15:30' }
+        ]
+      }
+    ]
+  },
+  {
+    id: '2',
+    name: 'Advanced Islamic Education',
+    startDate: '2024-04-01',
+    endDate: '2024-08-31',
+    price: 600.00,
+    numberOfStudents: 8,
+    status: 'active',
+    courses: [
+      {
+        id: 'c3',
+        name: 'Quran Recitation - Tajweed',
+        startDate: '2024-04-01',
+        endDate: '2024-08-31',
+        teacherName: 'Ahmed Al-Rashid',
+        courseMaterial: 'Quran Text, Tajweed Rules',
+        sessionTime: [
+          { day: 'Sunday', startTime: '10:00', endTime: '11:30' },
+          { day: 'Thursday', startTime: '10:00', endTime: '11:30' }
+        ]
+      },
+      {
+        id: 'c4',
+        name: 'Islamic History & Culture',
+        startDate: '2024-04-01',
+        endDate: '2024-08-31',
+        teacherName: 'Yusuf Al-Khalil',
+        courseMaterial: 'History Books, Cultural Resources',
+        sessionTime: [
+          { day: 'Saturday', startTime: '15:00', endTime: '16:30' }
+        ]
+      }
+    ]
+  }
+];
 
 const StudentClasses = ({ user, onOpenMaterials }) => {
   const [enrolledClasses, setEnrolledClasses] = useState([]);
   const [filteredClasses, setFilteredClasses] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [expandedClasses, setExpandedClasses] = useState(new Set());
   const [filters, setFilters] = useState({
     search: '',
     teacher: '',
@@ -30,23 +104,9 @@ const StudentClasses = ({ user, onOpenMaterials }) => {
   const loadStudentClasses = () => {
     setLoading(true);
 
-    // For demo purposes, let's show classes that have students enrolled
+    // For demo purposes, show all classes for students
     // In a real app, this would filter by the actual student ID
-    const studentId = user?.id || '4'; // Default to Aisha Al-Mahmoud for demo
-
-    // Get classes where this student is enrolled
-    const studentClasses = mockCourses.filter(cls =>
-      cls.students && cls.students.includes(studentId)
-    );
-
-    // If no classes found for this student, show some sample classes for demo
-    if (studentClasses.length === 0) {
-      // Show classes that have students (for demo purposes)
-      const demoClasses = mockCourses.filter(cls => cls.students && cls.students.length > 0);
-      setEnrolledClasses(demoClasses);
-    } else {
-      setEnrolledClasses(studentClasses);
-    }
+    setEnrolledClasses(mockClasses);
 
     setLoading(false);
   };
@@ -57,21 +117,20 @@ const StudentClasses = ({ user, onOpenMaterials }) => {
     // Apply search filter
     if (filters.search) {
       filtered = filtered.filter(classItem => {
-        const teacher = mockUsers.find(t => t.id === classItem.teacherId && t.role === 'teacher');
-        const teacherName = teacher ? `${teacher.firstName} ${teacher.lastName}` : 'Teacher TBD';
-
         return classItem.name.toLowerCase().includes(filters.search.toLowerCase()) ||
-          teacherName.toLowerCase().includes(filters.search.toLowerCase());
+          classItem.courses.some(course => 
+            course.name.toLowerCase().includes(filters.search.toLowerCase()) ||
+            course.teacherName.toLowerCase().includes(filters.search.toLowerCase())
+          );
       });
     }
 
     // Apply teacher filter
     if (filters.teacher) {
       filtered = filtered.filter(classItem => {
-        const teacher = mockUsers.find(t => t.id === classItem.teacherId && t.role === 'teacher');
-        const teacherName = teacher ? `${teacher.firstName} ${teacher.lastName}` : 'Teacher TBD';
-
-        return teacherName.toLowerCase().includes(filters.teacher.toLowerCase());
+        return classItem.courses.some(course => 
+          course.teacherName.toLowerCase().includes(filters.teacher.toLowerCase())
+        );
       });
     }
 
@@ -90,6 +149,16 @@ const StudentClasses = ({ user, onOpenMaterials }) => {
     });
   };
 
+  const toggleClassExpansion = (classId) => {
+    const newExpanded = new Set(expandedClasses);
+    if (newExpanded.has(classId)) {
+      newExpanded.delete(classId);
+    } else {
+      newExpanded.add(classId);
+    }
+    setExpandedClasses(newExpanded);
+  };
+
   const getSubjectColor = (subject) => {
     const subjectLower = subject.toLowerCase();
     if (subjectLower.includes('quran')) return 'bg-green-100 text-green-800';
@@ -102,8 +171,14 @@ const StudentClasses = ({ user, onOpenMaterials }) => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      <div className="bg-white rounded-lg shadow-sm border">
+        <div className="p-4 sm:p-6">
+          <div className="text-center py-8">
+            <BookOpen className="h-8 w-8 sm:h-12 sm:w-12 text-gray-400 mx-auto mb-4" />
+            <p className="text-sm sm:text-base text-gray-600">Loading classes...</p>
+            <p className="text-xs sm:text-sm text-gray-500">Please wait while we fetch your data</p>
+          </div>
+        </div>
       </div>
     );
   }
@@ -144,9 +219,9 @@ const StudentClasses = ({ user, onOpenMaterials }) => {
             onChange={(e) => setFilters({ ...filters, teacher: e.target.value, page: 1 })}
           >
             <option value="">All Teachers</option>
-            {mockUsers.filter(u => u.role === 'teacher').map((teacher) => (
-              <option key={teacher.id} value={`${teacher.firstName} ${teacher.lastName}`}>
-                {teacher.firstName} {teacher.lastName}
+            {Array.from(new Set(mockClasses.flatMap(cls => cls.courses.map(course => course.teacherName)))).map((teacherName) => (
+              <option key={teacherName} value={teacherName}>
+                {teacherName}
               </option>
             ))}
           </select>
@@ -165,78 +240,118 @@ const StudentClasses = ({ user, onOpenMaterials }) => {
 
       {/* Classes Cards */}
       {enrolledClasses.length === 0 ? (
-        <div className="bg-white rounded-lg shadow-sm border p-12 text-center">
-          <BookOpen className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">No Classes Enrolled</h3>
-          <p className="text-gray-600">You haven't enrolled in any classes yet.</p>
+        <div className="bg-white rounded-lg shadow-sm border">
+          <div className="p-4 sm:p-6">
+            <div className="text-center py-8">
+              <BookOpen className="h-8 w-8 sm:h-12 sm:w-12 text-gray-400 mx-auto mb-4" />
+              <p className="text-sm sm:text-base text-gray-600">No classes enrolled yet</p>
+              <p className="text-xs sm:text-sm text-gray-500">Contact admin to get enrolled in classes</p>
+            </div>
+          </div>
         </div>
       ) : (
         <>
-          <div className="space-y-3 sm:space-y-4">
-            {filteredClasses.map((classItem) => {
-              const teacher = mockUsers.find(t => t.id === classItem.teacherId && t.role === 'teacher');
-              const teacherName = teacher ? `${teacher.firstName} ${teacher.lastName}` : 'Teacher TBD';
-
-              return (
-                <div
-                  key={classItem.id}
-                  className="bg-white rounded-xl shadow-sm border hover:shadow-md transition-all w-full p-3 sm:p-4 flex flex-col gap-3 sm:gap-4"
-                >
-                  {/* Top Row - Name, Teacher */}
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                    <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
-                      <div className="flex items-center gap-2 sm:gap-3">
-                        <BookOpen className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600" />
-                        <h3 className="text-base sm:text-lg font-semibold text-gray-900">{classItem.name}</h3>
+          <div className="bg-white rounded-lg shadow-sm border">
+            <div className="p-4 sm:p-6">
+              <div className="space-y-4">
+                {filteredClasses.map((classItem) => (
+                  <div key={classItem.id} className="bg-white rounded-xl shadow-sm border hover:shadow-md transition-all">
+                    {/* Class Header */}
+                    <div className="p-4 sm:p-6 border-b border-gray-100">
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                        <div className="flex items-center gap-3">
+                          <button
+                            onClick={() => toggleClassExpansion(classItem.id)}
+                            className="text-gray-500 hover:text-gray-700 transition-colors"
+                          >
+                            {expandedClasses.has(classItem.id) ? (
+                              <ChevronDown className="h-5 w-5" />
+                            ) : (
+                              <ChevronRight className="h-5 w-5" />
+                            )}
+                          </button>
+                          <div className="flex items-center gap-2">
+                            <BookOpen className="h-5 w-5 text-blue-600" />
+                            <h3 className="text-lg sm:text-xl font-semibold text-gray-900">{classItem.name}</h3>
+                          </div>
+                        </div>
                       </div>
-                      <span className="hidden sm:inline text-sm text-gray-500">|</span>
-                      <p className="text-xs sm:text-sm font-medium text-gray-700 flex items-center gap-1">
-                        <User className="h-3 w-3 sm:h-4 sm:w-4 text-gray-400" />
-                        {teacherName}
-                      </p>
+
+                      {/* Class Info */}
+                      <div className="mt-4 grid grid-cols-3 gap-4">
+                        <div className="text-center">
+                          <p className="text-xs text-gray-500 flex items-center justify-center gap-1">
+                            <Calendar className="h-3 w-3 text-gray-400" /> Start Date
+                          </p>
+                          <p className="font-medium text-gray-900 text-sm">{classItem.startDate}</p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-xs text-gray-500 flex items-center justify-center gap-1">
+                            <Calendar className="h-3 w-3 text-gray-400" /> End Date
+                          </p>
+                          <p className="font-medium text-gray-900 text-sm">{classItem.endDate}</p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-xs text-gray-500 flex items-center justify-center gap-1">
+                            <Users className="h-3 w-3 text-gray-400" /> Students
+                          </p>
+                          <p className="font-medium text-gray-900 text-sm">{classItem.numberOfStudents}</p>
+                        </div>
+                      </div>
                     </div>
+
+                    {/* Courses Section */}
+                    {expandedClasses.has(classItem.id) && (
+                      <div className="p-4 sm:p-6 bg-gray-50">
+                        <div className="flex items-center justify-between mb-4">
+                          <h4 className="text-lg font-semibold text-gray-800">My Courses ({classItem.courses.length})</h4>
+                        </div>
+
+                        {classItem.courses.length === 0 ? (
+                          <p className="text-gray-500 text-center py-4">No courses available in this class.</p>
+                        ) : (
+                          <div className="space-y-3">
+                            {classItem.courses.map((course) => (
+                              <div key={course.id} className="bg-white rounded-lg border border-gray-200 p-4">
+                                <div className="mb-3">
+                                  <div className="flex items-center gap-2">
+                                    <h5 className="text-start font-semibold text-gray-900">{course.name}</h5>
+                                    <span className="text-gray-400">|</span>
+                                    <div className="flex items-center gap-1">
+                                      <User className="h-4 w-4 text-gray-500" />
+                                      <span className="text-sm text-gray-600">{course.teacherName}</span>
+                                    </div>
+                                  </div>
+                                </div>
+                                
+                                <div className="flex flex-col sm:flex-row gap-4 text-sm items-center">
+                                  <div className="flex-1">
+                                    <p className="text-gray-500">Sessions</p>
+                                    <p className="font-medium text-gray-900">
+                                      {course.sessionTime.map(session =>
+                                        `${session.day} ${session.startTime}-${session.endTime}`
+                                      ).join(', ')}
+                                    </p>
+                                  </div>
+                                  <div className="flex-shrink-0">
+                                    <button
+                                      onClick={() => onOpenMaterials && onOpenMaterials(course)}
+                                      className="px-3 py-2 border-2 border-green-600 text-green-600 font-semibold text-xs rounded-lg hover:bg-green-600 hover:text-white transition-all duration-200 uppercase"
+                                    >
+                                      Class Material
+                                    </button>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
-
-                  {/* Bottom Row - Students, Schedule, Class Material */}
-                  <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center w-full gap-3 sm:gap-0">
-                    <div className="text-center">
-                      <p className="text-xs text-gray-500 flex items-center justify-center gap-1">
-                        <Users className="h-3 w-3 sm:h-4 sm:w-4 text-gray-400" /> Students
-                      </p>
-                      <p className="font-medium text-gray-900 text-sm sm:text-base">{classItem.students?.length || 0}</p>
-                    </div>
-
-                    <div className="text-center">
-                      <p className="text-xs text-gray-500 flex items-center justify-center gap-1">
-                        <Calendar className="h-3 w-3 sm:h-4 sm:w-4 text-gray-400" /> Schedule
-                      </p>
-                      <p className="font-medium text-gray-900 text-xs sm:text-sm">
-                        {classItem.schedule && Array.isArray(classItem.schedule)
-                          ? classItem.schedule.map(item => `${item.day} ${item.startTime}-${item.endTime}`).join(', ')
-                          : 'Schedule TBD'
-                        }
-                      </p>
-                    </div>
-
-                    <div className="text-center">
-                      <p className="text-xs text-gray-500 flex items-center justify-center gap-1">
-                        <Clock className="h-3 w-3 sm:h-4 sm:w-4 text-gray-400" /> Duration
-                      </p>
-                      <p className="font-medium text-gray-900 text-xs sm:text-sm">120 min</p>
-                    </div>
-
-                    <div className="text-center">
-                      <button
-                        onClick={() => onOpenMaterials(classItem)}
-                        className="w-full sm:w-auto px-3 py-2 border-2 border-red-600 text-red-600 font-semibold text-xs rounded-lg hover:bg-red-600 hover:text-white transition-all duration-200 uppercase"
-                      >
-                        Class Material
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
+                ))}
+              </div>
+            </div>
           </div>
 
           {/* Pagination */}

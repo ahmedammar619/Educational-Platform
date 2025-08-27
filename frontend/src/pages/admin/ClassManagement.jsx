@@ -104,13 +104,13 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
   }, []);
 
   useEffect(() => {
-      filterClasses();
+    filterClasses();
   }, [filters, classes]);
 
   const loadMockClasses = () => {
-      setLoading(true);
+    setLoading(true);
     setClasses(mockClasses || []);
-        setLoading(false);
+    setLoading(false);
   };
 
   const filterClasses = () => {
@@ -151,7 +151,7 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
   const handleCreateClass = (classData) => {
     const newClass = {
       id: Date.now().toString(),
-        name: classData.name,
+      name: classData.name,
       startDate: classData.startDate,
       endDate: classData.endDate,
       price: classData.price,
@@ -162,7 +162,7 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
 
     setClasses(prev => [...prev, newClass]);
     setShowCreateClassModal(false);
-      alert('Class created successfully!');
+    alert('Class created successfully!');
   };
 
   const handleCreateCourse = (courseData) => {
@@ -194,21 +194,21 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
   };
 
   const handleUpdateClass = (classId, classData) => {
-      setClasses(prev => prev.map(classItem => {
-        if (classItem.id === classId) {
-          return {
-            ...classItem,
-            name: classData.name,
+    setClasses(prev => prev.map(classItem => {
+      if (classItem.id === classId) {
+        return {
+          ...classItem,
+          name: classData.name,
           startDate: classData.startDate,
           endDate: classData.endDate,
           price: classData.price
-          };
-        }
-        return classItem;
-      }));
+        };
+      }
+      return classItem;
+    }));
     setShowEditClassModal(false);
-      setSelectedClass(null);
-      alert('Class updated successfully!');
+    setSelectedClass(null);
+    alert('Class updated successfully!');
   };
 
   const handleUpdateCourse = (classId, courseId, courseData) => {
@@ -240,14 +240,14 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
 
   const handleDeleteClass = (classId) => {
     if (!confirm('Are you sure you want to delete this class? This will also delete all courses within it.')) return;
-      
-      setClasses(prev => prev.filter(classItem => classItem.id !== classId));
-      alert('Class deleted successfully!');
+
+    setClasses(prev => prev.filter(classItem => classItem.id !== classId));
+    alert('Class deleted successfully!');
   };
 
   const handleDeleteCourse = (classId, courseId) => {
     if (!confirm('Are you sure you want to delete this course?')) return;
-    
+
     setClasses(prev => prev.map(classItem => {
       if (classItem.id === classId) {
         return {
@@ -278,15 +278,15 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
   return (
     <div className="space-y-4 sm:space-y-6 h-full">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Class Management</h1>
-          <p className="text-sm sm:text-base text-gray-600">Manage classes and their courses</p>
+          <h1 className="text-2xl font-bold text-gray-900">Class Management</h1>
+          <p className="text-gray-600">Manage classes and their courses</p>
         </div>
         <div className="flex gap-2">
           <button
             onClick={() => setShowCreateClassModal(true)}
-            className="flex items-center justify-center space-x-2 border-2 border-green-600 text-green-600 px-3 sm:px-4 py-2 rounded-lg hover:bg-green-600 hover:text-white transition-all duration-200 text-sm sm:text-base"
+            className="flex items-center justify-center space-x-2 border-2 border-green-600 text-green-600 px-4 py-2 rounded-lg hover:bg-green-600 hover:text-white transition-all duration-200"
           >
             <Plus className="h-4 w-4" />
             <span>Add Class</span>
@@ -294,42 +294,24 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="bg-white p-4 sm:p-6 rounded-lg shadow-sm border">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          <div className="relative">
-            <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Search classes..."
-              className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-              value={filters.search}
-              onChange={(e) => setFilters({ ...filters, search: e.target.value, page: 1 })}
-            />
-          </div>
-
-          <select
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-            value={filters.limit}
-            onChange={(e) => setFilters({ ...filters, limit: e.target.value, page: 1 })}
-          >
-            <option value="10">10 per page</option>
-            <option value="25">25 per page</option>
-            <option value="50">50 per page</option>
-          </select>
-        </div>
-      </div>
-
       {/* Classes List */}
       {loading ? (
-        <div className="flex items-center justify-center py-12">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        <div className="bg-white rounded-lg shadow-sm border">
+          <div className="p-4 sm:p-6">
+            <div className="text-center py-8">
+              <BookOpen className="h-8 w-8 sm:h-12 sm:w-12 text-gray-400 mx-auto mb-4" />
+              <p className="text-sm sm:text-base text-gray-600">Loading classes...</p>
+              <p className="text-xs sm:text-sm text-gray-500">Please wait while we fetch your data</p>
+            </div>
+          </div>
         </div>
-      ) : (
-        <>
-          <div className="space-y-4">
-            {filteredClasses.map((classItem) => (
-              <div key={classItem.id} className="bg-white rounded-xl shadow-sm border hover:shadow-md transition-all">
+              ) : (
+          <>
+            <div className="bg-white rounded-lg shadow-sm border">
+              <div className="p-4 sm:p-6">
+                <div className="space-y-4">
+                  {filteredClasses.map((classItem) => (
+                    <div key={classItem.id} className="bg-white rounded-xl shadow-sm border hover:shadow-md transition-all">
                 {/* Class Header */}
                 <div className="p-4 sm:p-6 border-b border-gray-100">
                   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -348,23 +330,23 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
                         <BookOpen className="h-5 w-5 text-blue-600" />
                         <h3 className="text-lg sm:text-xl font-semibold text-gray-900">{classItem.name}</h3>
                       </div>
-                        </div>
+                    </div>
 
                     {/* Class Actions */}
                     <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => {
-                              setSelectedClass(classItem);
-                              setShowEnrollModal(true);
-                            }}
-                            className="text-green-600 hover:text-green-800 p-2 rounded-lg hover:bg-green-50 transition-colors"
-                            title="Enroll Students"
-                          >
-                            <Users className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={() => {
-                              setSelectedClass(classItem);
+                      <button
+                        onClick={() => {
+                          setSelectedClass(classItem);
+                          setShowEnrollModal(true);
+                        }}
+                        className="text-green-600 hover:text-green-800 p-2 rounded-lg hover:bg-green-50 transition-colors"
+                        title="Enroll Students"
+                      >
+                        <Users className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={() => {
+                          setSelectedClass(classItem);
                           setShowCreateCourseModal(true);
                         }}
                         className="text-blue-600 hover:text-blue-800 p-2 rounded-lg hover:bg-blue-50 transition-colors"
@@ -376,48 +358,42 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
                         onClick={() => {
                           setSelectedClass(classItem);
                           setShowEditClassModal(true);
-                            }}
-                            className="text-blue-600 hover:text-blue-800 p-2 rounded-lg hover:bg-blue-50 transition-colors"
-                            title="Edit Class"
-                          >
-                            <Edit className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={() => handleDeleteClass(classItem.id)}
+                        }}
+                        className="text-blue-600 hover:text-blue-800 p-2 rounded-lg hover:bg-blue-50 transition-colors"
+                        title="Edit Class"
+                      >
+                        <Edit className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteClass(classItem.id)}
                         className="text-red-600 hover:text-red-800 p-2 rounded-lg hover:bg-red-50 transition-colors"
                         title="Delete Class"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </div>
-                      </div>
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
 
                   {/* Class Info */}
-                  <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-4">
-                        <div className="text-center">
-                          <p className="text-xs text-gray-500 flex items-center justify-center gap-1">
+                  <div className="mt-4 grid grid-cols-3 gap-4">
+                    <div className="text-center">
+                      <p className="text-xs text-gray-500 flex items-center justify-center gap-1">
                         <Calendar className="h-3 w-3 text-gray-400" /> Start Date
-                          </p>
+                      </p>
                       <p className="font-medium text-gray-900 text-sm">{classItem.startDate}</p>
-                        </div>
-                        <div className="text-center">
-                          <p className="text-xs text-gray-500 flex items-center justify-center gap-1">
+                    </div>
+                    <div className="text-center">
+                      <p className="text-xs text-gray-500 flex items-center justify-center gap-1">
                         <Calendar className="h-3 w-3 text-gray-400" /> End Date
                       </p>
                       <p className="font-medium text-gray-900 text-sm">{classItem.endDate}</p>
                     </div>
                     <div className="text-center">
                       <p className="text-xs text-gray-500 flex items-center justify-center gap-1">
-                        <DollarSign className="h-3 w-3 text-gray-400" /> Price
-                      </p>
-                      <p className="font-medium text-gray-900 text-sm">USD {classItem.price}</p>
-                        </div>
-                          <div className="text-center">
-                            <p className="text-xs text-gray-500 flex items-center justify-center gap-1">
                         <Users className="h-3 w-3 text-gray-400" /> Students
-                            </p>
+                      </p>
                       <p className="font-medium text-gray-900 text-sm">{classItem.numberOfStudents}</p>
-                          </div>
+                    </div>
                   </div>
                 </div>
 
@@ -427,7 +403,7 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
                     <div className="flex items-center justify-between mb-4">
                       <h4 className="text-lg font-semibold text-gray-800">Courses ({classItem.courses.length})</h4>
                     </div>
-                    
+
                     {classItem.courses.length === 0 ? (
                       <p className="text-gray-500 text-center py-4">No courses added yet. Click the + button to add a course.</p>
                     ) : (
@@ -435,9 +411,16 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
                         {classItem.courses.map((course) => (
                           <div key={course.id} className="bg-white rounded-lg border border-gray-200 p-4">
                             <div className="flex items-center justify-between mb-3">
-                              <h5 className="font-semibold text-gray-900">{course.name}</h5>
                               <div className="flex items-center gap-2">
-                      <button
+                                <h5 className="font-semibold text-gray-900">{course.name}</h5>
+                                <span className="text-gray-400">|</span>
+                                <div className="flex items-center gap-1">
+                                  <User className="h-4 w-4 text-gray-500" />
+                                  <span className="text-sm text-gray-600">{course.teacherName}</span>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <button
                                   onClick={() => {
                                     setSelectedClass(classItem);
                                     setSelectedCourse(course);
@@ -457,21 +440,17 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
                                 </button>
                               </div>
                             </div>
-                            
-                                                        <div className="grid grid-cols-3 gap-4 text-sm items-center">
-                              <div>
-                                <p className="text-gray-500">Teacher</p>
-                                <p className="font-medium text-gray-900">{course.teacherName}</p>
-                              </div>
-                              <div>
+
+                            <div className="flex flex-col sm:flex-row gap-4 text-sm items-center">
+                              <div className="flex-1">
                                 <p className="text-gray-500">Sessions</p>
                                 <p className="font-medium text-gray-900">
-                                  {course.sessionTime.map(session => 
+                                  {course.sessionTime.map(session =>
                                     `${session.day} ${session.startTime}-${session.endTime}`
                                   ).join(', ')}
                                 </p>
                               </div>
-                              <div className="flex justify-center ">
+                              <div className="flex-shrink-0">
                                 <button
                                   onClick={() => onOpenMaterials && onOpenMaterials(course)}
                                   className="px-3 py-2 border-2 border-green-600 text-green-600 font-semibold text-xs rounded-lg hover:bg-green-600 hover:text-white transition-all duration-200 uppercase"
@@ -480,55 +459,91 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
                                 </button>
                               </div>
                             </div>
-                      </div>
+                          </div>
                         ))}
-                    </div>
+                      </div>
                     )}
                   </div>
                 )}
               </div>
             ))}
-          </div>
+                </div>
+              </div>
+            </div>
 
           {/* Pagination */}
           {pagination && pagination.pages > 1 && (
-            <div className="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 mt-6 rounded-b-lg">
+            <div className="bg-white px-6 py-4 flex items-center justify-between border-t border-gray-200 mt-6 rounded-lg shadow-sm">
               <div className="flex-1 flex justify-between sm:hidden">
                 <button
                   onClick={() => setFilters({ ...filters, page: Math.max(1, filters.page - 1) })}
                   disabled={filters.page === 1}
-                  className="px-4 py-2 border-2 border-green-600 text-green-600 text-sm rounded-md bg-white hover:bg-green-200 disabled:opacity-60 transition-all duration-200"
+                  className="px-4 py-2 border border-gray-300 text-gray-700 text-sm rounded-lg bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
                 >
                   Previous
                 </button>
                 <button
                   onClick={() => setFilters({ ...filters, page: Math.min(pagination?.pages || 1, filters.page + 1) })}
                   disabled={filters.page === (pagination?.pages || 1)}
-                  className="px-4 py-2 border-2 border-green-600 text-green-600 text-sm rounded-md bg-white hover:bg-green-200 disabled:opacity-60 transition-all duration-200"
+                  className="px-4 py-2 border border-gray-300 text-gray-700 text-sm rounded-lg bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
                 >
                   Next
                 </button>
               </div>
 
               <div className="hidden sm:flex sm:items-center sm:justify-between w-full">
-                <p className="text-sm text-gray-700">
-                  Showing <span className="font-medium">{((filters.page - 1) * filters.limit) + 1}</span> to{' '}
-                  <span className="font-medium">{Math.min(filters.page * filters.limit, pagination?.total || 0)}</span> of{' '}
-                  <span className="font-medium">{pagination?.total || 0}</span> results
-                </p>
-                <nav className="flex space-x-1">
-                  {Array.from({ length: pagination?.pages || 0 }, (_, i) => i + 1).map((page) => (
-                    <button
-                      key={page}
-                      onClick={() => setFilters({ ...filters, page })}
-                      className={`px-3 py-1 border-2 text-sm rounded-md transition-all duration-200 ${page === filters.page
-                        ? 'bg-green-50 border-green-600 text-green-600'
-                        : 'bg-white border-green-600 text-green-600 hover:bg-green-50'
-                        }`}
-                    >
-                      {page}
-                    </button>
-                  ))}
+                <div className="flex items-center space-x-2">
+                  <p className="text-sm text-gray-700">
+                    Showing <span className="font-medium">{((filters.page - 1) * filters.limit) + 1}</span> to{' '}
+                    <span className="font-medium">{Math.min(filters.page * filters.limit, pagination?.total || 0)}</span> of{' '}
+                    <span className="font-medium">{pagination?.total || 0}</span> results
+                  </p>
+                </div>
+                <nav className="flex items-center space-x-2">
+                  <button
+                    onClick={() => setFilters({ ...filters, page: Math.max(1, filters.page - 1) })}
+                    disabled={filters.page === 1}
+                    className="px-3 py-2 border border-gray-300 text-gray-700 text-sm rounded-lg bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
+                  >
+                    Previous
+                  </button>
+                  
+                  <div className="flex items-center space-x-1">
+                    {Array.from({ length: Math.min(5, pagination?.pages || 0) }, (_, i) => {
+                      let page;
+                      if (pagination?.pages <= 5) {
+                        page = i + 1;
+                      } else if (filters.page <= 3) {
+                        page = i + 1;
+                      } else if (filters.page >= pagination?.pages - 2) {
+                        page = pagination?.pages - 4 + i;
+                      } else {
+                        page = filters.page - 2 + i;
+                      }
+                      
+                      return (
+                        <button
+                          key={page}
+                          onClick={() => setFilters({ ...filters, page })}
+                          className={`px-3 py-2 text-sm rounded-lg transition-all duration-200 ${
+                            page === filters.page
+                              ? 'bg-blue-600 text-white'
+                              : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'
+                          }`}
+                        >
+                          {page}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  
+                  <button
+                    onClick={() => setFilters({ ...filters, page: Math.min(pagination?.pages || 1, filters.page + 1) })}
+                    disabled={filters.page === (pagination?.pages || 1)}
+                    className="px-3 py-2 border border-gray-300 text-gray-700 text-sm rounded-lg bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
+                  >
+                    Next
+                  </button>
                 </nav>
               </div>
             </div>
@@ -638,7 +653,7 @@ const ClassModal = ({ title, classData, onClose, onSubmit }) => {
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               />
             </div>
-            
+
             <div>
               <label className="block text-sm font-medium text-gray-700">Start Date</label>
               <input
@@ -728,7 +743,7 @@ const CourseModal = ({ title, courseData, onClose, onSubmit }) => {
     const times = [];
     for (let hour = 8; hour <= 20; hour++) {
       const timeString = `${hour.toString().padStart(2, '0')}:00`;
-        times.push(timeString);
+      times.push(timeString);
     }
     return times;
   };
@@ -787,7 +802,7 @@ const CourseModal = ({ title, courseData, onClose, onSubmit }) => {
       <div className="relative top-4 sm:top-10 mx-auto p-4 sm:p-5 border w-11/12 sm:w-96 shadow-lg rounded-md bg-white">
         <div className="mt-1">
           <h3 className="text-base sm:text-lg font-medium text-gray-900 mb-4">{title}</h3>
-        <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700">Course Name</label>
               <input
@@ -798,7 +813,7 @@ const CourseModal = ({ title, courseData, onClose, onSubmit }) => {
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               />
             </div>
-            
+
             <div>
               <label className="block text-sm font-medium text-gray-700">Teacher Name</label>
               <input
@@ -819,7 +834,7 @@ const CourseModal = ({ title, courseData, onClose, onSubmit }) => {
                 onChange={(e) => setFormData({ ...formData, courseMaterial: e.target.value })}
               />
             </div>
-            
+
             {/* Sessions Management */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Course Sessions</label>
@@ -832,107 +847,107 @@ const CourseModal = ({ title, courseData, onClose, onSubmit }) => {
                       <span className="text-xs sm:text-sm font-medium text-blue-900">
                         {session.day}: {session.startTime} - {session.endTime}
                       </span>
-                    <button
-                      type="button"
-                      onClick={() => removeSession(index)}
+                      <button
+                        type="button"
+                        onClick={() => removeSession(index)}
                         className="text-red-600 hover:text-red-800 p-1 rounded hover:bg-red-100 transition-colors"
-                    >
+                      >
                         <Trash2 className="h-3 w-3 sm:h-4 sm:w-4" />
-                    </button>
-                  </div>
+                      </button>
+                    </div>
                   ))}
                 </div>
               )}
-            
+
               {/* Add Session Button */}
-            {!showAddSession ? (
-              <button
-                type="button"
-                onClick={() => setShowAddSession(true)}
+              {!showAddSession ? (
+                <button
+                  type="button"
+                  onClick={() => setShowAddSession(true)}
                   className="w-full p-2 sm:p-3 border-2 border-dashed border-green-300 rounded-md text-green-600 hover:border-green-400 hover:text-green-700 transition-colors text-sm"
-              >
+                >
                   + Add Session
-              </button>
-            ) : (
+                </button>
+              ) : (
                 /* Add Session Form */
                 <div className="p-3 sm:p-4 border border-gray-300 rounded-md bg-gray-50">
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3 mb-3">
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Day</label>
-                    <select
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Day</label>
+                      <select
                         className="w-full px-3 py-2 text-xs sm:text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
-                      value={newSession.day}
-                      onChange={(e) => setNewSession({ ...newSession, day: e.target.value })}
-                    >
-                      {weekDays.map(day => (
-                        <option key={day} value={day}>{day}</option>
-                      ))}
-                    </select>
+                        value={newSession.day}
+                        onChange={(e) => setNewSession({ ...newSession, day: e.target.value })}
+                      >
+                        {weekDays.map(day => (
+                          <option key={day} value={day}>{day}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Start Time</label>
+                      <select
+                        className="w-full px-3 py-2 text-xs sm:text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        value={newSession.startTime}
+                        onChange={(e) => setNewSession({ ...newSession, startTime: e.target.value })}
+                      >
+                        {generateTimeOptions().map(time => (
+                          <option key={time} value={time}>{time}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">End Time</label>
+                      <select
+                        className="w-full px-3 py-2 text-xs sm:text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        value={newSession.endTime}
+                        onChange={(e) => setNewSession({ ...newSession, endTime: e.target.value })}
+                      >
+                        {generateTimeOptions().map(time => (
+                          <option key={time} value={time}>{time}</option>
+                        ))}
+                      </select>
+                    </div>
                   </div>
 
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Start Time</label>
-                    <select
-                        className="w-full px-3 py-2 text-xs sm:text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
-                      value={newSession.startTime}
-                      onChange={(e) => setNewSession({ ...newSession, startTime: e.target.value })}
-                    >
-                      {generateTimeOptions().map(time => (
-                        <option key={time} value={time}>{time}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">End Time</label>
-                    <select
-                        className="w-full px-3 py-2 text-xs sm:text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
-                      value={newSession.endTime}
-                      onChange={(e) => setNewSession({ ...newSession, endTime: e.target.value })}
-                    >
-                      {generateTimeOptions().map(time => (
-                        <option key={time} value={time}>{time}</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-                <div className="flex justify-end space-x-2">
-                  <button
-                    type="button"
-                    onClick={() => setShowAddSession(false)}
+                  <div className="flex justify-end space-x-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowAddSession(false)}
                       className="px-2 sm:px-3 py-1 text-xs sm:text-sm text-gray-600 hover:text-gray-800"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    onClick={addSession}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={addSession}
                       className="px-2 sm:px-3 py-1 text-xs sm:text-sm border-2 border-green-600 text-green-600 rounded hover:bg-green-500 hover:text-white transition-all duration-200"
-                  >
+                    >
                       Add Session
-                  </button>
+                    </button>
+                  </div>
                 </div>
-              </div>
-            )}
-          </div>
+              )}
+            </div>
 
-          <div className="flex justify-end space-x-3 pt-4">
-            <button
-              type="button"
-              onClick={onClose}
+            <div className="flex justify-end space-x-3 pt-4">
+              <button
+                type="button"
+                onClick={onClose}
                 className="px-3 sm:px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 text-sm"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
                 className="px-3 sm:px-4 py-2 border-2 border-green-600 text-green-600 rounded-md hover:bg-green-500 hover:text-white transition-all duration-200 text-sm"
-            >
+              >
                 {courseData ? 'Update' : 'Create'}
-            </button>
-          </div>
-        </form>
+              </button>
+            </div>
+          </form>
         </div>
       </div>
     </div>

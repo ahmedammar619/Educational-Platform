@@ -4,6 +4,7 @@ import PostsTab from './PostsTab';
 import FilesTab from './FilesTab';
 import AttendanceTab from './AttendanceTab';
 import ZoomTab from './ZoomTab';
+import AssignmentsTab from './AssignmentsTab';
 
 const MaterialPages = ({ classData, onBack, currentUser }) => {
   // Get theme colors based on user role
@@ -71,10 +72,15 @@ const MaterialPages = ({ classData, onBack, currentUser }) => {
     return currentUser?.role === 'admin' || currentUser?.role === 'teacher' || currentUser?.role === 'student';
   };
 
+  const canViewAssignments = () => {
+    return currentUser?.role === 'admin' || currentUser?.role === 'teacher' || currentUser?.role === 'student';
+  };
+
   // Set default tab based on user permissions
   const getDefaultTab = () => {
     if (canViewPosts()) return 'posts';
     if (canViewFiles()) return 'files';
+    if (canViewAssignments()) return 'assignments';
     if (canViewAttendance()) return 'attendance';
     if (canViewZoom()) return 'zoom';
     return 'posts'; // fallback
@@ -95,6 +101,7 @@ const MaterialPages = ({ classData, onBack, currentUser }) => {
     switch (tabName) {
       case 'posts': return canViewPosts();
       case 'files': return canViewFiles();
+      case 'assignments': return canViewAssignments();
       case 'attendance': return canViewAttendance();
       case 'zoom': return canViewZoom();
       default: return false;
@@ -143,6 +150,17 @@ const MaterialPages = ({ classData, onBack, currentUser }) => {
               Files
             </button>
           )}
+          {canViewAssignments() && (
+            <button
+              onClick={() => setActiveTab('assignments')}
+              className={`px-4 py-3 text-sm font-medium transition-colors ${activeTab === 'assignments'
+                ? `text-${theme.primary}-600 border-b-2 border-${theme.primary}-600 bg-${theme.primaryLight}`
+                : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                }`}
+            >
+              Assignments
+            </button>
+          )}
           {canViewAttendance() && (
             <button
               onClick={() => setActiveTab('attendance')}
@@ -174,6 +192,9 @@ const MaterialPages = ({ classData, onBack, currentUser }) => {
           )}
           {activeTab === 'files' && (
             <FilesTab currentUser={currentUser} theme={theme} />
+          )}
+          {activeTab === 'assignments' && (
+            <AssignmentsTab currentUser={currentUser} theme={theme} />
           )}
           {activeTab === 'attendance' && (
             <AttendanceTab currentUser={currentUser} theme={theme} />
