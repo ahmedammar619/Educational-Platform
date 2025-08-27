@@ -83,7 +83,7 @@ const StudentMain = ({ user, onLogout }) => {
           <div className="flex justify-between h-16">
             <div className="flex items-center">
               <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 bg-gradient-to-br from-red-500 to-blue-600 rounded-lg flex items-center justify-center">
+                <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-red-600 rounded-lg flex items-center justify-center">
                   <span className="text-white text-xl font-bold">ب</span>
                 </div>
                 <div>
