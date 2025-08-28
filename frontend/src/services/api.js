@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { API_CONFIG } from '../config/api';
+import { handleApiError } from '../utils/errorHandler';
 
 // Create axios instance with default config
 const api = axios.create({
@@ -56,16 +57,18 @@ api.interceptors.response.use(
     
     if (error.response?.status === 401) {
       console.log('🚨 401 Unauthorized - Clearing token and redirecting to login');
-      // Unauthorized - clear token and redirect to login
       localStorage.removeItem('token');
       
-      // Don't redirect if this is a login attempt (to avoid redirecting away from login page)
+      // Don't redirect if this is a login attempt
       const isLoginAttempt = error.config?.url?.includes('/auth/login');
       if (!isLoginAttempt) {
         window.location.href = '/login';
       }
     }
-    return Promise.reject(error);
+    
+    // Transform error using our error handler
+    const handledError = handleApiError(error);
+    return Promise.reject(handledError);
   }
 );
 

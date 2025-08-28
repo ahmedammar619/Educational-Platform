@@ -1,4 +1,5 @@
 import api from './api';
+import { showErrorToast, showSuccessToast } from '../utils/errorHandler';
 
 class CoursesService {
   // Get all courses
@@ -7,7 +8,8 @@ class CoursesService {
       const response = await api.get('/api/courses');
       return response.data;
     } catch (error) {
-      throw error.response?.data || error.message;
+      // Error is already handled by the API interceptor
+      throw error;
     }
   }
 
@@ -17,7 +19,8 @@ class CoursesService {
       const response = await api.get(`/api/courses/${courseId}`);
       return response.data;
     } catch (error) {
-      throw error.response?.data || error.message;
+      // Error is already handled by the API interceptor
+      throw error;
     }
   }
 
@@ -27,17 +30,19 @@ class CoursesService {
       const response = await api.post('/api/courses', courseData);
       return response.data;
     } catch (error) {
-      throw error.response?.data || error.message;
+      // Error is already handled by the API interceptor
+      throw error;
     }
   }
 
   // Update course
   async updateCourse(courseId, courseData) {
     try {
-      const response = await api.put(`/api/courses/${courseId}`, courseData);
+      const response = await api.patch(`/api/courses/${courseId}`, courseData);
       return response.data;
     } catch (error) {
-      throw error.response?.data || error.message;
+      // Error is already handled by the API interceptor
+      throw error;
     }
   }
 
@@ -47,47 +52,63 @@ class CoursesService {
       const response = await api.delete(`/api/courses/${courseId}`);
       return response.data;
     } catch (error) {
-      throw error.response?.data || error.message;
+      // Error is already handled by the API interceptor
+      throw error;
     }
   }
 
-  // Get courses by teacher
+  // Get courses by class
+  async getCoursesByClass(classId) {
+    try {
+      const response = await api.get(`/api/courses/class/${classId}`);
+      return response.data;
+    } catch (error) {
+      // Error is already handled by the API interceptor
+      throw error;
+    }
+  }
+
+  // Get courses by teacher (if implemented in backend)
   async getCoursesByTeacher(teacherId) {
     try {
       const response = await api.get(`/api/courses/teacher/${teacherId}`);
       return response.data;
     } catch (error) {
-      throw error.response?.data || error.message;
+      // Error is already handled by the API interceptor
+      throw error;
     }
   }
 
-  // Get enrolled courses for student
+  // Get enrolled courses for student (if implemented in backend)
   async getEnrolledCourses() {
     try {
       const response = await api.get('/api/courses/enrolled');
       return response.data;
     } catch (error) {
-      throw error.response?.data || error.message;
+      // Error is already handled by the API interceptor
+      throw error;
     }
   }
 
-  // Enroll in course
+  // Enroll in course (if implemented in backend)
   async enrollInCourse(courseId) {
     try {
       const response = await api.post(`/api/courses/${courseId}/enroll`);
       return response.data;
     } catch (error) {
-      throw error.response?.data || error.message;
+      // Error is already handled by the API interceptor
+      throw error;
     }
   }
 
-  // Unenroll from course
+  // Unenroll from course (if implemented in backend)
   async unenrollFromCourse(courseId) {
     try {
       const response = await api.delete(`/api/courses/${courseId}/enroll`);
       return response.data;
     } catch (error) {
-      throw error.response?.data || error.message;
+      // Error is already handled by the API interceptor
+      throw error;
     }
   }
 
@@ -97,7 +118,8 @@ class CoursesService {
       const response = await api.get(`/api/courses/${courseId}/materials`);
       return response.data;
     } catch (error) {
-      throw error.response?.data || error.message;
+      // Error is already handled by the API interceptor
+      throw error;
     }
   }
 
@@ -107,29 +129,13 @@ class CoursesService {
       const response = await api.post(`/api/courses/${courseId}/materials`, materialData);
       return response.data;
     } catch (error) {
-      throw error.response?.data || error.message;
+      // Error is already handled by the API interceptor
+      throw error;
     }
   }
 
-  // Get course sessions
-  async getCourseSessions(courseId) {
-    try {
-      const response = await api.get(`/api/courses/${courseId}/sessions`);
-      return response.data;
-    } catch (error) {
-      throw error.response?.data || error.message;
-    }
-  }
-
-  // Create course session
-  async createCourseSession(courseId, sessionData) {
-    try {
-      const response = await api.post(`/api/courses/${courseId}/sessions`, sessionData);
-      return response.data;
-    } catch (error) {
-      throw error.response?.data || error.message;
-    }
-  }
+  // Note: Session management is now handled through the updateCourse method
+  // Sessions are stored as JSON directly in the course entity
 
   // Get course schedule
   async getCourseSchedule(courseId) {
@@ -137,7 +143,8 @@ class CoursesService {
       const response = await api.get(`/api/courses/${courseId}/schedule`);
       return response.data;
     } catch (error) {
-      throw error.response?.data || error.message;
+      // Error is already handled by the API interceptor
+      throw error;
     }
   }
 
@@ -148,7 +155,8 @@ class CoursesService {
       const response = await api.get(`/api/courses/search?${params}`);
       return response.data;
     } catch (error) {
-      throw error.response?.data || error.message;
+      // Error is already handled by the API interceptor
+      throw error;
     }
   }
 
@@ -158,7 +166,8 @@ class CoursesService {
       const response = await api.get(`/api/courses/${courseId}/stats`);
       return response.data;
     } catch (error) {
-      throw error.response?.data || error.message;
+      // Error is already handled by the API interceptor
+      throw error;
     }
   }
 }

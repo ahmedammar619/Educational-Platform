@@ -39,7 +39,7 @@ import { Student } from './modules/students/entities/student.entity';
 import { Teacher } from './modules/teachers/entities/teacher.entity';
 import { Class } from './modules/classes/entities/class.entity';
 import { Course } from './modules/courses/entities/course.entity';
-import { CourseSession } from './modules/courses/entities/course-session.entity';
+
 import { Post } from './modules/materials/entities/post.entity';
 import { PostAttachment } from './modules/materials/entities/post-attachment.entity';
 import { Folder } from './modules/materials/entities/folder.entity';
@@ -73,7 +73,6 @@ import { Attendance } from './modules/materials/entities/attendance.entity';
           Teacher,
           Class,
           Course,
-          CourseSession,
           Post,
           PostAttachment,
           Folder,

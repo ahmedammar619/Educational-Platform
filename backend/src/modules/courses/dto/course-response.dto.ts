@@ -1,7 +1,4 @@
-import { Expose, Type } from 'class-transformer';
-import { Class } from '../../classes/entities/class.entity';
-import { User } from '../../users/entities/user.entity';
-import { CourseSession } from '../entities/course-session.entity';
+import { Expose } from 'class-transformer';
 
 export class CourseResponseDto {
   @Expose()
@@ -14,6 +11,9 @@ export class CourseResponseDto {
   teacherId: string;
 
   @Expose()
+  teacherName?: string;
+
+  @Expose()
   classId: string;
 
   @Expose()
@@ -23,14 +23,5 @@ export class CourseResponseDto {
   updatedAt: Date;
 
   @Expose()
-  @Type(() => Class)
-  class?: Class;
-
-  @Expose()
-  @Type(() => User)
-  teacher?: User;
-
-  @Expose()
-  @Type(() => CourseSession)
-  sessions?: CourseSession[];
+  sessions?: any[];
 }

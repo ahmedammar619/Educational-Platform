@@ -5,6 +5,7 @@ import FilesTab from './FilesTab';
 import AttendanceTab from './AttendanceTab';
 import ZoomTab from './ZoomTab';
 import AssignmentsTab from './AssignmentsTab';
+import { materialsService } from '../../../services';
 
 const MaterialPages = ({ classData, onBack, currentUser }) => {
   // Get theme colors based on user role
@@ -188,19 +189,19 @@ const MaterialPages = ({ classData, onBack, currentUser }) => {
         {/* Content */}
         <div className="p-4 sm:p-6 flex-1 overflow-y-auto">
           {activeTab === 'posts' && (
-            <PostsTab currentUser={currentUser} theme={theme} />
+            <PostsTab currentUser={currentUser} theme={theme} courseId={classData?.id} />
           )}
           {activeTab === 'files' && (
-            <FilesTab currentUser={currentUser} theme={theme} />
+            <FilesTab currentUser={currentUser} theme={theme} courseId={classData?.id} />
           )}
           {activeTab === 'assignments' && (
-            <AssignmentsTab currentUser={currentUser} theme={theme} />
+            <AssignmentsTab currentUser={currentUser} theme={theme} courseId={classData?.id} />
           )}
           {activeTab === 'attendance' && (
-            <AttendanceTab currentUser={currentUser} theme={theme} />
+            <AttendanceTab currentUser={currentUser} theme={theme} courseId={classData?.id} />
           )}
           {activeTab === 'zoom' && (
-            <ZoomTab currentUser={currentUser} theme={theme} />
+            <ZoomTab currentUser={currentUser} theme={theme} courseId={classData?.id} />
           )}
         </div>
       </div>

@@ -168,7 +168,7 @@ export class StudentsService {
     }
     
     // Delete student record first (this will cascade to user due to the relationship)
-    await this.studentRepository.remove(student);
+    await this.studentRepository.delete(id);
   }
 
   // Method to safely remove a student from all parent relationships

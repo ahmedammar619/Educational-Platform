@@ -18,6 +18,9 @@ export class ClassResponseDto {
   price: number;
 
   @Expose()
+  courseIds?: string[];
+
+  @Expose()
   createdAt: Date;
 
   @Expose()

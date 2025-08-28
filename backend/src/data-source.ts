@@ -9,6 +9,16 @@ import { User } from './modules/users/entities/user.entity';
 import { Parent } from './modules/parents/entities/parent.entity';
 import { Student } from './modules/students/entities/student.entity';
 import { Teacher } from './modules/teachers/entities/teacher.entity';
+import { Class } from './modules/classes/entities/class.entity';
+import { Course } from './modules/courses/entities/course.entity';
+
+import { Post } from './modules/materials/entities/post.entity';
+import { PostAttachment } from './modules/materials/entities/post-attachment.entity';
+import { Folder } from './modules/materials/entities/folder.entity';
+import { File } from './modules/materials/entities/file.entity';
+import { Assignment } from './modules/materials/entities/assignment.entity';
+import { AssignmentSubmission } from './modules/materials/entities/assignment-submission.entity';
+import { Attendance } from './modules/materials/entities/attendance.entity';
 
 export const AppDataSource = new DataSource({
   type: 'postgres',
@@ -19,7 +29,21 @@ export const AppDataSource = new DataSource({
   database: process.env.DB_DATABASE || 'education_dev_db',
   synchronize: process.env.DB_SYNC === 'true',
   logging: process.env.DB_LOGGING === 'true',
-  entities: [User, Parent, Student, Teacher],
+  entities: [
+    User, 
+    Parent, 
+    Student, 
+    Teacher,
+    Class,
+    Course,
+    Post,
+    PostAttachment,
+    Folder,
+    File,
+    Assignment,
+    AssignmentSubmission,
+    Attendance
+  ],
   migrations: ['src/migrations/*.ts'],
   subscribers: [],
   ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,

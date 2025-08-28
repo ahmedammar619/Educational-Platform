@@ -1,65 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Edit, Trash2, Users, Calendar, DollarSign, BookOpen, Search, Filter, User, X, ChevronDown, ChevronRight } from 'lucide-react';
-import { mockUsers } from '../../data/mockData';
-
-// Mock data for the new structure
-const mockClasses = [
-  {
-    id: '1',
-    name: 'Islamic Studies Program 2024',
-    startDate: '2024-03-01',
-    endDate: '2024-06-30',
-    price: 450.00,
-    numberOfStudents: 12,
-    courses: [
-      {
-        id: 'c1',
-        name: 'Islamic Studies - Level 1',
-        teacherName: 'Ahmed Al-Rashid',
-        sessionTime: [
-          { day: 'Monday', startTime: '09:00', endTime: '10:30' },
-          { day: 'Wednesday', startTime: '09:00', endTime: '10:30' }
-        ]
-      },
-      {
-        id: 'c2',
-        name: 'Arabic Language - Beginner',
-        teacherName: 'Yusuf Al-Khalil',
-        sessionTime: [
-          { day: 'Tuesday', startTime: '14:00', endTime: '15:30' },
-          { day: 'Thursday', startTime: '14:00', endTime: '15:30' }
-        ]
-      }
-    ]
-  },
-  {
-    id: '2',
-    name: 'Advanced Islamic Education',
-    startDate: '2024-04-01',
-    endDate: '2024-08-31',
-    price: 600.00,
-    numberOfStudents: 8,
-    courses: [
-      {
-        id: 'c3',
-        name: 'Quran Recitation - Tajweed',
-        teacherName: 'Ahmed Al-Rashid',
-        sessionTime: [
-          { day: 'Sunday', startTime: '10:00', endTime: '11:30' },
-          { day: 'Thursday', startTime: '10:00', endTime: '11:30' }
-        ]
-      },
-      {
-        id: 'c4',
-        name: 'Islamic History & Culture',
-        teacherName: 'Yusuf Al-Khalil',
-        sessionTime: [
-          { day: 'Saturday', startTime: '15:00', endTime: '16:30' }
-        ]
-      }
-    ]
-  }
-];
+import { classesService, usersService, coursesService } from '../../services';
+import { showErrorToast, showSuccessToast, getErrorMessage } from '../../utils/errorHandler';
 
 const ClassManagement = ({ user, onOpenMaterials }) => {
   const [classes, setClasses] = useState([]);
@@ -84,28 +26,101 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
   const [showEnrollModal, setShowEnrollModal] = useState(false);
   const [selectedClass, setSelectedClass] = useState(null);
   const [selectedCourse, setSelectedCourse] = useState(null);
+  const [isCreatingCourse, setIsCreatingCourse] = useState(false);
 
   useEffect(() => {
-    loadMockClasses();
+    loadClasses();
   }, []);
 
   useEffect(() => {
     filterClasses();
   }, [filters, classes]);
 
-  const loadMockClasses = () => {
+  const loadClasses = async () => {
+    try {
     setLoading(true);
-    setClasses(mockClasses || []);
+      const classesData = await classesService.getAllClasses();
+      
+      // Handle different response formats - convert object to array if needed
+      let classesArray = [];
+      if (Array.isArray(classesData)) {
+        classesArray = classesData;
+      } else if (classesData && typeof classesData === 'object') {
+        // Convert object with numeric keys to array
+        classesArray = Object.values(classesData).filter(item => 
+          item && typeof item === 'object' && item.id && !item._rateLimitInfo
+        );
+      }
+      
+      // Process classes and fetch course data for each class
+      const processedClasses = await Promise.all(classesArray.map(async (classItem) => {
+        console.log('Processing class:', classItem);
+        
+        // Fetch course data using courseIds
+        let courses = [];
+        if (classItem.courseIds && classItem.courseIds.length > 0) {
+          try {
+            const coursesData = await coursesService.getCoursesByClass(classItem.id);
+            console.log('Fetched courses for class:', classItem.id, coursesData);
+            
+            // Handle different response formats for courses
+            let coursesArray = [];
+            if (Array.isArray(coursesData)) {
+              coursesArray = coursesData;
+            } else if (coursesData && typeof coursesData === 'object') {
+              coursesArray = Object.values(coursesData).filter(item => 
+                item && typeof item === 'object' && item.id && !item._rateLimitInfo
+              );
+            }
+            
+            courses = coursesArray.map(course => {
+              console.log('Processing course:', course);
+              console.log('Course sessions:', course.sessions);
+              return {
+                ...course,
+                // Sessions are now stored directly in the course as JSON
+                sessionTime: course.sessions || [],
+                // Use teacherName from backend response
+                teacherName: course.teacherName || 'Unknown Teacher'
+              };
+            });
+          } catch (error) {
+            console.error('Error fetching courses for class:', classItem.id, error);
+            courses = [];
+          }
+        }
+        
+        return {
+          ...classItem,
+          courses: courses,
+          numberOfStudents: classItem.students ? classItem.students.length : (classItem.studentCount || 0)
+        };
+      }));
+      
+      console.log('Processed classes with courses:', processedClasses);
+      setClasses(processedClasses);
+    } catch (error) {
+      console.error('Error loading classes:', error);
+      setClasses([]);
+      showErrorToast(error, 'Failed to load classes. Please try again.');
+    } finally {
     setLoading(false);
+    }
   };
 
   const filterClasses = () => {
+    // Ensure classes is an array before processing
+    if (!Array.isArray(classes)) {
+      setFilteredClasses([]);
+      return;
+    }
+
     let filtered = [...classes];
 
     // Apply search filter
     if (filters.search) {
       filtered = filtered.filter(classItem => {
-        return classItem.name.toLowerCase().includes(filters.search.toLowerCase());
+        return classItem.name && classItem.name.toLowerCase().includes(filters.search.toLowerCase());
       });
     }
 
@@ -134,131 +149,151 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
     setExpandedClasses(newExpanded);
   };
 
-  const handleCreateClass = (classData) => {
-    const newClass = {
-      id: Date.now().toString(),
-      name: classData.name,
-      startDate: classData.startDate,
-      endDate: classData.endDate,
-      price: classData.price,
-      numberOfStudents: 0,
-      status: 'active',
-      courses: []
-    };
-
-    setClasses(prev => [...prev, newClass]);
+  const handleCreateClass = async (classData) => {
+    try {
+      // Convert price to number and ensure it's valid
+      const processedClassData = {
+        ...classData,
+        price: parseFloat(classData.price) || 0
+      };
+      
+      const newClass = await classesService.createClass(processedClassData);
+      setClasses(prev => [...(Array.isArray(prev) ? prev : []), newClass]);
     setShowCreateClassModal(false);
-    alert('Class created successfully!');
+      showSuccessToast('Class created successfully!');
+    } catch (error) {
+      console.error('Error creating class:', error);
+      showErrorToast(error, 'Failed to create class. Please try again.');
+    }
   };
 
-  const handleCreateCourse = (courseData) => {
+    const handleCreateCourse = async (courseData) => {
     if (!selectedClass) return;
+    
+    // Prevent concurrent course creation
+    if (isCreatingCourse) {
+      showErrorToast('Course creation in progress. Please wait...');
+      return;
+    }
 
-    const newCourse = {
-      id: Date.now().toString(),
-      name: courseData.name,
-      startDate: selectedClass.startDate,
-      endDate: selectedClass.endDate,
-      teacherName: courseData.teacherName,
-      courseMaterial: courseData.courseMaterial,
-      sessionTime: courseData.sessions
-    };
+    try {
+      setIsCreatingCourse(true);
+      
+      // Create course with classId, teacherId, and sessions
+      const coursePayload = {
+        name: courseData.name,
+        classId: selectedClass.id,
+        teacherId: courseData.teacherId,
+        sessions: courseData.sessions || []
+      };
 
-    setClasses(prev => prev.map(classItem => {
-      if (classItem.id === selectedClass.id) {
-        return {
-          ...classItem,
-          courses: [...classItem.courses, newCourse]
-        };
-      }
-      return classItem;
-    }));
+      const newCourse = await coursesService.createCourse(coursePayload);
 
+      // Reload classes to get updated course data
+      await loadClasses();
     setShowCreateCourseModal(false);
     setSelectedClass(null);
-    alert('Course created successfully!');
+      showSuccessToast('Course created successfully!');
+    } catch (error) {
+      console.error('Error creating course:', error);
+      showErrorToast(error, 'Failed to create course. Please try again.');
+    } finally {
+      setIsCreatingCourse(false);
+    }
   };
 
-  const handleUpdateClass = (classId, classData) => {
-    setClasses(prev => prev.map(classItem => {
-      if (classItem.id === classId) {
-        return {
-          ...classItem,
-          name: classData.name,
-          startDate: classData.startDate,
-          endDate: classData.endDate,
-          price: classData.price
-        };
-      }
-      return classItem;
-    }));
+  const handleUpdateClass = async (classId, classData) => {
+    try {
+      // Convert price to number and ensure it's valid
+      const processedClassData = {
+        ...classData,
+        price: parseFloat(classData.price) || 0
+      };
+      
+      const updatedClass = await classesService.updateClass(classId, processedClassData);
+      setClasses(prev => (Array.isArray(prev) ? prev : []).map(classItem => 
+        classItem.id === classId ? updatedClass : classItem
+      ));
     setShowEditClassModal(false);
     setSelectedClass(null);
-    alert('Class updated successfully!');
+      showSuccessToast('Class updated successfully!');
+    } catch (error) {
+      console.error('Error updating class:', error);
+      showErrorToast(error, 'Failed to update class. Please try again.');
+    }
   };
 
-  const handleUpdateCourse = (classId, courseId, courseData) => {
-    setClasses(prev => prev.map(classItem => {
-      if (classItem.id === classId) {
-        return {
-          ...classItem,
-          courses: classItem.courses.map(course => {
-            if (course.id === courseId) {
-              return {
-                ...course,
-                name: courseData.name,
-                teacherName: courseData.teacherName,
-                courseMaterial: courseData.courseMaterial,
-                sessionTime: courseData.sessions
-              };
-            }
-            return course;
-          })
-        };
-      }
-      return classItem;
-    }));
+  const handleUpdateCourse = async (classId, courseId, courseData) => {
+    try {
+      // Update course basic info
+      const updatedCourse = await coursesService.updateCourse(courseId, {
+        name: courseData.name,
+        teacherId: courseData.teacherId,
+        sessions: courseData.sessions || []
+      });
+
+      // Sessions are now handled as part of the course update
+      // The sessions data is already included in the courseData.sessions array
+
+      // Reload classes to get updated course data
+      await loadClasses();
     setShowEditCourseModal(false);
     setSelectedClass(null);
     setSelectedCourse(null);
-    alert('Course updated successfully!');
+      showSuccessToast('Course updated successfully!');
+    } catch (error) {
+      console.error('Error updating course:', error);
+      showErrorToast(error, 'Failed to update course. Please try again.');
+    }
   };
 
-  const handleDeleteClass = (classId) => {
+  const handleDeleteClass = async (classId) => {
     if (!confirm('Are you sure you want to delete this class? This will also delete all courses within it.')) return;
 
-    setClasses(prev => prev.filter(classItem => classItem.id !== classId));
-    alert('Class deleted successfully!');
+    try {
+      await classesService.deleteClass(classId);
+      setClasses(prev => (Array.isArray(prev) ? prev : []).filter(classItem => classItem.id !== classId));
+      showSuccessToast('Class deleted successfully!');
+    } catch (error) {
+      console.error('Error deleting class:', error);
+      showErrorToast(error, 'Failed to delete class. Please try again.');
+    }
   };
 
-  const handleDeleteCourse = (classId, courseId) => {
+  const handleDeleteCourse = async (classId, courseId) => {
     if (!confirm('Are you sure you want to delete this course?')) return;
 
-    setClasses(prev => prev.map(classItem => {
-      if (classItem.id === classId) {
-        return {
-          ...classItem,
-          courses: classItem.courses.filter(course => course.id !== courseId)
-        };
-      }
-      return classItem;
-    }));
-    alert('Course deleted successfully!');
+    // Debug logging
+    console.log('Deleting course:', { classId, courseId });
+
+    if (!courseId) {
+      showErrorToast('Course ID is missing. Cannot delete course.');
+      return;
+    }
+
+    try {
+      await coursesService.deleteCourse(courseId);
+      // Reload classes to get updated course data
+      await loadClasses();
+      showSuccessToast('Course deleted successfully!');
+    } catch (error) {
+      console.error('Error deleting course:', error);
+      showErrorToast(error, 'Failed to delete course. Please try again.');
+    }
   };
 
-  const handleEnrollStudents = (classId, studentIds) => {
-    setClasses(prev => prev.map(classItem => {
-      if (classItem.id === classId) {
-        return {
-          ...classItem,
-          numberOfStudents: studentIds.length
-        };
-      }
-      return classItem;
-    }));
+  const handleEnrollStudents = async (classId, studentIds) => {
+    try {
+      await classesService.enrollStudents(classId, studentIds);
+      // Reload classes to get updated student count
+      await loadClasses();
     setShowEnrollModal(false);
     setSelectedClass(null);
-    alert('Students enrolled successfully!');
+      showSuccessToast('Students enrolled successfully!');
+    } catch (error) {
+      console.error('Error enrolling students:', error);
+      showErrorToast(error, 'Failed to enroll students. Please try again.');
+    }
   };
 
   return (
@@ -314,7 +349,7 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
                       </button>
                       <div className="flex items-center gap-2">
                         <BookOpen className="h-5 w-5 text-blue-600" />
-                        <h3 className="text-lg sm:text-xl font-semibold text-gray-900">{classItem.name}</h3>
+                        <h3 className="text-lg sm:text-xl font-semibold text-gray-900">{classItem.name || 'Unnamed Class'}</h3>
                       </div>
                     </div>
 
@@ -366,25 +401,25 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
                       <p className="text-xs text-gray-500 flex items-center justify-center gap-1">
                         <Calendar className="h-3 w-3 text-gray-400" /> Start Date
                       </p>
-                      <p className="font-medium text-gray-900 text-sm">{classItem.startDate}</p>
+                      <p className="font-medium text-gray-900 text-sm">{classItem.startDate || 'N/A'}</p>
                     </div>
                     <div className="text-center">
                       <p className="text-xs text-gray-500 flex items-center justify-center gap-1">
                         <Calendar className="h-3 w-3 text-gray-400" /> End Date
                       </p>
-                      <p className="font-medium text-gray-900 text-sm">{classItem.endDate}</p>
+                      <p className="font-medium text-gray-900 text-sm">{classItem.endDate || 'N/A'}</p>
                     </div>
                     <div className="text-center">
                       <p className="text-xs text-gray-500 flex items-center justify-center gap-1">
                         <DollarSign className="h-3 w-3 text-gray-400" /> Price
                       </p>
-                      <p className="font-medium text-gray-900 text-sm">{classItem.price}</p>
+                      <p className="font-medium text-gray-900 text-sm">{classItem.price || 0}</p>
                     </div>
                     <div className="text-center">
                       <p className="text-xs text-gray-500 flex items-center justify-center gap-1">
                         <Users className="h-3 w-3 text-gray-400" /> Students
                       </p>
-                      <p className="font-medium text-gray-900 text-sm">{classItem.numberOfStudents}</p>
+                      <p className="font-medium text-gray-900 text-sm">{classItem.numberOfStudents || 0}</p>
                     </div>
                   </div>
                 </div>
@@ -393,14 +428,16 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
                 {expandedClasses.has(classItem.id) && (
                   <div className="p-4 sm:p-6 bg-gray-50">
                     <div className="flex items-center justify-between mb-4">
-                      <h4 className="text-lg font-semibold text-gray-800">Courses ({classItem.courses.length})</h4>
+                      <h4 className="text-lg font-semibold text-gray-800">Courses ({(classItem.courses || []).length})</h4>
                     </div>
 
-                    {classItem.courses.length === 0 ? (
+                    {(classItem.courses || []).length === 0 ? (
                       <p className="text-gray-500 text-center py-4">No courses added yet. Click the + button to add a course.</p>
                     ) : (
                       <div className="space-y-3">
-                        {classItem.courses.map((course) => (
+                        {(classItem.courses || []).map((course) => {
+                          console.log('Course object:', course);
+                          return (
                           <div key={course.id} className="bg-white rounded-lg border border-gray-200 p-4">
                             <div className="flex items-center justify-between mb-3">
                               <div className="flex items-center gap-2">
@@ -447,12 +484,13 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
                                   onClick={() => onOpenMaterials && onOpenMaterials(course)}
                                   className="px-3 py-2 border-2 border-green-600 text-green-600 font-semibold text-xs rounded-lg hover:bg-green-600 hover:text-white transition-all duration-200 uppercase"
                                 >
-                                  Class Material
+                                  Course Material
                                 </button>
                               </div>
                             </div>
                           </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     )}
                   </div>
@@ -626,11 +664,42 @@ const ClassModal = ({ title, classData, onClose, onSubmit }) => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    onSubmit(formData);
+    
+    // Validate dates
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Reset time to start of day
+    
+    const startDate = new Date(formData.startDate);
+    const endDate = new Date(formData.endDate);
+    
+    if (startDate < today) {
+      alert('Start date cannot be before today');
+      return;
+    }
+    
+    if (endDate < startDate) {
+      alert('End date cannot be before start date');
+      return;
+    }
+    
+    // Validate price
+    const price = parseFloat(formData.price);
+    if (isNaN(price) || price < 0) {
+      alert('Please enter a valid price (must be a number greater than or equal to 0)');
+      return;
+    }
+    
+    // Ensure price is a number in the form data
+    const validatedFormData = {
+      ...formData,
+      price: price
+    };
+    
+    onSubmit(validatedFormData);
   };
 
   return (
-    <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+    <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50" style={{margin: '0px'}}>
       <div className="relative top-10 mx-auto p-5 border w-11/12 sm:w-96 shadow-lg rounded-md bg-white">
         <div className="mt-3">
           <h3 className="text-lg font-medium text-gray-900 mb-4">{title}</h3>
@@ -651,9 +720,18 @@ const ClassModal = ({ title, classData, onClose, onSubmit }) => {
               <input
                 type="date"
                 required
+                min={new Date().toISOString().split('T')[0]}
                 className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                 value={formData.startDate}
-                onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
+                onChange={(e) => {
+                  const newStartDate = e.target.value;
+                  setFormData({ 
+                    ...formData, 
+                    startDate: newStartDate,
+                    // Reset end date if it's before the new start date
+                    endDate: formData.endDate && formData.endDate < newStartDate ? '' : formData.endDate
+                  });
+                }}
               />
             </div>
 
@@ -662,6 +740,7 @@ const ClassModal = ({ title, classData, onClose, onSubmit }) => {
               <input
                 type="date"
                 required
+                min={formData.startDate || new Date().toISOString().split('T')[0]}
                 className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                 value={formData.endDate}
                 onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
@@ -708,19 +787,64 @@ const ClassModal = ({ title, classData, onClose, onSubmit }) => {
 const CourseModal = ({ title, courseData, onClose, onSubmit }) => {
   const [formData, setFormData] = useState({
     name: courseData?.name || '',
+    teacherId: courseData?.teacherId || '',
     teacherName: courseData?.teacherName || '',
     courseMaterial: courseData?.courseMaterial || '',
     sessions: courseData?.sessionTime || []
   });
 
+  const [availableTeachers, setAvailableTeachers] = useState([]);
+  const [loadingTeachers, setLoadingTeachers] = useState(true);
+
   useEffect(() => {
     setFormData({
       name: courseData?.name || '',
+      teacherId: courseData?.teacherId || '',
       teacherName: courseData?.teacherName || '',
       courseMaterial: courseData?.courseMaterial || '',
       sessions: courseData?.sessionTime || []
     });
   }, [courseData]);
+
+  useEffect(() => {
+    loadTeachers();
+  }, []);
+
+  const loadTeachers = async () => {
+    try {
+      setLoadingTeachers(true);
+      const response = await usersService.getUsersByRole('teacher');
+      
+      // Handle the response format - extract users array and filter for teachers
+      let teachersArray = [];
+      if (response && response.users && Array.isArray(response.users)) {
+        // Filter for teachers from the users array
+        teachersArray = response.users.filter(user => user.role === 'teacher');
+      } else if (Array.isArray(response)) {
+        // If response is directly an array, filter for teachers
+        teachersArray = response.filter(user => user.role === 'teacher');
+      }
+      
+      console.log('Teachers data:', teachersArray);
+      setAvailableTeachers(teachersArray);
+    } catch (error) {
+      console.error('Error loading teachers:', error);
+      setAvailableTeachers([]);
+      showErrorToast(error, 'Failed to load teachers. Please try again.');
+    } finally {
+      setLoadingTeachers(false);
+    }
+  };
+
+  const handleTeacherChange = (teacherId) => {
+    const selectedTeacher = Array.isArray(availableTeachers) ? 
+      availableTeachers.find(teacher => teacher.id === teacherId) : null;
+    setFormData({
+      ...formData,
+      teacherId: teacherId,
+      teacherName: selectedTeacher ? `${selectedTeacher.firstName || ''} ${selectedTeacher.lastName || ''}`.trim() || selectedTeacher.fullName : ''
+    });
+  };
 
   const [showAddSession, setShowAddSession] = useState(false);
   const [newSession, setNewSession] = useState({
@@ -778,19 +902,92 @@ const CourseModal = ({ title, courseData, onClose, onSubmit }) => {
     });
   };
 
+  // Helper function to parse time string to minutes
+  const parseTime = (timeString) => {
+    const [hours, minutes] = timeString.split(':').map(Number);
+    return hours * 60 + minutes;
+  };
+
+  // Helper function to check if two sessions overlap
+  const sessionsOverlap = (start1, end1, start2, end2) => {
+    return start1 < end2 && start2 < end1;
+  };
+
+  // Helper function to validate session conflicts
+  const validateSessionConflicts = (sessions) => {
+    const validSessions = sessions.filter(session => 
+      session && 
+      session.day && 
+      session.startTime && 
+      session.endTime &&
+      session.day.trim() !== '' &&
+      session.startTime.trim() !== '' &&
+      session.endTime.trim() !== ''
+    );
+
+    // Check for conflicts within the same sessions array
+    for (let i = 0; i < validSessions.length; i++) {
+      const session1 = validSessions[i];
+      const startTime1 = parseTime(session1.startTime);
+      const endTime1 = parseTime(session1.endTime);
+
+      if (startTime1 >= endTime1) {
+        return `Session ${i + 1}: End time must be after start time`;
+      }
+
+      // Check for conflicts with other sessions in the same array
+      for (let j = i + 1; j < validSessions.length; j++) {
+        const session2 = validSessions[j];
+        
+        if (session1.day === session2.day) {
+          const startTime2 = parseTime(session2.startTime);
+          const endTime2 = parseTime(session2.endTime);
+
+          if (sessionsOverlap(startTime1, endTime1, startTime2, endTime2)) {
+            return `Session conflict: ${session1.day} ${session1.startTime}-${session1.endTime} overlaps with ${session2.day} ${session2.startTime}-${session2.endTime}`;
+          }
+        }
+      }
+    }
+
+    return null; // No conflicts found
+  };
+
   const handleSubmit = (e) => {
     e.preventDefault();
 
-    if (formData.sessions.length === 0) {
-      alert('Please add at least one session');
+    // Filter out empty or invalid sessions
+    const validSessions = formData.sessions.filter(session => 
+      session && 
+      session.day && 
+      session.startTime && 
+      session.endTime &&
+      session.day.trim() !== '' &&
+      session.startTime.trim() !== '' &&
+      session.endTime.trim() !== ''
+    );
+
+    if (validSessions.length === 0) {
+      alert('Please add at least one valid session');
       return;
     }
 
-    onSubmit(formData);
+    // Validate session conflicts
+    const conflictError = validateSessionConflicts(validSessions);
+    if (conflictError) {
+      alert(conflictError);
+      return;
+    }
+
+    // Submit with only valid sessions
+    onSubmit({
+      ...formData,
+      sessions: validSessions
+    });
   };
 
   return (
-    <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+    <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50" style={{margin: '0px'}}>
       <div className="relative top-4 sm:top-10 mx-auto p-4 sm:p-5 border w-11/12 sm:w-96 shadow-lg rounded-md bg-white">
         <div className="mt-1">
           <h3 className="text-base sm:text-lg font-medium text-gray-900 mb-4">{title}</h3>
@@ -807,24 +1004,29 @@ const CourseModal = ({ title, courseData, onClose, onSubmit }) => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700">Teacher Name</label>
-              <input
-                type="text"
+              <label className="block text-sm font-medium text-gray-700">Teacher</label>
+              {loadingTeachers ? (
+                <div className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-sm text-gray-500">
+                  Loading teachers...
+                </div>
+              ) : (
+                <select
                 required
                 className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                value={formData.teacherName}
-                onChange={(e) => setFormData({ ...formData, teacherName: e.target.value })}
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Course Material</label>
-              <textarea
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                rows="3"
-                value={formData.courseMaterial}
-                onChange={(e) => setFormData({ ...formData, courseMaterial: e.target.value })}
-              />
+                  value={formData.teacherId}
+                  onChange={(e) => handleTeacherChange(e.target.value)}
+                >
+                  <option value="">Select a teacher</option>
+                  {Array.isArray(availableTeachers) && availableTeachers.map((teacher) => (
+                    <option key={teacher.id} value={teacher.id}>
+                      {teacher.firstName && teacher.lastName
+                        ? `${teacher.firstName} ${teacher.lastName}`
+                        : teacher.fullName
+                      } ({teacher.email})
+                    </option>
+                  ))}
+                </select>
+              )}
             </div>
 
             {/* Sessions Management */}
@@ -949,9 +1151,26 @@ const CourseModal = ({ title, courseData, onClose, onSubmit }) => {
 // Enroll Students Modal Component
 const EnrollModal = ({ classData, onClose, onSubmit }) => {
   const [selectedStudents, setSelectedStudents] = useState([]);
+  const [availableStudents, setAvailableStudents] = useState([]);
+  const [loadingStudents, setLoadingStudents] = useState(true);
 
-  // Get available students
-  const availableStudents = mockUsers.filter(user => user.role === 'student');
+  useEffect(() => {
+    loadStudents();
+  }, []);
+
+  const loadStudents = async () => {
+    try {
+      setLoadingStudents(true);
+      const students = await usersService.getAllStudents();
+      setAvailableStudents(students || []);
+    } catch (error) {
+      console.error('Error loading students:', error);
+      setAvailableStudents([]);
+      showErrorToast(error, 'Failed to load students. Please try again.');
+    } finally {
+      setLoadingStudents(false);
+    }
+  };
 
   const handleStudentToggle = (studentId) => {
     setSelectedStudents(prev =>
@@ -993,7 +1212,11 @@ const EnrollModal = ({ classData, onClose, onSubmit }) => {
                 Select students to enroll in this class:
               </p>
 
-              {availableStudents.length === 0 ? (
+              {loadingStudents ? (
+                <p className="text-gray-500 text-center py-4 text-sm">
+                  Loading students...
+                </p>
+              ) : availableStudents.length === 0 ? (
                 <p className="text-gray-500 text-center py-4 text-sm">
                   No available students to enroll
                 </p>

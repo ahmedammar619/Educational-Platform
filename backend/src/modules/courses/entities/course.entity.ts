@@ -11,6 +11,12 @@ import {
 import { Class } from '../../classes/entities/class.entity';
 import { User } from '../../users/entities/user.entity';
 
+export interface SessionData {
+  day: string;
+  startTime: string;
+  endTime: string;
+}
+
 @Entity('courses')
 export class Course {
   @PrimaryGeneratedColumn('uuid')
@@ -25,6 +31,9 @@ export class Course {
   @Column('uuid')
   classId: string;
 
+  @Column('json', { nullable: true })
+  sessions: SessionData[];
+
   @CreateDateColumn()
   createdAt: Date;
 
@@ -32,16 +41,13 @@ export class Course {
   updatedAt: Date;
 
   // Relationships
-  @ManyToOne('Class', 'courses')
+  @ManyToOne(() => Class, classEntity => classEntity.courses)
   @JoinColumn({ name: 'classId' })
-  class: any;
+  class: Class;
 
   @ManyToOne(() => User)
   @JoinColumn({ name: 'teacherId' })
   teacher: User;
-
-  @OneToMany('CourseSession', 'course')
-  sessions: any[];
 
   @OneToMany('Post', 'course')
   posts: any[];

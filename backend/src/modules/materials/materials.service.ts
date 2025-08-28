@@ -81,7 +81,7 @@ export class MaterialsService {
       throw new NotFoundException(`Post with ID ${postId} not found`);
     }
 
-    await this.postRepository.remove(post);
+    await this.postRepository.delete(postId);
   }
 
   // Files and Folders
@@ -158,7 +158,7 @@ export class MaterialsService {
       throw new NotFoundException(`File with ID ${fileId} not found`);
     }
 
-    await this.fileRepository.remove(file);
+    await this.fileRepository.delete(fileId);
   }
 
   async deleteFolder(folderId: string): Promise<void> {
@@ -179,7 +179,7 @@ export class MaterialsService {
       throw new BadRequestException('Cannot delete folder with subfolders. Please delete all subfolders first.');
     }
 
-    await this.folderRepository.remove(folder);
+    await this.folderRepository.delete(folderId);
   }
 
   // Assignments

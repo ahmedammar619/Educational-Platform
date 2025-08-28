@@ -1,31 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Edit, Trash2, Download, FileText, X, Paperclip } from 'lucide-react';
+import { materialsService } from '../../../services';
+import { showErrorToast, showSuccessToast } from '../../../utils/errorHandler';
 
-const PostsTab = ({ currentUser, theme }) => {
-  const [posts, setPosts] = useState([
-    {
-      id: 1,
-      user: {
-        name: 'youssef ossama',
-        avatar: 'y',
-        avatarColor: 'bg-blue-500',
-        status: 'active'
-      },
-      content: 'lecture 1',
-      timestamp: '12/7/2023 4:32 PM',
-      reactions: [],
-      replies: [
-        {
-          id: 1,
-          user: {
-            name: 'YO',
-            avatar: 'YO',
-            avatarColor: 'bg-pink-500'
-          }
-        }
-      ]
-    }
-  ]);
+const PostsTab = ({ currentUser, theme, courseId }) => {
+  const [posts, setPosts] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   const [newPost, setNewPost] = useState('');
   const [showWritePost, setShowWritePost] = useState(false);
@@ -36,6 +16,51 @@ const PostsTab = ({ currentUser, theme }) => {
   const [editingPost, setEditingPost] = useState(null);
   const [editPostSubject, setEditPostSubject] = useState('');
   const [editPostMessage, setEditPostMessage] = useState('');
+
+  // Load posts when component mounts or courseId changes
+  useEffect(() => {
+    if (courseId) {
+      loadPosts();
+    }
+  }, [courseId]);
+
+  const loadPosts = async () => {
+    try {
+      setLoading(true);
+      const postsData = await materialsService.getCoursePosts(courseId);
+      setPosts(Array.isArray(postsData) ? postsData : []);
+    } catch (error) {
+      console.error('Error loading posts:', error);
+      // Fallback to mock data if API fails
+      showErrorToast(error, 'Failed to load posts. Using mock data for demonstration.');
+      setPosts([
+        {
+          id: 1,
+          user: {
+            name: 'youssef ossama',
+            avatar: 'y',
+            avatarColor: 'bg-blue-500',
+            status: 'active'
+          },
+          content: 'lecture 1',
+          timestamp: '12/7/2023 4:32 PM',
+          reactions: [],
+          replies: [
+            {
+              id: 1,
+              user: {
+                name: 'YO',
+                avatar: 'YO',
+                avatarColor: 'bg-pink-500'
+              }
+            }
+          ]
+        }
+      ]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Role-based access control functions
   const canCreatePost = () => {
@@ -80,28 +105,29 @@ const PostsTab = ({ currentUser, theme }) => {
     }
   };
 
-  const handleCreateRichPost = () => {
-    if (postSubject.trim() && postMessage.trim()) {
-      const post = {
-        id: Date.now(),
-        user: {
-          name: currentUser?.name || 'username',
-          avatar: currentUser?.name?.charAt(0)?.toUpperCase() || 'U',
-          avatarColor: 'bg-blue-500',
-          status: 'active'
-        },
-        subject: postSubject,
-        content: postMessage,
-        timestamp: new Date().toLocaleString(),
-        reactions: [],
-        replies: [],
-        attachments: attachedFiles
-      };
-      setPosts([post, ...posts]);
-      setPostSubject('');
-      setPostMessage('');
-      setAttachedFiles([]);
-      setShowWritePost(false);
+  const handleCreateRichPost = async () => {
+    if (postSubject.trim() && postMessage.trim() && courseId) {
+      try {
+        const postData = {
+          title: postSubject,
+          content: postMessage,
+          // Add any other required fields based on your backend DTO
+        };
+
+        const newPost = await materialsService.createPost(courseId, postData);
+        
+        // Reload posts to get the updated list
+        await loadPosts();
+        
+        setPostSubject('');
+        setPostMessage('');
+        setAttachedFiles([]);
+        setShowWritePost(false);
+        showSuccessToast('Post created successfully!');
+      } catch (error) {
+        console.error('Error creating post:', error);
+        showErrorToast(error, 'Failed to create post. Please try again.');
+      }
     }
   };
 
@@ -112,27 +138,44 @@ const PostsTab = ({ currentUser, theme }) => {
     setShowEditPostModal(true);
   };
 
-  const handleUpdatePost = () => {
+  const handleUpdatePost = async () => {
     if (editPostMessage.trim() && editingPost) {
-      setPosts(posts.map(p =>
-        p.id === editingPost.id
-          ? {
-            ...p,
-            subject: editPostSubject.trim() || undefined,
-            content: editPostMessage.trim()
-          }
-          : p
-      ));
-      setEditPostSubject('');
-      setEditPostMessage('');
-      setEditingPost(null);
-      setShowEditPostModal(false);
+      try {
+        const updateData = {
+          title: editPostSubject.trim() || undefined,
+          content: editPostMessage.trim()
+        };
+
+        await materialsService.updatePost(editingPost.id, updateData);
+        
+        // Reload posts to get the updated list
+        await loadPosts();
+        
+        setEditPostSubject('');
+        setEditPostMessage('');
+        setEditingPost(null);
+        setShowEditPostModal(false);
+        showSuccessToast('Post updated successfully!');
+      } catch (error) {
+        console.error('Error updating post:', error);
+        showErrorToast(error, 'Failed to update post. Please try again.');
+      }
     }
   };
 
-  const handleDeletePost = (postId) => {
+  const handleDeletePost = async (postId) => {
     if (window.confirm('Are you sure you want to delete this post? This action cannot be undone.')) {
-      setPosts(posts.filter(p => p.id !== postId));
+      try {
+        await materialsService.deletePost(postId);
+        
+        // Reload posts to get the updated list
+        await loadPosts();
+        
+        showSuccessToast('Post deleted successfully!');
+      } catch (error) {
+        console.error('Error deleting post:', error);
+        showErrorToast(error, 'Failed to delete post. Please try again.');
+      }
     }
   };
 
@@ -186,7 +229,19 @@ const PostsTab = ({ currentUser, theme }) => {
   return (
     <div className="space-y-6">
       {/* Posts List */}
-      {posts.length === 0 ? (
+      {loading ? (
+        <div className="text-center py-12">
+          <div className="mb-6">
+            <div className="relative w-32 h-32 mx-auto">
+              <div className="absolute top-0 left-0 w-16 h-16 bg-blue-500 rounded-full opacity-80 animate-pulse"></div>
+              <div className="absolute top-4 right-0 w-16 h-16 bg-blue-400 rounded-full opacity-80 animate-pulse"></div>
+              <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 w-16 h-16 bg-blue-300 rounded-full opacity-80 animate-pulse"></div>
+            </div>
+          </div>
+          <h3 className="text-xl font-bold text-gray-900 mb-2">Loading posts...</h3>
+          <p className="text-gray-600">Please wait while we fetch the latest posts.</p>
+        </div>
+      ) : posts.length === 0 ? (
         <div className="text-center py-12">
           <div className="mb-6">
             <div className="relative w-32 h-32 mx-auto">
