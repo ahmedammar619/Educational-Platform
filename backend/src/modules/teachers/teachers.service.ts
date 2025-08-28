@@ -120,7 +120,7 @@ export class TeachersService {
       throw new NotFoundException('Teacher not found');
     }
 
-    await this.teacherRepository.remove(teacher);
+    await this.teacherRepository.delete(id);
   }
 
   // Method to create a teacher record from an existing user

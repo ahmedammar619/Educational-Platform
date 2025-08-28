@@ -27,6 +27,9 @@ export class Class {
   @Column({ type: 'decimal', precision: 10, scale: 2 })
   price: number;
 
+  @Column({ type: 'simple-array', nullable: true, default: '' })
+  courseIds: string[];
+
   @CreateDateColumn()
   createdAt: Date;
 

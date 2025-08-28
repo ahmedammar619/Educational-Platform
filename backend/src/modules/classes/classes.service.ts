@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
 import { Class } from './entities/class.entity';
 import { User } from '../users/entities/user.entity';
+import { Course } from '../courses/entities/course.entity';
 import { CreateClassDto } from './dto/create-class.dto';
 import { UpdateClassDto } from './dto/update-class.dto';
 import { EnrollStudentsDto } from './dto/enroll-students.dto';
@@ -15,6 +16,8 @@ export class ClassesService {
     private readonly classRepository: Repository<Class>,
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
+    @InjectRepository(Course)
+    private readonly courseRepository: Repository<Course>,
   ) {}
 
   async createClass(createClassDto: CreateClassDto): Promise<Class> {
@@ -25,28 +28,41 @@ export class ClassesService {
       throw new BadRequestException('End date must be after start date');
     }
 
-    const classEntity = this.classRepository.create(createClassDto);
+    const classEntity = this.classRepository.create({
+      ...createClassDto,
+      courseIds: [] // Initialize courseIds as empty array
+    });
     return await this.classRepository.save(classEntity);
   }
 
   async findAllClasses(): Promise<Class[]> {
-    return await this.classRepository.find({
-      relations: ['students'],
+    const classes = await this.classRepository.find({
+      relations: ['students'], // Only load students, not full course objects
       order: { createdAt: 'DESC' }
     });
+
+    // Ensure courseIds is always an array, not null
+    return classes.map(classEntity => ({
+      ...classEntity,
+      courseIds: classEntity.courseIds || []
+    }));
   }
 
   async findClassById(id: string): Promise<Class> {
     const classEntity = await this.classRepository.findOne({
       where: { id },
-      relations: ['students', 'courses']
+      relations: ['students'] // Only load students, not full course objects
     });
 
     if (!classEntity) {
       throw new NotFoundException(`Class with ID ${id} not found`);
     }
 
-    return classEntity;
+    // Ensure courseIds is always an array, not null
+    return {
+      ...classEntity,
+      courseIds: classEntity.courseIds || []
+    };
   }
 
   async updateClass(id: string, updateClassDto: UpdateClassDto): Promise<Class> {
@@ -64,7 +80,18 @@ export class ClassesService {
 
   async deleteClass(id: string): Promise<void> {
     const classEntity = await this.findClassById(id);
-    await this.classRepository.remove(classEntity);
+    
+    // First, remove all students from the class
+    if (classEntity.students && classEntity.students.length > 0) {
+      classEntity.students = [];
+      await this.classRepository.save(classEntity);
+    }
+    
+    // Delete all courses associated with this class first
+    await this.courseRepository.delete({ classId: id });
+    
+    // Now delete the class
+    await this.classRepository.delete(id);
   }
 
   async enrollStudents(classId: string, enrollDto: EnrollStudentsDto): Promise<void> {

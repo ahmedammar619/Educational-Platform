@@ -14,6 +14,8 @@ export const API_CONFIG = {
     },
     USERS: '/api/users',
     COURSES: '/api/courses',
+    CLASSES: '/api/classes',
+    MATERIALS: '/api/materials',
     TEACHERS: '/api/teachers',
     STUDENTS: '/api/students',
     PARENTS: '/api/parents',

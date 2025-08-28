@@ -1,6 +1,4 @@
-import { IsString, IsNotEmpty, Length, IsUUID, IsArray, ValidateNested } from 'class-validator';
-import { Type } from 'class-transformer';
-import { CreateSessionDto } from './create-session.dto';
+import { IsString, IsNotEmpty, Length, IsUUID, IsArray, IsOptional } from 'class-validator';
 
 export class CreateCourseDto {
   @IsString()
@@ -15,7 +13,6 @@ export class CreateCourseDto {
   classId: string;
 
   @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => CreateSessionDto)
-  sessions: CreateSessionDto[];
+  @IsOptional()
+  sessions?: any[];
 }

@@ -176,7 +176,7 @@ export class ParentsService {
     }
     
     // Delete parent record first (this will cascade to user due to the relationship)
-    await this.parentRepository.remove(parent);
+    await this.parentRepository.delete(id);
   }
 
   async addChild(parentId: string, addChildDto: AddChildDto): Promise<Parent> {
