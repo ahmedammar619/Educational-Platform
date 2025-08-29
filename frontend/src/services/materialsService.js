@@ -92,13 +92,24 @@ class MaterialsService {
         formData.append('folderId', folderId);
       }
 
+      console.log('📤 Uploading file with FormData:', {
+        courseId,
+        fileName: file.name,
+        fileSize: file.size,
+        folderId,
+        formDataKeys: Array.from(formData.keys())
+      });
+
       const response = await api.post(`/api/materials/courses/${courseId}/files`, formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
       });
+      
+      console.log('📥 Upload response:', response);
       return response.data;
     } catch (error) {
+      console.error('❌ Upload error:', error);
       // Error is already handled by the API interceptor
       throw error;
     }
@@ -106,7 +117,8 @@ class MaterialsService {
 
   async getCourseFiles(courseId, folderId = null) {
     try {
-      const params = folderId ? { folderId } : {};
+      // Always send folderId parameter - null for root, specific ID for subfolders
+      const params = { folderId };
       const response = await api.get(`/api/materials/courses/${courseId}/files`, { params });
       return response.data;
     } catch (error) {
@@ -118,6 +130,16 @@ class MaterialsService {
   async deleteFile(fileId) {
     try {
       const response = await api.delete(`/api/materials/files/${fileId}`);
+      return response.data;
+    } catch (error) {
+      // Error is already handled by the API interceptor
+      throw error;
+    }
+  }
+
+  async updateFolder(folderId, updateData) {
+    try {
+      const response = await api.patch(`/api/materials/folders/${folderId}`, updateData);
       return response.data;
     } catch (error) {
       // Error is already handled by the API interceptor

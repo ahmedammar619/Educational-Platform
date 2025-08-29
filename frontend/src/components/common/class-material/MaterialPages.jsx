@@ -113,7 +113,7 @@ const MaterialPages = ({ classData, onBack, currentUser }) => {
     <div className="h-screen flex flex-col space-y-4 sm:space-y-6 overflow-hidden" style={{ height: 'calc(100vh - 100px)' }}>
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 justify-center">
           <button
             onClick={onBack}
             className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors"
@@ -127,7 +127,7 @@ const MaterialPages = ({ classData, onBack, currentUser }) => {
       </div>
 
       {/* Tabs */}
-      <div className="bg-white rounded-lg shadow-sm border flex-shrink-0">
+      <div className="bg-white rounded-lg shadow-sm border flex-shrink-0" style={{ marginTop: '10px' }}>
         <div className="flex border-b border-gray-200">
           {canViewPosts() && (
             <button
