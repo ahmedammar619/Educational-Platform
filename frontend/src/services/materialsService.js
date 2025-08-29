@@ -272,6 +272,31 @@ class MaterialsService {
     }
   }
 
+  // File operations
+  async downloadFile(fileId) {
+    try {
+      const response = await api.get(`/api/materials/files/${fileId}/download`, {
+        responseType: 'blob'
+      });
+      return response.data;
+    } catch (error) {
+      // Error is already handled by the API interceptor
+      throw error;
+    }
+  }
+
+  async previewFile(fileId) {
+    try {
+      const response = await api.get(`/api/materials/files/${fileId}/download?view=true`, {
+        responseType: 'blob'
+      });
+      return response.data;
+    } catch (error) {
+      // Error is already handled by the API interceptor
+      throw error;
+    }
+  }
+
   // General course materials
   async getCourseMaterials(courseId) {
     try {

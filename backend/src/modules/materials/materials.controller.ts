@@ -144,10 +144,32 @@ export class MaterialsController {
     @Body() updatePostDto: UpdatePostDto,
     @UploadedFile() file: Express.Multer.File,
   ): Promise<PostResponseDto> {
-    console.log('Controller - Updating post:', { postId, updatePostDto, file: file?.originalname });
+    console.log('Controller - Updating post:', { 
+      postId: postId,
+      postIdType: typeof postId,
+      postIdLength: postId?.length,
+      updatePostDto: {
+        subject: updatePostDto?.subject,
+        description: updatePostDto?.description,
+        attachmentFileNames: updatePostDto?.attachmentFileNames
+      },
+      file: file ? {
+        originalname: file.originalname,
+        size: file.size,
+        mimetype: file.mimetype,
+        bufferLength: file.buffer?.length
+      } : null
+    });
     try {
       const post = await this.materialsService.updatePost(postId, updatePostDto, file);
-      console.log('Controller - Post updated successfully:', post.id);
+      console.log('Controller - Post updated successfully:', {
+        id: post.id,
+        attachmentsCount: post.attachments?.length || 0,
+        hasAuthor: !!post.author,
+        hasCourse: !!post.course
+      });
+      
+      console.log('Controller - Starting response transformation...');
       const response = {
         id: post.id,
         courseId: post.courseId,
@@ -174,7 +196,12 @@ export class MaterialsController {
           uploadedAt: attachment.uploadedAt
         })) : []
       };
-      console.log('Controller - Response transformed:', response);
+      console.log('Controller - Response transformed successfully:', {
+        id: response.id,
+        attachmentsCount: response.attachments.length,
+        hasAuthor: !!response.author,
+        hasCourse: !!response.course
+      });
       return response;
     } catch (error) {
       console.error('Controller - Error updating post:', error);
@@ -435,12 +462,13 @@ export class MaterialsController {
   }
 
   @Get('files/:fileId/download')
-  @ApiOperation({ summary: 'Download a file' })
-  @ApiResponse({ status: 200, description: 'File download successful' })
+  @ApiOperation({ summary: 'Download or view a file' })
+  @ApiResponse({ status: 200, description: 'File download/view successful' })
   @ApiResponse({ status: 404, description: 'File not found' })
   @Roles(Role.Admin, Role.Teacher, Role.Student)
   async downloadFile(
     @Param('fileId') fileId: string,
+    @Query('view') view: string,
     @Res() res: Response
   ): Promise<void> {
     const file = await this.materialsService.getFileById(fileId);
@@ -456,10 +484,16 @@ export class MaterialsController {
       throw new NotFoundException('File not found on disk');
     }
 
-    // Set appropriate headers for file download
+    // Set appropriate headers
     res.setHeader('Content-Type', file.mimeType);
-    res.setHeader('Content-Disposition', `attachment; filename="${file.fileName}"`);
     res.setHeader('Content-Length', file.fileSize);
+    
+    // If view=true, open in browser; otherwise download
+    if (view === 'true') {
+      res.setHeader('Content-Disposition', `inline; filename="${file.fileName}"`);
+    } else {
+      res.setHeader('Content-Disposition', `attachment; filename="${file.fileName}"`);
+    }
 
     // Stream the file to the response
     const fileStream = fs.createReadStream(filePath);
@@ -584,16 +618,29 @@ export class MaterialsController {
   @Roles(Role.Admin, Role.Teacher, Role.Student)
   async previewAttachment(
     @Param('attachmentId') attachmentId: string,
-    @Res() res: any,
+    @Res() res: Response
   ): Promise<void> {
     const attachment = await this.materialsService.getAttachment(attachmentId);
     if (!attachment) {
       throw new NotFoundException('Attachment not found');
     }
 
-    const filePath = require('path').join(process.cwd(), 'uploads', attachment.filePath);
+    const filePath = path.join(process.cwd(), 'uploads', attachment.filePath);
+    
+    // Check if file exists on disk
+    const fs = require('fs');
+    if (!fs.existsSync(filePath)) {
+      throw new NotFoundException('File not found on disk');
+    }
+
+    // Set appropriate headers for preview
     res.setHeader('Content-Type', attachment.mimeType);
-    res.sendFile(filePath);
+    res.setHeader('Content-Length', attachment.fileSize);
+    res.setHeader('Content-Disposition', `inline; filename="${attachment.fileName}"`);
+
+    // Stream the file to the response
+    const fileStream = fs.createReadStream(filePath);
+    fileStream.pipe(res);
   }
 
   // Debug endpoint to check post attachments
