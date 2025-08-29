@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Folder, Plus, Upload, ArrowLeft, Edit, Trash2, Download, FileText } from 'lucide-react';
+import { Folder, Plus, Upload, ArrowLeft, Edit, Trash2, Download, FileText, FileImage, FileVideo, FileAudio, File, FileSpreadsheet, FileCode, FileArchive } from 'lucide-react';
 import { materialsService } from '../../../services';
 import { showErrorToast, showSuccessToast } from '../../../utils/errorHandler';
 
@@ -11,47 +11,144 @@ const FilesTab = ({ currentUser, theme, courseId }) => {
   const [newFolderName, setNewFolderName] = useState('');
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [uploadedFile, setUploadedFile] = useState(null);
+  const [fileInputRef, setFileInputRef] = useState(null);
   const [showEditFolderModal, setShowEditFolderModal] = useState(false);
   const [editingFolder, setEditingFolder] = useState(null);
   const [editFolderName, setEditFolderName] = useState('');
   const [selectedFolderForView, setSelectedFolderForView] = useState(null);
-  const [showEditFileModal, setShowEditFileModal] = useState(false);
-  const [editingFile, setEditingFile] = useState(null);
-  const [editFileName, setEditFileName] = useState('');
+  const [folderBreadcrumb, setFolderBreadcrumb] = useState([]);
+
 
   // Load files when component mounts or courseId changes
   useEffect(() => {
     if (courseId) {
+      // Reset navigation state when course changes
+      setSelectedFolderForView(null);
+      setFolderBreadcrumb([]);
       loadFiles();
     }
   }, [courseId]);
 
-  const loadFiles = async () => {
+  // Monitor selectedFolderForView changes
+  useEffect(() => {
+    console.log('🔍 selectedFolderForView changed:', {
+      selectedFolderForView: selectedFolderForView,
+      folderId: selectedFolderForView?.id,
+      folderName: selectedFolderForView?.name
+    });
+  }, [selectedFolderForView]);
+
+  // Monitor folderBreadcrumb changes
+  useEffect(() => {
+    console.log('🔍 folderBreadcrumb changed:', {
+      breadcrumbLength: folderBreadcrumb.length,
+      breadcrumb: folderBreadcrumb.map(f => ({ id: f.id, name: f.name }))
+    });
+  }, [folderBreadcrumb]);
+
+  // Cleanup file input when component unmounts
+  useEffect(() => {
+    return () => {
+      if (fileInputRef) {
+        document.body.removeChild(fileInputRef);
+      }
+    };
+  }, [fileInputRef]);
+
+  const loadFiles = async (folderId = null) => {
     try {
       setLoading(true);
-      const response = await materialsService.getCourseFiles(courseId);
+      console.log('🔍 Loading files for:', {
+        courseId: courseId,
+        folderId: folderId,
+        folderName: selectedFolderForView?.name || 'root'
+      });
+      
+      const response = await materialsService.getCourseFiles(courseId, folderId);
+      
+      console.log('🔍 Raw API response:', response);
       
       // Handle different response formats
       let filesData = [];
-      if (Array.isArray(response)) {
+      
+      // Check if response contains rate limiting information
+      if (response && response._rateLimitInfo) {
+        console.warn('Rate limiting detected:', response._rateLimitInfo);
+        showErrorToast(null, 'Request rate limited. Please wait a moment and try again.');
+        filesData = [];
+      } else if (Array.isArray(response)) {
         filesData = response;
+        console.log('📁 Files data from array:', filesData);
       } else if (response && Array.isArray(response.data)) {
         filesData = response.data;
+        console.log('📁 Files data from response.data:', filesData);
       } else if (response && response.files && Array.isArray(response.files)) {
         filesData = response.files;
+        console.log('📁 Files data from response.files:', filesData);
+      } else if (response && response.message && response.message.includes('rate limit')) {
+        console.warn('Rate limiting detected in message:', response.message);
+        showErrorToast(null, 'Request rate limited. Please wait a moment and try again.');
+        filesData = [];
       } else {
         console.log('Unexpected response format:', response);
+        // Don't show error for unexpected format, just use empty array
         filesData = [];
       }
       
-      // Separate folders and root files
+      // Debug: Log each item to see its structure
+      filesData.forEach((item, index) => {
+        console.log(`📄 Item ${index}:`, {
+          id: item.id,
+          name: item.name,
+          type: item.type,
+          isFolder: item.isFolder,
+          hasType: 'type' in item,
+          hasIsFolder: 'isFolder' in item
+        });
+      });
+      
+      // Separate folders and files
       const foldersData = filesData.filter(item => item.type === 'folder' || item.isFolder);
       const filesDataOnly = filesData.filter(item => item.type !== 'folder' && !item.isFolder);
+      
+      // The backend now returns files directly based on folderId
+      // filesDataOnly contains the files for the current folder
+      let currentFolderFiles = [];
+      
+      if (folderId) {
+        // We're viewing a specific folder - filesDataOnly already contains files for this folder
+        currentFolderFiles = filesDataOnly.map(file => ({
+          ...file,
+          type: 'file',
+          isFolder: false
+        }));
+        console.log('📁 Viewing specific folder:', folderId, 'Files in this folder:', currentFolderFiles.length);
+      } else {
+        // We're at root - filesDataOnly already contains root-level files
+        currentFolderFiles = filesDataOnly.map(file => ({
+          ...file,
+          type: 'file',
+          isFolder: false
+        }));
+        console.log('📁 Viewing root folder - Root files only:', currentFolderFiles.length);
+      }
+      
+      console.log('📂 Folders found:', foldersData.length, foldersData);
+      console.log('📄 Root files found:', filesDataOnly.length, filesDataOnly);
+      console.log('📄 Current folder files:', currentFolderFiles.length, currentFolderFiles);
+      
       setFolders(foldersData);
-      setRootFiles(filesDataOnly);
+      setRootFiles(currentFolderFiles);
     } catch (error) {
       console.error('Error loading files:', error);
-      showErrorToast(error, 'Failed to load files. Please try again.');
+      
+      // Check if error is related to rate limiting
+      if (error.message && error.message.toLowerCase().includes('rate limit')) {
+        showErrorToast(null, 'Request rate limited. Please wait a moment and try again.');
+      } else {
+        showErrorToast(error, 'Failed to load files. Please try again.');
+      }
+      
       setFolders([]);
       setRootFiles([]);
     } finally {
@@ -92,17 +189,38 @@ const FilesTab = ({ currentUser, theme, courseId }) => {
           parentFolderId: selectedFolderForView?.id || null
         };
 
+        console.log('🔍 Creating folder with data:', {
+          folderName: newFolderName.trim(),
+          parentFolderId: selectedFolderForView?.id,
+          parentFolderName: selectedFolderForView?.name,
+          courseId: courseId
+        });
+
         await materialsService.createFolder(courseId, folderData);
         
-        // Reload files to get the updated list
-        await loadFiles();
+        // Add a small delay before reloading to avoid rate limiting
+        setTimeout(async () => {
+          try {
+            // Reload the current folder contents (or root if not in a folder)
+            await loadFiles(selectedFolderForView?.id || null);
+          } catch (reloadError) {
+            console.warn('Error reloading files after folder creation:', reloadError);
+            // Don't show error to user, just log it
+          }
+        }, 500);
         
         setNewFolderName('');
         setShowNewFolderModal(false);
         showSuccessToast('Folder created successfully!');
       } catch (error) {
         console.error('Error creating folder:', error);
-        showErrorToast(error, 'Failed to create folder. Please try again.');
+        
+        // Check if error is related to rate limiting
+        if (error.message && error.message.toLowerCase().includes('rate limit')) {
+          showErrorToast(null, 'Request rate limited. Please wait a moment and try again.');
+        } else {
+          showErrorToast(error, 'Failed to create folder. Please try again.');
+        }
       }
     }
   };
@@ -110,18 +228,137 @@ const FilesTab = ({ currentUser, theme, courseId }) => {
   const handleFileUpload = async () => {
     if (uploadedFile && courseId) {
       try {
-        await materialsService.uploadFile(courseId, uploadedFile, selectedFolderForView?.id);
+        console.log('📤 Frontend - Starting file upload (modal):', {
+          fileName: uploadedFile.name,
+          fileSize: uploadedFile.size,
+          courseId: courseId,
+          folderId: selectedFolderForView?.id,
+          folderName: selectedFolderForView?.name,
+          isInSubfolder: !!selectedFolderForView
+        });
+
+        // Use selectedFolderForView if available, otherwise use the last folder in breadcrumb
+        const currentFolderId = selectedFolderForView?.id || (folderBreadcrumb.length > 0 ? folderBreadcrumb[folderBreadcrumb.length - 1]?.id : null);
         
-        // Reload files to get the updated list
-        await loadFiles();
+        console.log('📁 Frontend - Uploading to folder (modal):', {
+          selectedFolderForViewId: selectedFolderForView?.id,
+          breadcrumbLastFolderId: folderBreadcrumb.length > 0 ? folderBreadcrumb[folderBreadcrumb.length - 1]?.id : null,
+          finalFolderId: currentFolderId
+        });
+
+        await materialsService.uploadFile(courseId, uploadedFile, currentFolderId);
+        
+        console.log('✅ Frontend - File upload successful (modal)');
+        showSuccessToast('File uploaded successfully!');
+        
+        // Add a small delay before reloading to avoid rate limiting
+        setTimeout(async () => {
+          try {
+            // Reload the current folder contents (or root if not in a folder)
+            console.log('🔄 Frontend - Reloading files for folder (modal):', currentFolderId || 'root');
+            await loadFiles(currentFolderId);
+          } catch (reloadError) {
+            console.warn('Error reloading files after file upload:', reloadError);
+            // Don't show error to user, just log it
+          }
+        }, 500);
         
         setUploadedFile(null);
         setShowUploadModal(false);
-        showSuccessToast('File uploaded successfully!');
       } catch (error) {
-        console.error('Error uploading file:', error);
-        showErrorToast(error, 'Failed to upload file. Please try again.');
+        console.error('❌ Frontend - File upload error (modal):', error);
+        
+        // Check if error is related to rate limiting
+        if (error.message && error.message.toLowerCase().includes('rate limit')) {
+          showErrorToast(null, 'Request rate limited. Please wait a moment and try again.');
+        } else {
+          showErrorToast(error, 'Failed to upload file. Please try again.');
+        }
       }
+    }
+  };
+
+  const handleDirectFileUpload = () => {
+    // Capture the current folder ID at the time of upload trigger
+    const currentFolderId = selectedFolderForView?.id || (folderBreadcrumb.length > 0 ? folderBreadcrumb[folderBreadcrumb.length - 1]?.id : null);
+    
+    console.log('📁 Frontend - Direct file upload triggered:', {
+      selectedFolderForView: selectedFolderForView,
+      folderId: selectedFolderForView?.id,
+      folderName: selectedFolderForView?.name,
+      breadcrumbLength: folderBreadcrumb.length,
+      capturedFolderId: currentFolderId
+    });
+
+    // Create a hidden file input if it doesn't exist
+    let input = fileInputRef;
+    if (!input) {
+      input = document.createElement('input');
+      input.type = 'file';
+      input.style.display = 'none';
+      // Pass the captured folder ID to the file select handler
+      input.onchange = (event) => handleFileSelect(event, currentFolderId);
+      document.body.appendChild(input);
+      setFileInputRef(input);
+    } else {
+      // Update the existing input's onchange handler with current folder ID
+      input.onchange = (event) => handleFileSelect(event, currentFolderId);
+    }
+    
+    // Trigger the file picker
+    input.click();
+  };
+
+  const handleFileSelect = async (event, capturedFolderId = null) => {
+    const file = event.target.files[0];
+    if (file && courseId) {
+      try {
+        // Use the captured folder ID if provided, otherwise fall back to state
+        const currentFolderId = capturedFolderId || selectedFolderForView?.id || (folderBreadcrumb.length > 0 ? folderBreadcrumb[folderBreadcrumb.length - 1]?.id : null);
+        
+        console.log('📤 Frontend - Starting file upload:', {
+          fileName: file.name,
+          fileSize: file.size,
+          courseId: courseId,
+          capturedFolderId: capturedFolderId,
+          selectedFolderForViewId: selectedFolderForView?.id,
+          breadcrumbLastFolderId: folderBreadcrumb.length > 0 ? folderBreadcrumb[folderBreadcrumb.length - 1]?.id : null,
+          finalFolderId: currentFolderId,
+          isInSubfolder: !!currentFolderId
+        });
+
+        await materialsService.uploadFile(courseId, file, currentFolderId);
+        
+        console.log('✅ Frontend - File upload successful');
+        showSuccessToast('File uploaded successfully!');
+        
+        // Add a small delay before reloading to avoid rate limiting
+        setTimeout(async () => {
+          try {
+            // Reload the current folder contents (or root if not in a folder)
+            console.log('🔄 Frontend - Reloading files for folder:', currentFolderId || 'root');
+            await loadFiles(currentFolderId);
+          } catch (reloadError) {
+            console.warn('Error reloading files after file upload:', reloadError);
+            // Don't show error to user, just log it
+          }
+        }, 500);
+      } catch (error) {
+        console.error('❌ Frontend - File upload error:', error);
+        showErrorToast(error, 'Failed to upload file. Please try again.');
+        
+        // Check if error is related to rate limiting
+        if (error.message && error.message.toLowerCase().includes('rate limit')) {
+          showErrorToast(null, 'Request rate limited. Please wait a moment and try again.');
+        } else {
+          showErrorToast(error, 'Failed to upload file. Please try again.');
+        }
+      }
+    }
+    
+    // Clean up the input
+    if (fileInputRef) {
+      fileInputRef.value = '';
     }
   };
 
@@ -131,16 +368,27 @@ const FilesTab = ({ currentUser, theme, courseId }) => {
     setShowEditFolderModal(true);
   };
 
-  const handleUpdateFolder = () => {
+  const handleUpdateFolder = async () => {
     if (editFolderName.trim() && editingFolder) {
-      setFolders(folders.map(f =>
-        f.id === editingFolder.id
-          ? { ...f, name: editFolderName.trim() }
-          : f
-      ));
-      setEditFolderName('');
-      setEditingFolder(null);
-      setShowEditFolderModal(false);
+      try {
+        await materialsService.updateFolder(editingFolder.id, { name: editFolderName.trim() });
+        
+        // Update local state
+        setFolders(folders.map(f =>
+          f.id === editingFolder.id
+            ? { ...f, name: editFolderName.trim() }
+            : f
+        ));
+        
+        setEditFolderName('');
+        setEditingFolder(null);
+        setShowEditFolderModal(false);
+        
+        showSuccessToast('Folder updated successfully!');
+      } catch (error) {
+        console.error('Error updating folder:', error);
+        showErrorToast(error, 'Failed to update folder. Please try again.');
+      }
     }
   };
 
@@ -149,23 +397,79 @@ const FilesTab = ({ currentUser, theme, courseId }) => {
       try {
         await materialsService.deleteFolder(folderId);
         
-        // Reload files to get the updated list
-        await loadFiles();
+        // Add a small delay before reloading to avoid rate limiting
+        setTimeout(async () => {
+          try {
+            // Reload the current folder contents (or root if not in a folder)
+            await loadFiles(selectedFolderForView?.id || null);
+          } catch (reloadError) {
+            console.warn('Error reloading files after folder deletion:', reloadError);
+            // Don't show error to user, just log it
+          }
+        }, 500);
         
         showSuccessToast('Folder deleted successfully!');
       } catch (error) {
         console.error('Error deleting folder:', error);
-        showErrorToast(error, 'Failed to delete folder. Please try again.');
+        
+        // Check if error is related to rate limiting
+        if (error.message && error.message.toLowerCase().includes('rate limit')) {
+          showErrorToast(null, 'Request rate limited. Please wait a moment and try again.');
+        } else {
+          showErrorToast(error, 'Failed to delete folder. Please try again.');
+        }
       }
     }
   };
 
-  const handleOpenFolder = (folder) => {
+  const handleOpenFolder = async (folder) => {
+    console.log('🔍 Opening folder:', {
+      folderId: folder.id,
+      folderName: folder.name,
+      parentFolderId: folder.parentFolderId,
+      courseId: folder.courseId
+    });
+    
+    // Add current folder to breadcrumb
+    setFolderBreadcrumb(prev => [...prev, folder]);
     setSelectedFolderForView(folder);
+    
+    console.log('🔍 State after opening folder:', {
+      selectedFolderForView: folder,
+      breadcrumbLength: folderBreadcrumb.length + 1
+    });
+    
+    // Load the contents of this specific folder
+    await loadFiles(folder.id);
   };
 
-  const handleBackToFolders = () => {
-    setSelectedFolderForView(null);
+  const handleBackToFolders = async () => {
+    console.log('🔍 Going back from folder:', {
+      currentFolder: selectedFolderForView?.name,
+      breadcrumbLength: folderBreadcrumb.length
+    });
+
+    if (folderBreadcrumb.length > 0) {
+      // Remove the last folder from breadcrumb
+      const newBreadcrumb = [...folderBreadcrumb];
+      newBreadcrumb.pop();
+      setFolderBreadcrumb(newBreadcrumb);
+
+      if (newBreadcrumb.length > 0) {
+        // Go back to the previous folder in breadcrumb
+        const parentFolder = newBreadcrumb[newBreadcrumb.length - 1];
+        setSelectedFolderForView(parentFolder);
+        await loadFiles(parentFolder.id);
+      } else {
+        // Go back to root level
+        setSelectedFolderForView(null);
+        await loadFiles();
+      }
+    } else {
+      // Fallback: go to root level
+      setSelectedFolderForView(null);
+      await loadFiles();
+    }
   };
 
   const handleDeleteFile = async (fileId) => {
@@ -173,22 +477,50 @@ const FilesTab = ({ currentUser, theme, courseId }) => {
       try {
         await materialsService.deleteFile(fileId);
         
-        // Reload files to get the updated list
-        await loadFiles();
+        // Add a small delay before reloading to avoid rate limiting
+        setTimeout(async () => {
+          try {
+            // Reload the current folder contents (or root if not in a folder)
+            await loadFiles(selectedFolderForView?.id || null);
+          } catch (reloadError) {
+            console.warn('Error reloading files after file deletion:', reloadError);
+            // Don't show error to user, just log it
+          }
+        }, 500);
         
         showSuccessToast('File deleted successfully!');
       } catch (error) {
         console.error('Error deleting file:', error);
-        showErrorToast(error, 'Failed to delete file. Please try again.');
+        
+        // Check if error is related to rate limiting
+        if (error.message && error.message.toLowerCase().includes('rate limit')) {
+          showErrorToast(null, 'Request rate limited. Please wait a moment and try again.');
+        } else {
+          showErrorToast(error, 'Failed to delete file. Please try again.');
+        }
       }
     }
   };
 
   const handleDownloadFile = async (file) => {
     try {
-      // In a real implementation, this would download the actual file from the backend
-      // For now, we'll show a message that this feature needs backend implementation
-      showErrorToast(null, 'File download feature needs backend implementation');
+      console.log('📥 Downloading file:', file.fileName);
+      
+      // Create download URL using the new backend endpoint
+      const downloadUrl = `/api/materials/files/${file.id}/download`;
+      
+      // Create a temporary link element to trigger download
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      link.download = getCleanFileName(file.fileName || file.name);
+      link.style.display = 'none';
+      
+      // Add to DOM, click, and remove
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      showSuccessToast('File download started');
     } catch (error) {
       console.error('Error downloading file:', error);
       showErrorToast(error, 'Failed to download file');
@@ -197,37 +529,92 @@ const FilesTab = ({ currentUser, theme, courseId }) => {
 
   const handleOpenFile = async (file) => {
     try {
-      // In a real implementation, this would open the actual file from the backend
-      // For now, we'll show a message that this feature needs backend implementation
-      showErrorToast(null, 'File preview feature needs backend implementation');
+      console.log('👁️ Opening file:', file.fileName);
+      
+      // Create download URL using the new backend endpoint
+      const downloadUrl = `/api/materials/files/${file.id}/download`;
+      
+      // Open file in new tab/window
+      window.open(downloadUrl, '_blank');
+      
+      showSuccessToast('File opened in new tab');
     } catch (error) {
       console.error('Error opening file:', error);
       showErrorToast(error, 'Failed to open file');
     }
   };
 
-  const handleEditFile = (file) => {
-    setEditingFile(file);
-    setEditFileName(file.name);
-    setShowEditFileModal(true);
+
+
+  // Function to extract clean file name without timestamp and random numbers
+  const getCleanFileName = (fileName) => {
+    if (!fileName) return 'Unknown File';
+    
+    // Remove various timestamp and random patterns:
+    // Pattern 1: -1756473298101-159680209 (13-digit timestamp + 9-digit random)
+    // Pattern 2: -1756453706003-t0ydrv (13-digit timestamp + random string)
+    let cleanName = fileName.replace(/-\d{13}-\d{9}/, ''); // Pattern 1
+    cleanName = cleanName.replace(/-\d{13}-[a-zA-Z0-9]+/, ''); // Pattern 2
+    
+    return cleanName;
   };
 
-  const handleUpdateFile = async () => {
-    if (editFileName.trim() && editingFile) {
-      try {
-        // Note: The backend doesn't have a file rename endpoint yet
-        // This would need to be implemented in the backend
-        showErrorToast(null, 'File rename feature needs backend implementation');
-        
-        setEditFileName('');
-        setEditingFile(null);
-        setShowEditFileModal(false);
-      } catch (error) {
-        console.error('Error updating file:', error);
-        showErrorToast(error, 'Failed to update file. Please try again.');
-      }
+  // Function to get appropriate icon based on file type
+  const getFileIcon = (file) => {
+    const fileName = file.fileName || file.name || '';
+    const mimeType = file.mimeType || '';
+    const extension = fileName.split('.').pop()?.toLowerCase() || '';
+
+    // Image files
+    if (mimeType.startsWith('image/') || ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'svg', 'webp', 'ico', 'tiff'].includes(extension)) {
+      return <FileImage className="h-6 w-6 text-blue-500" />;
     }
+    
+    // Video files
+    if (mimeType.startsWith('video/') || ['mp4', 'avi', 'mov', 'wmv', 'flv', 'webm', 'mkv', 'm4v'].includes(extension)) {
+      return <FileVideo className="h-6 w-6 text-purple-500" />;
+    }
+    
+    // Audio files
+    if (mimeType.startsWith('audio/') || ['mp3', 'wav', 'flac', 'aac', 'ogg', 'wma', 'm4a'].includes(extension)) {
+      return <FileAudio className="h-6 w-6 text-green-500" />;
+    }
+    
+    // PDF files
+    if (mimeType === 'application/pdf' || extension === 'pdf') {
+      return <FileText className="h-6 w-6 text-red-500" />;
+    }
+    
+    // Spreadsheet files
+    if (mimeType.includes('spreadsheet') || ['xlsx', 'xls', 'csv', 'ods'].includes(extension)) {
+      return <FileSpreadsheet className="h-6 w-6 text-green-600" />;
+    }
+    
+    // Code files
+    if (['js', 'jsx', 'ts', 'tsx', 'html', 'css', 'scss', 'sass', 'php', 'py', 'java', 'cpp', 'c', 'cs', 'rb', 'go', 'rs', 'swift', 'kt'].includes(extension)) {
+      return <FileCode className="h-6 w-6 text-yellow-500" />;
+    }
+    
+    // Archive files
+    if (mimeType.includes('zip') || mimeType.includes('rar') || mimeType.includes('7z') || ['zip', 'rar', '7z', 'tar', 'gz', 'bz2'].includes(extension)) {
+      return <FileArchive className="h-6 w-6 text-orange-500" />;
+    }
+    
+    // Word documents
+    if (mimeType.includes('document') || ['doc', 'docx', 'odt', 'rtf'].includes(extension)) {
+      return <FileText className="h-6 w-6 text-blue-600" />;
+    }
+    
+    // PowerPoint presentations
+    if (mimeType.includes('presentation') || ['ppt', 'pptx', 'odp'].includes(extension)) {
+      return <FileText className="h-6 w-6 text-orange-600" />;
+    }
+    
+    // Default file icon
+    return <File className="h-6 w-6 text-gray-400" />;
   };
+
+
 
   return (
     <div className="space-y-3">
@@ -293,9 +680,9 @@ const FilesTab = ({ currentUser, theme, courseId }) => {
                   onClick={() => handleOpenFile(file)}
                 >
                   <div className="flex items-center gap-2">
-                    <FileText className="h-6 w-6 text-gray-400" />
+                    {getFileIcon(file)}
                     <div className="flex-1">
-                      <h3 className="text-start text-gray-900 font-medium">{file.name}</h3>
+                      <h3 className="text-start text-gray-900 font-medium">{getCleanFileName(file.fileName || file.name)}</h3>
                     </div>
                     <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
                       <button
@@ -305,15 +692,6 @@ const FilesTab = ({ currentUser, theme, courseId }) => {
                       >
                         <Download className="h-4 w-4" />
                       </button>
-                      {canEditFiles() && (
-                        <button
-                          onClick={() => handleEditFile(file)}
-                          className="p-1 text-blue-500 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
-                          title="Edit file name"
-                        >
-                          <Edit className="h-4 w-4" />
-                        </button>
-                      )}
                       {canDeleteFiles() && (
                         <button
                           onClick={() => handleDeleteFile(file.id)}
@@ -345,7 +723,7 @@ const FilesTab = ({ currentUser, theme, courseId }) => {
                 )}
                 {canUploadFiles() && (
                   <button
-                    onClick={() => setShowUploadModal(true)}
+                    onClick={handleDirectFileUpload}
                     className={`px-3 py-2 border-2 border-${currentUser?.role === 'admin' ? 'blue' : 'green'}-600 text-${currentUser?.role === 'admin' ? 'blue' : 'green'}-600 rounded-lg hover:bg-${currentUser?.role === 'admin' ? 'blue' : 'green'}-50 transition-colors flex items-center gap-2`}
                   >
                     <Upload className="h-5 w-5" />
@@ -358,7 +736,7 @@ const FilesTab = ({ currentUser, theme, courseId }) => {
         </>
       ) : (
         <>
-          {/* Folder Header */}
+          {/* Folder Header with Breadcrumb */}
           <div className="flex items-center gap-3 mb-4">
             <button
               onClick={handleBackToFolders}
@@ -368,21 +746,81 @@ const FilesTab = ({ currentUser, theme, courseId }) => {
             </button>
             <div className="flex items-center gap-2">
               <Folder className={`h-6 w-6 text-${theme.primary}-500`} />
-              <h2 className="text-xl font-bold text-gray-900">{selectedFolderForView.name}</h2>
+              <div className="flex items-center gap-1 text-sm">
+                {/* Breadcrumb Navigation */}
+                <button
+                  onClick={() => {
+                    setFolderBreadcrumb([]);
+                    setSelectedFolderForView(null);
+                    loadFiles();
+                  }}
+                  className="text-gray-600 hover:text-gray-800 hover:underline"
+                >
+                  Root
+                </button>
+                {folderBreadcrumb.map((folder, index) => (
+                  <div key={folder.id} className="flex items-center gap-1">
+                    <span className="text-gray-400">/</span>
+                    <button
+                      onClick={() => {
+                        // Navigate to this folder in breadcrumb
+                        const newBreadcrumb = folderBreadcrumb.slice(0, index + 1);
+                        setFolderBreadcrumb(newBreadcrumb);
+                        setSelectedFolderForView(folder);
+                        
+                        console.log('🔍 Breadcrumb navigation:', {
+                          clickedFolder: folder,
+                          newBreadcrumbLength: newBreadcrumb.length,
+                          selectedFolderForView: folder
+                        });
+                        
+                        loadFiles(folder.id);
+                      }}
+                      className="text-gray-600 hover:text-gray-800 hover:underline"
+                    >
+                      {folder.name}
+                    </button>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
 
           {/* Folder Content */}
           <div className="space-y-3">
             {/* Subfolders */}
-            {selectedFolderForView.subfolders && selectedFolderForView.subfolders.length > 0 && (
+            {folders.length > 0 && (
               <div className="space-y-2">
-                {selectedFolderForView.subfolders.map((subfolder) => (
-                  <div key={subfolder.id} className="bg-white rounded-lg p-3 border border-gray-200 hover:shadow-sm transition-shadow">
+                {folders.map((subfolder) => (
+                  <div 
+                    key={subfolder.id} 
+                    className="bg-white rounded-lg p-3 border border-gray-200 hover:shadow-sm transition-shadow cursor-pointer"
+                    onClick={() => handleOpenFolder(subfolder)}
+                  >
                     <div className="flex items-center gap-2">
                       <Folder className={`h-6 w-6 text-${theme.primary}-500`} />
                       <div className="flex-1">
                         <h5 className="text-start text-gray-900 font-medium">{subfolder.name}</h5>
+                      </div>
+                      <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
+                        {canEditFolder() && (
+                          <button
+                            onClick={() => handleEditFolder(subfolder)}
+                            className="p-1 text-blue-500 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                            title="Edit folder"
+                          >
+                            <Edit className="h-4 w-4" />
+                          </button>
+                        )}
+                        {canDeleteFolder() && (
+                          <button
+                            onClick={() => handleDeleteFolder(subfolder.id)}
+                            className="p-1 text-red-500 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                            title="Delete folder"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -391,24 +829,24 @@ const FilesTab = ({ currentUser, theme, courseId }) => {
             )}
 
             {/* Files */}
-            {selectedFolderForView.files.length === 0 ? (
+            {rootFiles.length === 0 && folders.length === 0 ? (
               <div className="text-center py-8">
                 <div className="w-16 h-16 bg-gray-100 rounded-full mx-auto flex items-center justify-center mb-3">
                   <FileText className="h-8 w-8 text-gray-400" />
                 </div>
                 <p className="text-gray-500">No files in this folder yet</p>
               </div>
-            ) : (
-              selectedFolderForView.files.map((file) => (
+            ) : rootFiles.length > 0 ? (
+              rootFiles.map((file) => (
                 <div
                   key={file.id}
                   className="bg-white rounded-lg p-3 border border-gray-200 hover:shadow-sm transition-shadow cursor-pointer"
                   onClick={() => handleOpenFile(file)}
                 >
                   <div className="flex items-center gap-3">
-                    <div className="text-2xl"><FileText className="h-6 w-6 text-gray-400" /></div>
+                    <div className="text-2xl">{getFileIcon(file)}</div>
                     <div className="flex-1">
-                      <h4 className="text-start text-gray-900 font-medium">{file.name}</h4>
+                      <h4 className="text-start text-gray-900 font-medium">{getCleanFileName(file.fileName || file.name)}</h4>
                     </div>
                     <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
                       <button
@@ -418,15 +856,6 @@ const FilesTab = ({ currentUser, theme, courseId }) => {
                       >
                         <Download className="h-4 w-4" />
                       </button>
-                      {canEditFiles() && (
-                        <button
-                          onClick={() => handleEditFile(file)}
-                          className="p-1 text-blue-500 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
-                          title="Edit file name"
-                        >
-                          <Edit className="h-4 w-4" />
-                        </button>
-                      )}
                       {canDeleteFiles() && (
                         <button
                           onClick={() => handleDeleteFile(file.id)}
@@ -440,7 +869,7 @@ const FilesTab = ({ currentUser, theme, courseId }) => {
                   </div>
                 </div>
               ))
-            )}
+            ) : null}
           </div>
 
           {/* Folder Action Buttons */}
@@ -458,7 +887,7 @@ const FilesTab = ({ currentUser, theme, courseId }) => {
                 )}
                 {canUploadFiles() && (
                   <button
-                    onClick={() => setShowUploadModal(true)}
+                    onClick={handleDirectFileUpload}
                     className={`px-3 py-2 border-2 border-${currentUser?.role === 'admin' ? 'blue' : 'green'}-600 text-${currentUser?.role === 'admin' ? 'blue' : 'green'}-600 rounded-lg hover:bg-${currentUser?.role === 'admin' ? 'blue' : 'green'}-50 transition-colors flex items-center gap-2`}
                   >
                     <Upload className="h-5 w-5" />
@@ -473,7 +902,7 @@ const FilesTab = ({ currentUser, theme, courseId }) => {
 
       {/* New Folder Modal */}
       {showNewFolderModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" style={{ margin: '0px' }}>
           <div className="bg-white rounded-lg p-6 w-96 shadow-xl">
             <h3 className="text-lg font-medium text-gray-900 mb-4">
               {selectedFolderForView ? `Create New Subfolder in ${selectedFolderForView.name}` : 'Create New Folder'}
@@ -504,14 +933,13 @@ const FilesTab = ({ currentUser, theme, courseId }) => {
         </div>
       )}
 
-      {/* Upload File Modal */}
-      {showUploadModal && (
+      {/* Upload File Modal - Commented out since we now use direct file upload */}
+      {/* {showUploadModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 w-96 shadow-xl">
             <h3 className="text-lg font-medium text-gray-900 mb-4">
               {selectedFolderForView ? `Upload File to ${selectedFolderForView.name}` : 'Upload File'}
             </h3>
-            {/* File Upload */}
             <div className="mb-4">
               <label className="block text-gray-700 text-sm mb-2">Select File</label>
               <input
@@ -520,7 +948,6 @@ const FilesTab = ({ currentUser, theme, courseId }) => {
                 className="w-full bg-gray-50 text-gray-900 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-blue-500 border border-gray-300"
               />
             </div>
-
             <div className="flex gap-3">
               <button
                 onClick={() => setShowUploadModal(false)}
@@ -538,11 +965,11 @@ const FilesTab = ({ currentUser, theme, courseId }) => {
             </div>
           </div>
         </div>
-      )}
+      )} */}
 
       {/* Edit Folder Modal */}
       {showEditFolderModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" style={{ margin: '0px' }}>
           <div className="bg-white rounded-lg p-6 w-96 shadow-xl">
             <h3 className="text-lg font-medium text-gray-900 mb-4">Edit Folder</h3>
             <input
@@ -575,40 +1002,7 @@ const FilesTab = ({ currentUser, theme, courseId }) => {
         </div>
       )}
 
-      {/* Edit File Modal */}
-      {showEditFileModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-96 shadow-xl">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">Edit File Name</h3>
-            <input
-              type="text"
-              value={editFileName}
-              onChange={(e) => setEditFileName(e.target.value)}
-              placeholder="File name"
-              className="w-full bg-gray-50 text-gray-900 placeholder-gray-500 rounded-lg p-3 mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500 border border-gray-300"
-            />
-            <div className="flex gap-3">
-              <button
-                onClick={() => {
-                  setShowEditFileModal(false);
-                  setEditingFile(null);
-                  setEditFileName('');
-                }}
-                className="flex-1 px-4 py-2 border-2 border-gray-400 text-gray-600 rounded-lg hover:bg-gray-50 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleUpdateFile}
-                disabled={!editFileName.trim()}
-                className={`flex-1 px-4 py-2 border-2 border-${theme.primary}-600 text-${theme.primary}-600 rounded-lg hover:bg-${theme.primaryLight} disabled:opacity-50 transition-colors`}
-              >
-                Update
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+
     </div>
   );
 };

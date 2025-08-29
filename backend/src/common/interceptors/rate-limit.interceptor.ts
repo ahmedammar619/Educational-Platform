@@ -14,8 +14,9 @@ export class RateLimitInterceptor implements NestInterceptor {
     
     return next.handle().pipe(
       map(data => {
-        // Add rate limit info to response body for debugging
-        if (process.env.NODE_ENV === 'development') {
+        // Only add rate limit info to response body in development if explicitly requested
+        // This prevents adding it to every response which was causing confusion
+        if (process.env.NODE_ENV === 'development' && request.query?.includeRateLimitInfo === 'true') {
           return {
             ...data,
             _rateLimitInfo: {

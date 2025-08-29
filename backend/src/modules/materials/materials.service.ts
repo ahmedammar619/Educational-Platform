@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, IsNull } from 'typeorm';
 import { unlink, mkdir, writeFile } from 'fs/promises';
 import * as path from 'path';
 import { Post } from './entities/post.entity';
@@ -326,6 +326,19 @@ export class MaterialsService {
       }
     }
 
+    // Check if a folder with the same name already exists in the same course and parent folder
+    const existingFolder = await this.folderRepository.findOne({
+      where: {
+        name: createFolderDto.name,
+        courseId,
+        parentFolderId: createFolderDto.parentFolderId || null
+      }
+    });
+
+    if (existingFolder) {
+      throw new BadRequestException(`A folder with the name "${createFolderDto.name}" already exists in this location`);
+    }
+
     const folder = this.folderRepository.create({
       ...createFolderDto,
       courseId,
@@ -335,48 +348,115 @@ export class MaterialsService {
     return await this.folderRepository.save(folder);
   }
 
+  async updateFolder(folderId: string, updateData: { name: string }, userId: string): Promise<Folder> {
+    const folder = await this.folderRepository.findOne({
+      where: { id: folderId },
+      relations: ['creator']
+    });
+
+    if (!folder) {
+      throw new NotFoundException(`Folder with ID ${folderId} not found`);
+    }
+
+    // Check if user has permission to edit this folder (only creator or admin)
+    if (folder.createdBy !== userId) {
+      // You might want to add admin role check here
+      throw new BadRequestException('You do not have permission to edit this folder');
+    }
+
+    // Check if a folder with the same name already exists in the same course and parent folder
+    const existingFolder = await this.folderRepository.findOne({
+      where: {
+        name: updateData.name,
+        courseId: folder.courseId,
+        parentFolderId: folder.parentFolderId
+      }
+    });
+
+    // If found a folder with same name, make sure it's not the current folder
+    if (existingFolder && existingFolder.id !== folderId) {
+      throw new BadRequestException(`A folder with the name "${updateData.name}" already exists in this location`);
+    }
+
+    // Update the folder name
+    folder.name = updateData.name;
+    folder.updatedAt = new Date();
+
+    return await this.folderRepository.save(folder);
+  }
+
   async uploadFile(courseId: string, file: Express.Multer.File, folderId?: string, userId?: string): Promise<File> {
+    console.log('📁 Service - Starting file upload:', {
+      courseId,
+      fileName: file?.originalname,
+      fileSize: file?.size,
+      folderId,
+      userId,
+      hasFile: !!file
+    });
+
     const course = await this.courseRepository.findOne({ 
       where: { id: courseId },
       relations: ['class']
     });
     if (!course) {
+      console.log('❌ Service - Course not found:', courseId);
       throw new NotFoundException(`Course with ID ${courseId} not found`);
     }
+    console.log('✅ Service - Course found:', course.name);
 
     // Check if folder exists and belongs to the same course
     if (folderId) {
+      console.log('🔍 Service - Checking folder existence:', { folderId, courseId });
       const folder = await this.folderRepository.findOne({
         where: { id: folderId, courseId }
       });
       if (!folder) {
+        console.log('❌ Service - Folder not found:', { folderId, courseId });
+        // Let's also check if the folder exists at all
+        const anyFolder = await this.folderRepository.findOne({
+          where: { id: folderId }
+        });
+        console.log('🔍 Service - Folder exists in database:', !!anyFolder);
+        if (anyFolder) {
+          console.log('🔍 Service - Folder belongs to course:', anyFolder.courseId);
+        }
         throw new BadRequestException('Folder not found or does not belong to this course');
       }
+      console.log('✅ Service - Folder found:', { name: folder.name, id: folder.id, courseId: folder.courseId });
+    } else {
+      console.log('📁 Service - No folderId provided, uploading to root level');
     }
 
-    // Generate unique filename using your old project pattern
+    // Generate unique filename using the same pattern as PostsTab
     const unique = Date.now() + "-" + Math.round(Math.random() * 1e9);
     const ext = path.extname(file.originalname);
     const baseName = path.basename(file.originalname, ext);
     const fileName = `${baseName}-${unique}${ext}`;
     
-    // Create organized folder structure: uploads/Grade/Course/files/
+    console.log('📁 Service - Generated filename:', fileName);
+    
+    // Create organized folder structure: uploads/Grade/Course/files/ (same as PostsTab)
     const gradeName = course?.class?.name || 'Default-Grade';
     const courseName = course?.name || 'Default-Course';
     const uploadsDir = path.join(process.cwd(), 'uploads', gradeName, courseName, 'files');
     
-    // Ensure directory exists
+    console.log('📁 Service - Upload directory:', uploadsDir);
+    
+    // Ensure directory exists (same logic as PostsTab)
     const fs = require('fs');
     if (!fs.existsSync(uploadsDir)) {
       fs.mkdirSync(uploadsDir, { recursive: true });
+      console.log('📁 Service - Created directory:', uploadsDir);
     }
     
     const filePath = path.join(uploadsDir, fileName);
     
-    // Write file to disk
+    // Write file to disk (same as PostsTab)
     fs.writeFileSync(filePath, file.buffer);
+    console.log('📁 Service - File saved to:', filePath);
     
-    // Create relative path from uploads folder
+    // Create relative path from uploads folder (same as PostsTab)
     const relativePath = path.join(gradeName, courseName, 'files', fileName);
 
     const fileEntity = this.fileRepository.create({
@@ -389,20 +469,236 @@ export class MaterialsService {
       uploadedBy: userId
     });
 
-    return await this.fileRepository.save(fileEntity);
+    console.log('📁 Service - Creating file entity:', {
+      fileName: fileEntity.fileName,
+      filePath: fileEntity.filePath,
+      courseId: fileEntity.courseId,
+      folderId: fileEntity.folderId,
+      uploadedBy: fileEntity.uploadedBy
+    });
+
+    const savedFile = await this.fileRepository.save(fileEntity);
+    console.log('✅ Service - File saved successfully:', savedFile.id);
+    
+    // Verify the file was saved by querying the database directly (same as PostsTab)
+    const verifyFile = await this.fileRepository.findOne({
+      where: { id: savedFile.id }
+    });
+    console.log('📁 Service - Verification - file in database:', verifyFile);
+    
+    return savedFile;
+  }
+
+  async getCourseFolders(courseId: string): Promise<Folder[]> {
+    console.log('🔍 Service - Getting folders for course:', courseId);
+
+    // First, get all folders for the course
+    const allFolders = await this.folderRepository.find({
+      where: { courseId },
+      relations: ['creator', 'subFolders', 'files'],
+      order: { createdAt: 'ASC' }
+    });
+
+    console.log('🔍 Service - Found all folders:', allFolders.map(f => ({
+      id: f.id,
+      name: f.name,
+      parentFolderId: f.parentFolderId,
+      subFoldersCount: f.subFolders?.length || 0
+    })));
+
+    // Get only root folders (parentFolderId is null)
+    const rootFolders = allFolders.filter(folder => folder.parentFolderId === null);
+
+    console.log('🔍 Service - Root folders:', rootFolders.map(f => ({
+      id: f.id,
+      name: f.name,
+      parentFolderId: f.parentFolderId
+    })));
+
+    // For each root folder, manually populate its subFolders with the correct nested structure
+    const foldersWithNestedSubFolders = rootFolders.map(rootFolder => {
+      const populateSubFolders = (folder: Folder): Folder => {
+        const subFolders = allFolders.filter(f => f.parentFolderId === folder.id);
+        return {
+          ...folder,
+          subFolders: subFolders.map(subFolder => populateSubFolders(subFolder))
+        };
+      };
+
+      return populateSubFolders(rootFolder);
+    });
+
+    console.log('🔍 Service - Final nested structure:', foldersWithNestedSubFolders.map(f => ({
+      id: f.id,
+      name: f.name,
+      parentFolderId: f.parentFolderId,
+      subFoldersCount: f.subFolders?.length || 0
+    })));
+
+    return foldersWithNestedSubFolders;
+  }
+
+  async getAllFolders(courseId?: string, parentFolderId?: string): Promise<Folder[]> {
+    const whereCondition: any = {};
+    
+    if (courseId) {
+      whereCondition.courseId = courseId;
+    }
+    
+    if (parentFolderId) {
+      whereCondition.parentFolderId = parentFolderId;
+    } else if (parentFolderId === null) {
+      whereCondition.parentFolderId = null; // Get root folders only
+    }
+
+    console.log('🔍 Service - Getting all folders with condition:', whereCondition);
+
+    const folders = await this.folderRepository.find({
+      where: whereCondition,
+      relations: ['creator', 'subFolders', 'files', 'course'],
+      order: { createdAt: 'ASC' }
+    });
+
+    console.log('🔍 Service - Found all folders:', folders.map(f => ({
+      id: f.id,
+      name: f.name,
+      courseId: f.courseId,
+      parentFolderId: f.parentFolderId,
+      subFoldersCount: f.subFolders?.length || 0
+    })));
+
+    // If we're getting root folders (parentFolderId is null), filter out subfolders
+    if (parentFolderId === null) {
+      const rootFolderIds = new Set(folders.map(f => f.id));
+      const filteredFolders = folders.filter(folder => {
+        // Keep root folders (parentFolderId is null)
+        if (folder.parentFolderId === null) {
+          return true;
+        }
+        // Filter out subfolders that are already included in parent folders' subFolders
+        return !rootFolderIds.has(folder.parentFolderId);
+      });
+
+      console.log('🔍 Service - Filtered all folders for root:', filteredFolders.map(f => ({
+        id: f.id,
+        name: f.name,
+        courseId: f.courseId,
+        parentFolderId: f.parentFolderId
+      })));
+
+      return filteredFolders;
+    }
+
+    return folders;
   }
 
   async getCourseFiles(courseId: string, folderId?: string): Promise<File[]> {
     const whereCondition: any = { courseId };
-    if (folderId) {
+    
+    if (folderId !== undefined && folderId !== null) {
+      // If folderId is provided and not null/undefined, get files for that specific folder
       whereCondition.folderId = folderId;
+    } else {
+      // If no folderId or folderId is null/undefined, get only root-level files (folderId: null)
+      whereCondition.folderId = IsNull();
     }
 
-    return await this.fileRepository.find({
+    console.log('🔍 Service - Getting files with condition:', {
+      courseId,
+      folderId,
+      folderIdType: typeof folderId,
+      whereCondition
+    });
+
+    const files = await this.fileRepository.find({
       where: whereCondition,
       relations: ['uploader', 'folder'],
       order: { uploadedAt: 'DESC' }
     });
+
+    console.log('🔍 Service - Found files:', {
+      count: files.length,
+      files: files.map(f => ({ id: f.id, fileName: f.fileName, folderId: f.folderId }))
+    });
+
+    return files;
+  }
+
+  async getCourseFilesAndFolders(courseId: string, folderId?: string): Promise<{ files: File[], folders: Folder[] }> {
+    const [files, folders] = await Promise.all([
+      this.getCourseFiles(courseId, folderId),
+      this.getFoldersInFolder(courseId, folderId)
+    ]);
+
+    return { files, folders };
+  }
+
+  async getFoldersInFolder(courseId: string, parentFolderId?: string): Promise<Folder[]> {
+    const whereCondition: any = { courseId };
+    
+    if (parentFolderId) {
+      whereCondition.parentFolderId = parentFolderId;
+    } else {
+      whereCondition.parentFolderId = null; // Get root folders only
+    }
+
+    console.log('🔍 Service - Getting folders in folder:', {
+      courseId,
+      parentFolderId,
+      whereCondition
+    });
+
+    const folders = await this.folderRepository.find({
+      where: whereCondition,
+      relations: ['creator', 'subFolders', 'files'],
+      order: { createdAt: 'ASC' }
+    });
+
+    console.log('🔍 Service - Found folders in folder:', folders.map(f => ({
+      id: f.id,
+      name: f.name,
+      parentFolderId: f.parentFolderId
+    })));
+
+    // If we're at root level (parentFolderId is null), filter out any folders that have a parent
+    // This ensures only true root folders are returned
+    if (!parentFolderId) {
+      const rootFolders = folders.filter(folder => folder.parentFolderId === null);
+      console.log('🔍 Service - Filtered to root folders only:', rootFolders.map(f => ({
+        id: f.id,
+        name: f.name,
+        parentFolderId: f.parentFolderId
+      })));
+      return rootFolders;
+    }
+
+    return folders;
+  }
+
+  async getFileById(fileId: string): Promise<File | null> {
+    return await this.fileRepository.findOne({ 
+      where: { id: fileId },
+      relations: ['uploader', 'folder']
+    });
+  }
+
+  async getAllCourseFiles(courseId: string): Promise<File[]> {
+    console.log('🔍 Service - Getting all files for course:', courseId);
+
+    const files = await this.fileRepository.find({
+      where: { courseId },
+      relations: ['uploader', 'folder'],
+      order: { uploadedAt: 'DESC' }
+    });
+
+    console.log('🔍 Service - Found files:', files.map(f => ({
+      id: f.id,
+      fileName: f.fileName,
+      folderId: f.folderId,
+      folderName: f.folder?.name || 'root'
+    })));
+
+    return files;
   }
 
   async deleteFile(fileId: string): Promise<void> {

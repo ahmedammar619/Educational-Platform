@@ -306,6 +306,19 @@ const PostsTab = ({ currentUser, theme, courseId }) => {
     return mimeType?.startsWith('video/') || ['mp4', 'avi', 'mov', 'wmv', 'flv', 'webm', 'mkv'].includes(ext);
   };
 
+  // Function to extract clean file name without timestamp and random numbers
+  const getCleanFileName = (fileName) => {
+    if (!fileName) return 'Unknown File';
+    
+    // Remove various timestamp and random patterns:
+    // Pattern 1: -1756473298101-159680209 (13-digit timestamp + 9-digit random)
+    // Pattern 2: -1756453706003-t0ydrv (13-digit timestamp + random string)
+    let cleanName = fileName.replace(/-\d{13}-\d{9}/, ''); // Pattern 1
+    cleanName = cleanName.replace(/-\d{13}-[a-zA-Z0-9]+/, ''); // Pattern 2
+    
+    return cleanName;
+  };
+
   const handleDownloadFile = async (attachment) => {
     try {
       if (!attachment.id) {
@@ -317,7 +330,7 @@ const PostsTab = ({ currentUser, theme, courseId }) => {
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = attachment.fileName || attachment.name || 'download';
+      a.download = getCleanFileName(attachment.fileName || attachment.name);
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
@@ -338,6 +351,7 @@ const PostsTab = ({ currentUser, theme, courseId }) => {
       }
       
       const fileName = attachment.fileName || attachment.name;
+      const cleanFileName = getCleanFileName(fileName);
       const isPdf = fileName?.toLowerCase().endsWith('.pdf');
       
       if (isPdf) {
@@ -348,7 +362,7 @@ const PostsTab = ({ currentUser, theme, courseId }) => {
         // Create a temporary link and trigger download
     const link = document.createElement('a');
     link.href = url;
-        link.download = fileName;
+        link.download = cleanFileName;
         link.target = '_blank';
     document.body.appendChild(link);
     link.click();
@@ -455,16 +469,7 @@ const PostsTab = ({ currentUser, theme, courseId }) => {
           </button>
         </div>
         <p className="text-sm text-gray-600 mt-1 truncate">
-          {(() => {
-            const parts = fileName.split('-');
-            if (parts.length >= 3) {
-              const originalName = parts.slice(0, -2).join('-');
-              const randomAndExt = parts[parts.length - 1];
-              const ext = randomAndExt.split('.')[1] || '';
-              return `${originalName}${ext ? '.' + ext : ''}`;
-            }
-            return fileName;
-          })()}
+          {getCleanFileName(fileName)}
         </p>
       </div>
     );
@@ -542,16 +547,7 @@ const PostsTab = ({ currentUser, theme, courseId }) => {
           </button>
         </div>
         <p className="text-sm text-gray-600 mt-1 truncate">
-          {(() => {
-            const parts = fileName.split('-');
-            if (parts.length >= 3) {
-              const originalName = parts.slice(0, -2).join('-');
-              const randomAndExt = parts[parts.length - 1];
-              const ext = randomAndExt.split('.')[1] || '';
-              return `${originalName}${ext ? '.' + ext : ''}`;
-            }
-            return fileName;
-          })()}
+          {getCleanFileName(fileName)}
         </p>
       </div>
     );
@@ -931,19 +927,7 @@ const PostsTab = ({ currentUser, theme, courseId }) => {
                         {getFileIcon(attachment.name, attachment.type)}
                         <div className="min-w-0 flex-1">
                           <p className="text-start text-sm font-medium text-gray-900 truncate">
-                            {(() => {
-                              const fileName = attachment.name;
-                              // Extract the original name without the generated number
-                              const parts = fileName.split('-');
-                              if (parts.length >= 3) {
-                                // Format: originalname-timestamp-random.ext
-                                const originalName = parts.slice(0, -2).join('-');
-                                const randomAndExt = parts[parts.length - 1];
-                                const ext = randomAndExt.split('.')[1] || '';
-                                return `${originalName}${ext ? '.' + ext : ''}`;
-                              }
-                              return fileName;
-                            })()}
+                            {getCleanFileName(attachment.name)}
                           </p>
                           <p className="text-start text-xs text-gray-500 truncate">{attachment.type.toUpperCase()} • {attachment.size}</p>
                         </div>

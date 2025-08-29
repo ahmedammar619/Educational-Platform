@@ -12,9 +12,12 @@ import {
   Req,
   Res,
   NotFoundException,
+  Query,
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiResponse, ApiConsumes } from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { Response } from 'express';
+import * as path from 'path';
 import { MaterialsService } from './materials.service';
 import { CreatePostDto } from './dto/posts/create-post.dto';
 import { UpdatePostDto } from './dto/posts/update-post.dto';
@@ -185,8 +188,12 @@ export class MaterialsController {
     await this.materialsService.deletePost(postId);
   }
 
-  // Files
+  // Files and Folders
   @Post('courses/:courseId/folders')
+  @ApiOperation({ summary: 'Create a new folder in a course' })
+  @ApiResponse({ status: 201, description: 'Folder created successfully' })
+  @ApiResponse({ status: 400, description: 'Bad request - invalid data' })
+  @ApiResponse({ status: 404, description: 'Course not found' })
   @Roles(Role.Admin, Role.Teacher)
   async createFolder(
     @Param('courseId') courseId: string,
@@ -194,6 +201,101 @@ export class MaterialsController {
     @Req() req,
   ): Promise<any> {
     return await this.materialsService.createFolder(courseId, createFolderDto, req.user.sub);
+  }
+
+  @Patch('folders/:folderId')
+  @ApiOperation({ summary: 'Update folder name' })
+  @ApiResponse({ status: 200, description: 'Folder updated successfully' })
+  @ApiResponse({ status: 400, description: 'Bad request - invalid data' })
+  @ApiResponse({ status: 404, description: 'Folder not found' })
+  @Roles(Role.Admin, Role.Teacher)
+  async updateFolder(
+    @Param('folderId') folderId: string,
+    @Body() updateData: { name: string },
+    @Req() req,
+  ): Promise<any> {
+    return await this.materialsService.updateFolder(folderId, updateData, req.user.sub);
+  }
+
+  @Get('courses/:courseId/folders')
+  @ApiOperation({ summary: 'Get all folders in a course' })
+  @ApiResponse({ status: 200, description: 'Folders retrieved successfully' })
+  @ApiResponse({ status: 404, description: 'Course not found' })
+  @Roles(Role.Admin, Role.Teacher, Role.Student)
+  async getCourseFolders(
+    @Param('courseId') courseId: string,
+  ): Promise<any[]> {
+    console.log('🔍 Controller - Getting folders for course:', {
+      courseId: courseId
+    });
+    
+    const folders = await this.materialsService.getCourseFolders(courseId);
+    
+    console.log('🔍 Controller - Service returned folders:', folders.map(f => ({
+      id: f.id,
+      name: f.name,
+      parentFolderId: f.parentFolderId
+    })));
+    
+    return folders.map(folder => ({
+      id: folder.id,
+      name: folder.name,
+      courseId: folder.courseId,
+      parentFolderId: folder.parentFolderId,
+      createdBy: folder.createdBy,
+      createdAt: folder.createdAt,
+      updatedAt: folder.updatedAt,
+      creator: folder.creator ? {
+        id: folder.creator.id,
+        firstName: folder.creator.firstName,
+        lastName: folder.creator.lastName,
+        email: folder.creator.email
+      } : undefined,
+      subFolders: folder.subFolders || [],
+      files: folder.files || []
+    }));
+  }
+
+  @Get('folders')
+  @ApiOperation({ summary: 'Get all folders across all courses' })
+  @ApiResponse({ status: 200, description: 'All folders retrieved successfully' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @Roles(Role.Admin, Role.Teacher, Role.Student)
+  async getAllFolders(
+    @Query('courseId') courseId?: string,
+    @Query('parentFolderId') parentFolderId?: string,
+  ): Promise<any[]> {
+    console.log('🔍 Controller - Getting all folders:', {
+      courseId: courseId,
+      parentFolderId: parentFolderId
+    });
+    
+    const folders = await this.materialsService.getAllFolders(courseId, parentFolderId);
+    
+    console.log('🔍 Controller - Service returned all folders:', folders.map(f => ({
+      id: f.id,
+      name: f.name,
+      courseId: f.courseId,
+      parentFolderId: f.parentFolderId
+    })));
+    
+    return folders.map(folder => ({
+      id: folder.id,
+      name: folder.name,
+      courseId: folder.courseId,
+      parentFolderId: folder.parentFolderId,
+      createdBy: folder.createdBy,
+      createdAt: folder.createdAt,
+      updatedAt: folder.updatedAt,
+      creator: folder.creator ? {
+        id: folder.creator.id,
+        firstName: folder.creator.firstName,
+        lastName: folder.creator.lastName,
+        email: folder.creator.email
+      } : undefined,
+      subFolders: folder.subFolders || [],
+      files: folder.files || []
+    }));
   }
 
   @Post('courses/:courseId/files')
@@ -205,20 +307,163 @@ export class MaterialsController {
     @Body('folderId') folderId?: string,
     @Req() req?,
   ): Promise<FileResponseDto> {
+    console.log('📁 Controller - File upload request:', {
+      courseId,
+      fileName: file?.originalname,
+      fileSize: file?.size,
+      folderId,
+      userId: req?.user?.sub,
+      hasFile: !!file,
+      bodyKeys: Object.keys(req.body || {}),
+      bodyValues: req.body
+    });
+    
     const fileEntity = await this.materialsService.uploadFile(courseId, file, folderId, req?.user?.sub);
+    console.log('📁 Controller - File uploaded successfully:', fileEntity.id);
+    
     return plainToClass(FileResponseDto, fileEntity, { excludeExtraneousValues: true });
   }
 
   @Get('courses/:courseId/files')
+  @ApiOperation({ summary: 'Get all files and folders in a course' })
+  @ApiResponse({ status: 200, description: 'Files and folders retrieved successfully' })
+  @ApiResponse({ status: 404, description: 'Course not found' })
   @Roles(Role.Admin, Role.Teacher, Role.Student)
   async getCourseFiles(
     @Param('courseId') courseId: string,
-    @Body('folderId') folderId?: string,
-  ): Promise<FileResponseDto[]> {
-    const files = await this.materialsService.getCourseFiles(courseId, folderId);
-    return files.map(file => 
-      plainToClass(FileResponseDto, file, { excludeExtraneousValues: true })
-    );
+    @Query('folderId') folderId?: string,
+  ): Promise<any> {
+    console.log('🔍 Controller - Getting files for:', {
+      courseId: courseId,
+      folderId: folderId,
+      folderIdType: typeof folderId,
+      hasFolderId: !!folderId
+    });
+    
+    const { files, folders } = await this.materialsService.getCourseFilesAndFolders(courseId, folderId);
+    
+    console.log('🔍 Controller - Service returned:', {
+      filesCount: files.length,
+      foldersCount: folders.length,
+      folderIds: folders.map(f => ({ id: f.id, name: f.name, parentFolderId: f.parentFolderId }))
+    });
+    
+    // Transform files to include necessary data for frontend
+    const transformedFiles = files.map(file => ({
+      id: file.id,
+      courseId: file.courseId,
+      folderId: file.folderId,
+      fileName: file.fileName,
+      filePath: file.filePath,
+      fileSize: file.fileSize,
+      mimeType: file.mimeType,
+      uploadedBy: file.uploadedBy,
+      uploadedAt: file.uploadedAt,
+      type: 'file', // Add type identifier for frontend
+      isFolder: false, // Add boolean flag for frontend compatibility
+      uploader: file.uploader || {},
+      folder: file.folder || null
+    }));
+    
+    // Transform folders to include necessary data
+    const transformedFolders = folders.map(folder => ({
+      id: folder.id,
+      name: folder.name,
+      courseId: folder.courseId,
+      parentFolderId: folder.parentFolderId,
+      createdBy: folder.createdBy,
+      createdAt: folder.createdAt,
+      updatedAt: folder.updatedAt,
+      type: 'folder', // Add type identifier for frontend
+      isFolder: true, // Add boolean flag for frontend compatibility
+      creator: folder.creator ? {
+        id: folder.creator.id,
+        firstName: folder.creator.firstName,
+        lastName: folder.creator.lastName,
+        email: folder.creator.email
+      } : undefined,
+      subFolders: folder.subFolders || [],
+      files: folder.files || []
+    }));
+    
+    // Combine files and folders into a single array
+    return [...transformedFolders, ...transformedFiles];
+  }
+
+  @Get('courses/:courseId/files/all')
+  @ApiOperation({ summary: 'Get all files in a course across all folders' })
+  @ApiResponse({ status: 200, description: 'All files retrieved successfully' })
+  @ApiResponse({ status: 404, description: 'Course not found' })
+  @Roles(Role.Admin, Role.Teacher, Role.Student)
+  async getAllCourseFiles(
+    @Param('courseId') courseId: string,
+  ): Promise<any[]> {
+    console.log('🔍 Controller - Getting all files for course:', {
+      courseId: courseId
+    });
+    
+    const files = await this.materialsService.getAllCourseFiles(courseId);
+    
+    console.log('🔍 Controller - Service returned files:', files.map(f => ({
+      id: f.id,
+      fileName: f.fileName,
+      folderId: f.folderId
+    })));
+    
+    return files.map(file => ({
+      id: file.id,
+      courseId: file.courseId,
+      folderId: file.folderId,
+      fileName: file.fileName,
+      filePath: file.filePath,
+      fileSize: file.fileSize,
+      mimeType: file.mimeType,
+      uploadedBy: file.uploadedBy,
+      uploadedAt: file.uploadedAt,
+      uploader: file.uploader ? {
+        id: file.uploader.id,
+        firstName: file.uploader.firstName,
+        lastName: file.uploader.lastName,
+        email: file.uploader.email
+      } : undefined,
+      folder: file.folder ? {
+        id: file.folder.id,
+        name: file.folder.name,
+        parentFolderId: file.folder.parentFolderId
+      } : null
+    }));
+  }
+
+  @Get('files/:fileId/download')
+  @ApiOperation({ summary: 'Download a file' })
+  @ApiResponse({ status: 200, description: 'File download successful' })
+  @ApiResponse({ status: 404, description: 'File not found' })
+  @Roles(Role.Admin, Role.Teacher, Role.Student)
+  async downloadFile(
+    @Param('fileId') fileId: string,
+    @Res() res: Response
+  ): Promise<void> {
+    const file = await this.materialsService.getFileById(fileId);
+    if (!file) {
+      throw new NotFoundException('File not found');
+    }
+
+    const filePath = path.join(process.cwd(), 'uploads', file.filePath);
+    
+    // Check if file exists on disk
+    const fs = require('fs');
+    if (!fs.existsSync(filePath)) {
+      throw new NotFoundException('File not found on disk');
+    }
+
+    // Set appropriate headers for file download
+    res.setHeader('Content-Type', file.mimeType);
+    res.setHeader('Content-Disposition', `attachment; filename="${file.fileName}"`);
+    res.setHeader('Content-Length', file.fileSize);
+
+    // Stream the file to the response
+    const fileStream = fs.createReadStream(filePath);
+    fileStream.pipe(res);
   }
 
   @Delete('files/:fileId')
@@ -228,6 +473,10 @@ export class MaterialsController {
   }
 
   @Delete('folders/:folderId')
+  @ApiOperation({ summary: 'Delete a folder' })
+  @ApiResponse({ status: 200, description: 'Folder deleted successfully' })
+  @ApiResponse({ status: 400, description: 'Bad request - folder contains files or subfolders' })
+  @ApiResponse({ status: 404, description: 'Folder not found' })
   @Roles(Role.Admin, Role.Teacher)
   async deleteFolder(@Param('folderId') folderId: string): Promise<void> {
     await this.materialsService.deleteFolder(folderId);
