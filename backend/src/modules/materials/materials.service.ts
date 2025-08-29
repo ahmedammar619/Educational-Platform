@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { unlink } from 'fs/promises';
+import { unlink, mkdir, writeFile } from 'fs/promises';
 import * as path from 'path';
 import { Post } from './entities/post.entity';
 import { PostAttachment } from './entities/post-attachment.entity';
@@ -133,7 +133,7 @@ export class MaterialsService {
     const posts = await this.postRepository.find({
       where: { courseId },
       relations: ['attachments'],
-      order: { createdAt: 'DESC' }
+      order: { createdAt: 'ASC' }
     });
     console.log('Found posts:', posts.length);
     console.log('Posts with attachments:', posts.map(p => ({ id: p.id, attachmentsCount: p.attachments?.length, attachments: p.attachments })));
@@ -171,14 +171,78 @@ export class MaterialsService {
     return postsWithAuthors;
   }
 
-  async updatePost(postId: string, updatePostDto: UpdatePostDto): Promise<Post> {
-    const post = await this.postRepository.findOne({ where: { id: postId } });
+  async updatePost(postId: string, updatePostDto: UpdatePostDto, file?: Express.Multer.File): Promise<Post> {
+    console.log('Service - Updating post:', { postId, updatePostDto, file: file?.originalname });
+    
+    const post = await this.postRepository.findOne({ 
+      where: { id: postId },
+      relations: ['attachments', 'course', 'author']
+    });
     if (!post) {
       throw new NotFoundException(`Post with ID ${postId} not found`);
     }
 
+    // Update basic post fields
     Object.assign(post, updatePostDto);
-    return await this.postRepository.save(post);
+
+    // Handle file upload if provided (same logic as createPost)
+    if (file) {
+      console.log('Service - Processing file upload for post update:', file.originalname);
+      
+      // Get course information for folder structure
+      const course = await this.courseRepository.findOne({
+        where: { id: post.courseId },
+        relations: ['class']
+      });
+
+      if (!course) {
+        throw new NotFoundException(`Course with ID ${post.courseId} not found`);
+      }
+
+      // Create organized folder structure (same as createPost)
+      const className = course.class?.name || 'Unknown-Class';
+      const courseName = course.name || 'Unknown-Course';
+      const uploadDir = path.join(process.cwd(), 'uploads', className, courseName, 'posts');
+      
+      // Ensure directory exists
+      await mkdir(uploadDir, { recursive: true });
+
+      // Generate unique filename (same as createPost)
+      const timestamp = Date.now();
+      const randomString = Math.random().toString(36).substring(2, 8);
+      const fileExtension = path.extname(file.originalname);
+      const baseName = path.basename(file.originalname, fileExtension);
+      const uniqueFileName = `${baseName}-${timestamp}-${randomString}${fileExtension}`;
+      
+      const filePath = path.join(uploadDir, uniqueFileName);
+      
+      // Save file to disk
+      await writeFile(filePath, file.buffer);
+      console.log(`File saved to: ${filePath}`);
+
+      // Create attachment record (same as createPost)
+      const attachment = this.postAttachmentRepository.create({
+        postId: post.id,
+        fileName: uniqueFileName,
+        filePath: path.join(className, courseName, 'posts', uniqueFileName), // Store relative path
+        fileSize: file.size,
+        mimeType: file.mimetype,
+        uploadedAt: new Date()
+      });
+
+      await this.postAttachmentRepository.save(attachment);
+      console.log('Attachment created for post update:', attachment.id);
+    }
+
+    // Save the updated post
+    const updatedPost = await this.postRepository.save(post);
+    console.log('Post updated successfully:', updatedPost.id);
+    
+    // Return the updated post with all relations (same as createPost)
+    return await this.postRepository.findOne({
+      where: { id: postId },
+      relations: ['attachments', 'author', 'course']
+    });
   }
 
   async deletePost(postId: string): Promise<void> {
@@ -215,6 +279,34 @@ export class MaterialsService {
     // Delete the post
     await this.postRepository.delete(postId);
     console.log(`Post ${postId} deleted successfully`);
+  }
+
+  async deleteAttachment(attachmentId: string): Promise<void> {
+    console.log('Service - Deleting attachment:', attachmentId);
+    
+    const attachment = await this.postAttachmentRepository.findOne({
+      where: { id: attachmentId }
+    });
+    
+    if (!attachment) {
+      throw new NotFoundException(`Attachment with ID ${attachmentId} not found`);
+    }
+
+    // Delete physical file
+    try {
+      if (attachment.filePath) {
+        const filePath = path.join(process.cwd(), 'uploads', attachment.filePath);
+        await unlink(filePath);
+        console.log(`Deleted file: ${filePath}`);
+      }
+    } catch (error) {
+      console.warn(`Failed to delete file ${attachment.filePath}:`, error.message);
+      // Continue with database deletion even if file deletion fails
+    }
+
+    // Delete attachment record from database
+    await this.postAttachmentRepository.delete(attachmentId);
+    console.log(`Attachment ${attachmentId} deleted successfully`);
   }
 
   // Files and Folders

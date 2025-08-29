@@ -110,7 +110,7 @@ const MaterialPages = ({ classData, onBack, currentUser }) => {
   };
 
   return (
-    <div className="h-screen h-100 flex flex-col space-y-4 sm:space-y-6">
+    <div className="h-screen flex flex-col space-y-4 sm:space-y-6 overflow-hidden" style={{ height: 'calc(100vh - 100px)' }}>
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
         <div className="flex items-center gap-3">
@@ -127,7 +127,7 @@ const MaterialPages = ({ classData, onBack, currentUser }) => {
       </div>
 
       {/* Tabs */}
-      <div className="bg-white rounded-lg shadow-sm border">
+      <div className="bg-white rounded-lg shadow-sm border flex-shrink-0">
         <div className="flex border-b border-gray-200">
           {canViewPosts() && (
             <button
@@ -187,7 +187,7 @@ const MaterialPages = ({ classData, onBack, currentUser }) => {
         </div>
 
         {/* Content */}
-        <div className="p-4 sm:p-6 flex-1 overflow-y-auto">
+        <div className="p-2 sm:p-4 flex-1 overflow-y-auto">
           {activeTab === 'posts' && (
             <PostsTab currentUser={currentUser} theme={theme} courseId={classData?.id} />
           )}
