@@ -52,8 +52,6 @@ const PostsTab = ({ currentUser, theme, courseId }) => {
     try {
       setLoading(true);
       const postsData = await materialsService.getCoursePosts(courseId);
-      console.log('Posts loaded:', postsData);
-      
       let processedPosts = [];
       if (Array.isArray(postsData)) {
         processedPosts = postsData;
@@ -63,10 +61,6 @@ const PostsTab = ({ currentUser, theme, courseId }) => {
           item && typeof item === 'object' && item.id && item.subject
         );
       }
-      
-      console.log('Processed posts:', processedPosts);
-      console.log('Current user:', currentUser);
-      console.log('Post author IDs:', processedPosts.map(p => ({ postId: p.id, authorId: p.authorId, author: p.author })));
       setPosts(processedPosts);
       
       // Scroll to bottom after posts are loaded (latest posts)

@@ -130,46 +130,14 @@ export class MaterialsService {
   }
 
   async getCoursePosts(courseId: string): Promise<Post[]> {
-    console.log('Getting posts for course:', courseId);
+    // Optimized query with proper relations to avoid N+1 queries
     const posts = await this.postRepository.find({
       where: { courseId },
-      relations: ['attachments'],
+      relations: ['attachments', 'author'], // Load author relation directly
       order: { createdAt: 'ASC' }
     });
-    console.log('Found posts:', posts.length);
-    console.log('Posts with attachments:', posts.map(p => ({ id: p.id, attachmentsCount: p.attachments?.length, attachments: p.attachments })));
-    
-    // Debug: Check if attachments exist in database for each post
-    for (const post of posts) {
-      const directAttachments = await this.postAttachmentRepository.find({
-        where: { postId: post.id }
-      });
-      console.log(`Direct query for post ${post.id}:`, directAttachments.length, 'attachments found');
-      if (directAttachments.length > 0) {
-        console.log('Direct attachment details:', directAttachments);
-      }
-    }
-    
-    // Manually load author data only for posts that have valid authorIds
-    const postsWithAuthors = await Promise.all(posts.map(async (post) => {
-      if (post.authorId) {
-        try {
-          const author = await this.userRepository.findOne({ 
-            where: { id: post.authorId },
-            select: ['id', 'email', 'firstName', 'lastName', 'role']
-          });
-          if (author) {
-            post.author = author;
-          }
-        } catch (error) {
-          console.warn(`Could not load author for post ${post.id}:`, error.message);
-        }
-      }
-      return post;
-    }));
-    
-    console.log('Posts with author data:', postsWithAuthors.map(p => ({ id: p.id, authorId: p.authorId, author: p.author })));
-    return postsWithAuthors;
+
+    return posts;
   }
 
   async updatePost(postId: string, updatePostDto: UpdatePostDto, file?: Express.Multer.File): Promise<Post> {
@@ -745,33 +713,19 @@ export class MaterialsService {
       whereCondition.parentFolderId = null; // Get root folders only
     }
 
-    console.log('🔍 Service - Getting folders in folder:', {
-      courseId,
-      parentFolderId,
-      whereCondition
-    });
+    // Removed excessive logging for performance
 
+    // Optimized query - only load essential relations
     const folders = await this.folderRepository.find({
       where: whereCondition,
-      relations: ['creator', 'subFolders', 'files'],
+      relations: ['creator'], // Only load creator, not subFolders and files
       order: { createdAt: 'ASC' }
     });
-
-    console.log('🔍 Service - Found folders in folder:', folders.map(f => ({
-      id: f.id,
-      name: f.name,
-      parentFolderId: f.parentFolderId
-    })));
 
     // If we're at root level (parentFolderId is null), filter out any folders that have a parent
     // This ensures only true root folders are returned
     if (!parentFolderId) {
       const rootFolders = folders.filter(folder => folder.parentFolderId === null);
-      console.log('🔍 Service - Filtered to root folders only:', rootFolders.map(f => ({
-        id: f.id,
-        name: f.name,
-        parentFolderId: f.parentFolderId
-      })));
       return rootFolders;
     }
 

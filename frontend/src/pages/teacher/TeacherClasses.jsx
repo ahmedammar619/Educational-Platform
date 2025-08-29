@@ -1,83 +1,14 @@
 import { useState, useEffect } from 'react';
-import { Users, Clock, Calendar, BookOpen, Plus, Edit, Eye, MessageSquare, User, DollarSign, X, ChevronDown, ChevronRight } from 'lucide-react';
-import { mockCourses, mockUsers } from '../../data/mockData';
+import { Users, Calendar, BookOpen, MessageSquare, User, X, ChevronDown, ChevronRight } from 'lucide-react';
+import { teachersService, coursesService, usersService } from '../../services';
+import { showErrorToast } from '../../utils/errorHandler';
 import MaterialPages from '../../components/common/class-material/MaterialPages';
 
-// Mock data for the new class structure (matching ClassManagement.jsx)
-const mockClasses = [
-  {
-    id: '1',
-    name: 'Islamic Studies Program 2024',
-    startDate: '2024-03-01',
-    endDate: '2024-06-30',
-    price: 450.00,
-    numberOfStudents: 12,
-    status: 'active',
-    courses: [
-      {
-        id: 'c1',
-        name: 'Islamic Studies - Level 1',
-        startDate: '2024-03-01',
-        endDate: '2024-06-30',
-        teacherName: 'Current Teacher', // This will match any teacher
-        courseMaterial: 'Quran, Hadith, Islamic History',
-        sessionTime: [
-          { day: 'Monday', startTime: '09:00', endTime: '10:30' },
-          { day: 'Wednesday', startTime: '09:00', endTime: '10:30' }
-        ]
-      },
-      {
-        id: 'c2',
-        name: 'Arabic Language - Beginner',
-        startDate: '2024-03-01',
-        endDate: '2024-06-30',
-        teacherName: 'Current Teacher', // This will match any teacher
-        courseMaterial: 'Arabic Alphabet, Vocabulary',
-        sessionTime: [
-          { day: 'Tuesday', startTime: '14:00', endTime: '15:30' },
-          { day: 'Thursday', startTime: '14:00', endTime: '15:30' }
-        ]
-      }
-    ]
-  },
-  {
-    id: '2',
-    name: 'Advanced Islamic Education',
-    startDate: '2024-04-01',
-    endDate: '2024-08-31',
-    price: 600.00,
-    numberOfStudents: 8,
-    status: 'active',
-    courses: [
-      {
-        id: 'c3',
-        name: 'Quran Recitation - Tajweed',
-        startDate: '2024-04-01',
-        endDate: '2024-08-31',
-        teacherName: 'Current Teacher', // This will match any teacher
-        courseMaterial: 'Quran Text, Tajweed Rules',
-        sessionTime: [
-          { day: 'Sunday', startTime: '10:00', endTime: '11:30' },
-          { day: 'Thursday', startTime: '10:00', endTime: '11:30' }
-        ]
-      },
-      {
-        id: 'c4',
-        name: 'Islamic History & Culture',
-        startDate: '2024-04-01',
-        endDate: '2024-08-31',
-        teacherName: 'Current Teacher', // This will match any teacher
-        courseMaterial: 'History Books, Cultural Resources',
-        sessionTime: [
-          { day: 'Saturday', startTime: '15:00', endTime: '16:30' }
-        ]
-      }
-    ]
-  }
-];
+
 
 const TeacherClasses = ({ user }) => {
   const [classes, setClasses] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [showClassModal, setShowClassModal] = useState(false);
   const [showStudentModal, setShowStudentModal] = useState(false);
   const [showMaterialPages, setShowMaterialPages] = useState(false);
@@ -86,41 +17,80 @@ const TeacherClasses = ({ user }) => {
   const [expandedClasses, setExpandedClasses] = useState(new Set());
 
   useEffect(() => {
-    loadClasses();
+    if (user && user.role === 'teacher') {
+      loadClasses();
+    }
   }, [user]);
 
-  const loadClasses = () => {
-    console.log('Loading classes for user:', user); // Debug log
+  const loadClasses = async () => {
+    try {
+      setLoading(true);
+      console.log('Loading classes for teacher:', user);
 
-    if (user && user.role === 'teacher') {
-      // For demo purposes, show all classes if user is a teacher
-      // This ensures teachers can see classes regardless of name matching
-      setClasses(mockClasses);
-      console.log('Teacher user detected, showing all classes:', mockClasses.length); // Debug log
-    } else if (user && user.id) {
-      // Get classes where this teacher teaches any course
-      // Check multiple possible teacher name formats
-      const teacherClasses = mockClasses.filter(classItem =>
-        classItem.courses.some(course =>
-          course.teacherName === user.name ||
-          course.teacherName === 'Current Teacher' ||
-          course.teacherName === `${user.firstName} ${user.lastName}` ||
-          course.teacherName === user.fullName
-        )
-      );
-      setClasses(teacherClasses);
-      console.log('Filtered classes for user:', teacherClasses.length); // Debug log
-    } else {
-      // Fallback: show all classes if no user is provided
-      setClasses(mockClasses);
-      console.log('No user provided, showing all classes:', mockClasses.length); // Debug log
+      // Fetch teacher's classes from backend
+      const response = await teachersService.getTeacherClasses();
+      console.log('Raw response from backend:', response);
+      
+      // Handle different response formats - convert object to array if needed
+      let classesArray = [];
+      if (Array.isArray(response)) {
+        classesArray = response;
+      } else if (response && typeof response === 'object') {
+        // Check if response has a 'classes' property (new format)
+        if (response.classes && Array.isArray(response.classes)) {
+          classesArray = response.classes;
+        } else {
+          // Convert object with numeric keys to array (old format)
+          classesArray = Object.values(response).filter(item => 
+            item && typeof item === 'object' && item.id && !item._rateLimitInfo
+          );
+        }
+      }
+      
+      console.log('Parsed classes array:', classesArray);
+      
+      // Process classes - courses are already included from backend
+      const processedClasses = classesArray.map(classItem => {
+        console.log('Processing class:', classItem);
+        
+        // Courses are already provided by the backend, just ensure they're properly formatted
+        const courses = (classItem.courses || []).map(course => {
+          console.log('Processing course:', course);
+          return {
+            ...course,
+            // Sessions are already stored in the course
+            sessionTime: course.sessions || course.sessionTime || [],
+            // Use teacherName from backend response
+            teacherName: course.teacherName || 'Unknown Teacher'
+          };
+        });
+        
+        return {
+          ...classItem,
+          courses: courses,
+          numberOfStudents: classItem.numberOfStudents || 0
+        };
+      });
+      
+      console.log('Processed classes with courses:', processedClasses);
+      setClasses(processedClasses);
+    } catch (error) {
+      console.error('Error loading classes:', error);
+      setClasses([]);
+      showErrorToast(error, 'Failed to load classes. Please try again.');
+    } finally {
+      setLoading(false);
     }
   };
 
-  const getStudentDetails = (studentIds) => {
-    return studentIds.map(id =>
-      mockUsers.find(student => student.id === id && student.role === 'student')
-    ).filter(Boolean);
+  const getStudentDetails = async (classId) => {
+    try {
+      const studentsData = await teachersService.getClassStudents(classId);
+      return studentsData || [];
+    } catch (error) {
+      console.error('Error fetching students for class:', classId, error);
+      return [];
+    }
   };
 
   const getStatusColor = (status) => {
@@ -143,18 +113,11 @@ const TeacherClasses = ({ user }) => {
   };
 
   const getTeacherCourses = (classItem) => {
-    if (!user) return [];
+    if (!user || !classItem.courses) return [];
 
-    // For demo purposes, if user is a teacher, show all courses
-    if (user.role === 'teacher') {
-      return classItem.courses;
-    }
-
-    return classItem.courses.filter(course =>
-      course.teacherName === user.name ||
-      course.teacherName === 'Current Teacher' ||
-      course.teacherName === `${user.firstName} ${user.lastName}` ||
-      course.teacherName === user.fullName
+    // Filter courses to only show those taught by the current teacher
+    return classItem.courses.filter(course => 
+      course.teacherId === user.id
     );
   };
 
@@ -173,7 +136,13 @@ const TeacherClasses = ({ user }) => {
           {/* Classes List */}
           <div className="bg-white rounded-lg shadow-sm border">
             <div className="p-4 sm:p-6">
-              {classes.length === 0 ? (
+              {loading ? (
+                <div className="text-center py-8">
+                  <BookOpen className="h-8 w-8 sm:h-12 sm:w-12 text-gray-400 mx-auto mb-4" />
+                  <p className="text-sm sm:text-base text-gray-600">Loading classes...</p>
+                  <p className="text-xs sm:text-sm text-gray-500">Please wait while we fetch your data</p>
+                </div>
+              ) : classes.length === 0 ? (
                 <div className="text-center py-8">
                   <BookOpen className="h-8 w-8 sm:h-12 sm:w-12 text-gray-400 mx-auto mb-4" />
                   <p className="text-sm sm:text-base text-gray-600">No classes assigned yet</p>
@@ -319,52 +288,72 @@ const TeacherClasses = ({ user }) => {
 
 // Student Modal Component
 const StudentModal = ({ classData, onClose }) => {
-  // Mock students with parent relationships
-  const students = [
-    {
-      id: '4',
-      firstName: 'Aisha',
-      lastName: 'Al-Mahmoud',
-      email: 'aisha.almahmoud@example.com',
-      parentId: '3' // Has parent
-    },
-    {
-      id: '6',
-      firstName: 'Hassan',
-      lastName: 'Al-Rahman',
-      email: 'hassan.alrahman@example.com',
-      parentId: '3' // Same parent as Aisha
-    },
-    {
-      id: '8',
-      firstName: 'Zainab',
-      lastName: 'Al-Fatima',
-      email: 'zainab.alfatima@example.com'
-      // No parentId - individual student
-    }
-  ];
+  const [students, setStudents] = useState([]);
+  const [loadingStudents, setLoadingStudents] = useState(true);
 
-  const getParentDetails = (parentId) => {
-    return mockUsers.find(parent => parent.id === parentId && parent.role === 'parent') || {
-      id: parentId,
-      firstName: 'Unknown',
-      lastName: 'Parent',
-      fullName: 'Unknown Parent',
-      email: 'unknown@example.com'
-    };
+  useEffect(() => {
+    loadStudents();
+  }, [classData]);
+
+  const loadStudents = async () => {
+    try {
+      setLoadingStudents(true);
+      const studentsData = await teachersService.getClassStudents(classData.id);
+      
+      // Handle different response formats
+      let studentsArray = [];
+      if (Array.isArray(studentsData)) {
+        studentsArray = studentsData;
+      } else if (studentsData && typeof studentsData === 'object') {
+        studentsArray = Object.values(studentsData).filter(item => 
+          item && typeof item === 'object' && item.id && !item._rateLimitInfo
+        );
+      }
+      
+      setStudents(studentsArray);
+    } catch (error) {
+      console.error('Error loading students:', error);
+      setStudents([]);
+      showErrorToast(error, 'Failed to load students. Please try again.');
+    } finally {
+      setLoadingStudents(false);
+    }
   };
 
-  const groupStudentsByParent = (students) => {
+  const getParentDetails = async (parentId) => {
+    try {
+      const parentData = await usersService.getUserById(parentId);
+      return parentData || {
+        id: parentId,
+        firstName: 'Unknown',
+        lastName: 'Parent',
+        fullName: 'Unknown Parent',
+        email: 'unknown@example.com'
+      };
+    } catch (error) {
+      console.error('Error fetching parent details:', error);
+      return {
+        id: parentId,
+        firstName: 'Unknown',
+        lastName: 'Parent',
+        fullName: 'Unknown Parent',
+        email: 'unknown@example.com'
+      };
+    }
+  };
+
+  const groupStudentsByParent = async (students) => {
     const grouped = {};
     const individualStudents = [];
 
-    students.forEach(student => {
+    for (const student of students) {
       if (student.parentId) {
         // Student has a parent - group under parent
         const parentId = student.parentId;
         if (!grouped[parentId]) {
+          const parentDetails = await getParentDetails(parentId);
           grouped[parentId] = {
-            parent: getParentDetails(parentId),
+            parent: parentDetails,
             students: []
           };
         }
@@ -373,7 +362,7 @@ const StudentModal = ({ classData, onClose }) => {
         // Student has no parent - add to individual students
         individualStudents.push(student);
       }
-    });
+    }
 
     // Convert to array and sort by parent name, then add individual students at the end
     const parentGroups = Object.values(grouped).sort((a, b) =>
@@ -393,6 +382,28 @@ const StudentModal = ({ classData, onClose }) => {
     return result;
   };
 
+  const [groupedStudents, setGroupedStudents] = useState([]);
+  const [loadingGroupedStudents, setLoadingGroupedStudents] = useState(true);
+
+  useEffect(() => {
+    if (students.length > 0) {
+      loadGroupedStudents();
+    }
+  }, [students]);
+
+  const loadGroupedStudents = async () => {
+    try {
+      setLoadingGroupedStudents(true);
+      const grouped = await groupStudentsByParent(students);
+      setGroupedStudents(grouped);
+    } catch (error) {
+      console.error('Error grouping students:', error);
+      setGroupedStudents([]);
+    } finally {
+      setLoadingGroupedStudents(false);
+    }
+  };
+
   const getAttendanceRate = (studentId) => {
     // Mock attendance data - in real app this would come from database
     const attendanceRates = {
@@ -410,8 +421,6 @@ const StudentModal = ({ classData, onClose }) => {
     if (rate >= 70) return 'bg-orange-500';
     return 'bg-red-500';
   };
-
-  const groupedStudents = groupStudentsByParent(students);
 
   return (
     <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50" style={{ margin: 0 }}>
@@ -433,7 +442,16 @@ const StudentModal = ({ classData, onClose }) => {
           </div>
 
           <div className="space-y-4">
-            {groupedStudents.map((group, groupIndex) => (
+            {loadingStudents || loadingGroupedStudents ? (
+              <div className="text-center py-8">
+                <p className="text-sm text-gray-600">Loading students...</p>
+              </div>
+            ) : groupedStudents.length === 0 ? (
+              <div className="text-center py-8">
+                <p className="text-sm text-gray-600">No students enrolled in this class</p>
+              </div>
+            ) : (
+              groupedStudents.map((group, groupIndex) => (
               <div key={group.isIndividual ? `individual-${group.students[0].id}` : group.parent.id} className="border rounded-lg overflow-hidden">
                 {/* Parent Header - only show for groups with parents */}
                 {!group.isIndividual && (
@@ -512,7 +530,8 @@ const StudentModal = ({ classData, onClose }) => {
                   ))}
                 </div>
               </div>
-            ))}
+              ))
+            )}
           </div>
         </div>
       </div>
