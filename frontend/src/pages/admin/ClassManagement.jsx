@@ -1161,8 +1161,32 @@ const EnrollModal = ({ classData, onClose, onSubmit }) => {
   const loadStudents = async () => {
     try {
       setLoadingStudents(true);
-      const students = await usersService.getAllStudents();
-      setAvailableStudents(students || []);
+      const response = await usersService.getAllStudents();
+      
+      // Handle different response formats - extract students array
+      let studentsArray = [];
+      if (response && response.students && Array.isArray(response.students)) {
+        // Backend returns { students: Student[] }
+        studentsArray = response.students;
+      } else if (Array.isArray(response)) {
+        // If response is directly an array
+        studentsArray = response;
+      }
+      
+      // Map student data to include user properties at the top level
+      const mappedStudents = studentsArray.map(student => ({
+        id: student.id,
+        firstName: student.user?.firstName,
+        lastName: student.user?.lastName,
+        email: student.user?.email,
+        fullName: student.user?.fullName || (student.user?.firstName && student.user?.lastName ? `${student.user.firstName} ${student.user.lastName}` : null),
+        birthDate: student.birthDate,
+        parentId: student.parentId,
+        classId: student.classId,
+        role: student.user?.role
+      }));
+      
+      setAvailableStudents(mappedStudents);
     } catch (error) {
       console.error('Error loading students:', error);
       setAvailableStudents([]);
@@ -1190,7 +1214,7 @@ const EnrollModal = ({ classData, onClose, onSubmit }) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+    <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50" style={{margin: '0px'}}>
       <div className="relative top-4 sm:top-20 mx-auto p-4 sm:p-5 border w-11/12 sm:w-2/3 max-w-2xl shadow-lg rounded-md bg-white">
         <div className="mt-3">
           <div className="flex justify-between items-center mb-4">
@@ -1234,16 +1258,18 @@ const EnrollModal = ({ classData, onClose, onSubmit }) => {
                         className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                       />
                       <div className="ml-3 flex items-center">
-                        <div className="w-6 h-6 sm:w-8 sm:h-8 bg-blue-500 rounded-full flex items-center justify-center flex-shrink-0">
-                          <span className="text-white text-xs sm:text-sm font-medium">
-                            {student.firstName ? student.firstName.charAt(0) : student.fullName.charAt(0)}
+                        <div className="w-6 h-6 sm:w-8 sm:h-8 bg-red-600 rounded-full flex items-center justify-center flex-shrink-0">
+                          <span className="text-start text-white text-xs sm:text-sm font-medium">
+                            {student.firstName ? student.firstName.charAt(0) : 
+                             (student.fullName ? student.fullName.charAt(0) : 
+                              (student.email ? student.email.charAt(0).toUpperCase() : 'S'))}
                           </span>
                         </div>
                         <div className="ml-2 sm:ml-3 min-w-0 flex-1">
                           <p className="text-xs sm:text-sm font-medium text-gray-900 truncate">
                             {student.firstName && student.lastName
                               ? `${student.firstName} ${student.lastName}`
-                              : student.fullName
+                              : (student.fullName || student.email || 'Unknown Student')
                             }
                           </p>
                           <p className="text-xs text-gray-500 truncate">

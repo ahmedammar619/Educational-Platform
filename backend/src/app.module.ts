@@ -24,6 +24,7 @@ import { StudentsModule } from './modules/students/students.module';
 import { ClassesModule } from './modules/classes/classes.module';
 import { CoursesModule } from './modules/courses/courses.module';
 import { MaterialsModule } from './modules/materials/materials.module';
+import { EnrollmentsModule } from './modules/enrollments/enrollments.module';
 
 // Guards and Interceptors
 import { CustomThrottlerGuard } from './common/guards/custom-throttler.guard';
@@ -47,6 +48,7 @@ import { File } from './modules/materials/entities/file.entity';
 import { Assignment } from './modules/materials/entities/assignment.entity';
 import { AssignmentSubmission } from './modules/materials/entities/assignment-submission.entity';
 import { Attendance } from './modules/materials/entities/attendance.entity';
+import { Enrollment } from './modules/enrollments/entities/enrollment.entity';
 
 @Module({
   imports: [
@@ -79,7 +81,8 @@ import { Attendance } from './modules/materials/entities/attendance.entity';
           File,
           Assignment,
           AssignmentSubmission,
-          Attendance
+          Attendance,
+          Enrollment
         ],
         synchronize: process.env.DB_SYNC === 'true',
         logging: process.env.DB_LOGGING === 'true',
@@ -109,6 +112,7 @@ import { Attendance } from './modules/materials/entities/attendance.entity';
     ClassesModule,
     CoursesModule,
     MaterialsModule,
+    EnrollmentsModule,
   ],
   controllers: [AppController],
   providers: [

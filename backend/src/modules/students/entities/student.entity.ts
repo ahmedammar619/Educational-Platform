@@ -7,6 +7,7 @@ import {
   ManyToOne,
 } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
+import { Class } from '../../classes/entities/class.entity';
 
 @Entity('students')
 export class Student {
@@ -20,6 +21,9 @@ export class Student {
   @Column({ nullable: true })
   parentId?: string;
 
+  @Column({ nullable: true })
+  classId?: string;
+
   // One-to-one relationship with User (no embedded object)
   @OneToOne(() => User, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'id' })
@@ -29,6 +33,11 @@ export class Student {
   @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'parentId' })
   parent: User;
+
+  // Many-to-one relationship with Class
+  @ManyToOne(() => Class, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'classId' })
+  class: Class;
 
   get age(): number {
     const today = new Date();

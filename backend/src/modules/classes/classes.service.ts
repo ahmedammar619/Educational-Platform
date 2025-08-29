@@ -4,10 +4,12 @@ import { Repository, In } from 'typeorm';
 import { Class } from './entities/class.entity';
 import { User } from '../users/entities/user.entity';
 import { Course } from '../courses/entities/course.entity';
+import { Student } from '../students/entities/student.entity';
 import { CreateClassDto } from './dto/create-class.dto';
 import { UpdateClassDto } from './dto/update-class.dto';
 import { EnrollStudentsDto } from './dto/enroll-students.dto';
 import { Role } from '../../common/enums/role.enum';
+import { EnrollmentsService } from '../enrollments/enrollments.service';
 
 @Injectable()
 export class ClassesService {
@@ -18,6 +20,9 @@ export class ClassesService {
     private readonly userRepository: Repository<User>,
     @InjectRepository(Course)
     private readonly courseRepository: Repository<Course>,
+    @InjectRepository(Student)
+    private readonly studentRepository: Repository<Student>,
+    private readonly enrollmentsService: EnrollmentsService,
   ) {}
 
   async createClass(createClassDto: CreateClassDto): Promise<Class> {
@@ -109,14 +114,45 @@ export class ClassesService {
       throw new BadRequestException('Some student IDs are invalid or not students');
     }
 
+    // Get all courses in this class
+    const classCourses = await this.courseRepository.find({
+      where: { classId }
+    });
+
+    // Update student records with classId
+    for (const student of students) {
+      await this.studentRepository.update(student.id, { classId });
+    }
+
     // Add students to class (TypeORM will handle duplicates)
     classEntity.students = [...(classEntity.students || []), ...students];
     await this.classRepository.save(classEntity);
+
+    // Automatically enroll students in all courses within the class
+    for (const student of students) {
+      for (const course of classCourses) {
+        await this.enrollmentsService.enrollStudentInCourse(student.id, course.id);
+      }
+    }
   }
 
   async removeStudentFromClass(classId: string, studentId: string): Promise<void> {
     const classEntity = await this.findClassById(classId);
     
+    // Get all courses in this class
+    const classCourses = await this.courseRepository.find({
+      where: { classId }
+    });
+
+    // Remove student from all courses in the class
+    for (const course of classCourses) {
+      await this.enrollmentsService.unenrollStudentFromCourse(studentId, course.id);
+    }
+
+    // Update student record to remove classId
+    await this.studentRepository.update(studentId, { classId: null });
+    
+    // Remove student from class
     classEntity.students = classEntity.students.filter(student => student.id !== studentId);
     await this.classRepository.save(classEntity);
   }
