@@ -18,12 +18,27 @@ const PostsTab = ({ currentUser, theme, courseId }) => {
   const [editPostMessage, setEditPostMessage] = useState('');
   const [editAttachedFiles, setEditAttachedFiles] = useState([]);
   const scrollContainerRef = useRef(null);
+  
+  // Loading states for preventing double clicks
+  const [loadingStates, setLoadingStates] = useState({
+    creatingPost: false,
+    updatingPost: false,
+    deletingPost: false,
+    downloadingFile: false,
+    openingFile: false,
+    removingAttachment: false
+  });
 
   // Function to scroll to bottom (latest posts)
   const scrollToBottom = () => {
     if (scrollContainerRef.current) {
       scrollContainerRef.current.scrollTop = scrollContainerRef.current.scrollHeight;
     }
+  };
+
+  // Helper function to update loading states
+  const updateLoadingState = (key, value) => {
+    setLoadingStates(prev => ({ ...prev, [key]: value }));
   };
 
   // Load posts when component mounts or courseId changes
@@ -93,7 +108,8 @@ const PostsTab = ({ currentUser, theme, courseId }) => {
 
 
   const handleCreateRichPost = async () => {
-    if (postSubject.trim() && postMessage.trim() && courseId) {
+    if (postSubject.trim() && postMessage.trim() && courseId && !loadingStates.creatingPost) {
+      updateLoadingState('creatingPost', true);
       try {
         const postData = {
           subject: postSubject,
@@ -121,6 +137,8 @@ const PostsTab = ({ currentUser, theme, courseId }) => {
       } catch (error) {
         console.error('Error creating post:', error);
         showErrorToast(error, 'Failed to create post. Please try again.');
+      } finally {
+        updateLoadingState('creatingPost', false);
       }
     }
   };
@@ -149,7 +167,8 @@ const PostsTab = ({ currentUser, theme, courseId }) => {
   };
 
   const handleUpdatePost = async () => {
-    if (editPostMessage.trim() && editingPost) {
+    if (editPostMessage.trim() && editingPost && !loadingStates.updatingPost) {
+      updateLoadingState('updatingPost', true);
       try {
         const updateData = {
           subject: editPostSubject.trim() || undefined,
@@ -179,12 +198,15 @@ const PostsTab = ({ currentUser, theme, courseId }) => {
       } catch (error) {
         console.error('Error updating post:', error);
         showErrorToast(error, 'Failed to update post. Please try again.');
+      } finally {
+        updateLoadingState('updatingPost', false);
       }
     }
   };
 
   const handleDeletePost = async (postId) => {
-    if (window.confirm('Are you sure you want to delete this post? This action cannot be undone.')) {
+    if (window.confirm('Are you sure you want to delete this post? This action cannot be undone.') && !loadingStates.deletingPost) {
+      updateLoadingState('deletingPost', true);
       try {
         await materialsService.deletePost(postId);
         
@@ -195,6 +217,8 @@ const PostsTab = ({ currentUser, theme, courseId }) => {
       } catch (error) {
         console.error('Error deleting post:', error);
         showErrorToast(error, 'Failed to delete post. Please try again.');
+      } finally {
+        updateLoadingState('deletingPost', false);
       }
     }
   };
@@ -622,10 +646,15 @@ const PostsTab = ({ currentUser, theme, courseId }) => {
                   {canDeletePost(post) && (
                     <button
                       onClick={() => handleDeletePost(post.id)}
-                      className="p-1 text-red-500 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                      disabled={loadingStates.deletingPost}
+                      className="p-1 text-red-500 hover:text-red-600 hover:bg-red-50 rounded transition-colors disabled:opacity-50"
                       title="Delete post"
                     >
-                      <Trash2 className="h-4 w-4" />
+                      {loadingStates.deletingPost ? (
+                        <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
+                      ) : (
+                        <Trash2 className="h-4 w-4" />
+                      )}
                     </button>
                   )}
                 </div>
@@ -831,10 +860,17 @@ const PostsTab = ({ currentUser, theme, courseId }) => {
 
                 <button
                   onClick={handleCreateRichPost}
-                  disabled={!postSubject.trim() || !postMessage.trim()}
-                  className={`px-6 py-2 border-2 border-${theme.primary}-600 text-${theme.primary}-600 rounded-lg hover:bg-${theme.primaryLight} disabled:opacity-50 disabled:cursor-not-allowed transition-colors`}
+                  disabled={!postSubject.trim() || !postMessage.trim() || loadingStates.creatingPost}
+                  className={`px-6 py-2 border-2 border-${theme.primary}-600 text-${theme.primary}-600 rounded-lg hover:bg-${theme.primaryLight} disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2`}
                 >
-                  Post
+                  {loadingStates.creatingPost ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
+                      Posting...
+                    </>
+                  ) : (
+                    'Post'
+                  )}
                 </button>
               </div>
             </div>
@@ -949,10 +985,17 @@ const PostsTab = ({ currentUser, theme, courseId }) => {
 
               <button
                 onClick={handleUpdatePost}
-                disabled={!editPostMessage.trim()}
-                className="px-6 py-2 border-2 border-green-600 text-green-600 rounded-lg hover:bg-green-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                disabled={!editPostMessage.trim() || loadingStates.updatingPost}
+                className="px-6 py-2 border-2 border-green-600 text-green-600 rounded-lg hover:bg-green-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
               >
-                Update Post
+                {loadingStates.updatingPost ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
+                    Updating...
+                  </>
+                ) : (
+                  'Update Post'
+                )}
               </button>
             </div>
           </div>

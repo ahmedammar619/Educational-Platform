@@ -17,6 +17,17 @@ const FilesTab = ({ currentUser, theme, courseId }) => {
   const [editFolderName, setEditFolderName] = useState('');
   const [selectedFolderForView, setSelectedFolderForView] = useState(null);
   const [folderBreadcrumb, setFolderBreadcrumb] = useState([]);
+  
+  // Loading states for preventing double clicks
+  const [loadingStates, updateLoadingStateStates] = useState({
+    creatingFolder: false,
+    uploadingFile: false,
+    deletingFile: false,
+    deletingFolder: false,
+    editingFolder: false,
+    downloadingFile: false,
+    openingFile: false
+  });
 
 
   // Load files when component mounts or courseId changes
@@ -57,7 +68,7 @@ const FilesTab = ({ currentUser, theme, courseId }) => {
 
   const loadFiles = async (folderId = null) => {
     try {
-      setLoading(true);
+      updateLoadingState(true);
       console.log('🔍 Loading files for:', {
         courseId: courseId,
         folderId: folderId,
@@ -152,7 +163,7 @@ const FilesTab = ({ currentUser, theme, courseId }) => {
       setFolders([]);
       setRootFiles([]);
     } finally {
-      setLoading(false);
+      updateLoadingState(false);
     }
   };
 
@@ -181,8 +192,14 @@ const FilesTab = ({ currentUser, theme, courseId }) => {
     return currentUser?.role === 'admin' || currentUser?.role === 'teacher';
   };
 
+  // Helper function to update loading states
+  const updateLoadingState = (key, value) => {
+    updateLoadingStateStates(prev => ({ ...prev, [key]: value }));
+  };
+
   const handleCreateFolder = async () => {
-    if (newFolderName.trim() && courseId) {
+    if (newFolderName.trim() && courseId && !loadingStates.creatingFolder) {
+      updateLoadingState('creatingFolder', true);
       try {
         const folderData = {
           name: newFolderName.trim(),
@@ -209,7 +226,7 @@ const FilesTab = ({ currentUser, theme, courseId }) => {
           }
         }, 500);
         
-        setNewFolderName('');
+                setNewFolderName('');
         setShowNewFolderModal(false);
         showSuccessToast('Folder created successfully!');
       } catch (error) {
@@ -219,14 +236,17 @@ const FilesTab = ({ currentUser, theme, courseId }) => {
         if (error.message && error.message.toLowerCase().includes('rate limit')) {
           showErrorToast(null, 'Request rate limited. Please wait a moment and try again.');
         } else {
-          showErrorToast(error, 'Failed to create folder. Please try again.');
+        showErrorToast(error, 'Failed to create folder. Please try again.');
         }
+      } finally {
+        updateLoadingState('creatingFolder', false);
       }
     }
   };
 
   const handleFileUpload = async () => {
-    if (uploadedFile && courseId) {
+    if (uploadedFile && courseId && !loadingStates.uploadingFile) {
+      updateLoadingState('uploadingFile', true);
       try {
         console.log('📤 Frontend - Starting file upload (modal):', {
           fileName: uploadedFile.name,
@@ -274,6 +294,8 @@ const FilesTab = ({ currentUser, theme, courseId }) => {
         } else {
           showErrorToast(error, 'Failed to upload file. Please try again.');
         }
+      } finally {
+        updateLoadingState('uploadingFile', false);
       }
     }
   };
@@ -311,7 +333,8 @@ const FilesTab = ({ currentUser, theme, courseId }) => {
 
   const handleFileSelect = async (event, capturedFolderId = null) => {
     const file = event.target.files[0];
-    if (file && courseId) {
+    if (file && courseId && !loadingStates.uploadingFile) {
+      updateLoadingState('uploadingFile', true);
       try {
         // Use the captured folder ID if provided, otherwise fall back to state
         const currentFolderId = capturedFolderId || selectedFolderForView?.id || (folderBreadcrumb.length > 0 ? folderBreadcrumb[folderBreadcrumb.length - 1]?.id : null);
@@ -347,12 +370,14 @@ const FilesTab = ({ currentUser, theme, courseId }) => {
         console.error('❌ Frontend - File upload error:', error);
         showErrorToast(error, 'Failed to upload file. Please try again.');
         
-        // Check if error is related to rate limiting
+                // Check if error is related to rate limiting
         if (error.message && error.message.toLowerCase().includes('rate limit')) {
           showErrorToast(null, 'Request rate limited. Please wait a moment and try again.');
         } else {
-          showErrorToast(error, 'Failed to upload file. Please try again.');
-        }
+        showErrorToast(error, 'Failed to upload file. Please try again.');
+      }
+      } finally {
+        updateLoadingState('uploadingFile', false);
       }
     }
     
@@ -369,7 +394,8 @@ const FilesTab = ({ currentUser, theme, courseId }) => {
   };
 
   const handleUpdateFolder = async () => {
-    if (editFolderName.trim() && editingFolder) {
+    if (editFolderName.trim() && editingFolder && !loadingStates.editingFolder) {
+      updateLoadingState('editingFolder', true);
       try {
         await materialsService.updateFolder(editingFolder.id, { name: editFolderName.trim() });
         
@@ -388,12 +414,15 @@ const FilesTab = ({ currentUser, theme, courseId }) => {
       } catch (error) {
         console.error('Error updating folder:', error);
         showErrorToast(error, 'Failed to update folder. Please try again.');
+      } finally {
+        updateLoadingState('editingFolder', false);
       }
     }
   };
 
   const handleDeleteFolder = async (folderId) => {
-    if (window.confirm('Are you sure you want to delete this folder? This action cannot be undone.')) {
+    if (window.confirm('Are you sure you want to delete this folder? This action cannot be undone.') && !loadingStates.deletingFolder) {
+      updateLoadingState('deletingFolder', true);
       try {
         await materialsService.deleteFolder(folderId);
         
@@ -418,6 +447,8 @@ const FilesTab = ({ currentUser, theme, courseId }) => {
         } else {
           showErrorToast(error, 'Failed to delete folder. Please try again.');
         }
+      } finally {
+        updateLoadingState('deletingFolder', false);
       }
     }
   };
@@ -473,7 +504,8 @@ const FilesTab = ({ currentUser, theme, courseId }) => {
   };
 
   const handleDeleteFile = async (fileId) => {
-    if (window.confirm('Are you sure you want to delete this file? This action cannot be undone.')) {
+    if (window.confirm('Are you sure you want to delete this file? This action cannot be undone.') && !loadingStates.deletingFile) {
+      updateLoadingState('deletingFile', true);
       try {
         await materialsService.deleteFile(fileId);
         
@@ -498,11 +530,15 @@ const FilesTab = ({ currentUser, theme, courseId }) => {
         } else {
           showErrorToast(error, 'Failed to delete file. Please try again.');
         }
+      } finally {
+        updateLoadingState('deletingFile', false);
       }
     }
   };
 
   const handleDownloadFile = async (file) => {
+    if (loadingStates.downloadingFile) return;
+    updateLoadingState('downloadFile', true);
     try {
       console.log('📥 Downloading file:', file.fileName);
       
@@ -528,10 +564,14 @@ const FilesTab = ({ currentUser, theme, courseId }) => {
     } catch (error) {
       console.error('Error downloading file:', error);
       showErrorToast(error, 'Failed to download file');
+    } finally {
+      updateLoadingState('downloadFile', false);
     }
   };
 
   const handleOpenFile = async (file) => {
+    if (loadingStates.openingFile) return;
+    updateLoadingState('openingFile', true);
     try {
       console.log('👁️ Opening file in FilesTab:', file.fileName);
       
@@ -552,6 +592,8 @@ const FilesTab = ({ currentUser, theme, courseId }) => {
     } catch (error) {
       console.error('Error opening file:', error);
       showErrorToast(error, 'Failed to open file');
+    } finally {
+      updateLoadingState('openingFile', false);
     }
   };
 
@@ -669,10 +711,15 @@ const FilesTab = ({ currentUser, theme, courseId }) => {
                     {canDeleteFolder() && (
                       <button
                         onClick={() => handleDeleteFolder(folder.id)}
-                        className="p-1 text-red-500 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                        disabled={loadingStates.deletingFolder}
+                        className="p-1 text-red-500 hover:text-red-600 hover:bg-red-50 rounded transition-colors disabled:opacity-50"
                         title="Delete folder"
                       >
-                        <Trash2 className="h-4 w-4" />
+                        {loadingStates.deletingFolder ? (
+                          <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
+                        ) : (
+                          <Trash2 className="h-4 w-4" />
+                        )}
                       </button>
                     )}
                   </div>
@@ -698,18 +745,28 @@ const FilesTab = ({ currentUser, theme, courseId }) => {
                     <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
                       <button
                         onClick={() => handleDownloadFile(file)}
-                        className="p-1 text-green-500 hover:text-green-600 hover:bg-green-50 rounded transition-colors"
+                        disabled={loadingStates.downloadingFile}
+                        className="p-1 text-green-500 hover:text-green-600 hover:bg-green-50 rounded transition-colors disabled:opacity-50"
                         title="Download file"
                       >
-                        <Download className="h-4 w-4" />
+                        {loadingStates.downloadingFile ? (
+                          <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
+                        ) : (
+                          <Download className="h-4 w-4" />
+                        )}
                       </button>
                       {canDeleteFiles() && (
                         <button
                           onClick={() => handleDeleteFile(file.id)}
-                          className="p-1 text-red-500 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                          disabled={loadingStates.deletingFile}
+                          className="p-1 text-red-500 hover:text-red-600 hover:bg-red-50 rounded transition-colors disabled:opacity-50"
                           title="Delete file"
                         >
-                          <Trash2 className="h-4 w-4" />
+                          {loadingStates.deletingFile ? (
+                            <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
+                          ) : (
+                            <Trash2 className="h-4 w-4" />
+                          )}
                         </button>
                       )}
                     </div>
@@ -735,10 +792,20 @@ const FilesTab = ({ currentUser, theme, courseId }) => {
                 {canUploadFiles() && (
                   <button
                     onClick={handleDirectFileUpload}
-                    className={`px-3 py-2 border-2 border-${currentUser?.role === 'admin' ? 'blue' : 'green'}-600 text-${currentUser?.role === 'admin' ? 'blue' : 'green'}-600 rounded-lg hover:bg-${currentUser?.role === 'admin' ? 'blue' : 'green'}-50 transition-colors flex items-center gap-2`}
+                    disabled={loadingStates.uploadingFile}
+                    className={`px-3 py-2 border-2 border-${currentUser?.role === 'admin' ? 'blue' : 'green'}-600 text-${currentUser?.role === 'admin' ? 'blue' : 'green'}-600 rounded-lg hover:bg-${currentUser?.role === 'admin' ? 'blue' : 'green'}-50 transition-colors flex items-center gap-2 disabled:opacity-50`}
                   >
-                    <Upload className="h-5 w-5" />
-                    Upload File
+                    {loadingStates.uploadingFile ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
+                        Uploading...
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="h-5 w-5" />
+                        Upload File
+                      </>
+                    )}
                   </button>
                 )}
               </div>
@@ -826,10 +893,15 @@ const FilesTab = ({ currentUser, theme, courseId }) => {
                         {canDeleteFolder() && (
                           <button
                             onClick={() => handleDeleteFolder(subfolder.id)}
-                            className="p-1 text-red-500 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                            disabled={loadingStates.deletingFolder}
+                            className="p-1 text-red-500 hover:text-red-600 hover:bg-red-50 rounded transition-colors disabled:opacity-50"
                             title="Delete folder"
                           >
-                            <Trash2 className="h-4 w-4" />
+                            {loadingStates.deletingFolder ? (
+                              <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
+                            ) : (
+                              <Trash2 className="h-4 w-4" />
+                            )}
                           </button>
                         )}
                       </div>
@@ -862,18 +934,28 @@ const FilesTab = ({ currentUser, theme, courseId }) => {
                     <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
                       <button
                         onClick={() => handleDownloadFile(file)}
-                        className="p-1 text-green-500 hover:text-green-600 hover:bg-green-50 rounded transition-colors"
+                        disabled={loadingStates.downloadingFile}
+                        className="p-1 text-green-500 hover:text-green-600 hover:bg-green-50 rounded transition-colors disabled:opacity-50"
                         title="Download file"
                       >
-                        <Download className="h-4 w-4" />
+                        {loadingStates.downloadingFile ? (
+                          <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
+                        ) : (
+                          <Download className="h-4 w-4" />
+                        )}
                       </button>
                       {canDeleteFiles() && (
                         <button
                           onClick={() => handleDeleteFile(file.id)}
-                          className="p-1 text-red-500 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                          disabled={loadingStates.deletingFile}
+                          className="p-1 text-red-500 hover:text-red-600 hover:bg-red-50 rounded transition-colors disabled:opacity-50"
                           title="Delete file"
                         >
-                          <Trash2 className="h-4 w-4" />
+                          {loadingStates.deletingFile ? (
+                            <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
+                          ) : (
+                            <Trash2 className="h-4 w-4" />
+                          )}
                         </button>
                       )}
                     </div>
@@ -899,10 +981,20 @@ const FilesTab = ({ currentUser, theme, courseId }) => {
                 {canUploadFiles() && (
                   <button
                     onClick={handleDirectFileUpload}
-                    className={`px-3 py-2 border-2 border-${currentUser?.role === 'admin' ? 'blue' : 'green'}-600 text-${currentUser?.role === 'admin' ? 'blue' : 'green'}-600 rounded-lg hover:bg-${currentUser?.role === 'admin' ? 'blue' : 'green'}-50 transition-colors flex items-center gap-2`}
+                    disabled={loadingStates.uploadingFile}
+                    className={`px-3 py-2 border-2 border-${currentUser?.role === 'admin' ? 'blue' : 'green'}-600 text-${currentUser?.role === 'admin' ? 'blue' : 'green'}-600 rounded-lg hover:bg-${currentUser?.role === 'admin' ? 'blue' : 'green'}-50 transition-colors flex items-center gap-2 disabled:opacity-50`}
                   >
-                    <Upload className="h-5 w-5" />
-                    Upload File
+                    {loadingStates.uploadingFile ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
+                        Uploading...
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="h-5 w-5" />
+                        Upload File
+                      </>
+                    )}
                   </button>
                 )}
               </div>
@@ -934,10 +1026,17 @@ const FilesTab = ({ currentUser, theme, courseId }) => {
               </button>
               <button
                 onClick={handleCreateFolder}
-                disabled={!newFolderName.trim()}
-                className={`flex-1 px-4 py-2 border-2 border-${theme.primary}-600 text-${theme.primary}-600 rounded-lg hover:bg-${theme.primaryLight} disabled:opacity-50 transition-colors`}
+                disabled={!newFolderName.trim() || loadingStates.creatingFolder}
+                className={`flex-1 px-4 py-2 border-2 border-${theme.primary}-600 text-${theme.primary}-600 rounded-lg hover:bg-${theme.primaryLight} disabled:opacity-50 transition-colors flex items-center justify-center gap-2`}
               >
-                Create
+                {loadingStates.creatingFolder ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
+                    Creating...
+                  </>
+                ) : (
+                  'Create'
+                )}
               </button>
             </div>
           </div>
@@ -1003,10 +1102,17 @@ const FilesTab = ({ currentUser, theme, courseId }) => {
               </button>
               <button
                 onClick={handleUpdateFolder}
-                disabled={!editFolderName.trim()}
-                className="flex-1 px-4 py-2 border-2 border-blue-600 text-blue-600 rounded-lg hover:bg-blue-50 disabled:opacity-50 transition-colors"
+                disabled={!editFolderName.trim() || loadingStates.editingFolder}
+                className="flex-1 px-4 py-2 border-2 border-blue-600 text-blue-600 rounded-lg hover:bg-blue-50 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
               >
-                Update
+                {loadingStates.editingFolder ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
+                    Updating...
+                  </>
+                ) : (
+                  'Update'
+                )}
               </button>
             </div>
           </div>
