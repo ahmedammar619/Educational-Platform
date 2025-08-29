@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { Edit, Trash2, Download, FileText, X, Paperclip } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { Edit, Trash2, Download, FileText, X, Paperclip, FileImage, FileVideo, File, Archive, FileType } from 'lucide-react';
 import { materialsService } from '../../../services';
 import { showErrorToast, showSuccessToast } from '../../../utils/errorHandler';
 
@@ -16,6 +16,15 @@ const PostsTab = ({ currentUser, theme, courseId }) => {
   const [editingPost, setEditingPost] = useState(null);
   const [editPostSubject, setEditPostSubject] = useState('');
   const [editPostMessage, setEditPostMessage] = useState('');
+  const [editAttachedFiles, setEditAttachedFiles] = useState([]);
+  const scrollContainerRef = useRef(null);
+
+  // Function to scroll to bottom (latest posts)
+  const scrollToBottom = () => {
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTop = scrollContainerRef.current.scrollHeight;
+    }
+  };
 
   // Load posts when component mounts or courseId changes
   useEffect(() => {
@@ -44,6 +53,11 @@ const PostsTab = ({ currentUser, theme, courseId }) => {
       console.log('Current user:', currentUser);
       console.log('Post author IDs:', processedPosts.map(p => ({ postId: p.id, authorId: p.authorId, author: p.author })));
       setPosts(processedPosts);
+      
+      // Scroll to bottom after posts are loaded (latest posts)
+      setTimeout(() => {
+        scrollToBottom();
+      }, 100);
     } catch (error) {
       console.error('Error loading posts:', error);
       showErrorToast(error, 'Failed to load posts. Please try again.');
@@ -94,6 +108,11 @@ const PostsTab = ({ currentUser, theme, courseId }) => {
         // Reload posts to get the updated list
         await loadPosts();
         
+        // Scroll to bottom to show the new post
+        setTimeout(() => {
+          scrollToBottom();
+        }, 100);
+        
         setPostSubject('');
         setPostMessage('');
         setAttachedFiles([]);
@@ -110,6 +129,22 @@ const PostsTab = ({ currentUser, theme, courseId }) => {
     setEditingPost(post);
     setEditPostSubject(post.subject || '');
     setEditPostMessage(post.description || post.content || '');
+    
+    // Set existing attachments for editing
+    if (post.attachments && post.attachments.length > 0) {
+      const existingAttachments = post.attachments.map(attachment => ({
+        id: attachment.id,
+        name: attachment.fileName,
+        type: attachment.fileName?.split('.').pop() || 'unknown',
+        size: `${(attachment.fileSize / 1024 / 1024).toFixed(1)} MB`,
+        isExisting: true, // Flag to identify existing attachments
+        attachment: attachment // Keep reference to original attachment
+      }));
+      setEditAttachedFiles(existingAttachments);
+    } else {
+      setEditAttachedFiles([]);
+    }
+    
     setShowEditPostModal(true);
   };
 
@@ -121,13 +156,23 @@ const PostsTab = ({ currentUser, theme, courseId }) => {
           description: editPostMessage.trim()
         };
 
-        await materialsService.updatePost(editingPost.id, updateData);
+        // Check if there are new files to upload
+        const newFiles = editAttachedFiles.filter(att => !att.isExisting);
+        const fileToUpload = newFiles.length > 0 ? newFiles[0].file : null;
+
+        await materialsService.updatePost(editingPost.id, updateData, fileToUpload);
         
         // Reload posts to get the updated list
         await loadPosts();
         
+        // Scroll to bottom to show the updated post
+        setTimeout(() => {
+          scrollToBottom();
+        }, 100);
+        
         setEditPostSubject('');
         setEditPostMessage('');
+        setEditAttachedFiles([]);
         setEditingPost(null);
         setShowEditPostModal(false);
         showSuccessToast('Post updated successfully!');
@@ -177,23 +222,106 @@ const PostsTab = ({ currentUser, theme, courseId }) => {
     setAttachedFiles(attachedFiles.filter(att => att.id !== attachmentId));
   };
 
+  const handleEditFileAttachment = (event) => {
+    const files = Array.from(event.target.files);
+    
+    // For now, we only support single file upload
+    if (files.length > 1) {
+      showErrorToast(null, 'Only one file can be attached per post. Please select a single file.');
+      return;
+    }
+    
+    const newAttachments = files.map(file => ({
+      id: Date.now() + Math.random(),
+      name: file.name,
+      type: file.name.split('.').pop(),
+      size: `${(file.size / 1024 / 1024).toFixed(1)} MB`,
+      file: file,
+      isExisting: false // Flag to identify new attachments
+    }));
+    setEditAttachedFiles([...editAttachedFiles, ...newAttachments]);
+  };
+
+  const handleRemoveEditAttachment = async (attachmentId) => {
+    try {
+      // Find the attachment to check if it's an existing one
+      const attachment = editAttachedFiles.find(att => att.id === attachmentId);
+      
+      if (attachment && attachment.isExisting) {
+        // If it's an existing attachment, delete it from the database
+        await materialsService.deleteAttachment(attachmentId);
+        showSuccessToast('Attachment deleted successfully!');
+      }
+      
+      // Remove from the UI regardless of whether it was existing or new
+      setEditAttachedFiles(editAttachedFiles.filter(att => att.id !== attachmentId));
+    } catch (error) {
+      console.error('Error deleting attachment:', error);
+      showErrorToast(error, 'Failed to delete attachment. Please try again.');
+    }
+  };
+
+  // Function to get appropriate icon for file type
+  const getFileIcon = (fileName, mimeType) => {
+    const ext = fileName?.split('.').pop()?.toLowerCase() || '';
+    
+    // Image files
+    if (mimeType?.startsWith('image/') || ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg'].includes(ext)) {
+      return <FileImage className="h-4 w-4 text-blue-500 flex-shrink-0" />;
+    }
+    
+    // Video files
+    if (mimeType?.startsWith('video/') || ['mp4', 'avi', 'mov', 'wmv', 'flv', 'webm', 'mkv'].includes(ext)) {
+      return <FileVideo className="h-4 w-4 text-red-500 flex-shrink-0" />;
+    }
+    
+    // PDF files
+    if (ext === 'pdf' || mimeType === 'application/pdf') {
+      return <FileType className="h-4 w-4 text-red-600 flex-shrink-0" />;
+    }
+    
+    // Word documents
+    if (['doc', 'docx'].includes(ext) || mimeType?.includes('word')) {
+      return <FileText className="h-4 w-4 text-blue-600 flex-shrink-0" />;
+    }
+    
+    // Archive files
+    if (['zip', 'rar', '7z', 'tar', 'gz'].includes(ext) || mimeType?.includes('zip') || mimeType?.includes('rar')) {
+      return <Archive className="h-4 w-4 text-yellow-600 flex-shrink-0" />;
+    }
+    
+    // Default file icon
+    return <File className="h-4 w-4 text-gray-400 flex-shrink-0" />;
+  };
+
+  // Function to check if file is an image
+  const isImageFile = (fileName, mimeType) => {
+    const ext = fileName?.split('.').pop()?.toLowerCase() || '';
+    return mimeType?.startsWith('image/') || ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg'].includes(ext);
+  };
+
+  // Function to check if file is a video
+  const isVideoFile = (fileName, mimeType) => {
+    const ext = fileName?.split('.').pop()?.toLowerCase() || '';
+    return mimeType?.startsWith('video/') || ['mp4', 'avi', 'mov', 'wmv', 'flv', 'webm', 'mkv'].includes(ext);
+  };
+
   const handleDownloadFile = async (attachment) => {
     try {
       if (!attachment.id) {
         showErrorToast(null, 'File attachment not found');
         return;
       }
-      
-      // Create download link
-      const downloadUrl = `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/materials/attachments/${attachment.id}/download`;
-      
-      // Create a temporary link and trigger download
-    const link = document.createElement('a');
-      link.href = downloadUrl;
-      link.download = attachment.fileName || attachment.name || 'download';
-    document.body.appendChild(link);
-    link.click();
-      document.body.removeChild(link);
+
+      const blob = await materialsService.downloadAttachment(attachment.id);
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = attachment.fileName || attachment.name || 'download';
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
       
       showSuccessToast('File download started');
     } catch (error) {
@@ -209,9 +337,33 @@ const PostsTab = ({ currentUser, theme, courseId }) => {
         return;
       }
       
-      // Open file in new tab for preview
-      const previewUrl = `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/materials/attachments/${attachment.id}/preview`;
-      window.open(previewUrl, '_blank');
+      const fileName = attachment.fileName || attachment.name;
+      const isPdf = fileName?.toLowerCase().endsWith('.pdf');
+      
+      if (isPdf) {
+        // For PDFs, download and open directly
+        const blob = await materialsService.previewAttachment(attachment.id);
+    const url = window.URL.createObjectURL(blob);
+
+        // Create a temporary link and trigger download
+    const link = document.createElement('a');
+    link.href = url;
+        link.download = fileName;
+        link.target = '_blank';
+    document.body.appendChild(link);
+    link.click();
+        document.body.removeChild(link);
+
+        // Clean up the URL after a short delay
+        setTimeout(() => {
+    window.URL.revokeObjectURL(url);
+        }, 1000);
+      } else {
+        // For other files, use the authenticated preview
+        const blob = await materialsService.previewAttachment(attachment.id);
+        const url = window.URL.createObjectURL(blob);
+        window.open(url, '_blank');
+      }
       
     } catch (error) {
       console.error('Error opening file:', error);
@@ -219,8 +371,196 @@ const PostsTab = ({ currentUser, theme, courseId }) => {
     }
   };
 
+  // Function to get authenticated URL for images and videos
+  const getAuthenticatedUrl = async (attachmentId) => {
+    try {
+      const blob = await materialsService.previewAttachment(attachmentId);
+      return window.URL.createObjectURL(blob);
+    } catch (error) {
+      console.error('Error getting authenticated URL:', error);
+      return null;
+    }
+  };
+
+  // Component for authenticated image display
+  const AuthenticatedImage = ({ attachment, fileName }) => {
+    const [imageUrl, setImageUrl] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(false);
+
+    useEffect(() => {
+      const loadImage = async () => {
+        try {
+          setLoading(true);
+          const url = await getAuthenticatedUrl(attachment.id);
+          if (url) {
+            setImageUrl(url);
+          } else {
+            setError(true);
+          }
+        } catch (err) {
+          console.error('Error loading image:', err);
+          setError(true);
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      loadImage();
+
+      // Cleanup function to revoke object URL
+      return () => {
+        if (imageUrl) {
+          window.URL.revokeObjectURL(imageUrl);
+        }
+      };
+    }, [attachment.id]);
+
+    if (loading) {
+      return (
+        <div className="flex items-center justify-center h-48 bg-gray-100 rounded-lg">
+          <div className="text-gray-500">Loading image...</div>
+        </div>
+      );
+    }
+
+    if (error || !imageUrl) {
+      return (
+        <div className="flex items-center justify-center h-48 bg-gray-100 rounded-lg">
+          <div className="text-gray-500">Failed to load image</div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="relative group">
+        <div className="relative">
+          <img
+            src={imageUrl}
+            alt={fileName}
+            className="max-w-full h-auto max-h-96 rounded-lg border border-gray-200 cursor-pointer hover:opacity-90 transition-opacity"
+            onClick={() => handleOpenFile(attachment)}
+            title={`Click to open ${fileName}`}
+          />
+          {/* Download overlay */}
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              handleDownloadFile(attachment);
+            }}
+            className="absolute top-2 right-2 p-2 bg-black bg-opacity-50 text-white rounded-full hover:bg-opacity-70 transition-all opacity-0 group-hover:opacity-100"
+            title={`Download ${fileName}`}
+          >
+            <Download className="h-4 w-4" />
+          </button>
+        </div>
+        <p className="text-sm text-gray-600 mt-1 truncate">
+          {(() => {
+            const parts = fileName.split('-');
+            if (parts.length >= 3) {
+              const originalName = parts.slice(0, -2).join('-');
+              const randomAndExt = parts[parts.length - 1];
+              const ext = randomAndExt.split('.')[1] || '';
+              return `${originalName}${ext ? '.' + ext : ''}`;
+            }
+            return fileName;
+          })()}
+        </p>
+      </div>
+    );
+  };
+
+  // Component for authenticated video display
+  const AuthenticatedVideo = ({ attachment, fileName }) => {
+    const [videoUrl, setVideoUrl] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(false);
+
+    useEffect(() => {
+      const loadVideo = async () => {
+        try {
+          setLoading(true);
+          const url = await getAuthenticatedUrl(attachment.id);
+          if (url) {
+            setVideoUrl(url);
+          } else {
+            setError(true);
+          }
+        } catch (err) {
+          console.error('Error loading video:', err);
+          setError(true);
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      loadVideo();
+
+      // Cleanup function to revoke object URL
+      return () => {
+        if (videoUrl) {
+          window.URL.revokeObjectURL(videoUrl);
+        }
+      };
+    }, [attachment.id]);
+
+    if (loading) {
+      return (
+        <div className="flex items-center justify-center h-48 bg-gray-100 rounded-lg">
+          <div className="text-gray-500">Loading video...</div>
+        </div>
+      );
+    }
+
+    if (error || !videoUrl) {
+      return (
+        <div className="flex items-center justify-center h-48 bg-gray-100 rounded-lg">
+          <div className="text-gray-500">Failed to load video</div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="relative group">
+        <div className="relative">
+          <video
+            src={videoUrl}
+            controls
+            className="max-w-full h-auto max-h-96 rounded-lg border border-gray-200"
+            title={fileName}
+          />
+          {/* Download overlay */}
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              handleDownloadFile(attachment);
+            }}
+            className="absolute top-2 right-2 p-2 bg-black bg-opacity-50 text-white rounded-full hover:bg-opacity-70 transition-all opacity-0 group-hover:opacity-100"
+            title={`Download ${fileName}`}
+          >
+            <Download className="h-4 w-4" />
+          </button>
+        </div>
+        <p className="text-sm text-gray-600 mt-1 truncate">
+          {(() => {
+            const parts = fileName.split('-');
+            if (parts.length >= 3) {
+              const originalName = parts.slice(0, -2).join('-');
+              const randomAndExt = parts[parts.length - 1];
+              const ext = randomAndExt.split('.')[1] || '';
+              return `${originalName}${ext ? '.' + ext : ''}`;
+            }
+            return fileName;
+          })()}
+        </p>
+      </div>
+    );
+  };
+
   return (
-    <div className="space-y-6">
+    <div className="h-[450px] flex flex-col">
+      {/* Fixed height container with scroll */}
+      <div ref={scrollContainerRef} className="flex-1 overflow-y-auto space-y-6 pr-2">
       {/* Posts List */}
       {loading ? (
         <div className="text-center py-12">
@@ -319,17 +659,53 @@ const PostsTab = ({ currentUser, theme, courseId }) => {
               {post.attachments && post.attachments.length > 0 && (
                 <div className="mx-5 mb-3">
                   <div className="border-t border-gray-100 pt-3">
-                    <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2">
-                      {post.attachments.map((attachment) => (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+                      {post.attachments.map((attachment) => {
+                        const fileName = attachment.fileName || attachment.name;
+                        const isImage = isImageFile(fileName, attachment.mimeType);
+                        const isVideo = isVideoFile(fileName, attachment.mimeType);
+                        
+                        if (isImage) {
+                          // Display image inline with authentication
+                          return (
+                            <AuthenticatedImage 
+                              key={attachment.id} 
+                              attachment={attachment} 
+                              fileName={fileName} 
+                            />
+                          );
+                        } else if (isVideo) {
+                          // Display video inline with authentication
+                          return (
+                            <AuthenticatedVideo 
+                              key={attachment.id} 
+                              attachment={attachment} 
+                              fileName={fileName} 
+                            />
+                          );
+                        } else {
+                          // Display other files as before with enhanced icons
+                          return (
                         <div
                           key={attachment.id}
-                          className="flex items-center gap-2 p-3 bg-gray-50 rounded border border-gray-200 min-w-0 cursor-pointer hover:bg-gray-100 transition-colors"
+                              className="flex items-center gap-2 p-2 bg-gray-50 rounded border border-gray-200 min-w-0 cursor-pointer hover:bg-gray-100 transition-colors"
                           onClick={() => handleOpenFile(attachment)}
-                          title={`Click to open ${attachment.fileName || attachment.name}`}
+                              title={`Click to open ${fileName}`}
                         >
-                          <FileText className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                              {getFileIcon(fileName, attachment.mimeType)}
                           <div className="flex-1 min-w-0">
-                            <p className="text-start text-sm font-medium text-gray-900 truncate">{attachment.fileName || attachment.name}</p>
+                                <p className="text-start text-xs font-medium text-gray-900 truncate">
+                                  {(() => {
+                                    const parts = fileName.split('-');
+                                    if (parts.length >= 3) {
+                                      const originalName = parts.slice(0, -2).join('-');
+                                      const randomAndExt = parts[parts.length - 1];
+                                      const ext = randomAndExt.split('.')[1] || '';
+                                      return `${originalName}${ext ? '.' + ext : ''}`;
+                                    }
+                                    return fileName;
+                                  })()}
+                                </p>
                           </div>
                           <button
                             onClick={(e) => {
@@ -337,12 +713,14 @@ const PostsTab = ({ currentUser, theme, courseId }) => {
                               handleDownloadFile(attachment);
                             }}
                             className="p-1 text-green-500 hover:text-green-600 hover:bg-green-50 rounded transition-colors flex-shrink-0"
-                            title={`Download ${attachment.name}`}
+                                title={`Download ${fileName}`}
                           >
                             <Download className="h-3 w-3" />
                           </button>
                         </div>
-                      ))}
+                          );
+                        }
+                      })}
                     </div>
                   </div>
                 </div>
@@ -351,8 +729,9 @@ const PostsTab = ({ currentUser, theme, courseId }) => {
           ))}
         </div>
       )}
+      </div>
 
-      {/* Bottom Post Button */}
+      {/* Bottom Post Button - Fixed at bottom */}
       {canCreatePost() && (
         <div className="text-center pt-3 border-t border-gray-200">
           <button
@@ -429,7 +808,7 @@ const PostsTab = ({ currentUser, theme, courseId }) => {
               {attachedFiles.length > 0 && (
                 <div className="mb-4 p-3 bg-gray-50 rounded-lg border border-gray-200">
                   <h4 className="text-sm font-medium text-gray-700 mb-2">Attached Files:</h4>
-                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
                     {attachedFiles.map((attachment) => (
                       <div key={attachment.id} className="flex items-center justify-between p-2 bg-white rounded border border-gray-200 min-w-0">
                         <div className="flex items-center gap-2 p-1 min-w-0 flex-1">
@@ -491,6 +870,7 @@ const PostsTab = ({ currentUser, theme, courseId }) => {
                   setEditingPost(null);
                   setEditPostSubject('');
                   setEditPostMessage('');
+                  setEditAttachedFiles([]);
                 }}
                 className="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100 transition-colors"
               >
@@ -540,12 +920,59 @@ const PostsTab = ({ currentUser, theme, courseId }) => {
               />
             </div>
 
+            {/* Attached Files Display */}
+            {editAttachedFiles.length > 0 && (
+              <div className="mb-4 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                <h4 className="text-sm font-medium text-gray-700 mb-2">Attached Files:</h4>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                  {editAttachedFiles.map((attachment) => (
+                    <div key={attachment.id} className="flex items-center justify-between p-2 bg-white rounded border border-gray-200 min-w-0">
+                      <div className="flex items-center gap-2 p-1 min-w-0 flex-1">
+                        {getFileIcon(attachment.name, attachment.type)}
+                        <div className="min-w-0 flex-1">
+                          <p className="text-start text-sm font-medium text-gray-900 truncate">
+                            {(() => {
+                              const fileName = attachment.name;
+                              // Extract the original name without the generated number
+                              const parts = fileName.split('-');
+                              if (parts.length >= 3) {
+                                // Format: originalname-timestamp-random.ext
+                                const originalName = parts.slice(0, -2).join('-');
+                                const randomAndExt = parts[parts.length - 1];
+                                const ext = randomAndExt.split('.')[1] || '';
+                                return `${originalName}${ext ? '.' + ext : ''}`;
+                              }
+                              return fileName;
+                            })()}
+                          </p>
+                          <p className="text-start text-xs text-gray-500 truncate">{attachment.type.toUpperCase()} • {attachment.size}</p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => handleRemoveEditAttachment(attachment.id)}
+                        className="p-1 text-red-500 hover:text-red-600 hover:bg-red-50 rounded transition-colors flex-shrink-0"
+                        title="Remove attachment"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Bottom Actions */}
             <div className="flex items-center justify-between">
               <div className="flex gap-2">
-                <button className="p-2 text-gray-500 hover:text-gray-700 rounded-lg hover:bg-gray-100 transition-colors">
+                <label className="p-2 text-gray-500 hover:text-gray-700 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer">
                   <Paperclip className="h-4 w-4" />
-                </button>
+                  <input
+                    type="file"
+                    onChange={handleEditFileAttachment}
+                    className="hidden"
+                    accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png,.gif,.mp4,.mp3,.zip,.rar"
+                  />
+                </label>
               </div>
 
               <button

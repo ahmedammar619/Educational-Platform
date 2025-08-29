@@ -38,9 +38,24 @@ class MaterialsService {
     }
   }
 
-  async updatePost(postId, postData) {
+  async updatePost(postId, postData, file = null) {
     try {
-      const response = await api.patch(`/api/materials/posts/${postId}`, postData);
+      const formData = new FormData();
+      
+      // Add post data
+      formData.append('subject', postData.subject || '');
+      formData.append('description', postData.description);
+      
+      // Add file if provided
+      if (file) {
+        formData.append('file', file);
+      }
+      
+      const response = await api.patch(`/api/materials/posts/${postId}`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
       return response.data;
     } catch (error) {
       // Error is already handled by the API interceptor
@@ -193,6 +208,41 @@ class MaterialsService {
   async getStudentAttendance(courseId, studentId) {
     try {
       const response = await api.get(`/api/materials/courses/${courseId}/students/${studentId}/attendance`);
+      return response.data;
+    } catch (error) {
+      // Error is already handled by the API interceptor
+      throw error;
+    }
+  }
+
+  // Attachments
+  async downloadAttachment(attachmentId) {
+    try {
+      const response = await api.get(`/api/materials/attachments/${attachmentId}/download`, {
+        responseType: 'blob'
+      });
+      return response.data;
+    } catch (error) {
+      // Error is already handled by the API interceptor
+      throw error;
+    }
+  }
+
+  async previewAttachment(attachmentId) {
+    try {
+      const response = await api.get(`/api/materials/attachments/${attachmentId}/preview`, {
+        responseType: 'blob'
+      });
+      return response.data;
+    } catch (error) {
+      // Error is already handled by the API interceptor
+      throw error;
+    }
+  }
+
+  async deleteAttachment(attachmentId) {
+    try {
+      const response = await api.delete(`/api/materials/attachments/${attachmentId}`);
       return response.data;
     } catch (error) {
       // Error is already handled by the API interceptor

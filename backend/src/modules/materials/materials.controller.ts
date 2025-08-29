@@ -134,38 +134,49 @@ export class MaterialsController {
   }
 
   @Patch('posts/:postId')
+  @UseInterceptors(FileInterceptor('file'))
   @Roles(Role.Admin, Role.Teacher)
   async updatePost(
     @Param('postId') postId: string,
     @Body() updatePostDto: UpdatePostDto,
+    @UploadedFile() file: Express.Multer.File,
   ): Promise<PostResponseDto> {
-    const post = await this.materialsService.updatePost(postId, updatePostDto);
-    return {
-      id: post.id,
-      courseId: post.courseId,
-      authorId: post.authorId,
-      subject: post.subject,
-      description: post.description,
-      createdAt: post.createdAt,
-      updatedAt: post.updatedAt,
-      course: post.course,
-      author: post.author ? {
-        id: post.author.id,
-        firstName: post.author.firstName,
-        lastName: post.author.lastName,
-        email: post.author.email,
-        role: post.author.role
-      } : undefined,
-      attachments: post.attachments ? post.attachments.map(attachment => ({
-        id: attachment.id,
-        postId: attachment.postId,
-        fileName: attachment.fileName,
-        filePath: attachment.filePath,
-        fileSize: attachment.fileSize,
-        mimeType: attachment.mimeType,
-        uploadedAt: attachment.uploadedAt
-      })) : []
-    };
+    console.log('Controller - Updating post:', { postId, updatePostDto, file: file?.originalname });
+    try {
+      const post = await this.materialsService.updatePost(postId, updatePostDto, file);
+      console.log('Controller - Post updated successfully:', post.id);
+      const response = {
+        id: post.id,
+        courseId: post.courseId,
+        authorId: post.authorId,
+        subject: post.subject,
+        description: post.description,
+        createdAt: post.createdAt,
+        updatedAt: post.updatedAt,
+        course: post.course,
+        author: post.author ? {
+          id: post.author.id,
+          firstName: post.author.firstName,
+          lastName: post.author.lastName,
+          email: post.author.email,
+          role: post.author.role
+        } : undefined,
+        attachments: post.attachments ? post.attachments.map(attachment => ({
+          id: attachment.id,
+          postId: attachment.postId,
+          fileName: attachment.fileName,
+          filePath: attachment.filePath,
+          fileSize: attachment.fileSize,
+          mimeType: attachment.mimeType,
+          uploadedAt: attachment.uploadedAt
+        })) : []
+      };
+      console.log('Controller - Response transformed:', response);
+      return response;
+    } catch (error) {
+      console.error('Controller - Error updating post:', error);
+      throw error;
+    }
   }
 
   @Delete('posts/:postId')
@@ -350,5 +361,12 @@ export class MaterialsController {
   async testPostAttachmentTable(): Promise<any> {
     await this.materialsService.testPostAttachmentTable();
     return { message: 'Test info logged to console' };
+  }
+
+  // Delete individual attachment
+  @Delete('attachments/:attachmentId')
+  @Roles(Role.Admin, Role.Teacher)
+  async deleteAttachment(@Param('attachmentId') attachmentId: string): Promise<void> {
+    await this.materialsService.deleteAttachment(attachmentId);
   }
 }
