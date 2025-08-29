@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Plus,
   Upload,
@@ -15,62 +15,12 @@ import {
   Eye,
   User
 } from 'lucide-react';
+import { materialsService } from '../../../services';
+import { showErrorToast, showSuccessToast } from '../../../utils/errorHandler';
 
-const AssignmentsTab = ({ currentUser, theme }) => {
-  // Mock data for assignments
-  const [assignments, setAssignments] = useState([
-    {
-      id: 1,
-      title: 'Math Homework - Chapter 5',
-      description: 'Complete exercises 1-20 from Chapter 5. Show all your work and submit as PDF.',
-      dueDate: '2024-01-15',
-      dueTime: '23:59',
-      maxPoints: 100,
-      createdBy: {
-        name: 'Dr. Smith',
-        avatar: 'DS',
-        avatarColor: 'bg-blue-500'
-      },
-      createdAt: '2024-01-10',
-      submissions: [
-        {
-          id: 1,
-          studentId: 'student1',
-          studentName: 'John Doe',
-          fileName: 'math_homework_john.pdf',
-          submittedAt: '2024-01-14T15:30:00',
-          grade: 85,
-          feedback: 'Good work! Minor calculation errors in problems 8 and 12.',
-          status: 'graded'
-        },
-        {
-          id: 2,
-          studentId: 'student2',
-          studentName: 'Jane Smith',
-          fileName: 'math_homework_jane.pdf',
-          submittedAt: '2024-01-14T18:45:00',
-          grade: null,
-          feedback: null,
-          status: 'submitted'
-        }
-      ]
-    },
-    {
-      id: 2,
-      title: 'Science Project - Lab Report',
-      description: 'Write a comprehensive lab report on the photosynthesis experiment. Include data analysis and conclusions.',
-      dueDate: '2024-01-20',
-      dueTime: '17:00',
-      maxPoints: 150,
-      createdBy: {
-        name: 'Prof. Johnson',
-        avatar: 'PJ',
-        avatarColor: 'bg-green-500'
-      },
-      createdAt: '2024-01-12',
-      submissions: []
-    }
-  ]);
+const AssignmentsTab = ({ currentUser, theme, courseId }) => {
+  const [assignments, setAssignments] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   const [showCreateAssignment, setShowCreateAssignment] = useState(false);
   const [showSubmitAssignment, setShowSubmitAssignment] = useState(false);
@@ -89,6 +39,27 @@ const AssignmentsTab = ({ currentUser, theme }) => {
   // Form states for grading
   const [grade, setGrade] = useState('');
   const [feedback, setFeedback] = useState('');
+
+  // Load assignments when component mounts or courseId changes
+  useEffect(() => {
+    if (courseId) {
+      loadAssignments();
+    }
+  }, [courseId]);
+
+  const loadAssignments = async () => {
+    try {
+      setLoading(true);
+      const assignmentsData = await materialsService.getCourseAssignments(courseId);
+      setAssignments(Array.isArray(assignmentsData) ? assignmentsData : []);
+    } catch (error) {
+      console.error('Error loading assignments:', error);
+      showErrorToast(error, 'Failed to load assignments. Please try again.');
+      setAssignments([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Role-based access control
   const canCreateAssignment = () => {
@@ -139,105 +110,90 @@ const AssignmentsTab = ({ currentUser, theme }) => {
   };
 
   // Event handlers
-  const handleCreateAssignment = () => {
-    if (assignmentTitle.trim() && assignmentDescription.trim() && assignmentDueDate && assignmentDueTime) {
-      const newAssignment = {
-        id: Date.now(),
-        title: assignmentTitle,
-        description: assignmentDescription,
-        dueDate: assignmentDueDate,
-        dueTime: assignmentDueTime,
-        maxPoints: parseInt(assignmentMaxPoints),
-        createdBy: {
-          name: currentUser?.name || 'Teacher',
-          avatar: currentUser?.name?.charAt(0)?.toUpperCase() || 'T',
-          avatarColor: 'bg-blue-500'
-        },
-        createdAt: new Date().toISOString().split('T')[0],
-        submissions: []
-      };
+  const handleCreateAssignment = async () => {
+    if (assignmentTitle.trim() && assignmentDescription.trim() && assignmentDueDate && assignmentDueTime && courseId) {
+      try {
+        const assignmentData = {
+          title: assignmentTitle.trim(),
+          description: assignmentDescription.trim(),
+          dueDate: assignmentDueDate,
+          dueTime: assignmentDueTime,
+          maxPoints: parseInt(assignmentMaxPoints)
+        };
 
-      setAssignments([newAssignment, ...assignments]);
+        await materialsService.createAssignment(courseId, assignmentData);
+        
+        // Reload assignments to get the updated list
+        await loadAssignments();
 
-      // Reset form
-      setAssignmentTitle('');
-      setAssignmentDescription('');
-      setAssignmentDueDate('');
-      setAssignmentDueTime('');
-      setAssignmentMaxPoints(100);
-      setShowCreateAssignment(false);
+        // Reset form
+        setAssignmentTitle('');
+        setAssignmentDescription('');
+        setAssignmentDueDate('');
+        setAssignmentDueTime('');
+        setAssignmentMaxPoints(100);
+        setShowCreateAssignment(false);
+        showSuccessToast('Assignment created successfully!');
+      } catch (error) {
+        console.error('Error creating assignment:', error);
+        showErrorToast(error, 'Failed to create assignment. Please try again.');
+      }
     }
   };
 
-  const handleSubmitAssignment = () => {
+  const handleSubmitAssignment = async () => {
     if (uploadedFile && selectedAssignment) {
-      const newSubmission = {
-        id: Date.now(),
-        studentId: currentUser?.id || 'current_student',
-        studentName: currentUser?.name || 'Current Student',
-        fileName: uploadedFile.name,
-        submittedAt: new Date().toISOString(),
-        grade: null,
-        feedback: null,
-        status: 'submitted'
-      };
+      try {
+        await materialsService.submitAssignment(selectedAssignment.id, uploadedFile);
+        
+        // Reload assignments to get the updated list
+        await loadAssignments();
 
-      setAssignments(assignments.map(assignment =>
-        assignment.id === selectedAssignment.id
-          ? { ...assignment, submissions: [...assignment.submissions, newSubmission] }
-          : assignment
-      ));
-
-      setUploadedFile(null);
-      setSelectedAssignment(null);
-      setShowSubmitAssignment(false);
+        setUploadedFile(null);
+        setSelectedAssignment(null);
+        setShowSubmitAssignment(false);
+        showSuccessToast('Assignment submitted successfully!');
+      } catch (error) {
+        console.error('Error submitting assignment:', error);
+        showErrorToast(error, 'Failed to submit assignment. Please try again.');
+      }
     }
   };
 
-  const handleGradeAssignment = () => {
+  const handleGradeAssignment = async () => {
     if (grade && selectedSubmission) {
-      setAssignments(assignments.map(assignment =>
-        assignment.id === selectedAssignment.id
-          ? {
-            ...assignment,
-            submissions: assignment.submissions.map(submission =>
-              submission.id === selectedSubmission.id
-                ? {
-                  ...submission,
-                  grade: parseInt(grade),
-                  feedback: feedback.trim() || null,
-                  status: 'graded'
-                }
-                : submission
-            )
-          }
-          : assignment
-      ));
+      try {
+        const gradeData = {
+          grade: parseInt(grade),
+          feedback: feedback.trim() || null
+        };
 
-      setGrade('');
-      setFeedback('');
-      setSelectedSubmission(null);
-      setSelectedAssignment(null);
-      setShowGradeAssignment(false);
+        await materialsService.gradeAssignment(selectedSubmission.id, gradeData);
+        
+        // Reload assignments to get the updated list
+        await loadAssignments();
+
+        setGrade('');
+        setFeedback('');
+        setSelectedSubmission(null);
+        setSelectedAssignment(null);
+        setShowGradeAssignment(false);
+        showSuccessToast('Grade saved successfully!');
+      } catch (error) {
+        console.error('Error grading assignment:', error);
+        showErrorToast(error, 'Failed to save grade. Please try again.');
+      }
     }
   };
 
-  const handleDownloadSubmission = (submission) => {
-    // Create a mock download (in real app, this would be actual file data)
-    const blob = new Blob(['Mock PDF content for ' + submission.fileName], { type: 'application/pdf' });
-    const url = window.URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = submission.fileName;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    window.URL.revokeObjectURL(url);
-  };
-
-  const handleDeleteAssignment = (assignmentId) => {
-    if (window.confirm('Are you sure you want to delete this assignment? This action cannot be undone.')) {
-      setAssignments(assignments.filter(a => a.id !== assignmentId));
+  const handleDownloadSubmission = async (submission) => {
+    try {
+      // In a real implementation, this would download the actual file from the backend
+      // For now, we'll show a message that this feature needs backend implementation
+      showErrorToast(null, 'File download feature needs backend implementation');
+    } catch (error) {
+      console.error('Error downloading submission:', error);
+      showErrorToast(error, 'Failed to download submission');
     }
   };
 
@@ -258,7 +214,19 @@ const AssignmentsTab = ({ currentUser, theme }) => {
       )}
 
       {/* Assignments List */}
-      {assignments.length === 0 ? (
+      {loading ? (
+        <div className="text-center py-12">
+          <div className="mb-6">
+            <div className="relative w-32 h-32 mx-auto">
+              <div className="absolute top-0 left-0 w-16 h-16 bg-blue-500 rounded-full opacity-80 animate-pulse"></div>
+              <div className="absolute top-4 right-0 w-16 h-16 bg-blue-400 rounded-full opacity-80 animate-pulse"></div>
+              <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 w-16 h-16 bg-blue-300 rounded-full opacity-80 animate-pulse"></div>
+            </div>
+          </div>
+          <h3 className="text-xl font-bold text-gray-900 mb-2">Loading assignments...</h3>
+          <p className="text-gray-600">Please wait while we fetch the assignments.</p>
+        </div>
+      ) : assignments.length === 0 ? (
         <div className="text-center py-12">
           <div className="w-16 h-16 bg-gray-100 rounded-full mx-auto flex items-center justify-center mb-4">
             <FileText className="h-8 w-8 text-gray-400" />
@@ -327,13 +295,6 @@ const AssignmentsTab = ({ currentUser, theme }) => {
                         title="View submissions"
                       >
                         <Eye className="h-4 w-4" />
-                      </button>
-                      <button
-                        onClick={() => handleDeleteAssignment(assignment.id)}
-                        className="p-2 text-red-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                        title="Delete assignment"
-                      >
-                        <Trash2 className="h-4 w-4" />
                       </button>
                     </>
                   )}

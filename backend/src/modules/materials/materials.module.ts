@@ -1,9 +1,11 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { MulterModule } from '@nestjs/platform-express';
+import { memoryStorage } from 'multer';
 import { MaterialsService } from './materials.service';
 import { MaterialsController } from './materials.controller';
-import { FileManagementService } from './services/file-management.service';
+
+
 import { Post } from './entities/post.entity';
 import { PostAttachment } from './entities/post-attachment.entity';
 import { Folder } from './entities/folder.entity';
@@ -28,7 +30,7 @@ import { User } from '../users/entities/user.entity';
       User,
     ]),
     MulterModule.register({
-      dest: './uploads/temp',
+      storage: memoryStorage(),
       limits: {
         fileSize: 50 * 1024 * 1024, // 50MB limit
         files: 10, // Maximum 10 files per request
@@ -36,7 +38,7 @@ import { User } from '../users/entities/user.entity';
     }),
   ],
   controllers: [MaterialsController],
-  providers: [MaterialsService, FileManagementService],
-  exports: [MaterialsService, FileManagementService],
+  providers: [MaterialsService],
+  exports: [MaterialsService],
 })
 export class MaterialsModule {}
