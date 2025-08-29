@@ -739,8 +739,8 @@ const UserManagement = ({ user }) => {
                 </div>
               </div>
               <div className="ml-4">
-                <div className="text-sm font-medium text-gray-900">{userItem.name}</div>
-                <div className="text-sm text-gray-500">{userItem.email}</div>
+                <div className="text-start text-sm font-medium text-gray-900">{userItem.name}</div>
+                <div className="text-start text-sm text-gray-500">{userItem.email}</div>
               </div>
             </div>
           </td>
@@ -784,7 +784,7 @@ const UserManagement = ({ user }) => {
   };
 
   return (
-    <div className="space-y-6 h-full">
+    <div className="space-y-6 h-full mb-10">
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
