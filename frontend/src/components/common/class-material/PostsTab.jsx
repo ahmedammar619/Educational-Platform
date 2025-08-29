@@ -351,33 +351,21 @@ const PostsTab = ({ currentUser, theme, courseId }) => {
       }
       
       const fileName = attachment.fileName || attachment.name;
-      const cleanFileName = getCleanFileName(fileName);
-      const isPdf = fileName?.toLowerCase().endsWith('.pdf');
+      console.log('👁️ Opening file in PostsTab:', fileName);
       
-      if (isPdf) {
-        // For PDFs, download and open directly
-        const blob = await materialsService.previewAttachment(attachment.id);
-    const url = window.URL.createObjectURL(blob);
-
-        // Create a temporary link and trigger download
-    const link = document.createElement('a');
-    link.href = url;
-        link.download = cleanFileName;
-        link.target = '_blank';
-    document.body.appendChild(link);
-    link.click();
-        document.body.removeChild(link);
-
-        // Clean up the URL after a short delay
-        setTimeout(() => {
-    window.URL.revokeObjectURL(url);
-        }, 1000);
-      } else {
-        // For other files, use the authenticated preview
-        const blob = await materialsService.previewAttachment(attachment.id);
-        const url = window.URL.createObjectURL(blob);
-        window.open(url, '_blank');
-      }
+      // Use the authenticated preview for all file types
+      const blob = await materialsService.previewAttachment(attachment.id);
+      const url = window.URL.createObjectURL(blob);
+      
+      // Open file in new tab/window
+      window.open(url, '_blank');
+      
+      showSuccessToast('File opened in new tab');
+      
+      // Clean up the URL after a short delay
+      setTimeout(() => {
+        window.URL.revokeObjectURL(url);
+      }, 1000);
       
     } catch (error) {
       console.error('Error opening file:', error);

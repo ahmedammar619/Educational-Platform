@@ -506,12 +506,13 @@ const FilesTab = ({ currentUser, theme, courseId }) => {
     try {
       console.log('📥 Downloading file:', file.fileName);
       
-      // Create download URL using the new backend endpoint
-      const downloadUrl = `/api/materials/files/${file.id}/download`;
+      // Use the authenticated download method
+      const blob = await materialsService.downloadFile(file.id);
+      const url = window.URL.createObjectURL(blob);
       
       // Create a temporary link element to trigger download
       const link = document.createElement('a');
-      link.href = downloadUrl;
+      link.href = url;
       link.download = getCleanFileName(file.fileName || file.name);
       link.style.display = 'none';
       
@@ -519,6 +520,9 @@ const FilesTab = ({ currentUser, theme, courseId }) => {
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+      
+      // Clean up the URL
+      window.URL.revokeObjectURL(url);
       
       showSuccessToast('File download started');
     } catch (error) {
@@ -529,15 +533,22 @@ const FilesTab = ({ currentUser, theme, courseId }) => {
 
   const handleOpenFile = async (file) => {
     try {
-      console.log('👁️ Opening file:', file.fileName);
+      console.log('👁️ Opening file in FilesTab:', file.fileName);
       
-      // Create download URL using the new backend endpoint
-      const downloadUrl = `/api/materials/files/${file.id}/download`;
+      // Use the authenticated preview method
+      const blob = await materialsService.previewFile(file.id);
+      const url = window.URL.createObjectURL(blob);
       
       // Open file in new tab/window
-      window.open(downloadUrl, '_blank');
+      window.open(url, '_blank');
       
       showSuccessToast('File opened in new tab');
+      
+      // Clean up the URL after a short delay
+      setTimeout(() => {
+        window.URL.revokeObjectURL(url);
+      }, 1000);
+      
     } catch (error) {
       console.error('Error opening file:', error);
       showErrorToast(error, 'Failed to open file');

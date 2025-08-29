@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, BadRequestException } from '@nestjs/comm
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, IsNull } from 'typeorm';
 import { unlink, mkdir, writeFile } from 'fs/promises';
+import * as fs from 'fs';
 import * as path from 'path';
 import { Post } from './entities/post.entity';
 import { PostAttachment } from './entities/post-attachment.entity';
@@ -172,76 +173,178 @@ export class MaterialsService {
   }
 
   async updatePost(postId: string, updatePostDto: UpdatePostDto, file?: Express.Multer.File): Promise<Post> {
-    console.log('Service - Updating post:', { postId, updatePostDto, file: file?.originalname });
-    
-    const post = await this.postRepository.findOne({ 
-      where: { id: postId },
-      relations: ['attachments', 'course', 'author']
-    });
-    if (!post) {
-      throw new NotFoundException(`Post with ID ${postId} not found`);
-    }
+    // Use a database transaction to ensure consistency
+    return await this.postRepository.manager.transaction(async (transactionalEntityManager) => {
+      try {
+        console.log('Service - Updating post in transaction:', { postId, updatePostDto, file: file?.originalname });
+        
+        const post = await transactionalEntityManager.findOne(Post, { 
+          where: { id: postId },
+          relations: ['attachments', 'course', 'author']
+        });
+        if (!post) {
+          throw new NotFoundException(`Post with ID ${postId} not found`);
+        }
 
-    // Update basic post fields
-    Object.assign(post, updatePostDto);
+        // Update basic post fields (only update fields that are provided)
+        if (updatePostDto.subject !== undefined) {
+          post.subject = updatePostDto.subject;
+        }
+        if (updatePostDto.description !== undefined) {
+          post.description = updatePostDto.description;
+        }
+        if (updatePostDto.attachmentFileNames !== undefined) {
+          // Handle attachment file names if needed
+          console.log('Service - Attachment file names provided:', updatePostDto.attachmentFileNames);
+        }
 
     // Handle file upload if provided (same logic as createPost)
     if (file) {
-      console.log('Service - Processing file upload for post update:', file.originalname);
-      
-      // Get course information for folder structure
-      const course = await this.courseRepository.findOne({
-        where: { id: post.courseId },
-        relations: ['class']
-      });
+      try {
+        console.log('Service - Processing file upload for post update:', {
+          originalname: file.originalname,
+          size: file.size,
+          mimetype: file.mimetype,
+          bufferLength: file.buffer?.length
+        });
+        
+        // Validate file
+        if (!file.buffer) {
+          throw new Error('File buffer is empty or undefined');
+        }
+        
+        // Get course information for folder structure
+        const course = await this.courseRepository.findOne({
+          where: { id: post.courseId },
+          relations: ['class']
+        });
 
-      if (!course) {
-        throw new NotFoundException(`Course with ID ${post.courseId} not found`);
+        if (!course) {
+          throw new NotFoundException(`Course with ID ${post.courseId} not found`);
+        }
+
+        // Create organized folder structure (same as createPost)
+        const className = course.class?.name || 'Unknown-Class';
+        const courseName = course.name || 'Unknown-Course';
+        const uploadDir = path.join(process.cwd(), 'uploads', className, courseName, 'posts');
+        
+        console.log('Service - Upload directory:', uploadDir);
+        
+        // Ensure directory exists
+        await mkdir(uploadDir, { recursive: true });
+
+        // Generate unique filename (same as createPost)
+        const timestamp = Date.now();
+        const randomString = Math.random().toString(36).substring(2, 8);
+        const fileExtension = path.extname(file.originalname);
+        const baseName = path.basename(file.originalname, fileExtension);
+        const uniqueFileName = `${baseName}-${timestamp}-${randomString}${fileExtension}`;
+        
+        const filePath = path.join(uploadDir, uniqueFileName);
+        
+        console.log('Service - Saving file to:', filePath);
+        
+        // Save file to disk
+        await writeFile(filePath, file.buffer);
+        console.log(`File saved to: ${filePath}`);
+
+        // Create attachment record (same as createPost)
+        console.log('Service - Creating attachment with postId:', {
+          postId: postId,
+          postIdType: typeof postId,
+          postIdLength: postId?.length,
+          postIdFromPost: post.id,
+          postIdFromPostType: typeof post.id
+        });
+        
+        // Create a new attachment object directly (not using repository.create)
+        const attachmentData = {
+          postId: postId, // Use the postId parameter directly instead of post.id
+          fileName: uniqueFileName,
+          filePath: path.join(className, courseName, 'posts', uniqueFileName), // Store relative path
+          fileSize: file.size,
+          mimeType: file.mimetype,
+          uploadedAt: new Date()
+        };
+        
+        console.log('Service - Attachment data prepared:', {
+          postId: attachmentData.postId,
+          fileName: attachmentData.fileName,
+          filePath: attachmentData.filePath
+        });
+
+        const savedAttachment = await transactionalEntityManager.save(PostAttachment, attachmentData);
+        console.log('Service - Attachment created for post update:', {
+          id: savedAttachment.id,
+          postId: savedAttachment.postId,
+          fileName: savedAttachment.fileName,
+          filePath: savedAttachment.filePath
+        });
+      } catch (fileError) {
+        console.error('Service - Error processing file upload:', fileError);
+        throw new Error(`Failed to process file upload: ${fileError.message}`);
       }
-
-      // Create organized folder structure (same as createPost)
-      const className = course.class?.name || 'Unknown-Class';
-      const courseName = course.name || 'Unknown-Course';
-      const uploadDir = path.join(process.cwd(), 'uploads', className, courseName, 'posts');
-      
-      // Ensure directory exists
-      await mkdir(uploadDir, { recursive: true });
-
-      // Generate unique filename (same as createPost)
-      const timestamp = Date.now();
-      const randomString = Math.random().toString(36).substring(2, 8);
-      const fileExtension = path.extname(file.originalname);
-      const baseName = path.basename(file.originalname, fileExtension);
-      const uniqueFileName = `${baseName}-${timestamp}-${randomString}${fileExtension}`;
-      
-      const filePath = path.join(uploadDir, uniqueFileName);
-      
-      // Save file to disk
-      await writeFile(filePath, file.buffer);
-      console.log(`File saved to: ${filePath}`);
-
-      // Create attachment record (same as createPost)
-      const attachment = this.postAttachmentRepository.create({
-        postId: post.id,
-        fileName: uniqueFileName,
-        filePath: path.join(className, courseName, 'posts', uniqueFileName), // Store relative path
-        fileSize: file.size,
-        mimeType: file.mimetype,
-        uploadedAt: new Date()
-      });
-
-      await this.postAttachmentRepository.save(attachment);
-      console.log('Attachment created for post update:', attachment.id);
     }
 
-    // Save the updated post
-    const updatedPost = await this.postRepository.save(post);
-    console.log('Post updated successfully:', updatedPost.id);
-    
-    // Return the updated post with all relations (same as createPost)
-    return await this.postRepository.findOne({
-      where: { id: postId },
-      relations: ['attachments', 'author', 'course']
+      // Save the updated post
+      console.log('Service - About to save updated post:', {
+        id: post.id,
+        subject: post.subject,
+        description: post.description,
+        courseId: post.courseId,
+        authorId: post.authorId,
+        hasFileUpload: !!file
+      });
+      
+      try {
+        const updatedPost = await transactionalEntityManager.save(Post, post);
+        console.log('Service - Post saved successfully:', {
+          id: updatedPost.id,
+          subject: updatedPost.subject,
+          description: updatedPost.description,
+          updatedAt: updatedPost.updatedAt
+        });
+      } catch (saveError) {
+        console.error('Service - Error saving post:', saveError);
+        throw new Error(`Failed to save post: ${saveError.message}`);
+      }
+      
+      // Return the updated post with all relations (same as createPost)
+      console.log('Service - Fetching updated post with relations...');
+      let finalPost;
+      try {
+        finalPost = await transactionalEntityManager.findOne(Post, {
+          where: { id: postId },
+          relations: ['attachments', 'author', 'course']
+        });
+        
+        if (!finalPost) {
+          throw new Error(`Failed to fetch updated post with ID ${postId}`);
+        }
+        
+        console.log('Service - Post fetched successfully with relations');
+      } catch (fetchError) {
+        console.error('Service - Error fetching post with relations:', fetchError);
+        throw new Error(`Failed to fetch updated post: ${fetchError.message}`);
+      }
+      
+      console.log('Service - Final post fetched:', {
+        id: finalPost.id,
+        attachmentsCount: finalPost.attachments?.length || 0,
+        hasAuthor: !!finalPost.author,
+        hasCourse: !!finalPost.course,
+        attachments: finalPost.attachments?.map(att => ({
+          id: att.id,
+          fileName: att.fileName,
+          filePath: att.filePath
+        })) || []
+      });
+      
+      return finalPost;
+      } catch (error) {
+        console.error('Service - Error in updatePost transaction:', error);
+        throw error;
+      }
     });
   }
 
@@ -707,7 +810,27 @@ export class MaterialsService {
       throw new NotFoundException(`File with ID ${fileId} not found`);
     }
 
+    try {
+      // Delete the physical file from the uploads folder
+      const fullFilePath = path.join(process.cwd(), 'uploads', file.filePath);
+      console.log('🗑️ Deleting physical file:', fullFilePath);
+      
+      // Check if file exists before trying to delete
+      if (fs.existsSync(fullFilePath)) {
+        await fs.promises.unlink(fullFilePath);
+        console.log('✅ Physical file deleted successfully:', fullFilePath);
+      } else {
+        console.warn('⚠️ Physical file not found, but continuing with database deletion:', fullFilePath);
+      }
+    } catch (fileError) {
+      console.error('❌ Error deleting physical file:', fileError);
+      // Don't throw error here - we still want to delete from database
+      // The file might have been manually deleted or moved
+    }
+
+    // Delete the file record from database
     await this.fileRepository.delete(fileId);
+    console.log('✅ File record deleted from database:', fileId);
   }
 
   async deleteFolder(folderId: string): Promise<void> {
@@ -719,16 +842,45 @@ export class MaterialsService {
       throw new NotFoundException(`Folder with ID ${folderId} not found`);
     }
 
-    // Check if folder has files or subfolders
+    console.log('🗑️ Deleting folder:', folder.name, 'with', folder.files?.length || 0, 'files and', folder.subFolders?.length || 0, 'subfolders');
+
+    // Recursively delete all files in this folder (including physical files)
     if (folder.files && folder.files.length > 0) {
-      throw new BadRequestException('Cannot delete folder with files. Please delete all files first.');
+      console.log('🗑️ Deleting', folder.files.length, 'files from folder:', folder.name);
+      for (const file of folder.files) {
+        try {
+          // Delete the physical file from the uploads folder
+          const fullFilePath = path.join(process.cwd(), 'uploads', file.filePath);
+          console.log('🗑️ Deleting physical file:', fullFilePath);
+          
+          if (fs.existsSync(fullFilePath)) {
+            await fs.promises.unlink(fullFilePath);
+            console.log('✅ Physical file deleted successfully:', fullFilePath);
+          } else {
+            console.warn('⚠️ Physical file not found:', fullFilePath);
+          }
+        } catch (fileError) {
+          console.error('❌ Error deleting physical file:', fileError);
+          // Continue with database deletion even if physical file deletion fails
+        }
+        
+        // Delete the file record from database
+        await this.fileRepository.delete(file.id);
+        console.log('✅ File record deleted from database:', file.id);
+      }
     }
 
+    // Recursively delete all subfolders
     if (folder.subFolders && folder.subFolders.length > 0) {
-      throw new BadRequestException('Cannot delete folder with subfolders. Please delete all subfolders first.');
+      console.log('🗑️ Deleting', folder.subFolders.length, 'subfolders from folder:', folder.name);
+      for (const subfolder of folder.subFolders) {
+        await this.deleteFolder(subfolder.id);
+      }
     }
 
+    // Finally, delete the folder itself
     await this.folderRepository.delete(folderId);
+    console.log('✅ Folder deleted from database:', folderId);
   }
 
   // Assignments
