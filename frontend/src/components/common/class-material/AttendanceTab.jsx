@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
 import { Users, X, Clock, Edit } from 'lucide-react';
+import { materialsService } from '../../../services';
+import { showErrorToast, showSuccessToast } from '../../../utils/errorHandler';
 
-const AttendanceTab = ({ currentUser, theme }) => {
+const AttendanceTab = ({ currentUser, theme, courseId }) => {
   // Course schedule - this would come from the classData in a real app
   // For Islamic History: Monday 9-11, Wednesday 2-4, Friday 10-12
   const [courseSchedule, setCourseSchedule] = useState(() => {
@@ -52,32 +54,8 @@ const AttendanceTab = ({ currentUser, theme }) => {
   });
 
   // Attendance state - only for scheduled class days
-  const [attendanceData, setAttendanceData] = useState([
-    {
-      id: 1,
-      date: '2024-01-15',
-      day: 'Monday',
-      time: '09:00-11:00',
-      students: [
-        { id: 1, name: 'John Doe', status: 'present', time: '09:00' },
-        { id: 2, name: 'Jane Smith', status: 'absent', time: null },
-        { id: 3, name: 'Mike Johnson', status: 'late', time: '09:15' },
-        { id: 4, name: 'Sarah Wilson', status: 'present', time: '08:55' }
-      ]
-    },
-    {
-      id: 2,
-      date: '2024-01-17',
-      day: 'Wednesday',
-      time: '14:00-16:00',
-      students: [
-        { id: 1, name: 'John Doe', status: 'present', time: '14:02' },
-        { id: 2, name: 'Jane Smith', status: 'present', time: '13:58' },
-        { id: 3, name: 'Mike Johnson', status: 'present', time: '14:00' },
-        { id: 4, name: 'Sarah Wilson', status: 'absent', time: null }
-      ]
-    }
-  ]);
+  const [attendanceData, setAttendanceData] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   // Get next scheduled class date
   const getNextScheduledClass = () => {
@@ -89,6 +67,27 @@ const AttendanceTab = ({ currentUser, theme }) => {
   const [selectedDate, setSelectedDate] = useState(getNextScheduledClass());
   const [showAttendanceModal, setShowAttendanceModal] = useState(false);
   const [editingAttendance, setEditingAttendance] = useState(null);
+
+  // Load attendance data when component mounts or courseId changes
+  useEffect(() => {
+    if (courseId) {
+      loadAttendanceData();
+    }
+  }, [courseId]);
+
+  const loadAttendanceData = async () => {
+    try {
+      setLoading(true);
+      const attendanceRecords = await materialsService.getCourseAttendance(courseId);
+      setAttendanceData(Array.isArray(attendanceRecords) ? attendanceRecords : []);
+    } catch (error) {
+      console.error('Error loading attendance:', error);
+      showErrorToast(error, 'Failed to load attendance data. Please try again.');
+      setAttendanceData([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Function to update course schedule (call this when new sessions occur)
   const updateCourseSchedule = () => {
@@ -149,8 +148,22 @@ const AttendanceTab = ({ currentUser, theme }) => {
 
   return (
     <div className="space-y-6">
-      {/* Course Schedule */}
-      <div className="bg-white rounded-lg border border-gray-200 p-4">
+      {loading ? (
+        <div className="text-center py-12">
+          <div className="mb-6">
+            <div className="relative w-32 h-32 mx-auto">
+              <div className="absolute top-0 left-0 w-16 h-16 bg-blue-500 rounded-full opacity-80 animate-pulse"></div>
+              <div className="absolute top-4 right-0 w-16 h-16 bg-blue-400 rounded-full opacity-80 animate-pulse"></div>
+              <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 w-16 h-16 bg-blue-300 rounded-full opacity-80 animate-pulse"></div>
+            </div>
+          </div>
+          <h3 className="text-xl font-bold text-gray-900 mb-2">Loading attendance...</h3>
+          <p className="text-gray-600">Please wait while we fetch the attendance data.</p>
+        </div>
+      ) : (
+        <>
+          {/* Course Schedule */}
+          <div className="bg-white rounded-lg border border-gray-200 p-4">
         <div className="flex justify-between items-center mb-3">
           <h4 className="text-lg font-medium text-gray-900">Course Schedule</h4>
           <p className="text-xs text-gray-500">Last 3 sessions • Click to select</p>
@@ -443,26 +456,28 @@ const AttendanceTab = ({ currentUser, theme }) => {
                 Cancel
               </button>
               <button
-                onClick={() => {
-                  if (editingAttendance) {
-                    // Update existing attendance record
-                    setAttendanceData(prev => prev.map(record =>
-                      record.id === editingAttendance.id ? editingAttendance : record
-                    ));
-                  } else {
-                    // Create new attendance record
+                onClick={async () => {
+                  try {
                     const selectedSchedule = courseSchedule.find(s => s.date === selectedDate);
-                    const newRecord = {
-                      id: Date.now(),
+                    const attendanceDataToSave = {
                       date: selectedDate,
                       day: selectedSchedule?.day || 'Unknown',
                       time: selectedSchedule?.time || 'Unknown',
-                      students: attendanceData[0]?.students || []
+                      students: editingAttendance ? editingAttendance.students : (attendanceData[0]?.students || [])
                     };
-                    setAttendanceData([newRecord, ...attendanceData]);
+
+                    await materialsService.markAttendance(courseId, attendanceDataToSave);
+                    
+                    // Reload attendance data to get the updated list
+                    await loadAttendanceData();
+                    
+                    setShowAttendanceModal(false);
+                    setEditingAttendance(null);
+                    showSuccessToast('Attendance saved successfully!');
+                  } catch (error) {
+                    console.error('Error saving attendance:', error);
+                    showErrorToast(error, 'Failed to save attendance. Please try again.');
                   }
-                  setShowAttendanceModal(false);
-                  setEditingAttendance(null);
                 }}
                 className={`px-6 py-2 bg-${theme.primary}-600 text-white rounded-lg hover:bg-${theme.primary}-700 transition-colors`}
               >
@@ -471,6 +486,8 @@ const AttendanceTab = ({ currentUser, theme }) => {
             </div>
           </div>
         </div>
+      )}
+        </>
       )}
     </div>
   );

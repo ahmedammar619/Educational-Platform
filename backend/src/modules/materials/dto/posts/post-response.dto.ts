@@ -1,7 +1,5 @@
 import { Expose, Type } from 'class-transformer';
 import { Course } from '../../../courses/entities/course.entity';
-import { User } from '../../../users/entities/user.entity';
-import { PostAttachment } from '../../entities/post-attachment.entity';
 
 export class PostResponseDto {
   @Expose()
@@ -30,10 +28,22 @@ export class PostResponseDto {
   course?: Course;
 
   @Expose()
-  @Type(() => User)
-  author?: User;
+  author?: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+    role: string;
+  };
 
   @Expose()
-  @Type(() => PostAttachment)
-  attachments?: PostAttachment[];
+  attachments?: {
+    id: string;
+    postId: string;
+    fileName: string;
+    filePath: string;
+    fileSize: number;
+    mimeType: string;
+    uploadedAt: Date;
+  }[];
 }

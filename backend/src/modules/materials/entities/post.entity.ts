@@ -10,6 +10,7 @@ import {
 } from 'typeorm';
 import { Course } from '../../courses/entities/course.entity';
 import { User } from '../../users/entities/user.entity';
+import { PostAttachment } from './post-attachment.entity';
 
 @Entity('posts')
 export class Post {
@@ -43,6 +44,6 @@ export class Post {
   @JoinColumn({ name: 'authorId' })
   author: User;
 
-  @OneToMany('PostAttachment', 'post')
-  attachments: any[];
+  @OneToMany(() => PostAttachment, 'post')
+  attachments: PostAttachment[];
 }

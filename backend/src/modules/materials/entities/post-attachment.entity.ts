@@ -13,26 +13,26 @@ export class PostAttachment {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column('uuid')
+  @Column({ name: 'postId', type: 'uuid' })
   postId: string;
 
-  @Column({ length: 255 })
+  @Column({ name: 'fileName', type: 'varchar', length: 255 })
   fileName: string;
 
-  @Column({ length: 500 })
+  @Column({ name: 'filePath', type: 'varchar', length: 500 })
   filePath: string;
 
-  @Column('int')
+  @Column({ name: 'fileSize', type: 'int' })
   fileSize: number;
 
-  @Column({ length: 100 })
+  @Column({ name: 'mimeType', type: 'varchar', length: 100 })
   mimeType: string;
 
-  @CreateDateColumn()
+  @CreateDateColumn({ name: 'uploadedAt' })
   uploadedAt: Date;
 
   // Relationships
-  @ManyToOne('Post', 'attachments')
+  @ManyToOne(() => Post, 'attachments')
   @JoinColumn({ name: 'postId' })
-  post: any;
+  post: Post;
 }

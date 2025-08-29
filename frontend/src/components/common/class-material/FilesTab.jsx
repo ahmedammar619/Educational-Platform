@@ -1,36 +1,12 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Folder, Plus, Upload, ArrowLeft, Edit, Trash2, Download, FileText } from 'lucide-react';
+import { materialsService } from '../../../services';
+import { showErrorToast, showSuccessToast } from '../../../utils/errorHandler';
 
-const FilesTab = ({ currentUser, theme }) => {
-  const [folders, setFolders] = useState([
-    {
-      id: 1,
-      name: 'Lecture Materials',
-      files: [
-        { id: 1, name: 'Lecture 1 - Introduction.pdf', type: 'pdf', size: '2.3 MB' }
-      ],
-      subfolders: []
-    },
-    {
-      id: 2,
-      name: 'Assignments',
-      files: [
-        { id: 3, name: 'Assignment 1.docx', type: 'docx', size: '1.8 MB' },
-        { id: 4, name: 'Assignment 2.pdf', type: 'pdf', size: '3.2 MB' }
-      ],
-      subfolders: []
-    },
-    {
-      id: 3,
-      name: 'Resources',
-      files: [
-        { id: 5, name: 'Study Guide.pdf', type: 'pdf', size: '4.7 MB' }
-      ],
-      subfolders: []
-    }
-  ]);
-
+const FilesTab = ({ currentUser, theme, courseId }) => {
+  const [folders, setFolders] = useState([]);
   const [rootFiles, setRootFiles] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [showNewFolderModal, setShowNewFolderModal] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
   const [showUploadModal, setShowUploadModal] = useState(false);
@@ -42,6 +18,46 @@ const FilesTab = ({ currentUser, theme }) => {
   const [showEditFileModal, setShowEditFileModal] = useState(false);
   const [editingFile, setEditingFile] = useState(null);
   const [editFileName, setEditFileName] = useState('');
+
+  // Load files when component mounts or courseId changes
+  useEffect(() => {
+    if (courseId) {
+      loadFiles();
+    }
+  }, [courseId]);
+
+  const loadFiles = async () => {
+    try {
+      setLoading(true);
+      const response = await materialsService.getCourseFiles(courseId);
+      
+      // Handle different response formats
+      let filesData = [];
+      if (Array.isArray(response)) {
+        filesData = response;
+      } else if (response && Array.isArray(response.data)) {
+        filesData = response.data;
+      } else if (response && response.files && Array.isArray(response.files)) {
+        filesData = response.files;
+      } else {
+        console.log('Unexpected response format:', response);
+        filesData = [];
+      }
+      
+      // Separate folders and root files
+      const foldersData = filesData.filter(item => item.type === 'folder' || item.isFolder);
+      const filesDataOnly = filesData.filter(item => item.type !== 'folder' && !item.isFolder);
+      setFolders(foldersData);
+      setRootFiles(filesDataOnly);
+    } catch (error) {
+      console.error('Error loading files:', error);
+      showErrorToast(error, 'Failed to load files. Please try again.');
+      setFolders([]);
+      setRootFiles([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Role-based access control functions
   const canCreateFolder = () => {
@@ -68,67 +84,44 @@ const FilesTab = ({ currentUser, theme }) => {
     return currentUser?.role === 'admin' || currentUser?.role === 'teacher';
   };
 
-  const handleCreateFolder = () => {
-    if (newFolderName.trim()) {
-      const folder = {
-        id: Date.now(),
-        name: newFolderName,
-        files: [],
-        subfolders: []
-      };
+  const handleCreateFolder = async () => {
+    if (newFolderName.trim() && courseId) {
+      try {
+        const folderData = {
+          name: newFolderName.trim(),
+          parentFolderId: selectedFolderForView?.id || null
+        };
 
-      if (selectedFolderForView) {
-        // Create folder inside the current folder
-        setFolders(folders.map(f =>
-          f.id === selectedFolderForView.id
-            ? { ...f, subfolders: [...f.subfolders, folder] }
-            : f
-        ));
-
-        // Update the selected folder view
-        setSelectedFolderForView(prev => ({
-          ...prev,
-          subfolders: [...prev.subfolders, folder]
-        }));
-      } else {
-        // Create folder at root level
-        setFolders([...folders, folder]);
+        await materialsService.createFolder(courseId, folderData);
+        
+        // Reload files to get the updated list
+        await loadFiles();
+        
+        setNewFolderName('');
+        setShowNewFolderModal(false);
+        showSuccessToast('Folder created successfully!');
+      } catch (error) {
+        console.error('Error creating folder:', error);
+        showErrorToast(error, 'Failed to create folder. Please try again.');
       }
-
-      setNewFolderName('');
-      setShowNewFolderModal(false);
     }
   };
 
-  const handleFileUpload = () => {
-    if (uploadedFile) {
-      const file = {
-        id: Date.now(),
-        name: uploadedFile.name,
-        type: uploadedFile.name.split('.').pop(),
-        size: `${(uploadedFile.size / 1024 / 1024).toFixed(1)} MB`
-      };
-
-      if (selectedFolderForView) {
-        // Upload to specific folder
-        setFolders(folders.map(f =>
-          f.id === selectedFolderForView.id
-            ? { ...f, files: [...f.files, file] }
-            : f
-        ));
-
-        // Update the selected folder view
-        setSelectedFolderForView(prev => ({
-          ...prev,
-          files: [...prev.files, file]
-        }));
-      } else {
-        // Upload to root level (files tab) - add to rootFiles array
-        setRootFiles([...rootFiles, file]);
+  const handleFileUpload = async () => {
+    if (uploadedFile && courseId) {
+      try {
+        await materialsService.uploadFile(courseId, uploadedFile, selectedFolderForView?.id);
+        
+        // Reload files to get the updated list
+        await loadFiles();
+        
+        setUploadedFile(null);
+        setShowUploadModal(false);
+        showSuccessToast('File uploaded successfully!');
+      } catch (error) {
+        console.error('Error uploading file:', error);
+        showErrorToast(error, 'Failed to upload file. Please try again.');
       }
-
-      setUploadedFile(null);
-      setShowUploadModal(false);
     }
   };
 
@@ -151,9 +144,19 @@ const FilesTab = ({ currentUser, theme }) => {
     }
   };
 
-  const handleDeleteFolder = (folderId) => {
+  const handleDeleteFolder = async (folderId) => {
     if (window.confirm('Are you sure you want to delete this folder? This action cannot be undone.')) {
-      setFolders(folders.filter(f => f.id !== folderId));
+      try {
+        await materialsService.deleteFolder(folderId);
+        
+        // Reload files to get the updated list
+        await loadFiles();
+        
+        showSuccessToast('Folder deleted successfully!');
+      } catch (error) {
+        console.error('Error deleting folder:', error);
+        showErrorToast(error, 'Failed to delete folder. Please try again.');
+      }
     }
   };
 
@@ -165,59 +168,42 @@ const FilesTab = ({ currentUser, theme }) => {
     setSelectedFolderForView(null);
   };
 
-  const handleDeleteFile = (folderId, fileId) => {
+  const handleDeleteFile = async (fileId) => {
     if (window.confirm('Are you sure you want to delete this file? This action cannot be undone.')) {
-      setFolders(folders.map(f =>
-        f.id === folderId
-          ? { ...f, files: f.files.filter(file => file.id !== fileId) }
-          : f
-      ));
-
-      // Update the selected folder view if it's currently open
-      if (selectedFolderForView && selectedFolderForView.id === folderId) {
-        setSelectedFolderForView(prev => ({
-          ...prev,
-          files: prev.files.filter(file => file.id !== fileId)
-        }));
+      try {
+        await materialsService.deleteFile(fileId);
+        
+        // Reload files to get the updated list
+        await loadFiles();
+        
+        showSuccessToast('File deleted successfully!');
+      } catch (error) {
+        console.error('Error deleting file:', error);
+        showErrorToast(error, 'Failed to delete file. Please try again.');
       }
     }
   };
 
-  const handleDeleteRootFile = (fileId) => {
-    if (window.confirm('Are you sure you want to delete this file? This action cannot be undone.')) {
-      setRootFiles(rootFiles.filter(file => file.id !== fileId));
+  const handleDownloadFile = async (file) => {
+    try {
+      // In a real implementation, this would download the actual file from the backend
+      // For now, we'll show a message that this feature needs backend implementation
+      showErrorToast(null, 'File download feature needs backend implementation');
+    } catch (error) {
+      console.error('Error downloading file:', error);
+      showErrorToast(error, 'Failed to download file');
     }
   };
 
-  const handleDownloadFile = (file) => {
-    // Create a blob URL for the file (in a real app, this would be the actual file data)
-    const blob = new Blob(['File content for ' + file.name], { type: 'text/plain' });
-    const url = window.URL.createObjectURL(blob);
-
-    // Create a temporary link element and trigger download
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = file.name;
-    document.body.appendChild(link);
-    link.click();
-
-    // Clean up
-    document.body.removeChild(link);
-    window.URL.revokeObjectURL(url);
-  };
-
-  const handleOpenFile = (file) => {
-    // Create a blob URL for the file (in a real app, this would be the actual file data)
-    const blob = new Blob(['File content for ' + file.name], { type: 'text/plain' });
-    const url = window.URL.createObjectURL(blob);
-
-    // Open file in new tab
-    window.open(url, '_blank');
-
-    // Clean up after a delay to allow the file to open
-    setTimeout(() => {
-      window.URL.revokeObjectURL(url);
-    }, 1000);
+  const handleOpenFile = async (file) => {
+    try {
+      // In a real implementation, this would open the actual file from the backend
+      // For now, we'll show a message that this feature needs backend implementation
+      showErrorToast(null, 'File preview feature needs backend implementation');
+    } catch (error) {
+      console.error('Error opening file:', error);
+      showErrorToast(error, 'Failed to open file');
+    }
   };
 
   const handleEditFile = (file) => {
@@ -226,49 +212,38 @@ const FilesTab = ({ currentUser, theme }) => {
     setShowEditFileModal(true);
   };
 
-  const handleUpdateFile = () => {
+  const handleUpdateFile = async () => {
     if (editFileName.trim() && editingFile) {
-      if (selectedFolderForView) {
-        // Update file in folder
-        setFolders(folders.map(f =>
-          f.id === selectedFolderForView.id
-            ? {
-              ...f, files: f.files.map(file =>
-                file.id === editingFile.id
-                  ? { ...file, name: editFileName.trim() }
-                  : file
-              )
-            }
-            : f
-        ));
-
-        // Update the selected folder view
-        setSelectedFolderForView(prev => ({
-          ...prev,
-          files: prev.files.map(file =>
-            file.id === editingFile.id
-              ? { ...file, name: editFileName.trim() }
-              : file
-          )
-        }));
-      } else {
-        // Update root file
-        setRootFiles(rootFiles.map(file =>
-          file.id === editingFile.id
-            ? { ...file, name: editFileName.trim() }
-            : file
-        ));
+      try {
+        // Note: The backend doesn't have a file rename endpoint yet
+        // This would need to be implemented in the backend
+        showErrorToast(null, 'File rename feature needs backend implementation');
+        
+        setEditFileName('');
+        setEditingFile(null);
+        setShowEditFileModal(false);
+      } catch (error) {
+        console.error('Error updating file:', error);
+        showErrorToast(error, 'Failed to update file. Please try again.');
       }
-
-      setEditFileName('');
-      setEditingFile(null);
-      setShowEditFileModal(false);
     }
   };
 
   return (
     <div className="space-y-3">
-      {!selectedFolderForView ? (
+      {loading ? (
+        <div className="text-center py-12">
+          <div className="mb-6">
+            <div className="relative w-32 h-32 mx-auto">
+              <div className="absolute top-0 left-0 w-16 h-16 bg-blue-500 rounded-full opacity-80 animate-pulse"></div>
+              <div className="absolute top-4 right-0 w-16 h-16 bg-blue-400 rounded-full opacity-80 animate-pulse"></div>
+              <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 w-16 h-16 bg-blue-300 rounded-full opacity-80 animate-pulse"></div>
+            </div>
+          </div>
+          <h3 className="text-xl font-bold text-gray-900 mb-2">Loading files...</h3>
+          <p className="text-gray-600">Please wait while we fetch the files and folders.</p>
+        </div>
+      ) : !selectedFolderForView ? (
         <>
           {/* Folders Grid */}
           <div className="space-y-3">
@@ -341,7 +316,7 @@ const FilesTab = ({ currentUser, theme }) => {
                       )}
                       {canDeleteFiles() && (
                         <button
-                          onClick={() => handleDeleteRootFile(file.id)}
+                          onClick={() => handleDeleteFile(file.id)}
                           className="p-1 text-red-500 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
                           title="Delete file"
                         >
@@ -454,7 +429,7 @@ const FilesTab = ({ currentUser, theme }) => {
                       )}
                       {canDeleteFiles() && (
                         <button
-                          onClick={() => handleDeleteFile(selectedFolderForView.id, file.id)}
+                          onClick={() => handleDeleteFile(file.id)}
                           className="p-1 text-red-500 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
                           title="Delete file"
                         >

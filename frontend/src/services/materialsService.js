@@ -3,9 +3,24 @@ import { showErrorToast, showSuccessToast } from '../utils/errorHandler';
 
 class MaterialsService {
   // Posts
-  async createPost(courseId, postData) {
+  async createPost(courseId, postData, file = null) {
     try {
-      const response = await api.post(`/api/materials/courses/${courseId}/posts`, postData);
+      const formData = new FormData();
+      
+      // Add post data
+      formData.append('subject', postData.subject);
+      formData.append('description', postData.description);
+      
+      // Add file if provided
+      if (file) {
+        formData.append('file', file);
+      }
+      
+      const response = await api.post(`/api/materials/courses/${courseId}/posts`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
       return response.data;
     } catch (error) {
       // Error is already handled by the API interceptor
@@ -76,8 +91,8 @@ class MaterialsService {
 
   async getCourseFiles(courseId, folderId = null) {
     try {
-      const body = folderId ? { folderId } : {};
-      const response = await api.get(`/api/materials/courses/${courseId}/files`, { data: body });
+      const params = folderId ? { folderId } : {};
+      const response = await api.get(`/api/materials/courses/${courseId}/files`, { params });
       return response.data;
     } catch (error) {
       // Error is already handled by the API interceptor
@@ -166,8 +181,8 @@ class MaterialsService {
 
   async getCourseAttendance(courseId, date = null) {
     try {
-      const body = date ? { date } : {};
-      const response = await api.get(`/api/materials/courses/${courseId}/attendance`, { data: body });
+      const params = date ? { date } : {};
+      const response = await api.get(`/api/materials/courses/${courseId}/attendance`, { params });
       return response.data;
     } catch (error) {
       // Error is already handled by the API interceptor
