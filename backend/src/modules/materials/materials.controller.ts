@@ -96,9 +96,7 @@ export class MaterialsController {
   @Get('courses/:courseId/posts')
   @Roles(Role.Admin, Role.Teacher, Role.Student)
   async getCoursePosts(@Param('courseId') courseId: string): Promise<PostResponseDto[]> {
-    console.log('Controller - Getting posts for course:', courseId);
     const posts = await this.materialsService.getCoursePosts(courseId);
-    console.log('Controller - Raw posts from service:', posts);
     
     const transformedPosts = posts.map(post => {
       // Manual transformation to ensure nested objects are properly serialized
@@ -360,20 +358,7 @@ export class MaterialsController {
     @Param('courseId') courseId: string,
     @Query('folderId') folderId?: string,
   ): Promise<any> {
-    console.log('🔍 Controller - Getting files for:', {
-      courseId: courseId,
-      folderId: folderId,
-      folderIdType: typeof folderId,
-      hasFolderId: !!folderId
-    });
-    
     const { files, folders } = await this.materialsService.getCourseFilesAndFolders(courseId, folderId);
-    
-    console.log('🔍 Controller - Service returned:', {
-      filesCount: files.length,
-      foldersCount: folders.length,
-      folderIds: folders.map(f => ({ id: f.id, name: f.name, parentFolderId: f.parentFolderId }))
-    });
     
     // Transform files to include necessary data for frontend
     const transformedFiles = files.map(file => ({

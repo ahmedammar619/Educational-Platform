@@ -40,22 +40,7 @@ const FilesTab = ({ currentUser, theme, courseId }) => {
     }
   }, [courseId]);
 
-  // Monitor selectedFolderForView changes
-  useEffect(() => {
-    console.log('🔍 selectedFolderForView changed:', {
-      selectedFolderForView: selectedFolderForView,
-      folderId: selectedFolderForView?.id,
-      folderName: selectedFolderForView?.name
-    });
-  }, [selectedFolderForView]);
-
-  // Monitor folderBreadcrumb changes
-  useEffect(() => {
-    console.log('🔍 folderBreadcrumb changed:', {
-      breadcrumbLength: folderBreadcrumb.length,
-      breadcrumb: folderBreadcrumb.map(f => ({ id: f.id, name: f.name }))
-    });
-  }, [folderBreadcrumb]);
+  // Removed excessive logging for performance
 
   // Cleanup file input when component unmounts
   useEffect(() => {
@@ -68,16 +53,9 @@ const FilesTab = ({ currentUser, theme, courseId }) => {
 
   const loadFiles = async (folderId = null) => {
     try {
-      updateLoadingState(true);
-      console.log('🔍 Loading files for:', {
-        courseId: courseId,
-        folderId: folderId,
-        folderName: selectedFolderForView?.name || 'root'
-      });
-      
+      setLoading(true);
       const response = await materialsService.getCourseFiles(courseId, folderId);
-      
-      console.log('🔍 Raw API response:', response);
+      console.log('🔍 FilesTab - Raw API response:', response);
       
       // Handle different response formats
       let filesData = [];
@@ -106,17 +84,7 @@ const FilesTab = ({ currentUser, theme, courseId }) => {
         filesData = [];
       }
       
-      // Debug: Log each item to see its structure
-      filesData.forEach((item, index) => {
-        console.log(`📄 Item ${index}:`, {
-          id: item.id,
-          name: item.name,
-          type: item.type,
-          isFolder: item.isFolder,
-          hasType: 'type' in item,
-          hasIsFolder: 'isFolder' in item
-        });
-      });
+      // Removed excessive logging for performance
       
       // Separate folders and files
       const foldersData = filesData.filter(item => item.type === 'folder' || item.isFolder);
@@ -133,7 +101,6 @@ const FilesTab = ({ currentUser, theme, courseId }) => {
           type: 'file',
           isFolder: false
         }));
-        console.log('📁 Viewing specific folder:', folderId, 'Files in this folder:', currentFolderFiles.length);
       } else {
         // We're at root - filesDataOnly already contains root-level files
         currentFolderFiles = filesDataOnly.map(file => ({
@@ -141,12 +108,14 @@ const FilesTab = ({ currentUser, theme, courseId }) => {
           type: 'file',
           isFolder: false
         }));
-        console.log('📁 Viewing root folder - Root files only:', currentFolderFiles.length);
       }
       
-      console.log('📂 Folders found:', foldersData.length, foldersData);
-      console.log('📄 Root files found:', filesDataOnly.length, filesDataOnly);
-      console.log('📄 Current folder files:', currentFolderFiles.length, currentFolderFiles);
+      console.log('🔍 FilesTab - Processed data:', {
+        foldersData: foldersData.length,
+        currentFolderFiles: currentFolderFiles.length,
+        foldersData: foldersData,
+        currentFolderFiles: currentFolderFiles
+      });
       
       setFolders(foldersData);
       setRootFiles(currentFolderFiles);
@@ -163,7 +132,7 @@ const FilesTab = ({ currentUser, theme, courseId }) => {
       setFolders([]);
       setRootFiles([]);
     } finally {
-      updateLoadingState(false);
+      setLoading(false);
     }
   };
 

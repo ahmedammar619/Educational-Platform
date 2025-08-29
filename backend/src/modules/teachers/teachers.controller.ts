@@ -9,6 +9,7 @@ import {
   Param,
   HttpCode,
   HttpStatus,
+  UseGuards,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -16,6 +17,7 @@ import {
   ApiResponse,
   ApiParam,
   ApiBody,
+  ApiBearerAuth,
 } from '@nestjs/swagger';
 import { TeachersService } from './teachers.service';
 import { 
@@ -24,11 +26,37 @@ import {
   TeacherResponseDto 
 } from './dto';
 import { Public } from '../../common/decorators/public.decorator';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 
 @ApiTags('Teachers')
 @Controller('teachers')
+@ApiBearerAuth('JWT-auth')
 export class TeachersController {
   constructor(private readonly teachersService: TeachersService) {}
+
+  @Get('classes')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Get current teacher classes' })
+  @ApiResponse({
+    status: 200,
+    description: 'Teacher classes retrieved successfully'
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized'
+  })
+  async getCurrentTeacherClasses(@CurrentUser() user: any) {
+    console.log('🚀 ENDPOINT HIT: /api/teachers/classes');
+    console.log('👤 Current user from JWT:', user);
+    console.log('👤 Teacher ID (user.sub):', user.sub);
+    const classes = await this.teachersService.getTeacherClasses(user.sub);
+    console.log('📤 Returning classes:', classes.length);
+    console.log('📤 Classes data:', JSON.stringify(classes, null, 2));
+    const response = { classes };
+    console.log('📤 Full response:', JSON.stringify(response, null, 2));
+    return response;
+  }
 
   @Post()
   @Public()
@@ -159,9 +187,30 @@ export class TeachersController {
     return { message: 'Teacher deleted successfully' };
   }
 
+  @Get('classes/:classId/students')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Get students in a class' })
+  @ApiParam({ name: 'classId', description: 'Class ID' })
+  @ApiResponse({
+    status: 200,
+    description: 'Class students retrieved successfully'
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized'
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Class not found'
+  })
+  async getClassStudents(@Param('classId') classId: string) {
+    const students = await this.teachersService.getClassStudents(classId);
+    return { students };
+  }
+
   @Get(':id/classes')
   @Public()
-  @ApiOperation({ summary: 'Get teacher classes' })
+  @ApiOperation({ summary: 'Get teacher classes by ID' })
   @ApiParam({ name: 'id', description: 'Teacher ID' })
   @ApiResponse({
     status: 200,
@@ -171,7 +220,7 @@ export class TeachersController {
     status: 404,
     description: 'Teacher not found'
   })
-  async getTeacherClasses(@Param('id') id: string) {
+  async getTeacherClassesById(@Param('id') id: string) {
     const classes = await this.teachersService.getTeacherClasses(id);
     return { classes };
   }
