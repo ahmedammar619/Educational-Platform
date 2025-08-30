@@ -214,6 +214,35 @@ export class StudentsController {
     return { students };
   }
 
+  @Get(':id/classes')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @ApiOperation({ summary: 'Get student enrolled classes (Protected)' })
+  @ApiResponse({
+    status: 200,
+    description: 'Student classes retrieved successfully',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Student not found',
+  })
+  async getStudentClasses(
+    @Param('id') id: string,
+    @CurrentUser() currentUser: any
+  ) {
+    // Allow students to view their own classes, parents to view their children's classes, or admins/teachers
+    if (currentUser.sub !== id && 
+        currentUser.role !== Role.Admin && 
+        currentUser.role !== Role.Teacher &&
+        !(currentUser.role === Role.Parent && await this.isParentOfStudent(currentUser.sub, id))) {
+      throw new ForbiddenException('You do not have permission to view this student\'s classes');
+    }
+    return this.studentsService.getStudentClasses(id);
+  }
+
   private async isParentOfStudent(parentId: string, studentId: string): Promise<boolean> {
     const student = await this.studentsService.findOne(studentId);
     return student.parentId === parentId;

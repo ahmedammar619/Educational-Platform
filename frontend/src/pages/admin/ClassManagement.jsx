@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Edit, Trash2, Users, Calendar, DollarSign, BookOpen, Search, Filter, User, X, ChevronDown, ChevronRight } from 'lucide-react';
+import { Plus, Edit, Trash2, Users, Calendar, DollarSign, BookOpen, Search, Filter, User, X, ChevronDown, ChevronRight, UserMinus } from 'lucide-react';
 import { classesService, usersService, coursesService } from '../../services';
 import { showErrorToast, showSuccessToast, getErrorMessage } from '../../utils/errorHandler';
 
@@ -24,6 +24,7 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
   const [showEditClassModal, setShowEditClassModal] = useState(false);
   const [showEditCourseModal, setShowEditCourseModal] = useState(false);
   const [showEnrollModal, setShowEnrollModal] = useState(false);
+  const [showRemoveStudentModal, setShowRemoveStudentModal] = useState(false);
   const [selectedClass, setSelectedClass] = useState(null);
   const [selectedCourse, setSelectedCourse] = useState(null);
   const [isCreatingCourse, setIsCreatingCourse] = useState(false);
@@ -296,6 +297,20 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
     }
   };
 
+  const handleRemoveStudent = async (classId, studentId) => {
+    try {
+      await classesService.removeStudentFromClass(classId, studentId);
+      // Reload classes to get updated student count
+      await loadClasses();
+      setShowRemoveStudentModal(false);
+      setSelectedClass(null);
+      showSuccessToast('Student removed successfully!');
+    } catch (error) {
+      console.error('Error removing student:', error);
+      showErrorToast(error, 'Failed to remove student. Please try again.');
+    }
+  };
+
   return (
     <div className="space-y-4 sm:space-y-6 h-full">
       {/* Header */}
@@ -364,6 +379,17 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
                         title="Enroll Students"
                       >
                         <Users className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={() => {
+                          setSelectedClass(classItem);
+                          setShowRemoveStudentModal(true);
+                        }}
+                        className="text-orange-600 hover:text-orange-800 p-2 rounded-lg hover:bg-orange-50 transition-colors"
+                        title="Remove Students"
+                        disabled={!classItem.students || classItem.students.length === 0}
+                      >
+                        <UserMinus className="h-4 w-4" />
                       </button>
                       <button
                         onClick={() => {
@@ -638,6 +664,18 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
             setSelectedClass(null);
           }}
           onSubmit={(studentIds) => handleEnrollStudents(selectedClass.id, studentIds)}
+        />
+      )}
+
+      {/* Remove Student Modal */}
+      {showRemoveStudentModal && selectedClass && (
+        <RemoveStudentModal
+          classData={selectedClass}
+          onClose={() => {
+            setShowRemoveStudentModal(false);
+            setSelectedClass(null);
+          }}
+          onRemove={(studentId) => handleRemoveStudent(selectedClass.id, studentId)}
         />
       )}
     </div>
@@ -1197,6 +1235,12 @@ const EnrollModal = ({ classData, onClose, onSubmit }) => {
   };
 
   const handleStudentToggle = (studentId) => {
+    // Don't allow toggling if student is already enrolled
+    const student = availableStudents.find(s => s.id === studentId);
+    if (student && student.classId === classData.id) {
+      return; // Student is already enrolled, don't allow selection
+    }
+    
     setSelectedStudents(prev =>
       prev.includes(studentId)
         ? prev.filter(id => id !== studentId)
@@ -1246,16 +1290,221 @@ const EnrollModal = ({ classData, onClose, onSubmit }) => {
                 </p>
               ) : (
                 <div className="max-h-60 overflow-y-auto border border-gray-200 rounded-md">
-                  {availableStudents.map((student) => (
+                  {availableStudents.map((student) => {
+                    const isAlreadyEnrolled = student.classId === classData.id;
+                    const isSelected = selectedStudents.includes(student.id);
+                    
+                    return (
+                      <label
+                        key={student.id}
+                        className={`flex items-center p-2 sm:p-3 border-b border-gray-100 last:border-b-0 ${
+                          isAlreadyEnrolled 
+                            ? 'bg-gray-50 opacity-60 cursor-not-allowed' 
+                            : 'hover:bg-gray-50 cursor-pointer'
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => handleStudentToggle(student.id)}
+                          disabled={isAlreadyEnrolled}
+                          className={`h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded ${
+                            isAlreadyEnrolled ? 'opacity-50 cursor-not-allowed' : ''
+                          }`}
+                        />
+                        <div className="ml-3 flex items-center">
+                          <div className={`w-6 h-6 sm:w-8 sm:h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
+                            isAlreadyEnrolled ? 'bg-gray-400' : 'bg-red-600'
+                          }`}>
+                            <span className="text-start text-white text-xs sm:text-sm font-medium">
+                              {student.firstName ? student.firstName.charAt(0) : 
+                               (student.fullName ? student.fullName.charAt(0) : 
+                                (student.email ? student.email.charAt(0).toUpperCase() : 'S'))}
+                            </span>
+                          </div>
+                          <div className="ml-2 sm:ml-3 min-w-0 flex-1">
+                            <p className={`text-xs sm:text-sm font-medium truncate ${
+                              isAlreadyEnrolled ? 'text-gray-500' : 'text-gray-900'
+                            }`}>
+                              {student.firstName && student.lastName
+                                ? `${student.firstName} ${student.lastName}`
+                                : (student.fullName || student.email || 'Unknown Student')
+                              }
+                              {isAlreadyEnrolled && (
+                                <span className="ml-2 text-xs text-green-600 font-normal">
+                                  (Already Enrolled)
+                                </span>
+                              )}
+                            </p>
+                            <p className={`text-xs truncate ${
+                              isAlreadyEnrolled ? 'text-gray-400' : 'text-gray-500'
+                            }`}>
+                              {student.email}
+                            </p>
+                          </div>
+                        </div>
+                      </label>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
+              <p className="text-xs sm:text-sm text-gray-600">
+                {selectedStudents.length} student(s) selected
+                {availableStudents.filter(s => s.classId === classData.id).length > 0 && (
+                  <span className="ml-2 text-green-600">
+                    ({availableStudents.filter(s => s.classId === classData.id).length} already enrolled)
+                  </span>
+                )}
+              </p>
+              <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="px-3 sm:px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 text-sm transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={selectedStudents.length === 0}
+                  className="px-3 sm:px-4 py-2 border-2 border-green-600 text-green-600 rounded-md hover:bg-green-500 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 text-sm"
+                >
+                  Enroll Students
+                </button>
+              </div>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Remove Student Modal Component
+const RemoveStudentModal = ({ classData, onClose, onRemove }) => {
+  const [selectedStudents, setSelectedStudents] = useState([]);
+  const [enrolledStudents, setEnrolledStudents] = useState([]);
+  const [loadingStudents, setLoadingStudents] = useState(true);
+
+  useEffect(() => {
+    loadEnrolledStudents();
+  }, []);
+
+  const loadEnrolledStudents = async () => {
+    try {
+      setLoadingStudents(true);
+      const response = await usersService.getAllStudents();
+      
+      // Handle different response formats - extract students array
+      let studentsArray = [];
+      if (response && response.students && Array.isArray(response.students)) {
+        studentsArray = response.students;
+      } else if (Array.isArray(response)) {
+        studentsArray = response;
+      }
+      
+      // Filter only students enrolled in this class
+      const enrolledInClass = studentsArray.filter(student => 
+        student.classId === classData.id
+      );
+      
+      // Map student data to include user properties at the top level
+      const mappedStudents = enrolledInClass.map(student => ({
+        id: student.id,
+        firstName: student.user?.firstName,
+        lastName: student.user?.lastName,
+        email: student.user?.email,
+        fullName: student.user?.fullName || (student.user?.firstName && student.user?.lastName ? `${student.user.firstName} ${student.user.lastName}` : null),
+        birthDate: student.birthDate,
+        parentId: student.parentId,
+        classId: student.classId,
+        role: student.user?.role
+      }));
+      
+      setEnrolledStudents(mappedStudents);
+    } catch (error) {
+      console.error('Error loading enrolled students:', error);
+      setEnrolledStudents([]);
+      showErrorToast(error, 'Failed to load enrolled students. Please try again.');
+    } finally {
+      setLoadingStudents(false);
+    }
+  };
+
+  const handleStudentToggle = (studentId) => {
+    setSelectedStudents(prev =>
+      prev.includes(studentId)
+        ? prev.filter(id => id !== studentId)
+        : [...prev, studentId]
+    );
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (selectedStudents.length === 0) {
+      alert('Please select at least one student to remove');
+      return;
+    }
+    
+    // Confirm removal
+    const confirmMessage = `Are you sure you want to remove ${selectedStudents.length} student(s) from this class?`;
+    if (window.confirm(confirmMessage)) {
+      // Remove each selected student
+      selectedStudents.forEach(studentId => {
+        onRemove(studentId);
+      });
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50" style={{margin: '0px'}}>
+      <div className="relative top-4 sm:top-20 mx-auto p-4 sm:p-5 border w-11/12 sm:w-2/3 max-w-2xl shadow-lg rounded-md bg-white">
+        <div className="mt-3">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-base sm:text-lg font-medium text-gray-900">
+              Remove Students from {classData.name}
+            </h3>
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100 transition-colors"
+            >
+              <span className="sr-only">Close</span>
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+
+          <form onSubmit={handleSubmit}>
+            <div className="mb-4">
+              <p className="text-sm text-gray-600 mb-3">
+                Select students to remove from this class:
+              </p>
+
+              {loadingStudents ? (
+                <p className="text-gray-500 text-center py-4 text-sm">
+                  Loading enrolled students...
+                </p>
+              ) : enrolledStudents.length === 0 ? (
+                <p className="text-gray-500 text-center py-4 text-sm">
+                  No students are currently enrolled in this class
+                </p>
+              ) : (
+                <div className="max-h-60 overflow-y-auto border border-gray-200 rounded-md">
+                  {enrolledStudents.map((student) => {
+                    const isSelected = selectedStudents.includes(student.id);
+                    
+                    return (
                     <label
                       key={student.id}
                       className="flex items-center p-2 sm:p-3 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0"
                     >
                       <input
                         type="checkbox"
-                        checked={selectedStudents.includes(student.id)}
+                          checked={isSelected}
                         onChange={() => handleStudentToggle(student.id)}
-                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                          className="h-4 w-4 text-red-600 focus:ring-red-500 border-gray-300 rounded"
                       />
                       <div className="ml-3 flex items-center">
                         <div className="w-6 h-6 sm:w-8 sm:h-8 bg-red-600 rounded-full flex items-center justify-center flex-shrink-0">
@@ -1278,14 +1527,15 @@ const EnrollModal = ({ classData, onClose, onSubmit }) => {
                         </div>
                       </div>
                     </label>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
 
             <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
               <p className="text-xs sm:text-sm text-gray-600">
-                {selectedStudents.length} student(s) selected
+                {selectedStudents.length} student(s) selected for removal
               </p>
               <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
                 <button
@@ -1298,9 +1548,9 @@ const EnrollModal = ({ classData, onClose, onSubmit }) => {
                 <button
                   type="submit"
                   disabled={selectedStudents.length === 0}
-                  className="px-3 sm:px-4 py-2 border-2 border-green-600 text-green-600 rounded-md hover:bg-green-500 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 text-sm"
+                  className="px-3 sm:px-4 py-2 border-2 border-red-600 text-red-600 rounded-md hover:bg-red-500 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 text-sm"
                 >
-                  Enroll Students
+                  Remove Students
                 </button>
               </div>
             </div>

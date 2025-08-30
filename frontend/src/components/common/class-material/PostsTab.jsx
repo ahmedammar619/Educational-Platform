@@ -82,21 +82,13 @@ const PostsTab = ({ currentUser, theme, courseId }) => {
   };
 
   const canEditPost = (post) => {
-    if (currentUser?.role === 'admin') return true;
-    if (currentUser?.role === 'teacher') return true;
-    if (currentUser?.role === 'student') {
-      return post.author?.id === currentUser?.id;
-    }
-    return false;
+    // Students can only view posts, not edit them
+    return currentUser?.role === 'admin' || currentUser?.role === 'teacher';
   };
 
   const canDeletePost = (post) => {
-    if (currentUser?.role === 'admin') return true;
-    if (currentUser?.role === 'teacher') return true;
-    if (currentUser?.role === 'student') {
-      return post.author?.id === currentUser?.id;
-    }
-    return false;
+    // Students can only view posts, not delete them
+    return currentUser?.role === 'admin' || currentUser?.role === 'teacher';
   };
 
 
