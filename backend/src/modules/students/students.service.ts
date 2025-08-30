@@ -4,6 +4,8 @@ import { Repository } from 'typeorm';
 import { Student } from './entities/student.entity';
 import { User } from '../users/entities/user.entity';
 import { Parent } from '../parents/entities/parent.entity';
+import { Class } from '../classes/entities/class.entity';
+import { Course } from '../courses/entities/course.entity';
 import { CreateStudentDto } from './dto/create-student.dto';
 import { UpdateStudentDto } from './dto/update-student.dto';
 import { Role } from '../../common/enums/role.enum';
@@ -18,6 +20,10 @@ export class StudentsService {
     private readonly userRepository: Repository<User>,
     @InjectRepository(Parent)
     private readonly parentRepository: Repository<Parent>,
+    @InjectRepository(Class)
+    private readonly classRepository: Repository<Class>,
+    @InjectRepository(Course)
+    private readonly courseRepository: Repository<Course>,
   ) {}
 
   async createStudent(createStudentDto: CreateStudentDto): Promise<Student> {
@@ -244,5 +250,55 @@ export class StudentsService {
     });
 
     return this.studentRepository.save(student);
+  }
+
+  async getStudentClasses(studentId: string): Promise<any[]> {
+    // First, get the student to find their classId
+    const student = await this.findOne(studentId);
+    
+    if (!student.classId) {
+      return []; // Student is not enrolled in any class
+    }
+
+    // Get the class with its courses
+    const classEntity = await this.classRepository.findOne({
+      where: { id: student.classId },
+      relations: ['courses', 'courses.teacher']
+    });
+
+    if (!classEntity) {
+      return [];
+    }
+
+    // Get the actual student count for this class
+    const studentCount = await this.studentRepository.count({
+      where: { classId: student.classId }
+    });
+
+    // Transform the data to match the frontend structure
+    const transformedClass = {
+      id: classEntity.id,
+      name: classEntity.name,
+      startDate: classEntity.startDate,
+      endDate: classEntity.endDate,
+      price: classEntity.price,
+      numberOfStudents: studentCount,
+      status: 'active', // Default status since Class entity doesn't have status field
+      courses: classEntity.courses?.map(course => ({
+        id: course.id,
+        name: course.name,
+        startDate: classEntity.startDate, // Use class dates since courses don't have their own dates
+        endDate: classEntity.endDate,
+        teacherName: course.teacher ? `${course.teacher.firstName} ${course.teacher.lastName}` : 'No Teacher Assigned',
+        courseMaterial: course.name || 'No description available',
+        sessionTime: course.sessions?.map(session => ({
+          day: session.day,
+          startTime: session.startTime,
+          endTime: session.endTime
+        })) || []
+      })) || []
+    };
+
+    return [transformedClass];
   }
 }

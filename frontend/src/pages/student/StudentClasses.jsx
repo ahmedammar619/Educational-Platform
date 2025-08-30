@@ -1,79 +1,9 @@
 import { useState, useEffect } from 'react';
 import { BookOpen, Clock, User, MapPin, Calendar, CheckCircle, Users, Search, Filter, ChevronDown, ChevronRight } from 'lucide-react';
-import { mockCourses, mockUsers } from '../../data/mockData';
+import studentsService from '../../services/studentsService';
+import { showErrorToast } from '../../utils/errorHandler';
 
-// Mock data for the new class structure (matching ClassManagement.jsx)
-const mockClasses = [
-  {
-    id: '1',
-    name: 'Islamic Studies Program 2024',
-    startDate: '2024-03-01',
-    endDate: '2024-06-30',
-    price: 450.00,
-    numberOfStudents: 12,
-    status: 'active',
-    courses: [
-      {
-        id: 'c1',
-        name: 'Islamic Studies - Level 1',
-        startDate: '2024-03-01',
-        endDate: '2024-06-30',
-        teacherName: 'Ahmed Al-Rashid',
-        courseMaterial: 'Quran, Hadith, Islamic History',
-        sessionTime: [
-          { day: 'Monday', startTime: '09:00', endTime: '10:30' },
-          { day: 'Wednesday', startTime: '09:00', endTime: '10:30' }
-        ]
-      },
-      {
-        id: 'c2',
-        name: 'Arabic Language - Beginner',
-        startDate: '2024-03-01',
-        endDate: '2024-06-30',
-        teacherName: 'Yusuf Al-Khalil',
-        courseMaterial: 'Arabic Alphabet, Vocabulary',
-        sessionTime: [
-          { day: 'Tuesday', startTime: '14:00', endTime: '15:30' },
-          { day: 'Thursday', startTime: '14:00', endTime: '15:30' }
-        ]
-      }
-    ]
-  },
-  {
-    id: '2',
-    name: 'Advanced Islamic Education',
-    startDate: '2024-04-01',
-    endDate: '2024-08-31',
-    price: 600.00,
-    numberOfStudents: 8,
-    status: 'active',
-    courses: [
-      {
-        id: 'c3',
-        name: 'Quran Recitation - Tajweed',
-        startDate: '2024-04-01',
-        endDate: '2024-08-31',
-        teacherName: 'Ahmed Al-Rashid',
-        courseMaterial: 'Quran Text, Tajweed Rules',
-        sessionTime: [
-          { day: 'Sunday', startTime: '10:00', endTime: '11:30' },
-          { day: 'Thursday', startTime: '10:00', endTime: '11:30' }
-        ]
-      },
-      {
-        id: 'c4',
-        name: 'Islamic History & Culture',
-        startDate: '2024-04-01',
-        endDate: '2024-08-31',
-        teacherName: 'Yusuf Al-Khalil',
-        courseMaterial: 'History Books, Cultural Resources',
-        sessionTime: [
-          { day: 'Saturday', startTime: '15:00', endTime: '16:30' }
-        ]
-      }
-    ]
-  }
-];
+
 
 const StudentClasses = ({ user, onOpenMaterials }) => {
   const [enrolledClasses, setEnrolledClasses] = useState([]);
@@ -101,14 +31,27 @@ const StudentClasses = ({ user, onOpenMaterials }) => {
     filterClasses();
   }, [filters, enrolledClasses]);
 
-  const loadStudentClasses = () => {
+  const loadStudentClasses = async () => {
     setLoading(true);
+    try {
+      if (!user?.id) {
+        console.error('No user ID available');
+        setEnrolledClasses([]);
+        return;
+      }
 
-    // For demo purposes, show all classes for students
-    // In a real app, this would filter by the actual student ID
-    setEnrolledClasses(mockClasses);
-
-    setLoading(false);
+      const response = await studentsService.getStudentClasses(user.id);
+      console.log('Student classes response:', response);
+      
+      // The API returns an array of classes
+      setEnrolledClasses(response || []);
+    } catch (error) {
+      console.error('Error loading student classes:', error);
+      showErrorToast('Failed to load classes. Please try again.');
+      setEnrolledClasses([]);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const filterClasses = () => {
@@ -219,7 +162,7 @@ const StudentClasses = ({ user, onOpenMaterials }) => {
             onChange={(e) => setFilters({ ...filters, teacher: e.target.value, page: 1 })}
           >
             <option value="">All Teachers</option>
-            {Array.from(new Set(mockClasses.flatMap(cls => cls.courses.map(course => course.teacherName)))).map((teacherName) => (
+            {Array.from(new Set(enrolledClasses.flatMap(cls => cls.courses?.map(course => course.teacherName) || []))).map((teacherName) => (
               <option key={teacherName} value={teacherName}>
                 {teacherName}
               </option>

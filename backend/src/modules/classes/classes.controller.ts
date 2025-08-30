@@ -41,7 +41,7 @@ export class ClassesController {
     return classes.map(classEntity => 
       plainToClass(ClassResponseDto, {
         ...classEntity,
-        studentCount: classEntity.students?.length || 0
+        studentCount: classEntity.studentCount || 0
       }, { excludeExtraneousValues: true })
     );
   }
@@ -52,7 +52,7 @@ export class ClassesController {
     const classEntity = await this.classesService.findClassById(id);
     return plainToClass(ClassResponseDto, {
       ...classEntity,
-      studentCount: classEntity.students?.length || 0
+      studentCount: classEntity.studentCount || 0
     }, { excludeExtraneousValues: true });
   }
 

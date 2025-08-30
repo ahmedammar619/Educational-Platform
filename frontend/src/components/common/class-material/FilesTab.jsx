@@ -745,6 +745,21 @@ const FilesTab = ({ currentUser, theme, courseId }) => {
             </div>
           )}
 
+          {/* Empty State - Show when no folders and no files */}
+          {folders.length === 0 && rootFiles.length === 0 && (
+            <div className="text-center py-12">
+              <div className="mb-6">
+                <div className="relative w-32 h-32 mx-auto">
+                  <div className="absolute top-0 left-0 w-16 h-16 bg-blue-500 rounded-full opacity-80"></div>
+                  <div className="absolute top-4 right-0 w-16 h-16 bg-blue-400 rounded-full opacity-80"></div>
+                  <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 w-16 h-16 bg-blue-300 rounded-full opacity-80"></div>
+                </div>
+              </div>
+              <h3 className="text-xl font-bold text-gray-900 mb-2">No files yet</h3>
+              <p className="text-gray-600">Files and folders will appear here when they are uploaded.</p>
+            </div>
+          )}
+
           {/* Bottom Action Buttons */}
           {(canCreateFolder() || canUploadFiles()) && (
             <div className="text-center pt-3 border-t border-gray-200">

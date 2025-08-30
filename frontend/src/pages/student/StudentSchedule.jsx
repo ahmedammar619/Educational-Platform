@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { Calendar, Clock, MapPin, User, Filter, ChevronLeft, ChevronRight, BookOpen, Users } from 'lucide-react';
 import { format, startOfWeek, endOfWeek, eachDayOfInterval, isSameDay, addWeeks, subWeeks, parseISO, addDays, isAfter, isBefore, startOfDay, endOfDay } from 'date-fns';
-import { mockUsers, mockCourses } from '../../data/mockData';
+import { studentsService } from '../../services';
+import { showErrorToast } from '../../utils/errorHandler';
 import FullCalendar from '@fullcalendar/react';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import dayGridPlugin from '@fullcalendar/daygrid';
@@ -50,72 +51,66 @@ const StudentSchedule = ({ user }) => {
     }
   }, [currentWeek, courses]);
 
-  const loadStudentSchedule = () => {
+  const loadStudentSchedule = async () => {
     setLoading(true);
 
     try {
-      // Get student's enrolled classes from mock data
+      // Get student's enrolled classes from API
       if (!user || !user.id) {
-        console.log('No valid user ID, using mock data');
+        console.log('No valid user ID');
         setSchedule([]);
         setCourses([]);
         return;
       }
 
-      // Find student in mock data
-      const student = mockUsers.find(s => s.id === user.id && s.role === 'student');
-      if (!student) {
-        console.log('Student not found in mock data');
-        setSchedule([]);
-        setCourses([]);
-        return;
-      }
+      console.log('Loading schedule for user:', user.id);
+      
+      // Fetch student classes from API
+      const studentClasses = await studentsService.getStudentClasses(user.id);
+      console.log('API response - student classes:', studentClasses);
 
-      // Get enrolled classes - check both ways to ensure we get the data
-      const enrolledClasses = mockCourses.filter(c =>
-        c.students && c.students.includes(user.id)
-      );
-
-      console.log('User ID:', user.id);
-      console.log('Student found:', student);
-      console.log('Enrolled classes:', enrolledClasses);
-
-      if (enrolledClasses.length === 0) {
-        console.log('No enrolled classes found, trying alternative method');
-        // Try alternative method using student.courseIds
-        if (student.courseIds && student.courseIds.length > 0) {
-          const classesByIds = student.courseIds.map(id =>
-            mockCourses.find(c => c.id === id)
-          ).filter(Boolean);
-
-          console.log('Classes found by IDs:', classesByIds);
-          if (classesByIds.length > 0) {
-            setCourses(classesByIds);
-            const classEvents = convertClassesToEvents(classesByIds);
-            const sortedEvents = classEvents.sort((a, b) => new Date(a.start_time) - new Date(a.start_time));
-            setSchedule(sortedEvents);
-            setLoading(false);
-            return;
-          }
-        }
-
+      if (!studentClasses || studentClasses.length === 0) {
         console.log('No enrolled classes found');
         setSchedule([]);
         setCourses([]);
         return;
       }
 
-      // Convert class schedules to calendar events
-      const classEvents = convertClassesToEvents(enrolledClasses);
-      console.log('Class events:', classEvents);
+      // Extract courses from the class data
+      const enrolledCourses = [];
+      studentClasses.forEach(classItem => {
+        if (classItem.courses && classItem.courses.length > 0) {
+          enrolledCourses.push(...classItem.courses.map(course => ({
+            ...course,
+            classId: classItem.id,
+            className: classItem.name,
+            classStartDate: classItem.startDate,
+            classEndDate: classItem.endDate
+          })));
+        }
+      });
+
+      console.log('Enrolled courses:', enrolledCourses);
+
+      if (enrolledCourses.length === 0) {
+        console.log('No courses found in enrolled classes');
+        setSchedule([]);
+        setCourses([]);
+        return;
+      }
+
+      // Convert courses to calendar events
+      const classEvents = convertCoursesToEvents(enrolledCourses);
+      console.log('Generated events:', classEvents);
 
       // Sort events by start time
       const sortedEvents = classEvents.sort((a, b) => new Date(a.start_time) - new Date(b.start_time));
 
       setSchedule(sortedEvents);
-      setCourses(enrolledClasses);
+      setCourses(enrolledCourses);
     } catch (error) {
       console.error('Error loading student schedule:', error);
+      showErrorToast(error, 'Failed to load schedule. Please try again.');
       setSchedule([]);
       setCourses([]);
     } finally {
@@ -123,46 +118,46 @@ const StudentSchedule = ({ user }) => {
     }
   };
 
-  const convertClassesToEvents = (enrolledClasses) => {
+  const convertCoursesToEvents = (enrolledCourses) => {
     const events = [];
     const today = new Date();
 
-    enrolledClasses.forEach((classItem) => {
-      // Use the course's actual start and end dates
-      const courseStartDate = new Date(classItem.startDate);
-      const courseEndDate = new Date(classItem.endDate);
+    enrolledCourses.forEach((course) => {
+      // Use the class's actual start and end dates
+      const courseStartDate = new Date(course.classStartDate);
+      const courseEndDate = new Date(course.classEndDate);
 
       // Only generate events if the course is active (end date is in the future)
       if (courseEndDate > today) {
-        const classEvents = generateClassEvents(classItem, courseStartDate, courseEndDate);
-        events.push(...classEvents);
+        const courseEvents = generateCourseEvents(course, courseStartDate, courseEndDate);
+        events.push(...courseEvents);
       }
     });
 
     return events;
   };
 
-  const generateClassEvents = (classItem, startDate, endDate) => {
+  const generateCourseEvents = (course, startDate, endDate) => {
     const events = [];
 
-    // Parse schedule using the new data structure
-    const scheduleInfo = parseScheduleFromCourse(classItem);
+    // Parse schedule from the API data structure
+    const scheduleInfo = parseScheduleFromCourse(course);
 
     if (!scheduleInfo) {
-      console.log('No schedule info for class:', classItem.name, classItem.schedule);
+      console.log('No schedule info for course:', course.name, course.sessionTime);
       return events;
     }
 
-    console.log('Generating events for class:', classItem.name, 'with schedule:', scheduleInfo);
+    console.log('Generating events for course:', course.name, 'with schedule:', scheduleInfo);
+    console.log('Class period:', format(startDate, 'yyyy-MM-dd'), 'to', format(endDate, 'yyyy-MM-dd'));
 
-    // Get teacher name from mockUsers
-    const teacher = mockUsers.find(t => t.id === classItem.teacherId && t.role === 'teacher');
-    const teacherName = teacher ? `${teacher.firstName} ${teacher.lastName}` : 'Teacher TBD';
+    // Use teacher name from API data
+    const teacherName = course.teacherName || 'No Teacher Assigned';
 
-    // Find the first occurrence of each scheduled day
+    // Find the first occurrence of each scheduled day within the class period
     const firstOccurrences = scheduleInfo.days.map(dayOfWeek => {
       let date = new Date(startDate);
-      while (date.getDay() !== dayOfWeek) {
+      while (date.getDay() !== dayOfWeek && isBefore(date, endDate)) {
         date = addDays(date, 1);
       }
       return date;
@@ -170,65 +165,83 @@ const StudentSchedule = ({ user }) => {
 
     console.log('First occurrences for days:', firstOccurrences.map(d => format(d, 'EEEE yyyy-MM-dd')));
 
-    // Generate events for each scheduled day, repeating weekly
+    // Generate events for each scheduled day, repeating weekly but only within class period
     firstOccurrences.forEach(firstDate => {
       let currentOccurrence = new Date(firstDate);
 
-      while (isBefore(currentOccurrence, endDate)) {
-        // Set the time for this occurrence
-        const eventDate = new Date(currentOccurrence);
-        eventDate.setHours(scheduleInfo.hour, scheduleInfo.minute, 0, 0);
+      // Only generate events within the class start and end dates
+      while (isBefore(currentOccurrence, endDate) || isSameDay(currentOccurrence, endDate)) {
+        // Check if this occurrence is within the class period
+        if (isAfter(currentOccurrence, startDate) || isSameDay(currentOccurrence, startDate)) {
+          // Set the time for this occurrence
+          const eventDate = new Date(currentOccurrence);
+          eventDate.setHours(scheduleInfo.hour, scheduleInfo.minute, 0, 0);
 
-        // Calculate end time based on session duration (120 minutes)
-        const eventEndDate = new Date(eventDate);
-        eventEndDate.setMinutes(eventEndDate.getMinutes() + 120);
+          // Calculate end time based on session duration from API data
+          const eventEndDate = new Date(eventDate);
+          // Use session end time from API if available, otherwise default to 2 hours
+          if (scheduleInfo.endTime) {
+            const [endHour, endMinute] = scheduleInfo.endTime.split(':').map(Number);
+            eventEndDate.setHours(endHour, endMinute, 0, 0);
+          } else {
+            // Default to 2 hours if no end time specified
+            eventEndDate.setMinutes(eventEndDate.getMinutes() + 120);
+          }
 
-        // Add all events within the course period (including past events for display purposes)
-        events.push({
-          id: `class-${classItem.id}-${eventDate.getTime()}`,
-          title: classItem.name,
-          type: 'lecture',
-          start_time: eventDate.toISOString(),
-          end_time: eventEndDate.toISOString(),
-          location: `Room ${getRoomForClass(classItem.id)}`,
-          instructor_name: teacherName,
-          course_title: classItem.name,
-          description: classItem.description,
-          classId: classItem.id,
-          isRecurring: true,
-          weekNumber: Math.floor((eventDate.getTime() - startDate.getTime()) / (7 * 24 * 60 * 60 * 1000)) + 1
-        });
+          // Only add events that are within the class period
+          if (isAfter(eventDate, startDate) || isSameDay(eventDate, startDate)) {
+            if (isBefore(eventDate, endDate) || isSameDay(eventDate, endDate)) {
+              events.push({
+                id: `course-${course.id}-${eventDate.getTime()}`,
+                title: course.name,
+                type: 'lecture',
+                start_time: eventDate.toISOString(),
+                end_time: eventEndDate.toISOString(),
+                location: 'Online/Classroom',
+                instructor_name: teacherName,
+                course_title: course.name,
+                description: course.courseMaterial || course.name,
+                classId: course.classId,
+                courseId: course.id,
+                isRecurring: true,
+                weekNumber: Math.floor((eventDate.getTime() - startDate.getTime()) / (7 * 24 * 60 * 60 * 1000)) + 1
+              });
+            }
+          }
+        }
 
         // Move to next week (7 days later)
         currentOccurrence = addDays(currentOccurrence, 7);
       }
     });
 
-    console.log('Generated events for class:', classItem.name, ':', events.length);
+    console.log('Generated events for course:', course.name, ':', events.length);
     return events;
   };
 
-  // Parse schedule using the new data structure
+  // Parse schedule using the API data structure
   const parseScheduleFromCourse = (course) => {
-    console.log('Parsing schedule for course:', course.name, 'Schedule data:', course.schedule);
+    console.log('Parsing schedule for course:', course.name, 'Session data:', course.sessionTime);
 
-    if (course.schedule && Array.isArray(course.schedule)) {
-      // Use the new structured schedule data
-      const days = course.schedule.map(item => getDayNumber(item.day));
+    if (course.sessionTime && Array.isArray(course.sessionTime)) {
+      // Use the API session data structure
+      const days = course.sessionTime.map(session => getDayNumber(session.day));
 
-      console.log('Parsed days:', days, 'from schedule items:', course.schedule.map(s => s.day));
+      console.log('Parsed days:', days, 'from session items:', course.sessionTime.map(s => s.day));
 
-      // Parse startTime (e.g., "16:00" -> hour: 16, minute: 0)
-      if (course.schedule.length > 0) {
-        const [startHour, startMinute] = course.schedule[0].startTime.split(':').map(Number);
+      // Parse startTime and endTime (e.g., "16:00" -> hour: 16, minute: 0)
+      if (course.sessionTime.length > 0) {
+        const [startHour, startMinute] = course.sessionTime[0].startTime.split(':').map(Number);
+        const endTime = course.sessionTime[0].endTime; // Keep as string for parsing later
 
-        console.log('Parsed time:', { hour: startHour, minute: startMinute });
+        console.log('Parsed time:', { hour: startHour, minute: startMinute, endTime });
 
         if (startHour !== undefined && startMinute !== undefined) {
           return {
             days,
             hour: startHour,
-            minute: startMinute
+            minute: startMinute,
+            endTime: endTime
           };
         }
       }
@@ -259,14 +272,10 @@ const StudentSchedule = ({ user }) => {
         `${item.day} ${item.startTime}-${item.endTime}`
       ).join(', ');
     }
-    return 'Schedule TBD';
+    return 'No schedule available';
   };
 
-  const getRoomForClass = (classId) => {
-    // Simple room assignment based on class ID
-    const rooms = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2', 'D1', 'D2'];
-    return rooms[classId % rooms.length];
-  };
+
 
   const getUpcomingClasses = () => {
     if (courses.length === 0) return [];
@@ -286,14 +295,11 @@ const StudentSchedule = ({ user }) => {
           }
 
           if (isAfter(nextDate, today)) {
-            const teacher = mockUsers.find(t => t.id === course.teacherId && t.role === 'teacher');
-            const teacherName = teacher ? `${teacher.firstName} ${teacher.lastName}` : 'Teacher TBD';
-
             upcoming.push({
               course: course.name,
               day: format(nextDate, 'EEEE'),
               time: `${scheduleInfo.hour}:${scheduleInfo.minute.toString().padStart(2, '0')}`,
-              teacher: teacherName
+              teacher: course.teacherName || 'No Teacher Assigned'
             });
           }
         });
@@ -314,17 +320,22 @@ const StudentSchedule = ({ user }) => {
     }
 
     console.log('Generating events for date range:', format(startDate, 'yyyy-MM-dd'), 'to', format(endDate, 'yyyy-MM-dd'));
-    console.log('Available courses:', courses.map(c => ({ name: c.name, schedule: c.schedule })));
+    console.log('Available courses:', courses.map(c => ({ name: c.name, sessionTime: c.sessionTime })));
 
     const events = [];
-    courses.forEach((classItem) => {
-      const scheduleInfo = parseScheduleFromCourse(classItem);
+    courses.forEach((course) => {
+      const scheduleInfo = parseScheduleFromCourse(course);
       if (scheduleInfo) {
-        console.log('Parsed schedule for', classItem.name, ':', scheduleInfo);
+        console.log('Parsed schedule for', course.name, ':', scheduleInfo);
 
-        // Get teacher name
-        const teacher = mockUsers.find(t => t.id === classItem.teacherId && t.role === 'teacher');
-        const teacherName = teacher ? `${teacher.firstName} ${teacher.lastName}` : 'Teacher TBD';
+        // Get class start and end dates for this course
+        const classStartDate = new Date(course.classStartDate);
+        const classEndDate = new Date(course.classEndDate);
+
+        console.log('Class period for', course.name, ':', format(classStartDate, 'yyyy-MM-dd'), 'to', format(classEndDate, 'yyyy-MM-dd'));
+
+        // Get teacher name from API data
+        const teacherName = course.teacherName || 'No Teacher Assigned';
 
         // Find the first occurrence of each scheduled day in the range
         scheduleInfo.days.forEach(dayOfWeek => {
@@ -337,34 +348,52 @@ const StudentSchedule = ({ user }) => {
 
           // Generate events for this day and subsequent weeks within the range
           while (isBefore(currentDate, endDate)) {
-            const eventDate = new Date(currentDate);
-            eventDate.setHours(scheduleInfo.hour, scheduleInfo.minute, 0, 0);
+            // Check if this date is within the class period
+            if ((isAfter(currentDate, classStartDate) || isSameDay(currentDate, classStartDate)) &&
+                (isBefore(currentDate, classEndDate) || isSameDay(currentDate, classEndDate))) {
+              
+              const eventDate = new Date(currentDate);
+              eventDate.setHours(scheduleInfo.hour, scheduleInfo.minute, 0, 0);
 
-            // Calculate end time based on session duration (120 minutes)
-            const eventEndDate = new Date(eventDate);
-            eventEndDate.setMinutes(eventEndDate.getMinutes() + 120);
+              // Calculate end time based on session duration from API data
+              const eventEndDate = new Date(eventDate);
+              // Use session end time from API if available, otherwise default to 2 hours
+              if (scheduleInfo.endTime) {
+                const [endHour, endMinute] = scheduleInfo.endTime.split(':').map(Number);
+                eventEndDate.setHours(endHour, endMinute, 0, 0);
+              } else {
+                // Default to 2 hours if no end time specified
+                eventEndDate.setMinutes(eventEndDate.getMinutes() + 120);
+              }
 
-            events.push({
-              id: `class-${classItem.id}-${eventDate.getTime()}`,
-              title: classItem.name,
-              type: 'lecture',
-              start_time: eventDate.toISOString(),
-              end_time: eventEndDate.toISOString(),
-              location: `Room ${getRoomForClass(classItem.id)}`,
-              instructor_name: teacherName,
-              course_title: classItem.name,
-              description: classItem.description,
-              classId: classItem.id,
-              isRecurring: true,
-              weekNumber: Math.floor((eventDate.getTime() - startDate.getTime()) / (7 * 24 * 60 * 60 * 1000)) + 1
-            });
+              // Double-check that the event time is within class period
+              if ((isAfter(eventDate, classStartDate) || isSameDay(eventDate, classStartDate)) &&
+                  (isBefore(eventDate, classEndDate) || isSameDay(eventDate, classEndDate))) {
+                
+                events.push({
+                  id: `course-${course.id}-${eventDate.getTime()}`,
+                  title: course.name,
+                  type: 'lecture',
+                  start_time: eventDate.toISOString(),
+                  end_time: eventEndDate.toISOString(),
+                  location: 'Online/Classroom',
+                  instructor_name: teacherName,
+                  course_title: course.name,
+                  description: course.courseMaterial || course.name,
+                  classId: course.classId,
+                  courseId: course.id,
+                  isRecurring: true,
+                  weekNumber: Math.floor((eventDate.getTime() - classStartDate.getTime()) / (7 * 24 * 60 * 60 * 1000)) + 1
+                });
+              }
+            }
 
             // Move to next week
             currentDate = addDays(currentDate, 7);
           }
         });
       } else {
-        console.warn('Could not parse schedule for class:', classItem.name, classItem.schedule);
+        console.warn('Could not parse schedule for course:', course.name, course.sessionTime);
       }
     });
 
@@ -434,7 +463,7 @@ const StudentSchedule = ({ user }) => {
   const handleEventClick = (clickInfo) => {
     // Students cannot delete events - just show event info
     const event = clickInfo.event;
-    alert(`Class: ${event.title}\nTime: ${event.start.toLocaleString()}\nLocation: ${event.extendedProps.location || 'TBD'}\nInstructor: ${event.extendedProps.instructor || 'TBD'}`);
+    alert(`Class: ${event.title}\nTime: ${event.start.toLocaleString()}\nLocation: ${event.extendedProps.location || 'Not specified'}\nInstructor: ${event.extendedProps.instructor || 'Not assigned'}`);
   };
 
   const createEventId = () => {
@@ -797,15 +826,15 @@ const StudentSchedule = ({ user }) => {
             }}
             eventContent={(arg) => {
               const event = arg.event;
-              const location = event.extendedProps.location || 'TBD';
-              const instructor = event.extendedProps.instructor || 'TBD';
+              const location = event.extendedProps.location || 'Not specified';
+              const instructor = event.extendedProps.instructor || 'Not assigned';
 
               return {
                 html: `
-                  <div class="p-1">
+                  <div class="">
                     <div class="font-semibold text-xs mb-0.5 text-red-700">${event.title}</div>
                     <div class="text-xs opacity-75 mb-0.5 text-red-700">${arg.timeText}</div>
-                    <div class="text-xs opacity-60 text-red-600">${location} • ${instructor}</div>
+                    <div class="text-xs opacity-60 text-red-600">${instructor}</div>
                   </div>
                 `
               };

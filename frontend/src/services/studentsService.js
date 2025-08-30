@@ -32,9 +32,9 @@ class StudentsService {
   }
 
   // Get student classes
-  async getStudentClasses() {
+  async getStudentClasses(studentId) {
     try {
-      const response = await api.get('/api/students/classes');
+      const response = await api.get(`/api/students/${studentId}/classes`);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
