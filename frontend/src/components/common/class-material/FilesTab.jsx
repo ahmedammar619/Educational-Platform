@@ -111,8 +111,8 @@ const FilesTab = ({ currentUser, theme, courseId }) => {
       }
       
       console.log('🔍 FilesTab - Processed data:', {
-        foldersData: foldersData.length,
-        currentFolderFiles: currentFolderFiles.length,
+        foldersDataCount: foldersData.length,
+        currentFolderFilesCount: currentFolderFiles.length,
         foldersData: foldersData,
         currentFolderFiles: currentFolderFiles
       });
