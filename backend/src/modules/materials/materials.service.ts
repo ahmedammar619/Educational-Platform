@@ -166,149 +166,149 @@ export class MaterialsService {
           console.log('Service - Attachment file names provided:', updatePostDto.attachmentFileNames);
         }
 
-    // Handle file upload if provided (same logic as createPost)
-    if (file) {
-      try {
-        console.log('Service - Processing file upload for post update:', {
-          originalname: file.originalname,
-          size: file.size,
-          mimetype: file.mimetype,
-          bufferLength: file.buffer?.length
+        // Handle file upload if provided (same logic as createPost)
+        if (file) {
+          try {
+            console.log('Service - Processing file upload for post update:', {
+              originalname: file.originalname,
+              size: file.size,
+              mimetype: file.mimetype,
+              bufferLength: file.buffer?.length
+            });
+            
+            // Validate file
+            if (!file.buffer) {
+              throw new Error('File buffer is empty or undefined');
+            }
+            
+            // Get course information for folder structure
+            const course = await this.courseRepository.findOne({
+              where: { id: post.courseId },
+              relations: ['class']
+            });
+
+            if (!course) {
+              throw new NotFoundException(`Course with ID ${post.courseId} not found`);
+            }
+
+            // Create organized folder structure (same as createPost)
+            const className = course.class?.name || 'Unknown-Class';
+            const courseName = course.name || 'Unknown-Course';
+            const uploadDir = path.join(process.cwd(), 'uploads', className, courseName, 'posts');
+            
+            console.log('Service - Upload directory:', uploadDir);
+            
+            // Ensure directory exists
+            await mkdir(uploadDir, { recursive: true });
+
+            // Generate unique filename (same as createPost)
+            const timestamp = Date.now();
+            const randomString = Math.random().toString(36).substring(2, 8);
+            const fileExtension = path.extname(file.originalname);
+            const baseName = path.basename(file.originalname, fileExtension);
+            const uniqueFileName = `${baseName}-${timestamp}-${randomString}${fileExtension}`;
+            
+            const filePath = path.join(uploadDir, uniqueFileName);
+            
+            console.log('Service - Saving file to:', filePath);
+            
+            // Save file to disk
+            await writeFile(filePath, file.buffer);
+            console.log(`File saved to: ${filePath}`);
+
+            // Create attachment record (same as createPost)
+            console.log('Service - Creating attachment with postId:', {
+              postId: postId,
+              postIdType: typeof postId,
+              postIdLength: postId?.length,
+              postIdFromPost: post.id,
+              postIdFromPostType: typeof post.id
+            });
+            
+            // Create a new attachment object directly (not using repository.create)
+            const attachmentData = {
+              postId: postId, // Use the postId parameter directly instead of post.id
+              fileName: uniqueFileName,
+              filePath: path.join(className, courseName, 'posts', uniqueFileName), // Store relative path
+              fileSize: file.size,
+              mimeType: file.mimetype,
+              uploadedAt: new Date()
+            };
+            
+            console.log('Service - Attachment data prepared:', {
+              postId: attachmentData.postId,
+              fileName: attachmentData.fileName,
+              filePath: attachmentData.filePath
+            });
+
+            const savedAttachment = await transactionalEntityManager.save(PostAttachment, attachmentData);
+            console.log('Service - Attachment created for post update:', {
+              id: savedAttachment.id,
+              postId: savedAttachment.postId,
+              fileName: savedAttachment.fileName,
+              filePath: savedAttachment.filePath
+            });
+          } catch (fileError) {
+            console.error('Service - Error processing file upload:', fileError);
+            throw new Error(`Failed to process file upload: ${fileError.message}`);
+          }
+        }
+
+        // Save the updated post (only update the fields that changed)
+        console.log('Service - About to save updated post:', {
+          id: post.id,
+          subject: post.subject,
+          description: post.description,
+          courseId: post.courseId,
+          authorId: post.authorId,
+          hasFileUpload: !!file
         });
-        
-        // Validate file
-        if (!file.buffer) {
-          throw new Error('File buffer is empty or undefined');
+      
+        try {
+          // Use update instead of save to avoid entity conflicts
+          await transactionalEntityManager.update(Post, { id: postId }, {
+            subject: post.subject,
+            description: post.description,
+            updatedAt: new Date()
+          });
+          console.log('Service - Post updated successfully');
+        } catch (saveError) {
+          console.error('Service - Error updating post:', saveError);
+          throw new Error(`Failed to update post: ${saveError.message}`);
+        }
+      
+        // Return the updated post with all relations (same as createPost)
+        console.log('Service - Fetching updated post with relations...');
+        let finalPost;
+        try {
+          finalPost = await transactionalEntityManager.findOne(Post, {
+            where: { id: postId },
+            relations: ['attachments', 'author', 'course']
+          });
+          
+          if (!finalPost) {
+            throw new Error(`Failed to fetch updated post with ID ${postId}`);
+          }
+          
+          console.log('Service - Post fetched successfully with relations');
+        } catch (fetchError) {
+          console.error('Service - Error fetching post with relations:', fetchError);
+          throw new Error(`Failed to fetch updated post: ${fetchError.message}`);
         }
         
-        // Get course information for folder structure
-        const course = await this.courseRepository.findOne({
-          where: { id: post.courseId },
-          relations: ['class']
-        });
-
-        if (!course) {
-          throw new NotFoundException(`Course with ID ${post.courseId} not found`);
-        }
-
-        // Create organized folder structure (same as createPost)
-        const className = course.class?.name || 'Unknown-Class';
-        const courseName = course.name || 'Unknown-Course';
-        const uploadDir = path.join(process.cwd(), 'uploads', className, courseName, 'posts');
-        
-        console.log('Service - Upload directory:', uploadDir);
-        
-        // Ensure directory exists
-        await mkdir(uploadDir, { recursive: true });
-
-        // Generate unique filename (same as createPost)
-        const timestamp = Date.now();
-        const randomString = Math.random().toString(36).substring(2, 8);
-        const fileExtension = path.extname(file.originalname);
-        const baseName = path.basename(file.originalname, fileExtension);
-        const uniqueFileName = `${baseName}-${timestamp}-${randomString}${fileExtension}`;
-        
-        const filePath = path.join(uploadDir, uniqueFileName);
-        
-        console.log('Service - Saving file to:', filePath);
-        
-        // Save file to disk
-        await writeFile(filePath, file.buffer);
-        console.log(`File saved to: ${filePath}`);
-
-        // Create attachment record (same as createPost)
-        console.log('Service - Creating attachment with postId:', {
-          postId: postId,
-          postIdType: typeof postId,
-          postIdLength: postId?.length,
-          postIdFromPost: post.id,
-          postIdFromPostType: typeof post.id
+        console.log('Service - Final post fetched:', {
+          id: finalPost.id,
+          attachmentsCount: finalPost.attachments?.length || 0,
+          hasAuthor: !!finalPost.author,
+          hasCourse: !!finalPost.course,
+          attachments: finalPost.attachments?.map(att => ({
+            id: att.id,
+            fileName: att.fileName,
+            filePath: att.filePath
+          })) || []
         });
         
-        // Create a new attachment object directly (not using repository.create)
-        const attachmentData = {
-          postId: postId, // Use the postId parameter directly instead of post.id
-          fileName: uniqueFileName,
-          filePath: path.join(className, courseName, 'posts', uniqueFileName), // Store relative path
-          fileSize: file.size,
-          mimeType: file.mimetype,
-          uploadedAt: new Date()
-        };
-        
-        console.log('Service - Attachment data prepared:', {
-          postId: attachmentData.postId,
-          fileName: attachmentData.fileName,
-          filePath: attachmentData.filePath
-        });
-
-        const savedAttachment = await transactionalEntityManager.save(PostAttachment, attachmentData);
-        console.log('Service - Attachment created for post update:', {
-          id: savedAttachment.id,
-          postId: savedAttachment.postId,
-          fileName: savedAttachment.fileName,
-          filePath: savedAttachment.filePath
-        });
-      } catch (fileError) {
-        console.error('Service - Error processing file upload:', fileError);
-        throw new Error(`Failed to process file upload: ${fileError.message}`);
-      }
-    }
-
-      // Save the updated post
-      console.log('Service - About to save updated post:', {
-        id: post.id,
-        subject: post.subject,
-        description: post.description,
-        courseId: post.courseId,
-        authorId: post.authorId,
-        hasFileUpload: !!file
-      });
-      
-      try {
-        const updatedPost = await transactionalEntityManager.save(Post, post);
-        console.log('Service - Post saved successfully:', {
-          id: updatedPost.id,
-          subject: updatedPost.subject,
-          description: updatedPost.description,
-          updatedAt: updatedPost.updatedAt
-        });
-      } catch (saveError) {
-        console.error('Service - Error saving post:', saveError);
-        throw new Error(`Failed to save post: ${saveError.message}`);
-      }
-      
-      // Return the updated post with all relations (same as createPost)
-      console.log('Service - Fetching updated post with relations...');
-      let finalPost;
-      try {
-        finalPost = await transactionalEntityManager.findOne(Post, {
-          where: { id: postId },
-          relations: ['attachments', 'author', 'course']
-        });
-        
-        if (!finalPost) {
-          throw new Error(`Failed to fetch updated post with ID ${postId}`);
-        }
-        
-        console.log('Service - Post fetched successfully with relations');
-      } catch (fetchError) {
-        console.error('Service - Error fetching post with relations:', fetchError);
-        throw new Error(`Failed to fetch updated post: ${fetchError.message}`);
-      }
-      
-      console.log('Service - Final post fetched:', {
-        id: finalPost.id,
-        attachmentsCount: finalPost.attachments?.length || 0,
-        hasAuthor: !!finalPost.author,
-        hasCourse: !!finalPost.course,
-        attachments: finalPost.attachments?.map(att => ({
-          id: att.id,
-          fileName: att.fileName,
-          filePath: att.filePath
-        })) || []
-      });
-      
-      return finalPost;
+        return finalPost;
       } catch (error) {
         console.error('Service - Error in updatePost transaction:', error);
         throw error;
