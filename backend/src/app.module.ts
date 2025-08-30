@@ -25,6 +25,7 @@ import { ClassesModule } from './modules/classes/classes.module';
 import { CoursesModule } from './modules/courses/courses.module';
 import { MaterialsModule } from './modules/materials/materials.module';
 import { EnrollmentsModule } from './modules/enrollments/enrollments.module';
+import { PaymentsModule } from './modules/payments/payments.module';
 
 // Guards and Interceptors
 import { CustomThrottlerGuard } from './common/guards/custom-throttler.guard';
@@ -49,6 +50,9 @@ import { Assignment } from './modules/materials/entities/assignment.entity';
 import { AssignmentSubmission } from './modules/materials/entities/assignment-submission.entity';
 import { Attendance } from './modules/materials/entities/attendance.entity';
 import { Enrollment } from './modules/enrollments/entities/enrollment.entity';
+import { WebhookEvent } from './modules/payments/entities/webhook-event.entity';
+import { Invoice } from './modules/payments/entities/invoice.entity';
+import { Subscription } from './modules/payments/entities/subscription.entity';
 
 @Module({
   imports: [
@@ -82,7 +86,10 @@ import { Enrollment } from './modules/enrollments/entities/enrollment.entity';
           Assignment,
           AssignmentSubmission,
           Attendance,
-          Enrollment
+          Enrollment,
+          WebhookEvent,
+          Invoice,
+          Subscription
         ],
         synchronize: process.env.DB_SYNC === 'true',
         logging: process.env.DB_LOGGING === 'true',
@@ -113,6 +120,7 @@ import { Enrollment } from './modules/enrollments/entities/enrollment.entity';
     CoursesModule,
     MaterialsModule,
     EnrollmentsModule,
+    PaymentsModule,
   ],
   controllers: [AppController],
   providers: [

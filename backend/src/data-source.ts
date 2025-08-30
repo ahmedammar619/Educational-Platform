@@ -19,6 +19,10 @@ import { File } from './modules/materials/entities/file.entity';
 import { Assignment } from './modules/materials/entities/assignment.entity';
 import { AssignmentSubmission } from './modules/materials/entities/assignment-submission.entity';
 import { Attendance } from './modules/materials/entities/attendance.entity';
+import { Enrollment } from './modules/enrollments/entities/enrollment.entity';
+import { WebhookEvent } from './modules/payments/entities/webhook-event.entity';
+import { Invoice } from './modules/payments/entities/invoice.entity';
+import { Subscription } from './modules/payments/entities/subscription.entity';
 
 export const AppDataSource = new DataSource({
   type: 'postgres',
@@ -42,7 +46,11 @@ export const AppDataSource = new DataSource({
     File,
     Assignment,
     AssignmentSubmission,
-    Attendance
+    Attendance,
+    Enrollment,
+    WebhookEvent,
+    Invoice,
+    Subscription
   ],
   migrations: ['src/migrations/*.ts'],
   subscribers: [],
