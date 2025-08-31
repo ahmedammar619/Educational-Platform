@@ -856,9 +856,26 @@ export class MaterialsService {
   async getCourseAssignments(courseId: string): Promise<Assignment[]> {
     return await this.assignmentRepository.find({
       where: { courseId },
-      relations: ['creator', 'submissions'],
+      relations: ['creator', 'submissions', 'submissions.student'],
       order: { dueDate: 'ASC' }
     });
+  }
+  
+  async updateAssignment(assignmentId: string, updateAssignmentDto: UpdateAssignmentDto, userId: string): Promise<Assignment> {
+    const assignment = await this.assignmentRepository.findOne({ 
+      where: { id: assignmentId },
+      relations: ['creator', 'submissions']
+    });
+    
+    if (!assignment) {
+      throw new NotFoundException(`Assignment with ID ${assignmentId} not found`);
+    }
+    
+    // Update assignment properties
+    Object.assign(assignment, updateAssignmentDto);
+    
+    // Save the updated assignment
+    return await this.assignmentRepository.save(assignment);
   }
 
   async submitAssignment(assignmentId: string, file: Express.Multer.File, studentId: string): Promise<AssignmentSubmission> {
@@ -870,13 +887,18 @@ export class MaterialsService {
       throw new NotFoundException(`Assignment with ID ${assignmentId} not found`);
     }
 
-    // Check if student is already submitted
+    // Check if student has already submitted
     const existingSubmission = await this.assignmentSubmissionRepository.findOne({
       where: { assignmentId, studentId }
     });
 
+    // If there's an existing submission, we'll update it instead of creating a new one
+    let isUpdate = false;
+    let oldFilePath = null;
+    
     if (existingSubmission) {
-      throw new BadRequestException('Assignment already submitted');
+      isUpdate = true;
+      oldFilePath = existingSubmission.filePath;
     }
 
     // Generate unique filename using your old project pattern
@@ -904,14 +926,44 @@ export class MaterialsService {
     // Create relative path from uploads folder
     const relativePath = path.join(gradeName, courseName, 'assignments', fileName);
 
-    const submission = this.assignmentSubmissionRepository.create({
-      assignmentId,
-      studentId,
-      fileName: fileName,
-      filePath: relativePath,
-      fileSize: file.size,
-      mimeType: file.mimetype
-    });
+    let submission;
+    
+    if (isUpdate && existingSubmission) {
+      // Update existing submission
+      existingSubmission.fileName = fileName;
+      existingSubmission.filePath = relativePath;
+      existingSubmission.fileSize = file.size;
+      existingSubmission.mimeType = file.mimetype;
+      existingSubmission.submittedAt = new Date(); // Update submission time
+      existingSubmission.grade = null; // Clear previous grade
+      existingSubmission.feedback = null; // Clear previous feedback
+      existingSubmission.gradedBy = null;
+      existingSubmission.gradedAt = null;
+      
+      submission = existingSubmission;
+      
+      // Delete old file if it exists and is different
+      if (oldFilePath && oldFilePath !== relativePath) {
+        const oldFileAbsolutePath = path.join(process.cwd(), 'uploads', oldFilePath);
+        try {
+          if (fs.existsSync(oldFileAbsolutePath)) {
+            fs.unlinkSync(oldFileAbsolutePath);
+          }
+        } catch (error) {
+          console.warn(`Failed to delete old file: ${oldFileAbsolutePath}`, error);
+        }
+      }
+    } else {
+      // Create new submission
+      submission = this.assignmentSubmissionRepository.create({
+        assignmentId,
+        studentId,
+        fileName: fileName,
+        filePath: relativePath,
+        fileSize: file.size,
+        mimeType: file.mimetype
+      });
+    }
 
     return await this.assignmentSubmissionRepository.save(submission);
   }
@@ -932,6 +984,19 @@ export class MaterialsService {
     submission.gradedAt = new Date();
 
     return await this.assignmentSubmissionRepository.save(submission);
+  }
+
+  async getAssignmentSubmission(submissionId: string): Promise<AssignmentSubmission> {
+    const submission = await this.assignmentSubmissionRepository.findOne({
+      where: { id: submissionId },
+      relations: ['assignment', 'student']
+    });
+
+    if (!submission) {
+      throw new NotFoundException(`Submission with ID ${submissionId} not found`);
+    }
+
+    return submission;
   }
 
   // Attendance

@@ -147,14 +147,34 @@ const AttendanceTab = ({ currentUser, theme, courseId }) => {
   }, []);
 
   return (
-    <div className="space-y-6">
+    <div className="h-[450px] flex flex-col">
+      {/* Fixed height container with scroll */}
+      <div className="flex-1 overflow-y-auto space-y-6 pr-2">
       {loading ? (
         <div className="text-center py-12">
           <div className="mb-6">
-            <div className="relative w-32 h-32 mx-auto">
-              <div className="absolute top-0 left-0 w-16 h-16 bg-blue-500 rounded-full opacity-80 animate-pulse"></div>
-              <div className="absolute top-4 right-0 w-16 h-16 bg-blue-400 rounded-full opacity-80 animate-pulse"></div>
-              <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 w-16 h-16 bg-blue-300 rounded-full opacity-80 animate-pulse"></div>
+                          <div className="relative w-32 h-32 mx-auto">
+              {currentUser?.role === 'admin' && (
+                <>
+                  <div className="absolute top-0 left-0 w-16 h-16 bg-green-500 rounded-full opacity-80 animate-pulse"></div>
+                  <div className="absolute top-4 right-0 w-16 h-16 bg-green-400 rounded-full opacity-80 animate-pulse"></div>
+                  <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 w-16 h-16 bg-green-300 rounded-full opacity-80 animate-pulse"></div>
+                </>
+              )}
+              {currentUser?.role === 'teacher' && (
+                <>
+                  <div className="absolute top-0 left-0 w-16 h-16 bg-blue-500 rounded-full opacity-80 animate-pulse"></div>
+                  <div className="absolute top-4 right-0 w-16 h-16 bg-blue-400 rounded-full opacity-80 animate-pulse"></div>
+                  <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 w-16 h-16 bg-blue-300 rounded-full opacity-80 animate-pulse"></div>
+                </>
+              )}
+              {currentUser?.role === 'student' && (
+                <>
+                  <div className="absolute top-0 left-0 w-16 h-16 bg-red-500 rounded-full opacity-80 animate-pulse"></div>
+                  <div className="absolute top-4 right-0 w-16 h-16 bg-red-400 rounded-full opacity-80 animate-pulse"></div>
+                  <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 w-16 h-16 bg-red-300 rounded-full opacity-80 animate-pulse"></div>
+                </>
+              )}
             </div>
           </div>
           <h3 className="text-xl font-bold text-gray-900 mb-2">Loading attendance...</h3>
@@ -219,8 +239,8 @@ const AttendanceTab = ({ currentUser, theme, courseId }) => {
                     }
                   }}
                   className={`absolute top-2 right-4 px-4 py-2 text-sm font-semibold rounded-lg transition-all duration-200 shadow-sm hover:shadow-md ${hasAttendance
-                    ? 'bg-green-500 text-white hover:bg-green-600 hover:scale-105'
-                    : 'bg-blue-500 text-white hover:bg-blue-600 hover:scale-105'
+                    ? 'border-2 border-green-500 text-green-500 hover:bg-green-50 hover:scale-105'
+                    : 'border-2 border-blue-500 text-blue-500 hover:bg-blue-50 hover:scale-105'
                     }`}
                 >
                   {hasAttendance ? 'Update' : 'Take'} Attendance
@@ -479,7 +499,7 @@ const AttendanceTab = ({ currentUser, theme, courseId }) => {
                     showErrorToast(error, 'Failed to save attendance. Please try again.');
                   }
                 }}
-                className={`px-6 py-2 bg-${theme.primary}-600 text-white rounded-lg hover:bg-${theme.primary}-700 transition-colors`}
+                className={`px-6 py-2 border-2 border-${theme.primary}-600 text-${theme.primary}-600 rounded-lg hover:bg-${theme.primaryLight} transition-colors`}
               >
                 {editingAttendance ? 'Update' : 'Save'} Attendance
               </button>
@@ -489,6 +509,7 @@ const AttendanceTab = ({ currentUser, theme, courseId }) => {
       )}
         </>
       )}
+      </div>
     </div>
   );
 };

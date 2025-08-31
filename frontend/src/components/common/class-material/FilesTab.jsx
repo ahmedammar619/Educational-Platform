@@ -639,14 +639,34 @@ const FilesTab = ({ currentUser, theme, courseId }) => {
 
 
   return (
-    <div className="space-y-3">
+    <div className="h-[450px] flex flex-col">
+      {/* Fixed height container with scroll */}
+      <div className="flex-1 overflow-y-auto space-y-3 pr-2">
       {loading ? (
         <div className="text-center py-12">
           <div className="mb-6">
             <div className="relative w-32 h-32 mx-auto">
-              <div className="absolute top-0 left-0 w-16 h-16 bg-blue-500 rounded-full opacity-80 animate-pulse"></div>
-              <div className="absolute top-4 right-0 w-16 h-16 bg-blue-400 rounded-full opacity-80 animate-pulse"></div>
-              <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 w-16 h-16 bg-blue-300 rounded-full opacity-80 animate-pulse"></div>
+              {currentUser?.role === 'admin' && (
+                <>
+                  <div className="absolute top-0 left-0 w-16 h-16 bg-green-500 rounded-full opacity-80 animate-pulse"></div>
+                  <div className="absolute top-4 right-0 w-16 h-16 bg-green-400 rounded-full opacity-80 animate-pulse"></div>
+                  <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 w-16 h-16 bg-green-300 rounded-full opacity-80 animate-pulse"></div>
+                </>
+              )}
+              {currentUser?.role === 'teacher' && (
+                <>
+                  <div className="absolute top-0 left-0 w-16 h-16 bg-blue-500 rounded-full opacity-80 animate-pulse"></div>
+                  <div className="absolute top-4 right-0 w-16 h-16 bg-blue-400 rounded-full opacity-80 animate-pulse"></div>
+                  <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 w-16 h-16 bg-blue-300 rounded-full opacity-80 animate-pulse"></div>
+                </>
+              )}
+              {currentUser?.role === 'student' && (
+                <>
+                  <div className="absolute top-0 left-0 w-16 h-16 bg-red-500 rounded-full opacity-80 animate-pulse"></div>
+                  <div className="absolute top-4 right-0 w-16 h-16 bg-red-400 rounded-full opacity-80 animate-pulse"></div>
+                  <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 w-16 h-16 bg-red-300 rounded-full opacity-80 animate-pulse"></div>
+                </>
+              )}
             </div>
           </div>
           <h3 className="text-xl font-bold text-gray-900 mb-2">Loading files...</h3>
@@ -749,10 +769,28 @@ const FilesTab = ({ currentUser, theme, courseId }) => {
           {folders.length === 0 && rootFiles.length === 0 && (
             <div className="text-center py-12">
               <div className="mb-6">
-                <div className="relative w-32 h-32 mx-auto">
-                  <div className="absolute top-0 left-0 w-16 h-16 bg-blue-500 rounded-full opacity-80"></div>
-                  <div className="absolute top-4 right-0 w-16 h-16 bg-blue-400 rounded-full opacity-80"></div>
-                  <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 w-16 h-16 bg-blue-300 rounded-full opacity-80"></div>
+                                <div className="relative w-32 h-32 mx-auto">
+                {currentUser?.role === 'admin' && (
+                  <>
+                    <div className="absolute top-0 left-0 w-16 h-16 bg-green-500 rounded-full opacity-80"></div>
+                    <div className="absolute top-4 right-0 w-16 h-16 bg-green-400 rounded-full opacity-80"></div>
+                    <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 w-16 h-16 bg-green-300 rounded-full opacity-80"></div>
+                  </>
+                )}
+                {currentUser?.role === 'teacher' && (
+                  <>
+                    <div className="absolute top-0 left-0 w-16 h-16 bg-blue-500 rounded-full opacity-80"></div>
+                    <div className="absolute top-4 right-0 w-16 h-16 bg-blue-400 rounded-full opacity-80"></div>
+                    <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 w-16 h-16 bg-blue-300 rounded-full opacity-80"></div>
+                  </>
+                )}
+                {currentUser?.role === 'student' && (
+                  <>
+                    <div className="absolute top-0 left-0 w-16 h-16 bg-red-500 rounded-full opacity-80"></div>
+                    <div className="absolute top-4 right-0 w-16 h-16 bg-red-400 rounded-full opacity-80"></div>
+                    <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 w-16 h-16 bg-red-300 rounded-full opacity-80"></div>
+                  </>
+                )}
                 </div>
               </div>
               <h3 className="text-xl font-bold text-gray-900 mb-2">No files yet</h3>
@@ -777,7 +815,7 @@ const FilesTab = ({ currentUser, theme, courseId }) => {
                   <button
                     onClick={handleDirectFileUpload}
                     disabled={loadingStates.uploadingFile}
-                    className={`px-3 py-2 border-2 border-${currentUser?.role === 'admin' ? 'blue' : 'green'}-600 text-${currentUser?.role === 'admin' ? 'blue' : 'green'}-600 rounded-lg hover:bg-${currentUser?.role === 'admin' ? 'blue' : 'green'}-50 transition-colors flex items-center gap-2 disabled:opacity-50`}
+                    className={`px-3 py-2 border-2 border-${theme.primary}-600 text-${theme.primary}-600 rounded-lg hover:bg-${theme.primaryLight} transition-colors flex items-center gap-2 disabled:opacity-50`}
                   >
                     {loadingStates.uploadingFile ? (
                       <>
@@ -966,7 +1004,7 @@ const FilesTab = ({ currentUser, theme, courseId }) => {
                   <button
                     onClick={handleDirectFileUpload}
                     disabled={loadingStates.uploadingFile}
-                    className={`px-3 py-2 border-2 border-${currentUser?.role === 'admin' ? 'blue' : 'green'}-600 text-${currentUser?.role === 'admin' ? 'blue' : 'green'}-600 rounded-lg hover:bg-${currentUser?.role === 'admin' ? 'blue' : 'green'}-50 transition-colors flex items-center gap-2 disabled:opacity-50`}
+                    className={`px-3 py-2 border-2 border-${theme.primary}-600 text-${theme.primary}-600 rounded-lg hover:bg-${theme.primaryLight} transition-colors flex items-center gap-2 disabled:opacity-50`}
                   >
                     {loadingStates.uploadingFile ? (
                       <>
@@ -1104,6 +1142,7 @@ const FilesTab = ({ currentUser, theme, courseId }) => {
       )}
 
 
+      </div>
     </div>
   );
 };

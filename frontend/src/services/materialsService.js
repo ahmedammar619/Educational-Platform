@@ -160,7 +160,35 @@ class MaterialsService {
   // Assignments
   async createAssignment(courseId, assignmentData) {
     try {
-      const response = await api.post(`/api/materials/courses/${courseId}/assignments`, assignmentData);
+      // Transform frontend data to match backend DTO
+      const backendData = {
+        name: assignmentData.title, // Frontend uses 'title', backend expects 'name'
+        description: assignmentData.description,
+        dueDate: assignmentData.dueDate,
+        dueTime: assignmentData.dueTime,
+        marks: assignmentData.maxPoints // Frontend uses 'maxPoints', backend expects 'marks'
+      };
+      
+      const response = await api.post(`/api/materials/courses/${courseId}/assignments`, backendData);
+      return response.data;
+    } catch (error) {
+      // Error is already handled by the API interceptor
+      throw error;
+    }
+  }
+  
+  async updateAssignment(assignmentId, assignmentData) {
+    try {
+      // Transform frontend data to match backend DTO
+      const backendData = {
+        name: assignmentData.title, // Frontend uses 'title', backend expects 'name'
+        description: assignmentData.description,
+        dueDate: assignmentData.dueDate,
+        dueTime: assignmentData.dueTime,
+        marks: assignmentData.maxPoints // Frontend uses 'maxPoints', backend expects 'marks'
+      };
+      
+      const response = await api.patch(`/api/materials/courses/assignments/${assignmentId}`, backendData);
       return response.data;
     } catch (error) {
       // Error is already handled by the API interceptor
@@ -198,6 +226,18 @@ class MaterialsService {
   async gradeAssignment(submissionId, gradeData) {
     try {
       const response = await api.patch(`/api/materials/submissions/${submissionId}/grade`, gradeData);
+      return response.data;
+    } catch (error) {
+      // Error is already handled by the API interceptor
+      throw error;
+    }
+  }
+
+  async downloadSubmission(submissionId) {
+    try {
+      const response = await api.get(`/api/materials/submissions/${submissionId}/download`, {
+        responseType: 'blob'
+      });
       return response.data;
     } catch (error) {
       // Error is already handled by the API interceptor

@@ -25,6 +25,7 @@ const AssignmentsTab = ({ currentUser, theme, courseId }) => {
   const [showCreateAssignment, setShowCreateAssignment] = useState(false);
   const [showSubmitAssignment, setShowSubmitAssignment] = useState(false);
   const [showGradeAssignment, setShowGradeAssignment] = useState(false);
+  const [showEditAssignment, setShowEditAssignment] = useState(false);
   const [selectedAssignment, setSelectedAssignment] = useState(null);
   const [selectedSubmission, setSelectedSubmission] = useState(null);
   const [uploadedFile, setUploadedFile] = useState(null);
@@ -101,7 +102,13 @@ const AssignmentsTab = ({ currentUser, theme, courseId }) => {
   const getSubmissionStatus = (assignment, studentId) => {
     const submission = assignment.submissions.find(sub => sub.studentId === studentId);
     if (!submission) return 'not_submitted';
-    return submission.status;
+    
+    // Determine status based on whether the submission has been graded
+    if (submission.grade !== null && submission.grade !== undefined) {
+      return 'graded';
+    } else {
+      return 'submitted';
+    }
   };
 
   const getSubmissionGrade = (assignment, studentId) => {
@@ -141,9 +148,43 @@ const AssignmentsTab = ({ currentUser, theme, courseId }) => {
     }
   };
 
+  const handleEditAssignment = async () => {
+    if (assignmentTitle.trim() && assignmentDescription.trim() && assignmentDueDate && assignmentDueTime && selectedAssignment) {
+      try {
+        const assignmentData = {
+          title: assignmentTitle.trim(),
+          description: assignmentDescription.trim(),
+          dueDate: assignmentDueDate,
+          dueTime: assignmentDueTime,
+          maxPoints: parseInt(assignmentMaxPoints)
+        };
+
+        await materialsService.updateAssignment(selectedAssignment.id, assignmentData);
+        
+        // Reload assignments to get the updated list
+        await loadAssignments();
+
+        // Reset form
+        setAssignmentTitle('');
+        setAssignmentDescription('');
+        setAssignmentDueDate('');
+        setAssignmentDueTime('');
+        setAssignmentMaxPoints(100);
+        setSelectedAssignment(null);
+        setShowEditAssignment(false);
+        showSuccessToast('Assignment updated successfully!');
+      } catch (error) {
+        console.error('Error updating assignment:', error);
+        showErrorToast(error, 'Failed to update assignment. Please try again.');
+      }
+    }
+  };
+
   const handleSubmitAssignment = async () => {
     if (uploadedFile && selectedAssignment) {
       try {
+        const isEditing = getSubmissionStatus(selectedAssignment, currentUser?.id || 'current_student') !== 'not_submitted';
+        
         await materialsService.submitAssignment(selectedAssignment.id, uploadedFile);
         
         // Reload assignments to get the updated list
@@ -152,7 +193,7 @@ const AssignmentsTab = ({ currentUser, theme, courseId }) => {
         setUploadedFile(null);
         setSelectedAssignment(null);
         setShowSubmitAssignment(false);
-        showSuccessToast('Assignment submitted successfully!');
+        showSuccessToast(isEditing ? 'Assignment updated successfully!' : 'Assignment submitted successfully!');
       } catch (error) {
         console.error('Error submitting assignment:', error);
         showErrorToast(error, 'Failed to submit assignment. Please try again.');
@@ -186,11 +227,39 @@ const AssignmentsTab = ({ currentUser, theme, courseId }) => {
     }
   };
 
+  // Helper function to clean filename by removing timestamp and random number
+  const getCleanFileName = (fileName) => {
+    if (!fileName) return 'submission.pdf';
+    
+    // Extract file extension
+    const ext = fileName.substring(fileName.lastIndexOf('.'));
+    
+    // Remove the timestamp and random number pattern (name-12345678901-123456789.ext)
+    const baseName = fileName.substring(0, fileName.lastIndexOf('-'));
+    if (baseName.includes('-')) {
+      return baseName.substring(0, baseName.lastIndexOf('-')) + ext;
+    }
+    
+    // Fallback if pattern doesn't match
+    return fileName;
+  };
+
   const handleDownloadSubmission = async (submission) => {
     try {
-      // In a real implementation, this would download the actual file from the backend
-      // For now, we'll show a message that this feature needs backend implementation
-      showErrorToast(null, 'File download feature needs backend implementation');
+      const blob = await materialsService.downloadSubmission(submission.id);
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      
+      // Use cleaned filename for download
+      const cleanFileName = getCleanFileName(submission.fileName);
+      link.download = cleanFileName;
+      
+      document.body.appendChild(link);
+      link.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(link);
+      showSuccessToast('File downloaded successfully!');
     } catch (error) {
       console.error('Error downloading submission:', error);
       showErrorToast(error, 'Failed to download submission');
@@ -198,18 +267,20 @@ const AssignmentsTab = ({ currentUser, theme, courseId }) => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="h-[450px] flex flex-col">
+      {/* Fixed height container with scroll */}
+      <div className="flex-1 overflow-y-auto space-y-6 pr-2">
       {/* Header with Create Assignment Button */}
       {canCreateAssignment() && (
         <div className="flex justify-between items-center">
           <h2 className="text-xl font-bold text-gray-900">Assignments</h2>
-          <button
-            onClick={() => setShowCreateAssignment(true)}
-            className={`px-4 py-2 bg-${theme.primary}-600 text-white rounded-lg hover:bg-${theme.primaryHover} transition-colors flex items-center gap-2`}
-          >
-            <Plus className="h-5 w-5" />
-            Create Assignment
-          </button>
+                      <button
+              onClick={() => setShowCreateAssignment(true)}
+              className={`px-4 py-2 border-2 border-${theme.primary}-600 text-${theme.primary}-600 rounded-lg hover:bg-${theme.primaryLight} transition-colors flex items-center gap-2`}
+            >
+              <Plus className="h-5 w-5" />
+              Create Assignment
+            </button>
         </div>
       )}
 
@@ -218,9 +289,27 @@ const AssignmentsTab = ({ currentUser, theme, courseId }) => {
         <div className="text-center py-12">
           <div className="mb-6">
             <div className="relative w-32 h-32 mx-auto">
-              <div className="absolute top-0 left-0 w-16 h-16 bg-blue-500 rounded-full opacity-80 animate-pulse"></div>
-              <div className="absolute top-4 right-0 w-16 h-16 bg-blue-400 rounded-full opacity-80 animate-pulse"></div>
-              <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 w-16 h-16 bg-blue-300 rounded-full opacity-80 animate-pulse"></div>
+              {currentUser?.role === 'admin' && (
+                <>
+                  <div className="absolute top-0 left-0 w-16 h-16 bg-green-500 rounded-full opacity-80 animate-pulse"></div>
+                  <div className="absolute top-4 right-0 w-16 h-16 bg-green-400 rounded-full opacity-80 animate-pulse"></div>
+                  <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 w-16 h-16 bg-green-300 rounded-full opacity-80 animate-pulse"></div>
+                </>
+              )}
+              {currentUser?.role === 'teacher' && (
+                <>
+                  <div className="absolute top-0 left-0 w-16 h-16 bg-blue-500 rounded-full opacity-80 animate-pulse"></div>
+                  <div className="absolute top-4 right-0 w-16 h-16 bg-blue-400 rounded-full opacity-80 animate-pulse"></div>
+                  <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 w-16 h-16 bg-blue-300 rounded-full opacity-80 animate-pulse"></div>
+                </>
+              )}
+              {currentUser?.role === 'student' && (
+                <>
+                  <div className="absolute top-0 left-0 w-16 h-16 bg-red-500 rounded-full opacity-80 animate-pulse"></div>
+                  <div className="absolute top-4 right-0 w-16 h-16 bg-red-400 rounded-full opacity-80 animate-pulse"></div>
+                  <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 w-16 h-16 bg-red-300 rounded-full opacity-80 animate-pulse"></div>
+                </>
+              )}
             </div>
           </div>
           <h3 className="text-xl font-bold text-gray-900 mb-2">Loading assignments...</h3>
@@ -238,13 +327,13 @@ const AssignmentsTab = ({ currentUser, theme, courseId }) => {
               : 'No assignments have been posted yet.'}
           </p>
           {canCreateAssignment() && (
-            <button
-              onClick={() => setShowCreateAssignment(true)}
-              className={`px-4 py-2 bg-${theme.primary}-600 text-white rounded-lg hover:bg-${theme.primaryHover} transition-colors flex items-center gap-2 mx-auto`}
-            >
-              <Plus className="h-5 w-5" />
-              Create Assignment
-            </button>
+                          <button
+                onClick={() => setShowCreateAssignment(true)}
+                className={`px-4 py-2 border-2 border-${theme.primary}-600 text-${theme.primary}-600 rounded-lg hover:bg-${theme.primaryLight} transition-colors flex items-center gap-2 mx-auto`}
+              >
+                <Plus className="h-5 w-5" />
+                Create Assignment
+              </button>
           )}
         </div>
       ) : (
@@ -255,7 +344,7 @@ const AssignmentsTab = ({ currentUser, theme, courseId }) => {
               <div className="flex items-start justify-between mb-4">
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-2">
-                    <h3 className="text-lg font-semibold text-gray-900">{assignment.title}</h3>
+                    <h3 className="text-lg font-semibold text-gray-900">{assignment.name}</h3>
                     {isOverdue(assignment.dueDate, assignment.dueTime) && (
                       <span className="px-2 py-1 bg-red-100 text-red-800 text-xs font-medium rounded-full flex items-center gap-1">
                         <AlertCircle className="h-3 w-3" />
@@ -273,11 +362,11 @@ const AssignmentsTab = ({ currentUser, theme, courseId }) => {
                     </div>
                     <div className="flex items-center gap-1">
                       <Star className="h-4 w-4" />
-                      {assignment.maxPoints} points
+                      {assignment.marks} points
                     </div>
                     <div className="flex items-center gap-1">
                       <User className="h-4 w-4" />
-                      {assignment.submissions.length} submission{assignment.submissions.length !== 1 ? 's' : ''}
+                      {assignment.submissions?.length || 0} submission{(assignment.submissions?.length || 0) !== 1 ? 's' : ''}
                     </div>
                   </div>
                 </div>
@@ -291,10 +380,25 @@ const AssignmentsTab = ({ currentUser, theme, courseId }) => {
                           setSelectedAssignment(assignment);
                           setShowGradeAssignment(true);
                         }}
-                        className="p-2 text-blue-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                        className="p-2 text-orange-500 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition-colors"
                         title="View submissions"
                       >
                         <Eye className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={() => {
+                          setSelectedAssignment(assignment);
+                          setAssignmentTitle(assignment.name || '');
+                          setAssignmentDescription(assignment.description || '');
+                          setAssignmentDueDate(assignment.dueDate || '');
+                          setAssignmentDueTime(assignment.dueTime || '');
+                          setAssignmentMaxPoints(assignment.marks || 100);
+                          setShowEditAssignment(true);
+                        }}
+                        className="p-2 text-blue-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                        title="Edit assignment"
+                      >
+                        <Edit className="h-4 w-4" />
                       </button>
                     </>
                   )}
@@ -303,16 +407,21 @@ const AssignmentsTab = ({ currentUser, theme, courseId }) => {
                     <button
                       onClick={() => {
                         setSelectedAssignment(assignment);
+                        // Pre-populate form if already submitted
+                        const existingSubmission = assignment.submissions?.find(sub => sub.studentId === currentUser?.id);
+                        if (existingSubmission) {
+                          setUploadedFile(null); // Reset file input, user needs to select file again
+                        }
                         setShowSubmitAssignment(true);
                       }}
                       disabled={isOverdue(assignment.dueDate, assignment.dueTime)}
                       className={`px-3 py-1 text-sm rounded-lg transition-colors flex items-center gap-1 ${isOverdue(assignment.dueDate, assignment.dueTime)
-                          ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                          : `bg-${theme.primary}-100 text-${theme.primary}-700 hover:bg-${theme.primary}-200`
+                          ? 'border border-gray-300 bg-gray-50 text-gray-400 cursor-not-allowed'
+                          : `border border-${theme.primary}-600 text-${theme.primary}-600 hover:bg-${theme.primaryLight}`
                         }`}
                     >
                       <Upload className="h-4 w-4" />
-                      {getSubmissionStatus(assignment, currentUser?.id || 'current_student') === 'not_submitted' ? 'Submit' : 'Resubmit'}
+                      {getSubmissionStatus(assignment, currentUser?.id || 'current_student') === 'not_submitted' ? 'Submit' : 'Edit Submission'}
                     </button>
                   )}
                 </div>
@@ -345,7 +454,7 @@ const AssignmentsTab = ({ currentUser, theme, courseId }) => {
                           <div className="space-y-2">
                             <div className="flex items-center gap-2 text-green-600">
                               <CheckCircle className="h-4 w-4" />
-                              <span className="text-sm">Graded: {submissionGrade}/{assignment.maxPoints}</span>
+                              <span className="text-sm">Graded: {submissionGrade}/{assignment.marks}</span>
                             </div>
                             {assignment.submissions.find(sub => sub.studentId === currentUser?.id)?.feedback && (
                               <div className="text-sm text-gray-600 bg-gray-50 p-2 rounded">
@@ -409,17 +518,35 @@ const AssignmentsTab = ({ currentUser, theme, courseId }) => {
                     type="date"
                     value={assignmentDueDate}
                     onChange={(e) => setAssignmentDueDate(e.target.value)}
+                    min={new Date().toISOString().split('T')[0]}
                     className="w-full bg-gray-50 text-gray-900 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-blue-500 border border-gray-300"
                   />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Due Time</label>
-                  <input
-                    type="time"
+                  <select
                     value={assignmentDueTime}
                     onChange={(e) => setAssignmentDueTime(e.target.value)}
                     className="w-full bg-gray-50 text-gray-900 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-blue-500 border border-gray-300"
-                  />
+                  >
+                    <option value="">Select time</option>
+                    {Array.from({ length: 24 }).map((_, hour) => (
+                      [0, 15, 30, 45].map((minute) => {
+                        const formattedHour = hour.toString().padStart(2, '0');
+                        const formattedMinute = minute.toString().padStart(2, '0');
+                        const timeValue = `${formattedHour}:${formattedMinute}`;
+                        const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+                        const amPm = hour < 12 ? 'AM' : 'PM';
+                        const displayTime = `${displayHour}:${formattedMinute} ${amPm}`;
+                        
+                        return (
+                          <option key={timeValue} value={timeValue}>
+                            {displayTime}
+                          </option>
+                        );
+                      })
+                    ))}
+                  </select>
                 </div>
               </div>
 
@@ -445,7 +572,7 @@ const AssignmentsTab = ({ currentUser, theme, courseId }) => {
               <button
                 onClick={handleCreateAssignment}
                 disabled={!assignmentTitle.trim() || !assignmentDescription.trim() || !assignmentDueDate || !assignmentDueTime}
-                className={`flex-1 px-4 py-2 bg-${theme.primary}-600 text-white rounded-lg hover:bg-${theme.primaryHover} disabled:opacity-50 disabled:cursor-not-allowed transition-colors`}
+                className={`flex-1 px-4 py-2 border-2 border-${theme.primary}-600 text-${theme.primary}-600 rounded-lg hover:bg-${theme.primaryLight} disabled:opacity-50 disabled:cursor-not-allowed transition-colors`}
               >
                 Create Assignment
               </button>
@@ -454,12 +581,139 @@ const AssignmentsTab = ({ currentUser, theme, courseId }) => {
         </div>
       )}
 
+      {/* Edit Assignment Modal */}
+      {showEditAssignment && selectedAssignment && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" style={{ margin: '0px' }}>
+          <div className="bg-white rounded-lg p-6 w-11/12 max-w-2xl shadow-xl max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-xl font-semibold text-gray-900">Edit Assignment</h3>
+              <button
+                onClick={() => {
+                  setShowEditAssignment(false);
+                  setSelectedAssignment(null);
+                  setAssignmentTitle('');
+                  setAssignmentDescription('');
+                  setAssignmentDueDate('');
+                  setAssignmentDueTime('');
+                  setAssignmentMaxPoints(100);
+                }}
+                className="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100 transition-colors"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Assignment Title</label>
+                <input
+                  type="text"
+                  value={assignmentTitle}
+                  onChange={(e) => setAssignmentTitle(e.target.value)}
+                  placeholder="Enter assignment title..."
+                  className="w-full bg-gray-50 text-gray-900 placeholder-gray-500 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-blue-500 border border-gray-300"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
+                <textarea
+                  value={assignmentDescription}
+                  onChange={(e) => setAssignmentDescription(e.target.value)}
+                  placeholder="Enter assignment description and instructions..."
+                  className="w-full bg-gray-50 text-gray-900 placeholder-gray-500 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-blue-500 border border-gray-300"
+                  rows="4"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Due Date</label>
+                                      <input
+                    type="date"
+                    value={assignmentDueDate}
+                    onChange={(e) => setAssignmentDueDate(e.target.value)}
+                    min={new Date().toISOString().split('T')[0]}
+                    className="w-full bg-gray-50 text-gray-900 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-blue-500 border border-gray-300"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Due Time</label>
+                  <select
+                    value={assignmentDueTime}
+                    onChange={(e) => setAssignmentDueTime(e.target.value)}
+                    className="w-full bg-gray-50 text-gray-900 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-blue-500 border border-gray-300"
+                  >
+                    <option value="">Select time</option>
+                    {Array.from({ length: 24 }).map((_, hour) => (
+                      [0, 15, 30, 45].map((minute) => {
+                        const formattedHour = hour.toString().padStart(2, '0');
+                        const formattedMinute = minute.toString().padStart(2, '0');
+                        const timeValue = `${formattedHour}:${formattedMinute}`;
+                        const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+                        const amPm = hour < 12 ? 'AM' : 'PM';
+                        const displayTime = `${displayHour}:${formattedMinute} ${amPm}`;
+                        
+                        return (
+                          <option key={timeValue} value={timeValue}>
+                            {displayTime}
+                          </option>
+                        );
+                      })
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Maximum Points</label>
+                <input
+                  type="number"
+                  value={assignmentMaxPoints}
+                  onChange={(e) => setAssignmentMaxPoints(e.target.value)}
+                  min="1"
+                  className="w-full bg-gray-50 text-gray-900 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-blue-500 border border-gray-300"
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => {
+                  setShowEditAssignment(false);
+                  setSelectedAssignment(null);
+                  setAssignmentTitle('');
+                  setAssignmentDescription('');
+                  setAssignmentDueDate('');
+                  setAssignmentDueTime('');
+                  setAssignmentMaxPoints(100);
+                }}
+                className="flex-1 px-4 py-2 border-2 border-gray-400 text-gray-600 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleEditAssignment}
+                disabled={!assignmentTitle.trim() || !assignmentDescription.trim() || !assignmentDueDate || !assignmentDueTime}
+                className={`flex-1 px-4 py-2 border-2 border-${theme.primary}-600 text-${theme.primary}-600 rounded-lg hover:bg-${theme.primaryLight} disabled:opacity-50 disabled:cursor-not-allowed transition-colors`}
+              >
+                Update Assignment
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Submit Assignment Modal */}
       {showSubmitAssignment && selectedAssignment && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" style={{ margin: '0px' }}>
           <div className="bg-white rounded-lg p-6 w-11/12 max-w-2xl shadow-xl">
             <div className="flex justify-between items-center mb-6">
-              <h3 className="text-xl font-semibold text-gray-900">Submit Assignment</h3>
+              <h3 className="text-xl font-semibold text-gray-900">
+                {getSubmissionStatus(selectedAssignment, currentUser?.id || 'current_student') === 'not_submitted' 
+                  ? 'Submit Assignment' 
+                  : 'Edit Submission'}
+              </h3>
               <button
                 onClick={() => {
                   setShowSubmitAssignment(false);
@@ -473,11 +727,33 @@ const AssignmentsTab = ({ currentUser, theme, courseId }) => {
             </div>
 
             <div className="mb-6">
-              <h4 className="font-medium text-gray-900 mb-2">{selectedAssignment.title}</h4>
+              <h4 className="font-medium text-gray-900 mb-2">{selectedAssignment.name}</h4>
               <p className="text-gray-600 text-sm mb-4">{selectedAssignment.description}</p>
-              <div className="text-sm text-gray-500">
+              <div className="text-sm text-gray-500 mb-3">
                 Due: {formatDate(selectedAssignment.dueDate)} at {selectedAssignment.dueTime}
               </div>
+              
+              {/* Show current submission info if editing */}
+              {getSubmissionStatus(selectedAssignment, currentUser?.id || 'current_student') !== 'not_submitted' && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+                  <div className="flex items-center gap-2 text-blue-700 mb-2">
+                    <CheckCircle className="h-4 w-4" />
+                    <span className="text-sm font-medium">Current Submission</span>
+                  </div>
+                  {(() => {
+                    const submission = selectedAssignment.submissions?.find(sub => sub.studentId === currentUser?.id);
+                    return submission ? (
+                      <div className="text-sm text-blue-600">
+                        <div>Submitted: {formatDateTime(submission.submittedAt)}</div>
+                        {submission.fileName && <div>File: {getCleanFileName(submission.fileName)}</div>}
+                        <div className="mt-1 text-xs text-blue-500">
+                          Upload a new file to replace your current submission
+                        </div>
+                      </div>
+                    ) : null;
+                  })()}
+                </div>
+              )}
             </div>
 
             <div className="mb-6">
@@ -512,9 +788,11 @@ const AssignmentsTab = ({ currentUser, theme, courseId }) => {
               <button
                 onClick={handleSubmitAssignment}
                 disabled={!uploadedFile}
-                className={`flex-1 px-4 py-2 bg-${theme.primary}-600 text-white rounded-lg hover:bg-${theme.primaryHover} disabled:opacity-50 disabled:cursor-not-allowed transition-colors`}
+                className={`flex-1 px-4 py-2 border-2 border-${theme.primary}-600 text-${theme.primary}-600 rounded-lg hover:bg-${theme.primaryLight} disabled:opacity-50 disabled:cursor-not-allowed transition-colors`}
               >
-                Submit Assignment
+                {getSubmissionStatus(selectedAssignment, currentUser?.id || 'current_student') === 'not_submitted' 
+                  ? 'Submit Assignment' 
+                  : 'Update Submission'}
               </button>
             </div>
           </div>
@@ -526,7 +804,7 @@ const AssignmentsTab = ({ currentUser, theme, courseId }) => {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" style={{ margin: '0px' }}>
           <div className="bg-white rounded-lg p-6 w-11/12 max-w-4xl shadow-xl max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-6">
-              <h3 className="text-xl font-semibold text-gray-900">Grade Assignment: {selectedAssignment.title}</h3>
+              <h3 className="text-xl font-semibold text-gray-900">Grade Assignment: {selectedAssignment.name}</h3>
               <button
                 onClick={() => {
                   setShowGradeAssignment(false);
@@ -551,23 +829,29 @@ const AssignmentsTab = ({ currentUser, theme, courseId }) => {
                 selectedAssignment.submissions.map((submission) => (
                   <div key={submission.id} className="border border-gray-200 rounded-lg p-4">
                     <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 bg-gray-500 rounded-full flex items-center justify-center">
-                          <span className="text-white text-sm font-medium">
-                            {submission.studentName.charAt(0)}
-                          </span>
+                                              <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 bg-gray-500 rounded-full flex items-center justify-center">
+                            <span className="text-white text-sm font-medium">
+                              {submission.studentName.charAt(0)}
+                            </span>
+                          </div>
+                          <div>
+                            <h4 className="font-medium text-gray-900">{submission.studentName}</h4>
+                            <p className="text-sm text-gray-500">
+                              Submitted: {formatDateTime(submission.submittedAt)}
+                            </p>
+                            {submission.fileName && (
+                              <p className="text-sm text-gray-500 flex items-center gap-1">
+                                <FileText className="h-3 w-3" />
+                                {getCleanFileName(submission.fileName)}
+                              </p>
+                            )}
+                          </div>
                         </div>
-                        <div>
-                          <h4 className="font-medium text-gray-900">{submission.studentName}</h4>
-                          <p className="text-sm text-gray-500">
-                            Submitted: {formatDateTime(submission.submittedAt)}
-                          </p>
-                        </div>
-                      </div>
                       <div className="flex items-center gap-2">
                         {submission.status === 'graded' && (
                           <span className="px-2 py-1 bg-green-100 text-green-800 text-sm font-medium rounded-full">
-                            {submission.grade}/{selectedAssignment.maxPoints}
+                            {submission.grade}/{selectedAssignment.marks}
                           </span>
                         )}
                         <button
@@ -613,13 +897,13 @@ const AssignmentsTab = ({ currentUser, theme, courseId }) => {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Grade (out of {selectedAssignment.maxPoints})</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Grade (out of {selectedAssignment.marks})</label>
                     <input
                       type="number"
                       value={grade}
                       onChange={(e) => setGrade(e.target.value)}
                       min="0"
-                      max={selectedAssignment.maxPoints}
+                      max={selectedAssignment.marks}
                       className="w-full bg-gray-50 text-gray-900 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-blue-500 border border-gray-300"
                     />
                   </div>
@@ -649,8 +933,8 @@ const AssignmentsTab = ({ currentUser, theme, courseId }) => {
                   </button>
                   <button
                     onClick={handleGradeAssignment}
-                    disabled={!grade || grade < 0 || grade > selectedAssignment.maxPoints}
-                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    disabled={!grade || grade < 0 || grade > selectedAssignment.marks}
+                    className="px-4 py-2 border-2 border-green-600 text-green-600 rounded-lg hover:bg-green-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   >
                     Save Grade
                   </button>
@@ -660,6 +944,7 @@ const AssignmentsTab = ({ currentUser, theme, courseId }) => {
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 };

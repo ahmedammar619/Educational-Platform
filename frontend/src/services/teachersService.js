@@ -95,7 +95,8 @@ class TeachersService {
   async getClassStudents(classId) {
     try {
       const response = await api.get(`/api/teachers/classes/${classId}/students`);
-      return response.data;
+      // Backend returns {students: []} format, extract the students array
+      return response.data.students || response.data;
     } catch (error) {
       throw error.response?.data || error.message;
     }

@@ -101,13 +101,23 @@ export class TeachersService {
         });
         
         if (classEntity) {
+          // Get students from Student entity where classId matches
+          const students = await this.studentRepository.find({
+            where: { classId: classEntity.id }
+          });
+          
+          // Get student IDs
+          const studentIds = students.map(student => student.id);
+          
           classMap.set(classId, {
             id: classEntity.id,
             name: classEntity.name,
             startDate: classEntity.startDate,
             endDate: classEntity.endDate,
             price: classEntity.price,
-            numberOfStudents: classEntity.students ? classEntity.students.length : 0,
+            students: studentIds,
+            studentCount: studentIds.length,
+            numberOfStudents: studentIds.length, // For backward compatibility
             courseIds: classEntity.courseIds || [],
             courses: []
           });
@@ -136,53 +146,21 @@ export class TeachersService {
   }
 
   async getClassStudents(classId: string) {
-    // Get the class with its students
-    const classEntity = await this.classRepository.findOne({
-      where: { id: classId },
-      relations: ['students'],
+    // Get students from the Student entity where classId matches
+    const students = await this.studentRepository.find({
+      where: { classId },
+      relations: ['user', 'parent']
     });
 
-    if (!classEntity) {
-      throw new NotFoundException('Class not found');
-    }
-
-    // Get student details with parent information
-    const students = await Promise.all(
-      classEntity.students.map(async (user) => {
-        // Get student entity with parent information
-        const student = await this.studentRepository.findOne({
-          where: { id: user.id },
-          relations: ['user', 'parent'],
-        });
-
-        if (!student) {
-          return {
-            id: user.id,
-            firstName: user.firstName,
-            lastName: user.lastName,
-            email: user.email,
-            parentId: null,
-            parent: null,
-          };
-        }
-
-        return {
-          id: student.id,
-          firstName: student.user.firstName,
-          lastName: student.user.lastName,
-          email: student.user.email,
-          parentId: student.parentId,
-          parent: student.parent ? {
-            id: student.parent.id,
-            firstName: student.parent.firstName,
-            lastName: student.parent.lastName,
-            email: student.parent.email,
-          } : null,
-        };
-      })
-    );
-
-    return students;
+    // Transform students to include user data and parent information
+    return students.map(student => ({
+      id: student.id,
+      birthDate: student.birthDate,
+      parentId: student.parentId,
+      classId: student.classId,
+      user: student.user,
+      parent: student.parent
+    }));
   }
 
   async createTeacher(teacherData: { id: string; courses: string[] }) {
