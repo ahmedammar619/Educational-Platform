@@ -65,10 +65,22 @@ const TeacherClasses = ({ user }) => {
           };
         });
         
+        // Calculate student count from students array if available
+        const studentsCount = classItem.students && Array.isArray(classItem.students) 
+          ? classItem.students.length 
+          : (classItem.studentCount || classItem.numberOfStudents || 0);
+          
+        console.log(`Class ${classItem.name} student count:`, {
+          fromStudentsArray: classItem.students?.length,
+          fromStudentCount: classItem.studentCount,
+          fromNumberOfStudents: classItem.numberOfStudents,
+          final: studentsCount
+        });
+        
         return {
           ...classItem,
           courses: courses,
-          numberOfStudents: classItem.numberOfStudents || 0
+          numberOfStudents: studentsCount
         };
       });
       
@@ -205,7 +217,17 @@ const TeacherClasses = ({ user }) => {
                             <p className="text-xs text-gray-500 flex items-center justify-center gap-1">
                               <Users className="h-3 w-3 text-gray-400" /> Students
                             </p>
-                            <p className="font-medium text-gray-900 text-sm">{classItem.numberOfStudents}</p>
+                            <p className="font-medium text-gray-900 text-sm">
+                              {classItem.numberOfStudents} 
+                              {/* Debug info */}
+                              {console.log('Rendering student count:', {
+                                id: classItem.id,
+                                name: classItem.name,
+                                numberOfStudents: classItem.numberOfStudents,
+                                studentsArray: classItem.students,
+                                studentsLength: classItem.students?.length
+                              })}
+                            </p>
                           </div>
                         </div>
                       </div>
@@ -300,16 +322,24 @@ const StudentModal = ({ classData, onClose }) => {
       setLoadingStudents(true);
       const studentsData = await teachersService.getClassStudents(classData.id);
       
-      // Handle different response formats
+      console.log('Raw students data:', studentsData);
+      
+      // The service already handles extracting students array from backend response
       let studentsArray = [];
       if (Array.isArray(studentsData)) {
         studentsArray = studentsData;
       } else if (studentsData && typeof studentsData === 'object') {
-        studentsArray = Object.values(studentsData).filter(item => 
-          item && typeof item === 'object' && item.id && !item._rateLimitInfo
-        );
+        // If it's still an object, try to extract students property or convert to array
+        if (studentsData.students && Array.isArray(studentsData.students)) {
+          studentsArray = studentsData.students;
+        } else {
+          studentsArray = Object.values(studentsData).filter(item => 
+            item && typeof item === 'object' && item.id && !item._rateLimitInfo
+          );
+        }
       }
       
+      console.log('Processed students array:', studentsArray);
       setStudents(studentsArray);
     } catch (error) {
       console.error('Error loading students:', error);
@@ -322,13 +352,41 @@ const StudentModal = ({ classData, onClose }) => {
 
   const getParentDetails = async (parentId) => {
     try {
-      const parentData = await usersService.getUserById(parentId);
-      return parentData || {
-        id: parentId,
-        firstName: 'Unknown',
-        lastName: 'Parent',
-        fullName: 'Unknown Parent',
-        email: 'unknown@example.com'
+      console.log('Fetching parent details for ID:', parentId);
+      
+      // In the backend, parentId refers to a User entity with role=Parent
+      // So we need to fetch the user directly
+      const response = await usersService.getUserById(parentId);
+      
+      console.log('Parent data received:', response);
+      
+      // Handle different response structures
+      let parentData = response;
+      
+      // Check if the response has a nested user object (common backend pattern)
+      if (response && response.user) {
+        parentData = response.user;
+        console.log('Extracted parent data from nested user object:', parentData);
+      }
+      
+      if (!parentData) {
+        console.warn('No parent data found for ID:', parentId);
+        return {
+          id: parentId,
+          firstName: 'Unknown',
+          lastName: 'Parent',
+          fullName: 'Unknown Parent',
+          email: 'unknown@example.com'
+        };
+      }
+      
+      // Make sure we have a consistent structure with firstName and lastName
+      return {
+        id: parentData.id || parentId,
+        firstName: parentData.firstName || (parentData.name ? parentData.name.split(' ')[0] : 'Unknown'),
+        lastName: parentData.lastName || (parentData.name ? parentData.name.split(' ')[1] || '' : 'Parent'),
+        fullName: parentData.fullName || parentData.name || `${parentData.firstName || 'Unknown'} ${parentData.lastName || 'Parent'}`,
+        email: parentData.email || 'unknown@example.com'
       };
     } catch (error) {
       console.error('Error fetching parent details:', error);
@@ -343,15 +401,36 @@ const StudentModal = ({ classData, onClose }) => {
   };
 
   const groupStudentsByParent = async (students) => {
+    console.log('Grouping students by parent:', students);
     const grouped = {};
     const individualStudents = [];
 
     for (const student of students) {
-      if (student.parentId) {
+      // Check if student has a valid parentId
+      if (student.parentId && student.parentId !== 'null' && student.parentId !== 'undefined') {
         // Student has a parent - group under parent
         const parentId = student.parentId;
+        console.log('Processing student with parent:', getStudentDisplayName(student), 'Parent ID:', parentId);
+        
         if (!grouped[parentId]) {
-          const parentDetails = await getParentDetails(parentId);
+          console.log('Fetching parent details for new group:', parentId);
+          
+          // Check if student already has parent information attached
+          let parentDetails;
+          if (student.parent && (student.parent.firstName || student.parent.lastName)) {
+            console.log('Using attached parent information:', student.parent);
+            parentDetails = {
+              id: student.parent.id || parentId,
+              firstName: student.parent.firstName || 'Unknown',
+              lastName: student.parent.lastName || 'Parent',
+              fullName: `${student.parent.firstName || 'Unknown'} ${student.parent.lastName || 'Parent'}`,
+              email: student.parent.email || 'unknown@example.com'
+            };
+          } else {
+            // Fetch parent details from API
+            parentDetails = await getParentDetails(parentId);
+          }
+          
           grouped[parentId] = {
             parent: parentDetails,
             students: []
@@ -360,14 +439,20 @@ const StudentModal = ({ classData, onClose }) => {
         grouped[parentId].students.push(student);
       } else {
         // Student has no parent - add to individual students
+        console.log('Processing individual student:', getStudentDisplayName(student));
         individualStudents.push(student);
       }
     }
 
+    console.log('Grouped students by parent:', grouped);
+    console.log('Individual students:', individualStudents);
+
     // Convert to array and sort by parent name, then add individual students at the end
-    const parentGroups = Object.values(grouped).sort((a, b) =>
-      `${a.parent.firstName} ${a.parent.lastName}`.localeCompare(`${b.parent.firstName} ${b.parent.lastName}`)
-    );
+    const parentGroups = Object.values(grouped).sort((a, b) => {
+      const aName = `${a.parent?.firstName || ''} ${a.parent?.lastName || ''}`.trim();
+      const bName = `${b.parent?.firstName || ''} ${b.parent?.lastName || ''}`.trim();
+      return aName.localeCompare(bName);
+    });
 
     // Add individual students as separate entries
     const result = [...parentGroups];
@@ -379,6 +464,7 @@ const StudentModal = ({ classData, onClose }) => {
       });
     });
 
+    console.log('Final grouped result:', result);
     return result;
   };
 
@@ -420,6 +506,37 @@ const StudentModal = ({ classData, onClose }) => {
     if (rate >= 80) return 'bg-yellow-500';
     if (rate >= 70) return 'bg-orange-500';
     return 'bg-red-500';
+  };
+  
+  // Helper function to get student display name from various data structures
+  const getStudentDisplayName = (student) => {
+    // If we have firstName and lastName directly on the student object
+    if (student.firstName && student.lastName) {
+      return `${student.firstName} ${student.lastName}`;
+    }
+    
+    // If we have a user object with firstName and lastName
+    if (student.user && student.user.firstName && student.user.lastName) {
+      return `${student.user.firstName} ${student.user.lastName}`;
+    }
+    
+    // If we have a name property
+    if (student.name) {
+      return student.name;
+    }
+    
+    // If we have only firstName but no lastName
+    if (student.firstName) {
+      return student.firstName;
+    }
+    
+    // If we have only user.firstName but no user.lastName
+    if (student.user && student.user.firstName) {
+      return student.user.firstName;
+    }
+    
+    // Fallback
+    return 'Unknown Student';
   };
 
   return (
@@ -489,7 +606,7 @@ const StudentModal = ({ classData, onClose }) => {
                         <div className="relative">
                           <div className="w-8 h-8 sm:w-10 sm:h-10 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0">
                             <span className="text-white font-medium text-sm sm:text-base">
-                              {student.firstName ? student.firstName.charAt(0) : student.name?.charAt(0) || 'S'}
+                              {student.firstName ? student.firstName.charAt(0) : (student.user?.firstName?.charAt(0) || student.name?.charAt(0) || 'S')}
                             </span>
                           </div>
                           {!group.isIndividual && group.students.length > 1 && studentIndex === 0 && (
@@ -498,12 +615,9 @@ const StudentModal = ({ classData, onClose }) => {
                         </div>
                         <div className="text-start min-w-0 flex-1">
                           <h5 className="font-medium text-gray-900 text-sm sm:text-base truncate">
-                            {student.firstName && student.lastName
-                              ? `${student.firstName} ${student.lastName}`
-                              : student.name || `${student.firstName} ${student.lastName}`
-                            }
+                            {getStudentDisplayName(student)}
                           </h5>
-                          <p className="text-xs sm:text-sm text-gray-500">{student.email}</p>
+                          <p className="text-xs sm:text-sm text-gray-500">{student.email || student.user?.email}</p>
                         </div>
                       </div>
 

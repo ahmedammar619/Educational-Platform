@@ -520,9 +520,24 @@ export class MaterialsController {
     return assignments.map(assignment => 
       plainToClass(AssignmentResponseDto, {
         ...assignment,
-        submissionCount: assignment.submissions?.length || 0
+        submissionCount: assignment.submissions?.length || 0,
+        submissions: assignment.submissions?.map(submission => ({
+          ...submission,
+          studentName: submission.student ? `${submission.student.firstName} ${submission.student.lastName}` : 'Unknown Student'
+        }))
       }, { excludeExtraneousValues: true })
     );
+  }
+  
+  @Patch('courses/assignments/:assignmentId')
+  @Roles(Role.Admin, Role.Teacher)
+  async updateAssignment(
+    @Param('assignmentId') assignmentId: string,
+    @Body() updateAssignmentDto: UpdateAssignmentDto,
+    @Req() req,
+  ): Promise<AssignmentResponseDto> {
+    const assignment = await this.materialsService.updateAssignment(assignmentId, updateAssignmentDto, req.user.sub);
+    return plainToClass(AssignmentResponseDto, assignment, { excludeExtraneousValues: true });
   }
 
   @Post('assignments/:assignmentId/submit')
@@ -544,6 +559,35 @@ export class MaterialsController {
     @Req() req,
   ): Promise<any> {
     return await this.materialsService.gradeAssignment(submissionId, gradeDto, req.user.sub);
+  }
+
+  @Get('submissions/:submissionId/download')
+  @Roles(Role.Admin, Role.Teacher)
+  async downloadSubmission(
+    @Param('submissionId') submissionId: string,
+    @Res() res: Response
+  ): Promise<void> {
+    const submission = await this.materialsService.getAssignmentSubmission(submissionId);
+    if (!submission) {
+      throw new NotFoundException('Submission not found');
+    }
+
+    const filePath = path.join(process.cwd(), 'uploads', submission.filePath);
+    
+    // Check if file exists on disk
+    const fs = require('fs');
+    if (!fs.existsSync(filePath)) {
+      throw new NotFoundException('File not found on disk');
+    }
+
+    // Set appropriate headers for download
+    res.setHeader('Content-Type', submission.mimeType);
+    res.setHeader('Content-Length', submission.fileSize);
+    res.setHeader('Content-Disposition', `attachment; filename="${submission.fileName}"`);
+
+    // Stream the file to the response
+    const fileStream = fs.createReadStream(filePath);
+    fileStream.pipe(res);
   }
 
   // Attendance

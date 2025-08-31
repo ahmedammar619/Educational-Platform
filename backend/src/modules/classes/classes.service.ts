@@ -49,25 +49,18 @@ export class ClassesService {
     const classesWithStudentData = await Promise.all(
       classes.map(async (classEntity) => {
         const students = await this.studentRepository.find({
-          where: { classId: classEntity.id },
-          relations: ['user']
+          where: { classId: classEntity.id }
         });
         
         const studentCount = students.length;
         
-        // Transform students to include user data
-        const studentsWithUserData = students.map(student => ({
-          id: student.id,
-          birthDate: student.birthDate,
-          parentId: student.parentId,
-          classId: student.classId,
-          user: student.user
-        }));
+        // Return array of student IDs instead of full student objects
+        const studentIds = students.map(student => student.id);
         
         return {
           ...classEntity,
           courseIds: classEntity.courseIds || [],
-          students: studentsWithUserData,
+          students: studentIds,
           studentCount: studentCount
         };
       })
@@ -87,26 +80,19 @@ export class ClassesService {
 
     // Get students for this class from the Student entity
     const students = await this.studentRepository.find({
-      where: { classId: classEntity.id },
-      relations: ['user']
+      where: { classId: classEntity.id }
     });
     
     const studentCount = students.length;
     
-    // Transform students to include user data
-    const studentsWithUserData = students.map(student => ({
-      id: student.id,
-      birthDate: student.birthDate,
-      parentId: student.parentId,
-      classId: student.classId,
-      user: student.user
-    }));
+    // Return array of student IDs instead of full student objects
+    const studentIds = students.map(student => student.id);
 
     // Ensure courseIds is always an array, not null
     return {
       ...classEntity,
       courseIds: classEntity.courseIds || [],
-      students: studentsWithUserData,
+      students: studentIds,
       studentCount: studentCount
     };
   }
@@ -190,14 +176,14 @@ export class ClassesService {
     await this.studentRepository.update(studentId, { classId: null });
   }
 
-  async getClassStudents(classId: string): Promise<User[]> {
+  async getClassStudents(classId: string): Promise<Student[]> {
     // Get students from the Student entity where classId matches
     const students = await this.studentRepository.find({
       where: { classId },
       relations: ['user']
     });
     
-    // Return the user data for each student
-    return students.map(student => student.user).filter(user => user !== null);
+    // Return the full student data with user information
+    return students.filter(student => student.user !== null);
   }
 }
