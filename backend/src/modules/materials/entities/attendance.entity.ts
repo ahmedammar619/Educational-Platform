@@ -23,6 +23,12 @@ export class Attendance {
   @Column({ type: 'date' })
   date: Date;
 
+  @Column({ type: 'varchar', length: 20, nullable: true })
+  day: string; // e.g., 'Monday', 'Wednesday', 'Friday'
+
+  @Column({ type: 'varchar', length: 20, nullable: true })
+  time: string; // e.g., '09:00-11:00', '14:00-16:00', '10:00-12:00'
+
   @Column({
     type: 'enum',
     enum: ['present', 'absent', 'late'],

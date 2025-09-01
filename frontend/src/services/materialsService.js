@@ -248,7 +248,7 @@ class MaterialsService {
   // Attendance
   async markAttendance(courseId, attendanceData) {
     try {
-      const response = await api.post(`/api/materials/courses/${courseId}/attendance`, attendanceData);
+      const response = await api.post(`/api/materials/courses/${courseId}/attendance/bulk`, attendanceData);
       return response.data;
     } catch (error) {
       // Error is already handled by the API interceptor
@@ -259,7 +259,7 @@ class MaterialsService {
   async getCourseAttendance(courseId, date = null) {
     try {
       const params = date ? { date } : {};
-      const response = await api.get(`/api/materials/courses/${courseId}/attendance`, { params });
+      const response = await api.get(`/api/materials/courses/${courseId}/attendance/bulk`, { params });
       return response.data;
     } catch (error) {
       // Error is already handled by the API interceptor
@@ -334,6 +334,36 @@ class MaterialsService {
     } catch (error) {
       // Error is already handled by the API interceptor
       throw error;
+    }
+  }
+
+  // Get students enrolled in a course
+  async getCourseStudents(courseId) {
+    try {
+      // Get attendance data to extract unique students
+      const attendanceData = await this.getCourseAttendance(courseId);
+      
+      // Extract all unique students from attendance records
+      const allStudents = new Map();
+      
+      attendanceData.forEach(record => {
+        if (record.students) {
+          record.students.forEach(student => {
+            if (!allStudents.has(student.id)) {
+              allStudents.set(student.id, {
+                id: student.id,
+                firstName: student.name.split(' ')[0] || '',
+                lastName: student.name.split(' ').slice(1).join(' ') || ''
+              });
+            }
+          });
+        }
+      });
+      
+      return Array.from(allStudents.values());
+    } catch (error) {
+      console.error('Error getting course students:', error);
+      return [];
     }
   }
 

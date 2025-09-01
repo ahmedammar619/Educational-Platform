@@ -116,8 +116,15 @@ export class ZoomController {
   @ApiOperation({ summary: 'Join a Zoom meeting (increments join count)' })
   @ApiResponse({ status: 200, description: 'Join count incremented successfully', type: ZoomMeetingResponseDto })
   @ApiResponse({ status: 404, description: 'Meeting not found' })
-  async joinMeeting(@Param('id') id: string): Promise<ZoomMeetingResponseDto> {
-    const meeting = await this.zoomService.incrementJoinCount(id);
+  async joinMeeting(
+    @Param('id') id: string,
+    @Request() req: any,
+    @Body() body?: { courseId?: string }
+  ): Promise<ZoomMeetingResponseDto> {
+    const studentId = req.user?.role === 'student' ? req.user.sub : undefined;
+    const courseId = body?.courseId;
+    
+    const meeting = await this.zoomService.incrementJoinCount(id, studentId, courseId);
     return plainToClass(ZoomMeetingResponseDto, meeting, { excludeExtraneousValues: true });
   }
 

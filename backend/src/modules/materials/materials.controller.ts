@@ -30,6 +30,8 @@ import { GradeAssignmentDto } from './dto/assignments/grade-assignment.dto';
 import { AssignmentResponseDto } from './dto/assignments/assignment-response.dto';
 import { MarkAttendanceDto } from './dto/attendance/mark-attendance.dto';
 import { AttendanceResponseDto } from './dto/attendance/attendance-response.dto';
+import { BulkAttendanceDto } from './dto/attendance/bulk-attendance.dto';
+import { BulkAttendanceResponseDto } from './dto/attendance/bulk-attendance-response.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -600,6 +602,55 @@ export class MaterialsController {
   ): Promise<AttendanceResponseDto> {
     const attendance = await this.materialsService.markAttendance(courseId, attendanceDto, req.user.sub);
     return plainToClass(AttendanceResponseDto, attendance, { excludeExtraneousValues: true });
+  }
+
+  // Bulk Attendance - New endpoint for handling multiple students at once
+  @Post('courses/:courseId/attendance/bulk')
+  @Roles(Role.Admin, Role.Teacher)
+  @ApiOperation({ summary: 'Mark bulk attendance for multiple students' })
+  @ApiResponse({ status: 201, description: 'Bulk attendance marked successfully', type: BulkAttendanceResponseDto })
+  @ApiResponse({ status: 400, description: 'Bad request - invalid data' })
+  @ApiResponse({ status: 404, description: 'Course not found' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 403, description: 'Forbidden - insufficient permissions' })
+  async markBulkAttendance(
+    @Param('courseId') courseId: string,
+    @Body() bulkAttendanceDto: BulkAttendanceDto,
+    @Req() req,
+  ): Promise<BulkAttendanceResponseDto> {
+    const attendanceRecords = await this.materialsService.markBulkAttendance(courseId, bulkAttendanceDto, req.user.sub);
+    
+    // Transform the response to match the expected format
+    const response = {
+      id: `${courseId}-${bulkAttendanceDto.date}`,
+      courseId,
+      date: new Date(bulkAttendanceDto.date),
+      day: bulkAttendanceDto.day,
+      time: bulkAttendanceDto.time,
+      markedBy: req.user.sub,
+      markedAt: new Date(),
+      students: bulkAttendanceDto.students
+    };
+    
+    return plainToClass(BulkAttendanceResponseDto, response, { excludeExtraneousValues: true });
+  }
+
+  // Get Bulk Attendance - Retrieve attendance data in bulk format
+  @Get('courses/:courseId/attendance/bulk')
+  @Roles(Role.Admin, Role.Teacher)
+  @ApiOperation({ summary: 'Get bulk attendance data for a course' })
+  @ApiResponse({ status: 200, description: 'Bulk attendance data retrieved successfully', type: [BulkAttendanceResponseDto] })
+  @ApiResponse({ status: 404, description: 'Course not found' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 403, description: 'Forbidden - insufficient permissions' })
+  async getBulkAttendance(
+    @Param('courseId') courseId: string,
+    @Query('date') date?: string,
+  ): Promise<BulkAttendanceResponseDto[]> {
+    const attendance = await this.materialsService.getCourseAttendance(courseId, date);
+    return attendance.map(record => 
+      plainToClass(BulkAttendanceResponseDto, record, { excludeExtraneousValues: true })
+    );
   }
 
   @Get('courses/:courseId/attendance')

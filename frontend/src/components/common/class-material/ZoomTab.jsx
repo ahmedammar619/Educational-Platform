@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import zoomService from '../../../services/zoomService';
+import { materialsService } from '../../../services';
 
-const ZoomTab = ({ currentUser, theme }) => {
+const ZoomTab = ({ currentUser, theme, courseId }) => {
   const [meetings, setMeetings] = useState([]);
   const [loading, setLoading] = useState(false);
   const [showCreateForm, setShowCreateForm] = useState(false);
@@ -20,6 +21,23 @@ const ZoomTab = ({ currentUser, theme }) => {
   // Role-based access control functions
   const canManageZoom = () => {
     return currentUser?.role === 'admin' || currentUser?.role === 'teacher';
+  };
+
+  // Generate time options dynamically
+  const generateTimeOptions = () => {
+    const times = [];
+    
+    // Add 12:00 and 12:30 first
+    times.push({ value: '12:00', label: '12:00' });
+    times.push({ value: '12:30', label: '12:30' });
+    
+    // Add 1:00 to 11:30
+    for (let hour = 1; hour <= 11; hour++) {
+      times.push({ value: `${hour.toString().padStart(2, '0')}:00`, label: `${hour.toString().padStart(2, '0')}:00` });
+      times.push({ value: `${hour.toString().padStart(2, '0')}:30`, label: `${hour.toString().padStart(2, '0')}:30` });
+    }
+    
+    return times;
   };
 
   // Meeting status calculation
@@ -116,8 +134,8 @@ const ZoomTab = ({ currentUser, theme }) => {
     }
     
     try {
-      // Track join count in backend
-      const updatedMeeting = await zoomService.joinMeeting(meeting.id);
+      // Track join count in backend and pass courseId for attendance marking
+      const updatedMeeting = await zoomService.joinMeeting(meeting.id, courseId);
       
       // Update local state
       setMeetings(meetings.map(m => 
@@ -131,6 +149,22 @@ const ZoomTab = ({ currentUser, theme }) => {
       // Still open the link even if tracking fails
       window.open(meeting.invitationLink, '_blank');
     }
+  };
+
+
+
+  // Get course schedule for a specific date
+  const getCourseScheduleForDate = (date) => {
+    const dayOfWeek = new Date(date).getDay();
+    
+    // Map day numbers to day names and times (matching AttendanceTab schedule)
+    const scheduleMap = {
+      1: { day: 'Monday', time: '09:00-11:00' },    // Monday
+      3: { day: 'Wednesday', time: '14:00-16:00' }, // Wednesday  
+      5: { day: 'Friday', time: '10:00-12:00' }     // Friday
+    };
+    
+    return scheduleMap[dayOfWeek] || null;
   };
 
   // Handle opening Zoom to create a meeting
@@ -167,6 +201,25 @@ const ZoomTab = ({ currentUser, theme }) => {
     setShowCreateForm(true);
   };
 
+  // Handle ending a meeting
+  const handleEndMeeting = async (meetingId) => {
+    if (window.confirm('Are you sure you want to end this meeting?')) {
+      try {
+        setLoading(true);
+        // You can add backend logic here to mark meeting as ended
+        // For now, we'll just update the local state
+        setMeetings(meetings.map(m => 
+          m.id === meetingId ? { ...m, status: 'ended' } : m
+        ));
+      } catch (error) {
+        console.error('Error ending meeting:', error);
+        alert('Failed to end meeting. Please try again.');
+      } finally {
+        setLoading(false);
+      }
+    }
+  };
+
   // Load meetings from backend
   const loadMeetings = async () => {
     try {
@@ -193,6 +246,123 @@ const ZoomTab = ({ currentUser, theme }) => {
   useEffect(() => {
     loadMeetings();
   }, [filter, searchTerm]);
+
+  // Initialize attendance records for scheduled class days
+  useEffect(() => {
+    if (courseId && currentUser?.role === 'admin') {
+      initializeAttendanceRecords();
+    }
+  }, [courseId, currentUser]);
+
+  // Initialize attendance records for scheduled class days with all students absent
+  const initializeAttendanceRecords = async () => {
+    try {
+      const today = new Date();
+      const lastThreeSessions = getLastThreeSessions();
+      
+      for (const session of lastThreeSessions) {
+        // Check if attendance record already exists for this date
+        const existingAttendance = await materialsService.getCourseAttendance(courseId);
+        const hasRecord = existingAttendance.some(record => record.date === session.date);
+        
+        if (!hasRecord) {
+          // Get actual students enrolled in the course
+          const students = await getCourseStudents();
+          
+          // Create attendance record with all students marked as absent
+          const attendanceData = {
+            date: session.date,
+            day: session.day,
+            time: session.time,
+            students: students.map(student => ({
+              id: student.id,
+              name: `${student.firstName} ${student.lastName}`,
+              status: 'absent'
+            }))
+          };
+          
+          await materialsService.markAttendance(courseId, attendanceData);
+        }
+      }
+    } catch (error) {
+      console.error('Error initializing attendance records:', error);
+    }
+  };
+
+  // Get students enrolled in the course
+  const getCourseStudents = async () => {
+    try {
+      return await materialsService.getCourseStudents(courseId);
+    } catch (error) {
+      console.error('Error getting course students:', error);
+      return [];
+    }
+  };
+
+  // Get the last 3 scheduled sessions including today if it's a scheduled class day (matching AttendanceTab logic)
+  const getLastThreeSessions = () => {
+    const today = new Date();
+    const sessions = [];
+    let currentDate = new Date(today);
+
+    // First check if today is a scheduled class day
+    const todayDayOfWeek = currentDate.getDay();
+    const todayDateString = currentDate.toISOString().split('T')[0];
+    
+    if (todayDayOfWeek === 1) { // Monday
+      sessions.push({
+        day: 'Monday',
+        time: '09:00-11:00',
+        date: todayDateString
+      });
+    } else if (todayDayOfWeek === 3) { // Wednesday
+      sessions.push({
+        day: 'Wednesday',
+        time: '14:00-16:00',
+        date: todayDateString
+      });
+    } else if (todayDayOfWeek === 5) { // Friday
+      sessions.push({
+        day: 'Friday',
+        time: '10:00-12:00',
+        date: todayDateString
+      });
+    }
+
+    // If we need more sessions, go back in time to find the remaining ones
+    if (sessions.length < 3) {
+      for (let i = 1; i <= 30; i++) { // Look back up to 30 days
+        currentDate.setDate(currentDate.getDate() - 1);
+        const dayOfWeek = currentDate.getDay();
+        const dateString = currentDate.toISOString().split('T')[0];
+
+        if (dayOfWeek === 1) { // Monday
+          sessions.push({
+            day: 'Monday',
+            time: '09:00-11:00',
+            date: dateString
+          });
+        } else if (dayOfWeek === 3) { // Wednesday
+          sessions.push({
+            day: 'Wednesday',
+            time: '14:00-16:00',
+            date: dateString
+          });
+        } else if (dayOfWeek === 5) { // Friday
+          sessions.push({
+            day: 'Friday',
+            time: '10:00-12:00',
+            date: dateString
+          });
+        }
+
+        if (sessions.length >= 3) break;
+      }
+    }
+
+    // Return the last 3 sessions in chronological order (oldest first)
+    return sessions.reverse().slice(-3);
+  };
 
   // Auto-update meeting statuses every minute
   useEffect(() => {
@@ -301,30 +471,11 @@ const ZoomTab = ({ currentUser, theme }) => {
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none bg-white"
                       >
                         <option value="">Select time</option>
-                        <option value="12:00">12:00</option>
-                        <option value="12:30">12:30</option>
-                        <option value="01:00">01:00</option>
-                        <option value="01:30">01:30</option>
-                        <option value="02:00">02:00</option>
-                        <option value="02:30">02:30</option>
-                        <option value="03:00">03:00</option>
-                        <option value="03:30">03:30</option>
-                        <option value="04:00">04:00</option>
-                        <option value="04:30">04:30</option>
-                        <option value="05:00">05:00</option>
-                        <option value="05:30">05:30</option>
-                        <option value="06:00">06:00</option>
-                        <option value="06:30">06:30</option>
-                        <option value="07:00">07:00</option>
-                        <option value="07:30">07:30</option>
-                        <option value="08:00">08:00</option>
-                        <option value="08:30">08:30</option>
-                        <option value="09:00">09:00</option>
-                        <option value="09:30">09:30</option>
-                        <option value="10:00">10:00</option>
-                        <option value="10:30">10:30</option>
-                        <option value="11:00">11:00</option>
-                        <option value="11:30">11:30</option>
+                        {generateTimeOptions().map((timeOption) => (
+                          <option key={timeOption.value} value={timeOption.value}>
+                            {timeOption.label}
+                          </option>
+                        ))}
                       </select>
                       <svg className="absolute right-3 top-2.5 w-4 h-4 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -352,13 +503,6 @@ const ZoomTab = ({ currentUser, theme }) => {
               
               <div className="flex gap-2">
                 <button
-                  onClick={handleCreateMeeting}
-                  disabled={loading}
-                  className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {loading ? 'Creating...' : 'Create Meeting'}
-                </button>
-                <button
                   onClick={() => {
                     setShowCreateForm(false);
                     setErrors({});
@@ -367,6 +511,13 @@ const ZoomTab = ({ currentUser, theme }) => {
                   className="flex-1 bg-gray-300 text-gray-700 py-2 px-4 rounded-md hover:bg-gray-400 transition-colors disabled:opacity-50"
                 >
                   Cancel
+                </button>
+                <button
+                  onClick={handleCreateMeeting}
+                  disabled={loading}
+                  className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {loading ? 'Creating...' : 'Create Meeting'}
                 </button>
               </div>
             </div>

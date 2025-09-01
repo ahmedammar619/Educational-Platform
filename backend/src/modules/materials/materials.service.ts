@@ -20,6 +20,7 @@ import { CreateAssignmentDto } from './dto/assignments/create-assignment.dto';
 import { UpdateAssignmentDto } from './dto/assignments/update-assignment.dto';
 import { GradeAssignmentDto } from './dto/assignments/grade-assignment.dto';
 import { MarkAttendanceDto } from './dto/attendance/mark-attendance.dto';
+import { BulkAttendanceDto } from './dto/attendance/bulk-attendance.dto';
 
 @Injectable()
 export class MaterialsService {
@@ -1034,17 +1035,117 @@ export class MaterialsService {
     return await this.attendanceRepository.save(attendance);
   }
 
-  async getCourseAttendance(courseId: string, date?: string): Promise<Attendance[]> {
-    const whereCondition: any = { courseId };
-    if (date) {
-      whereCondition.date = new Date(date);
+  // Bulk Attendance - New method for handling multiple students at once
+  async markBulkAttendance(courseId: string, bulkAttendanceDto: BulkAttendanceDto, markerId: string): Promise<Attendance[]> {
+    const course = await this.courseRepository.findOne({ where: { id: courseId } });
+    if (!course) {
+      throw new NotFoundException(`Course with ID ${courseId} not found`);
     }
 
-    return await this.attendanceRepository.find({
-      where: whereCondition,
-      relations: ['student', 'marker'],
-      order: { date: 'DESC' }
-    });
+    const attendanceRecords: Attendance[] = [];
+    const attendanceDate = new Date(bulkAttendanceDto.date);
+
+    // Process each student's attendance
+    for (const studentAttendance of bulkAttendanceDto.students) {
+      // Check if attendance already exists for this student on this date
+      const existingAttendance = await this.attendanceRepository.findOne({
+        where: {
+          courseId,
+          studentId: studentAttendance.id,
+          date: attendanceDate
+        }
+      });
+
+      if (existingAttendance) {
+        // Update existing attendance
+        existingAttendance.status = studentAttendance.status;
+        existingAttendance.day = bulkAttendanceDto.day;
+        existingAttendance.time = bulkAttendanceDto.time;
+        existingAttendance.markedBy = markerId;
+        existingAttendance.markedAt = new Date();
+        attendanceRecords.push(await this.attendanceRepository.save(existingAttendance));
+      } else {
+        // Create new attendance record
+        const attendance = this.attendanceRepository.create({
+          courseId,
+          studentId: studentAttendance.id,
+          date: attendanceDate,
+          day: bulkAttendanceDto.day,
+          time: bulkAttendanceDto.time,
+          status: studentAttendance.status,
+          markedBy: markerId,
+          markedAt: new Date()
+        });
+        attendanceRecords.push(await this.attendanceRepository.save(attendance));
+      }
+    }
+
+    return attendanceRecords;
+  }
+
+  async getCourseAttendance(courseId: string, date?: string): Promise<any[]> {
+    try {
+      const whereCondition: any = { courseId };
+      if (date) {
+        whereCondition.date = new Date(date);
+      }
+
+      console.log('Getting course attendance with condition:', whereCondition);
+
+      const attendanceRecords = await this.attendanceRepository.find({
+        where: whereCondition,
+        relations: ['student', 'marker'],
+        order: { date: 'DESC' }
+      });
+
+      console.log('Found attendance records:', attendanceRecords.length);
+      console.log('Sample record:', attendanceRecords[0] ? {
+        id: attendanceRecords[0].id,
+        date: attendanceRecords[0].date,
+        dateType: typeof attendanceRecords[0].date,
+        studentId: attendanceRecords[0].studentId,
+        status: attendanceRecords[0].status
+      } : 'No records');
+
+      // Group attendance records by date to match frontend expectations
+      const groupedAttendance = attendanceRecords.reduce((acc, record) => {
+        try {
+          // Handle both Date objects and date strings
+          const dateKey = record.date instanceof Date 
+            ? record.date.toISOString().split('T')[0]
+            : new Date(record.date).toISOString().split('T')[0];
+          
+          if (!acc[dateKey]) {
+            acc[dateKey] = {
+              id: `${courseId}-${dateKey}`, // Generate a unique ID for the attendance record
+              date: dateKey,
+              day: record.day,
+              time: record.time,
+              students: []
+            };
+          }
+          
+          acc[dateKey].students.push({
+            id: record.studentId,
+            name: record.student ? `${record.student.firstName} ${record.student.lastName}` : 'Unknown Student',
+            status: record.status
+          });
+          
+          return acc;
+        } catch (error) {
+          console.error('Error processing attendance record:', error, record);
+          return acc;
+        }
+      }, {});
+
+      // Convert grouped object to array
+      const result = Object.values(groupedAttendance);
+      console.log('Returning grouped attendance:', result.length, 'groups');
+      return result;
+    } catch (error) {
+      console.error('Error in getCourseAttendance:', error);
+      throw error;
+    }
   }
 
   async getStudentAttendance(courseId: string, studentId: string): Promise<Attendance[]> {
