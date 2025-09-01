@@ -5,6 +5,8 @@ import { ZoomMeeting } from './entities/zoom-meeting.entity';
 import { CreateZoomMeetingDto } from './dto/create-zoom-meeting.dto';
 import { UpdateZoomMeetingDto } from './dto/update-zoom-meeting.dto';
 import { User } from '../users/entities/user.entity';
+import { Attendance } from '../materials/entities/attendance.entity';
+import { Course } from '../courses/entities/course.entity';
 
 @Injectable()
 export class ZoomService {
@@ -13,6 +15,10 @@ export class ZoomService {
     private readonly zoomMeetingRepository: Repository<ZoomMeeting>,
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
+    @InjectRepository(Attendance)
+    private readonly attendanceRepository: Repository<Attendance>,
+    @InjectRepository(Course)
+    private readonly courseRepository: Repository<Course>,
   ) {}
 
   async createMeeting(createZoomMeetingDto: CreateZoomMeetingDto, userId: string): Promise<ZoomMeeting> {
@@ -85,10 +91,80 @@ export class ZoomService {
     await this.zoomMeetingRepository.remove(meeting);
   }
 
-  async incrementJoinCount(id: string): Promise<ZoomMeeting> {
+  async incrementJoinCount(id: string, studentId?: string, courseId?: string): Promise<ZoomMeeting> {
     const meeting = await this.findMeetingById(id);
     meeting.joinCount += 1;
+    
+    // Auto-mark attendance if studentId and courseId are provided
+    if (studentId && courseId && meeting.date) {
+      await this.markAttendanceForStudent(meeting, studentId, courseId);
+    }
+    
     return await this.zoomMeetingRepository.save(meeting);
+  }
+
+  // Auto-mark attendance when student joins meeting
+  private async markAttendanceForStudent(meeting: ZoomMeeting, studentId: string, courseId: string): Promise<void> {
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      
+      // Only mark attendance if the meeting is scheduled for today
+      if (meeting.date === today) {
+        // Get the course schedule to find the correct day and time
+        const courseSchedule = this.getCourseScheduleForDate(meeting.date);
+        
+        if (courseSchedule) {
+          // Get all students enrolled in this course
+          const students = await this.getCourseStudents(courseId);
+          
+          // Get existing attendance records for this date
+          const existingAttendance = await this.attendanceRepository.find({
+            where: {
+              courseId,
+              date: new Date(meeting.date)
+            },
+            relations: ['student']
+          });
+          
+          // Create attendance data for bulk update
+          const attendanceData = {
+            date: meeting.date,
+            day: courseSchedule.day,
+            time: courseSchedule.time,
+            students: students.map(student => {
+              // Check if this student already has attendance marked
+              const existingRecord = existingAttendance.find(record => record.studentId === student.id);
+              
+              return {
+                id: student.id,
+                name: `${student.firstName} ${student.lastName}`,
+                status: student.id === studentId ? 'present' : (existingRecord?.status || 'absent')
+              };
+            })
+          };
+          
+          // Use bulk attendance marking
+          await this.markBulkAttendance(courseId, attendanceData, studentId);
+        }
+      }
+    } catch (error) {
+      console.error('Error marking attendance:', error);
+      // Don't throw error as this is automatic and shouldn't interrupt the join process
+    }
+  }
+
+  // Get course schedule for a specific date
+  private getCourseScheduleForDate(date: string): { day: string; time: string } | null {
+    const dayOfWeek = new Date(date).getDay();
+    
+    // Map day numbers to day names and times (matching frontend schedule)
+    const scheduleMap = {
+      1: { day: 'Monday', time: '09:00-11:00' },    // Monday
+      3: { day: 'Wednesday', time: '14:00-16:00' }, // Wednesday  
+      5: { day: 'Friday', time: '10:00-12:00' }     // Friday
+    };
+    
+    return scheduleMap[dayOfWeek] || null;
   }
 
   async endMeeting(id: string, userId: string): Promise<ZoomMeeting> {
@@ -123,6 +199,9 @@ export class ZoomService {
   private calculateMeetingStatus(meeting: any): string {
     if (!meeting.date || !meeting.time || !meeting.period) return 'scheduled';
     
+    // If meeting was manually ended, keep it as ended
+    if (meeting.status === 'ended') return 'ended';
+    
     const now = new Date();
     
     // Parse time with AM/PM period
@@ -139,11 +218,11 @@ export class ZoomService {
     const meetingDateTime = new Date(meeting.date);
     meetingDateTime.setHours(hour24, minutes, 0, 0);
     
-    const endDateTime = new Date(meetingDateTime.getTime() + 60 * 60000); // Default 60 minutes
-    
+    // Only check if meeting has started, don't auto-end it
     if (now < meetingDateTime) return 'upcoming';
-    if (now >= meetingDateTime && now <= endDateTime) return 'live';
-    return 'ended';
+    if (now >= meetingDateTime) return 'live';
+    
+    return 'scheduled';
   }
 
   async updateMeetingStatuses(): Promise<void> {
@@ -156,5 +235,63 @@ export class ZoomService {
         await this.zoomMeetingRepository.save(meeting);
       }
     }
+  }
+
+  // Get all students enrolled in a course (through class enrollment)
+  private async getCourseStudents(courseId: string): Promise<User[]> {
+    const course = await this.courseRepository.findOne({
+      where: { id: courseId },
+      relations: ['class', 'class.students']
+    });
+
+    if (!course) {
+      throw new NotFoundException('Course not found');
+    }
+
+    // Get students from the class that contains this course
+    return course.class?.students || [];
+  }
+
+  // Mark bulk attendance (reuse from materials service)
+  private async markBulkAttendance(courseId: string, attendanceData: any, markerId: string): Promise<Attendance[]> {
+    const attendanceRecords: Attendance[] = [];
+    const attendanceDate = new Date(attendanceData.date);
+
+    // Process each student's attendance
+    for (const studentAttendance of attendanceData.students) {
+      // Check if attendance already exists for this student on this date
+      const existingAttendance = await this.attendanceRepository.findOne({
+        where: {
+          courseId,
+          studentId: studentAttendance.id,
+          date: attendanceDate
+        }
+      });
+
+      if (existingAttendance) {
+        // Update existing attendance
+        existingAttendance.status = studentAttendance.status;
+        existingAttendance.day = attendanceData.day;
+        existingAttendance.time = attendanceData.time;
+        existingAttendance.markedBy = markerId;
+        existingAttendance.markedAt = new Date();
+        attendanceRecords.push(await this.attendanceRepository.save(existingAttendance));
+      } else {
+        // Create new attendance record
+        const attendance = this.attendanceRepository.create({
+          courseId,
+          studentId: studentAttendance.id,
+          date: attendanceDate,
+          day: attendanceData.day,
+          time: attendanceData.time,
+          status: studentAttendance.status,
+          markedBy: markerId,
+          markedAt: new Date()
+        });
+        attendanceRecords.push(await this.attendanceRepository.save(attendance));
+      }
+    }
+
+    return attendanceRecords;
   }
 }

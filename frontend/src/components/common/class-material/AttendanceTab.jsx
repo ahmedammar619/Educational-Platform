@@ -11,39 +11,65 @@ const AttendanceTab = ({ currentUser, theme, courseId }) => {
     const currentYear = today.getFullYear();
     const currentMonth = today.getMonth();
 
-    // Get the last 3 sessions based on current date
+    // Get the last 3 sessions including today if it's a scheduled class day
     // For Islamic History: Monday 9-11, Wednesday 2-4, Friday 10-12
     const getLastThreeSessions = () => {
       const sessions = [];
       let currentDate = new Date(today);
 
-      // Go back in time to find the last 3 sessions
-      for (let i = 0; i < 30; i++) { // Look back up to 30 days
-        currentDate.setDate(currentDate.getDate() - 1);
-        const dayOfWeek = currentDate.getDay();
-        const dateString = currentDate.toISOString().split('T')[0];
+      // First check if today is a scheduled class day
+      const todayDayOfWeek = currentDate.getDay();
+      const todayDateString = currentDate.toISOString().split('T')[0];
+      
+      if (todayDayOfWeek === 1) { // Monday
+        sessions.push({
+          day: 'Monday',
+          time: '09:00-11:00',
+          date: todayDateString
+        });
+      } else if (todayDayOfWeek === 3) { // Wednesday
+        sessions.push({
+          day: 'Wednesday',
+          time: '14:00-16:00',
+          date: todayDateString
+        });
+      } else if (todayDayOfWeek === 5) { // Friday
+        sessions.push({
+          day: 'Friday',
+          time: '10:00-12:00',
+          date: todayDateString
+        });
+      }
 
-        if (dayOfWeek === 1) { // Monday
-          sessions.push({
-            day: 'Monday',
-            time: '09:00-11:00',
-            date: dateString
-          });
-        } else if (dayOfWeek === 3) { // Wednesday
-          sessions.push({
-            day: 'Wednesday',
-            time: '14:00-16:00',
-            date: dateString
-          });
-        } else if (dayOfWeek === 5) { // Friday
-          sessions.push({
-            day: 'Friday',
-            time: '10:00-12:00',
-            date: dateString
-          });
+      // If we need more sessions, go back in time to find the remaining ones
+      if (sessions.length < 3) {
+        for (let i = 1; i <= 30; i++) { // Look back up to 30 days
+          currentDate.setDate(currentDate.getDate() - 1);
+          const dayOfWeek = currentDate.getDay();
+          const dateString = currentDate.toISOString().split('T')[0];
+
+          if (dayOfWeek === 1) { // Monday
+            sessions.push({
+              day: 'Monday',
+              time: '09:00-11:00',
+              date: dateString
+            });
+          } else if (dayOfWeek === 3) { // Wednesday
+            sessions.push({
+              day: 'Wednesday',
+              time: '14:00-16:00',
+              date: dateString
+            });
+          } else if (dayOfWeek === 5) { // Friday
+            sessions.push({
+              day: 'Friday',
+              time: '10:00-12:00',
+              date: dateString
+            });
+          }
+
+          if (sessions.length >= 3) break;
         }
-
-        if (sessions.length >= 3) break;
       }
 
       // Return the last 3 sessions in chronological order (oldest first)
@@ -99,33 +125,59 @@ const AttendanceTab = ({ currentUser, theme, courseId }) => {
       const sessions = [];
       let currentDate = new Date(today);
 
-      // Go back in time to find the last 3 sessions
-      for (let i = 0; i < 30; i++) { // Look back up to 30 days
-        currentDate.setDate(currentDate.getDate() - 1);
-        const dayOfWeek = currentDate.getDay();
-        const dateString = currentDate.toISOString().split('T')[0];
+      // First check if today is a scheduled class day
+      const todayDayOfWeek = currentDate.getDay();
+      const todayDateString = currentDate.toISOString().split('T')[0];
+      
+      if (todayDayOfWeek === 1) { // Monday
+        sessions.push({
+          day: 'Monday',
+          time: '09:00-11:00',
+          date: todayDateString
+        });
+      } else if (todayDayOfWeek === 3) { // Wednesday
+        sessions.push({
+          day: 'Wednesday',
+          time: '14:00-16:00',
+          date: todayDateString
+        });
+      } else if (todayDayOfWeek === 5) { // Friday
+        sessions.push({
+          day: 'Friday',
+          time: '10:00-12:00',
+          date: todayDateString
+        });
+      }
 
-        if (dayOfWeek === 1) { // Monday
-          sessions.push({
-            day: 'Monday',
-            time: '09:00-11:00',
-            date: dateString
-          });
-        } else if (dayOfWeek === 3) { // Wednesday
-          sessions.push({
-            day: 'Wednesday',
-            time: '14:00-16:00',
-            date: dateString
-          });
-        } else if (dayOfWeek === 5) { // Friday
-          sessions.push({
-            day: 'Friday',
-            time: '10:00-12:00',
-            date: dateString
-          });
+      // If we need more sessions, go back in time to find the remaining ones
+      if (sessions.length < 3) {
+        for (let i = 1; i <= 30; i++) { // Look back up to 30 days
+          currentDate.setDate(currentDate.getDate() - 1);
+          const dayOfWeek = currentDate.getDay();
+          const dateString = currentDate.toISOString().split('T')[0];
+
+          if (dayOfWeek === 1) { // Monday
+            sessions.push({
+              day: 'Monday',
+              time: '09:00-11:00',
+              date: dateString
+            });
+          } else if (dayOfWeek === 3) { // Wednesday
+            sessions.push({
+              day: 'Wednesday',
+              time: '14:00-16:00',
+              date: dateString
+            });
+          } else if (dayOfWeek === 5) { // Friday
+            sessions.push({
+              day: 'Friday',
+              time: '10:00-12:00',
+              date: dateString
+            });
+          }
+
+          if (sessions.length >= 3) break;
         }
-
-        if (sessions.length >= 3) break;
       }
 
       // Return the last 3 sessions in chronological order (oldest first)
@@ -223,35 +275,23 @@ const AttendanceTab = ({ currentUser, theme, courseId }) => {
                   </div>
                 </div>
 
-                {/* Take/Update Attendance Button */}
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setSelectedDate(schedule.date);
-                    setShowAttendanceModal(true);
-                    if (hasAttendance) {
-                      // If attendance exists, set it for editing
+                {/* Edit Attendance Button - Only show if attendance exists */}
+                {hasAttendance && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedDate(schedule.date);
+                      setShowAttendanceModal(true);
                       const existingRecord = attendanceData.find(record => record.date === schedule.date);
                       setEditingAttendance(existingRecord);
-                    } else {
-                      // If no attendance exists, clear editing state
-                      setEditingAttendance(null);
-                    }
-                  }}
-                  className={`absolute top-2 right-4 px-4 py-2 text-sm font-semibold rounded-lg transition-all duration-200 shadow-sm hover:shadow-md ${hasAttendance
-                    ? 'border-2 border-green-500 text-green-500 hover:bg-green-50 hover:scale-105'
-                    : 'border-2 border-blue-500 text-blue-500 hover:bg-blue-50 hover:scale-105'
-                    }`}
-                >
-                  {hasAttendance ? 'Update' : 'Take'} Attendance
-                </button>
-
-                {/* Status Indicator */}
-                {hasAttendance && (
-                  <div className="absolute top-4 right-4">
-                    <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
-                  </div>
+                    }}
+                    className="absolute top-2 right-4 px-4 py-2 text-sm font-semibold rounded-lg transition-all duration-200 shadow-sm hover:shadow-md border-2 border-green-500 text-green-500 hover:bg-green-50 hover:scale-105"
+                  >
+                    Edit Attendance
+                  </button>
                 )}
+
+
               </div>
             );
           })}
@@ -264,7 +304,12 @@ const AttendanceTab = ({ currentUser, theme, courseId }) => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600">Total Students</p>
-              <p className="text-2xl font-bold text-gray-900">4</p>
+              <p className="text-2xl font-bold text-gray-900">
+                {(() => {
+                  const selectedRecord = attendanceData.find(record => record.date === selectedDate);
+                  return selectedRecord && selectedRecord.students ? selectedRecord.students.length : 0;
+                })()}
+              </p>
             </div>
             <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
               <Users className="h-6 w-6 text-blue-600" />
@@ -278,12 +323,11 @@ const AttendanceTab = ({ currentUser, theme, courseId }) => {
               <p className="text-2xl font-bold text-green-600">
                 {(() => {
                   const selectedRecord = attendanceData.find(record => record.date === selectedDate);
-                  return selectedRecord ? selectedRecord.students.filter(s => s.status === 'present').length : 0;
+                  return selectedRecord && selectedRecord.students ? selectedRecord.students.filter(s => s.status === 'present').length : 0;
                 })()}
               </p>
             </div>
             <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
-              <div className="w-3 h-3 bg-green-600 rounded-full"></div>
             </div>
           </div>
         </div>
@@ -294,7 +338,7 @@ const AttendanceTab = ({ currentUser, theme, courseId }) => {
               <p className="text-2xl font-bold text-red-600">
                 {(() => {
                   const selectedRecord = attendanceData.find(record => record.date === selectedDate);
-                  return selectedRecord ? selectedRecord.students.filter(s => s.status === 'absent').length : 0;
+                  return selectedRecord && selectedRecord.students ? selectedRecord.students.filter(s => s.status === 'absent').length : 0;
                 })()}
               </p>
             </div>
@@ -310,7 +354,7 @@ const AttendanceTab = ({ currentUser, theme, courseId }) => {
               <p className="text-2xl font-bold text-orange-600">
                 {(() => {
                   const selectedRecord = attendanceData.find(record => record.date === selectedDate);
-                  return selectedRecord ? selectedRecord.students.filter(s => s.status === 'late').length : 0;
+                  return selectedRecord && selectedRecord.students ? selectedRecord.students.filter(s => s.status === 'late').length : 0;
                 })()}
               </p>
             </div>
@@ -340,9 +384,9 @@ const AttendanceTab = ({ currentUser, theme, courseId }) => {
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {attendanceData.map((record) => {
-                const presentCount = record.students.filter(s => s.status === 'present').length;
-                const absentCount = record.students.filter(s => s.status === 'absent').length;
-                const lateCount = record.students.filter(s => s.status === 'late').length;
+                const presentCount = record.students ? record.students.filter(s => s.status === 'present').length : 0;
+                const absentCount = record.students ? record.students.filter(s => s.status === 'absent').length : 0;
+                const lateCount = record.students ? record.students.filter(s => s.status === 'late').length : 0;
 
                 return (
                   <tr key={record.id} className="hover:bg-gray-50">
@@ -392,7 +436,7 @@ const AttendanceTab = ({ currentUser, theme, courseId }) => {
           <div className="bg-white rounded-lg p-6 w-11/12 max-w-4xl shadow-xl max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-medium text-gray-900">
-                {editingAttendance ? `Edit Attendance - ${editingAttendance.day} ${editingAttendance.time}` : `Take Attendance - ${courseSchedule.find(s => s.date === selectedDate)?.day} ${courseSchedule.find(s => s.date === selectedDate)?.time}`}
+                Edit Attendance - {editingAttendance?.day} {editingAttendance?.time}
               </h3>
               <button
                 onClick={() => {
@@ -409,10 +453,10 @@ const AttendanceTab = ({ currentUser, theme, courseId }) => {
             <div className="mb-6">
               <label className="block text-sm font-medium text-gray-700 mb-2">Class Date & Time</label>
               <div className="px-3 py-2 bg-gray-50 border border-gray-300 rounded-md text-sm text-gray-900">
-                {courseSchedule.find(s => s.date === selectedDate)?.day} - {courseSchedule.find(s => s.date === selectedDate)?.time} ({new Date(selectedDate).toLocaleDateString()})
+                {editingAttendance?.day} - {editingAttendance?.time} ({new Date(editingAttendance?.date).toLocaleDateString()})
               </div>
               <p className="text-xs text-gray-500 mt-1">
-                Only scheduled class days are available for attendance
+                Attendance is automatically marked when students join Zoom meetings
               </p>
             </div>
 
@@ -420,7 +464,7 @@ const AttendanceTab = ({ currentUser, theme, courseId }) => {
             <div className="mb-6">
               <h4 className="text-sm font-medium text-gray-700 mb-3">Student Attendance</h4>
               <div className="space-y-3">
-                {(editingAttendance ? editingAttendance.students : attendanceData[0]?.students || []).map((student) => (
+                {editingAttendance?.students?.map((student) => (
                   <div key={student.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
@@ -433,24 +477,12 @@ const AttendanceTab = ({ currentUser, theme, courseId }) => {
                         value={student.status}
                         onChange={(e) => {
                           const newStatus = e.target.value;
-                          if (editingAttendance) {
-                            setEditingAttendance({
-                              ...editingAttendance,
-                              students: editingAttendance.students.map(s =>
-                                s.id === student.id ? { ...s, status: newStatus } : s
-                              )
-                            });
-                          } else {
-                            // Update the first attendance record for new attendance
-                            setAttendanceData(prev => prev.map((record, index) =>
-                              index === 0 ? {
-                                ...record,
-                                students: record.students.map(s =>
-                                  s.id === student.id ? { ...s, status: newStatus } : s
-                                )
-                              } : record
-                            ));
-                          }
+                          setEditingAttendance({
+                            ...editingAttendance,
+                            students: editingAttendance.students ? editingAttendance.students.map(s =>
+                              s.id === student.id ? { ...s, status: newStatus } : s
+                            ) : []
+                          });
                         }}
                         className="px-3 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                       >
@@ -478,12 +510,11 @@ const AttendanceTab = ({ currentUser, theme, courseId }) => {
               <button
                 onClick={async () => {
                   try {
-                    const selectedSchedule = courseSchedule.find(s => s.date === selectedDate);
                     const attendanceDataToSave = {
-                      date: selectedDate,
-                      day: selectedSchedule?.day || 'Unknown',
-                      time: selectedSchedule?.time || 'Unknown',
-                      students: editingAttendance ? editingAttendance.students : (attendanceData[0]?.students || [])
+                      date: editingAttendance.date,
+                      day: editingAttendance.day,
+                      time: editingAttendance.time,
+                      students: editingAttendance.students || []
                     };
 
                     await materialsService.markAttendance(courseId, attendanceDataToSave);
@@ -493,15 +524,15 @@ const AttendanceTab = ({ currentUser, theme, courseId }) => {
                     
                     setShowAttendanceModal(false);
                     setEditingAttendance(null);
-                    showSuccessToast('Attendance saved successfully!');
+                    showSuccessToast('Attendance updated successfully!');
                   } catch (error) {
-                    console.error('Error saving attendance:', error);
-                    showErrorToast(error, 'Failed to save attendance. Please try again.');
+                    console.error('Error updating attendance:', error);
+                    showErrorToast(error, 'Failed to update attendance. Please try again.');
                   }
                 }}
                 className={`px-6 py-2 border-2 border-${theme.primary}-600 text-${theme.primary}-600 rounded-lg hover:bg-${theme.primaryLight} transition-colors`}
               >
-                {editingAttendance ? 'Update' : 'Save'} Attendance
+                Update Attendance
               </button>
             </div>
           </div>

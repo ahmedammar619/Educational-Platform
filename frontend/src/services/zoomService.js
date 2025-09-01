@@ -50,8 +50,9 @@ class ZoomService {
   }
 
   // Join a meeting (increments join count)
-  async joinMeeting(id) {
-    const response = await api.post(`/api/zoom/${id}/join`);
+  async joinMeeting(id, courseId = null) {
+    const body = courseId ? { courseId } : {};
+    const response = await api.post(`/api/zoom/${id}/join`, body);
     return response.data;
   }
 
