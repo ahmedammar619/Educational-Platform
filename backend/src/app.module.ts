@@ -26,6 +26,7 @@ import { CoursesModule } from './modules/courses/courses.module';
 import { MaterialsModule } from './modules/materials/materials.module';
 import { EnrollmentsModule } from './modules/enrollments/enrollments.module';
 import { PaymentsModule } from './modules/payments/payments.module';
+import { ZoomModule } from './modules/zoom/zoom.module';
 
 // Guards and Interceptors
 import { CustomThrottlerGuard } from './common/guards/custom-throttler.guard';
@@ -53,6 +54,7 @@ import { Enrollment } from './modules/enrollments/entities/enrollment.entity';
 import { WebhookEvent } from './modules/payments/entities/webhook-event.entity';
 import { Invoice } from './modules/payments/entities/invoice.entity';
 import { Subscription } from './modules/payments/entities/subscription.entity';
+import { ZoomMeeting } from './modules/zoom/entities/zoom-meeting.entity';
 
 @Module({
   imports: [
@@ -89,7 +91,8 @@ import { Subscription } from './modules/payments/entities/subscription.entity';
           Enrollment,
           WebhookEvent,
           Invoice,
-          Subscription
+          Subscription,
+          ZoomMeeting
         ],
         synchronize: process.env.DB_SYNC === 'true',
         logging: process.env.DB_LOGGING === 'true',
@@ -121,6 +124,7 @@ import { Subscription } from './modules/payments/entities/subscription.entity';
     MaterialsModule,
     EnrollmentsModule,
     PaymentsModule,
+    ZoomModule,
   ],
   controllers: [AppController],
   providers: [
