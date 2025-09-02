@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { HelmetProvider } from 'react-helmet-async';
 import { Toaster } from 'react-hot-toast';
 import { LoginForm } from './pages/auth';
@@ -49,25 +49,7 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [showLogin, setShowLogin] = useState(false);
 
-  useEffect(() => {
-    // Check if user is already authenticated on app start
-    const checkAuth = async () => {
-      try {
-        if (authService.isAuthenticated()) {
-          await validateToken();
-        } else {
-          setLoading(false);
-        }
-      } catch (error) {
-        console.error('Auth check failed:', error);
-        setLoading(false);
-      }
-    };
-    
-    checkAuth();
-  }, []);
-
-  const validateToken = async (savedToken) => {
+  const validateToken = React.useCallback(async () => {
     try {
       // Check if user is authenticated using authService
       if (authService.isAuthenticated()) {
@@ -86,9 +68,27 @@ function App() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const handleLogin = (userData, userToken) => {
+  useEffect(() => {
+    // Check if user is already authenticated on app start
+    const checkAuth = async () => {
+      try {
+        if (authService.isAuthenticated()) {
+          await validateToken();
+        } else {
+          setLoading(false);
+        }
+      } catch (error) {
+        console.error('Auth check failed:', error);
+        setLoading(false);
+      }
+    };
+    
+    checkAuth();
+  }, [validateToken]);
+
+  const handleLogin = React.useCallback((userData, userToken) => {
     console.log('App: handleLogin called with:', { userData, userToken }); // Debug log
     console.log('App: userData type:', typeof userData); // Debug log
     console.log('App: userData keys:', userData ? Object.keys(userData) : 'No userData'); // Debug log
@@ -115,21 +115,21 @@ function App() {
     console.log('App: User state set to:', userData); // Debug log
     console.log('App: Login modal closed, showLogin set to false'); // Debug log
     console.log('App: Login successful, user set and modal closed'); // Debug log
-  };
+  }, []);
 
-  const handleLoginClick = () => {
+  const handleLoginClick = React.useCallback(() => {
     // Always show login modal when clicked, regardless of current auth state
     setShowLogin(true);
-  };
+  }, []);
 
-  const handleLogout = () => {
+  const handleLogout = React.useCallback(() => {
     // Clear user state first
     setUser(null);
     // Then logout from authService
     authService.logout();
     // Navigate to home page to clear the URL
     window.location.href = '/';
-  };
+  }, []);
 
   if (loading) {
     return (

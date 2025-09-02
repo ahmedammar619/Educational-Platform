@@ -1,10 +1,10 @@
-import { useState, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import { Eye, EyeOff, User, Lock } from 'lucide-react';
 import { showSuccessToast, showErrorToast, showLoadingToast, dismissToast } from '../../utils/toast.jsx';
 import { authService } from '../../services';
 import PhoneInput from '../../components/ui/PhoneInput';
 
-const LoginForm = ({ onLogin, onRegister }) => {
+const LoginForm = React.memo(({ onLogin, onRegister }) => {
   const [isLogin, setIsLogin] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({
@@ -486,6 +486,6 @@ const LoginForm = ({ onLogin, onRegister }) => {
       </div>
     </div>
   );
-};
+});
 
 export default LoginForm;

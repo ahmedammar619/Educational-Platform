@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Calendar, Clock, Users, BookOpen, TrendingUp, AlertCircle } from 'lucide-react';
 import { dashboardService } from '../../services';
-import { getMockData } from '../../data/mockData';
 
 const ParentDashboard = ({ user }) => {
   const [dashboardData, setDashboardData] = useState(null);
@@ -20,20 +19,36 @@ const ParentDashboard = ({ user }) => {
       // Fetch parent dashboard data from backend
       const response = await dashboardService.getParentDashboard(user.id);
       
-      // Combine backend data with mock data for components without backend
-      const combinedData = {
-        ...response,
-        // Use mock data for components without backend endpoints
-        upcomingSessions: getMockData('parentDashboard').upcomingSessions,
-        recentGrades: getMockData('parentDashboard').recentGrades
-      };
+      // Fetch children's enrolled classes and sessions
+      if (response.children && response.children.length > 0) {
+        const childrenWithClasses = await Promise.all(
+          response.children.map(async (child) => {
+            try {
+              // Fetch student's enrolled classes and courses
+              const studentResponse = await dashboardService.getStudentDashboard(child.id);
+              return {
+                ...child,
+                enrolledClasses: studentResponse.enrolledCourses || [],
+                totalSessions: studentResponse.stats?.totalSessions || 0
+              };
+            } catch (error) {
+              console.error(`Failed to fetch data for child ${child.id}:`, error);
+              return {
+                ...child,
+                enrolledClasses: [],
+                totalSessions: 0
+              };
+            }
+          })
+        );
+        
+        response.children = childrenWithClasses;
+      }
       
-      setDashboardData(combinedData);
+      setDashboardData(response);
     } catch (error) {
       console.error('Failed to fetch dashboard data:', error);
-      setError('Failed to load dashboard data. Using mock data instead.');
-      // Fallback to mock data if backend fails
-      setDashboardData(getMockData('parentDashboard'));
+      setError('Failed to load dashboard data. Please try again later.');
     } finally {
       setLoading(false);
     }
@@ -75,13 +90,27 @@ const ParentDashboard = ({ user }) => {
   }
 
   // Use fallback values if backend data is missing
-  const data = dashboardData || getMockData('parentDashboard');
+  const data = dashboardData || {
+    parent: {
+      id: user?.id,
+      firstName: user?.firstName,
+      lastName: user?.lastName,
+      email: user?.email,
+      createdAt: null
+    },
+    children: [],
+    stats: {
+      totalChildren: 0,
+      totalClasses: 0,
+      totalSessions: 0
+    }
+  };
 
   // Calculate totals from children data
   const totalChildren = data.children?.length || 0;
   const totalClasses = data.children ? data.children.reduce((total, child) => total + (child.enrolledClasses?.length || 0), 0) : 0;
-  const totalSessions = data.upcomingSessions?.length || 0;
-  const totalCost = totalClasses * 150; // Mock cost per class
+  const totalSessions = data.children ? data.children.reduce((total, child) => total + (child.totalSessions || 0), 0) : 0;
+  const totalCost = totalClasses * 100; // $100 per class based on backend data
 
   return (
     <div className="space-y-6 h-full">
@@ -91,14 +120,16 @@ const ParentDashboard = ({ user }) => {
           <div className="flex items-center space-x-4">
             <div className="w-16 h-16 bg-white bg-opacity-20 rounded-full flex items-center justify-center">
               <span className="text-2xl font-bold text-white">
-                {user?.firstName?.charAt(0) || user?.name?.charAt(0) || 'P'}
+                {data.parent?.firstName?.charAt(0) || user?.firstName?.charAt(0) || 'P'}
               </span>
             </div>
             <div className="flex-1">
               <h1 className="text-2xl font-bold text-white">
-                {user?.firstName && user?.lastName
+                {data.parent?.firstName && data.parent?.lastName
+                  ? `${data.parent.firstName} ${data.parent.lastName}`
+                  : user?.firstName && user?.lastName
                   ? `${user.firstName} ${user.lastName}`
-                  : user?.name || 'Parent'
+                  : 'Parent'
                 }
               </h1>
               <p className="text-purple-100">Parent • Family Management</p>
@@ -109,11 +140,11 @@ const ParentDashboard = ({ user }) => {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
             <div className="text-center">
               <p className="text-sm text-gray-600">Email</p>
-              <p className="font-medium text-gray-900">{user?.email || 'parent@example.com'}</p>
+              <p className="font-medium text-gray-900">{data.parent?.email || user?.email || 'parent@example.com'}</p>
             </div>
             <div className="text-center">
               <p className="text-sm text-gray-600">Parent ID</p>
-              <p className="font-medium text-gray-900">{user?.id || 'PAR001'}</p>
+              <p className="font-medium text-gray-900">{data.parent?.id || user?.id || 'PAR001'}</p>
             </div>
             <div className="text-center">
               <p className="text-sm text-gray-600">Children</p>
@@ -122,12 +153,12 @@ const ParentDashboard = ({ user }) => {
             <div className="text-center">
               <p className="text-sm text-gray-600">Join Date</p>
               <p className="font-medium text-gray-900">
-                {dashboardData?.parent?.createdAt 
-                  ? new Date(dashboardData.parent.createdAt).toLocaleDateString('en-US', { 
+                {data.parent?.createdAt 
+                  ? new Date(data.parent.createdAt).toLocaleDateString('en-US', { 
                       year: 'numeric', 
                       month: 'short' 
                     })
-                  : user?.joinDate || 'Jan 2024'
+                  : 'Jan 2024'
                 }
               </p>
             </div>
@@ -206,14 +237,14 @@ const ParentDashboard = ({ user }) => {
                       <div className="flex items-center space-x-3 mb-3">
                         <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
                           <span className="text-blue-600 font-medium">
-                            {child.firstName?.charAt(0) || child.name?.charAt(0) || 'C'}
+                            {child.firstName?.charAt(0) || 'C'}
                           </span>
                         </div>
                         <div className="flex-1">
                           <h4 className="font-medium text-gray-900">
                             {child.firstName && child.lastName 
                               ? `${child.firstName} ${child.lastName}` 
-                              : child.name || 'Child'
+                              : 'Child'
                             }
                           </h4>
                           <p className="text-sm text-gray-600">{child.email}</p>
@@ -228,12 +259,17 @@ const ParentDashboard = ({ user }) => {
                         {childClasses.slice(0, 3).map((cls) => (
                           <div key={cls.id} className="flex items-center justify-between text-sm">
                             <span className="text-gray-600">{cls.name || 'Course'}</span>
-                            <span className="text-gray-900 font-medium">USD 150</span>
+                            <span className="text-gray-900 font-medium">USD 100</span>
                           </div>
                         ))}
                         {childClasses.length > 3 && (
                           <div className="text-xs text-gray-500 text-center pt-2">
                             +{childClasses.length - 3} more classes
+                          </div>
+                        )}
+                        {childClasses.length === 0 && (
+                          <div className="text-xs text-gray-500 text-center pt-2">
+                            No classes enrolled yet
                           </div>
                         )}
                       </div>
@@ -259,28 +295,26 @@ const ParentDashboard = ({ user }) => {
             <h3 className="text-lg font-semibold text-gray-900">Upcoming Classes This Week</h3>
           </div>
           <div className="p-6">
-            {data.upcomingSessions && data.upcomingSessions.length > 0 ? (
+            {data.children && data.children.length > 0 ? (
               <div className="space-y-4">
-                {data.upcomingSessions.slice(0, 5).map((session) => (
-                  <div key={session.id} className="border rounded-lg p-3 bg-blue-50">
+                {data.children.slice(0, 3).map((child) => (
+                  <div key={child.id} className="border rounded-lg p-3 bg-blue-50">
                     <div className="flex items-center justify-between mb-2">
-                      <h4 className="font-medium text-gray-900">{session.courseName}</h4>
+                      <h4 className="font-medium text-gray-900">
+                        {child.firstName} {child.lastName}
+                      </h4>
                       <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
-                        {new Date(session.date).toLocaleDateString('en-US', { weekday: 'long' })}
+                        Student
                       </span>
                     </div>
                     <div className="space-y-1 text-sm text-gray-600">
                       <div className="flex items-center space-x-2">
-                        <Users className="h-4 w-4" />
-                        <span>Student</span>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <Users className="h-4 w-4" />
-                        <span>Teacher</span>
+                        <BookOpen className="h-4 w-4" />
+                        <span>{child.enrolledClasses?.length || 0} classes enrolled</span>
                       </div>
                       <div className="flex items-center space-x-2">
                         <Clock className="h-4 w-4" />
-                        <span>{convert24To12Hour(session.startTime)} - {convert24To12Hour(session.endTime)}</span>
+                        <span>Check schedule for details</span>
                       </div>
                     </div>
                   </div>

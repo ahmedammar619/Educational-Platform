@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Users, Calendar, BookOpen, CheckCircle, TrendingUp, AlertCircle } from 'lucide-react';
+import { Users, Calendar, BookOpen, CheckCircle, TrendingUp, AlertCircle, Clock, Target, Award, FileText } from 'lucide-react';
 import { dashboardService } from '../../services';
-import { getMockData } from '../../data/mockData';
 
 const StudentDashboard = ({ user }) => {
   const [dashboardData, setDashboardData] = useState(null);
@@ -20,22 +19,10 @@ const StudentDashboard = ({ user }) => {
 
       // Fetch student dashboard data from backend
       const response = await dashboardService.getStudentDashboard(user.id);
-
-      // Combine backend data with mock data for components without backend
-      const combinedData = {
-        ...response,
-        // Use mock data for components without backend endpoints
-        upcomingSessions: getMockData('studentDashboard').upcomingSessions,
-        recentAssignments: getMockData('studentDashboard').recentAssignments,
-        progress: getMockData('studentDashboard').progress
-      };
-
-      setDashboardData(combinedData);
+      setDashboardData(response);
     } catch (error) {
       console.error('Failed to fetch dashboard data:', error);
-      setError('Failed to load dashboard data. Using mock data instead.');
-      // Fallback to mock data if backend fails
-      setDashboardData(getMockData('studentDashboard'));
+      setError('Failed to load dashboard data. Please try again later.');
     } finally {
       setLoading(false);
     }
@@ -68,7 +55,26 @@ const StudentDashboard = ({ user }) => {
   }
 
   // Use fallback values if backend data is missing
-  const data = dashboardData || getMockData('studentDashboard');
+  const data = dashboardData || {
+    profile: {
+      id: user?.id,
+      firstName: user?.firstName,
+      lastName: user?.lastName,
+      email: user?.email,
+      role: 'student',
+      birthdate: null,
+      age: 'N/A',
+      createdAt: null
+    },
+    stats: {
+      totalClasses: 0,
+      totalSessions: 0,
+      attendanceRate: 0
+    },
+    enrolledCourses: [],
+    upcomingClasses: [],
+    recentGrades: []
+  };
 
   // Calculate age from birthdate if available
   const calculateAge = (birthdate) => {
@@ -125,7 +131,9 @@ const StudentDashboard = ({ user }) => {
                     : user?.name || 'Student'
                   }
                 </h1>
-                <p className="text-red-100">Student • Islamic Learning Journey</p>
+                <p className="text-red-100">
+                  Student • {data.profile?.parentId ? 'Linked to Parent Account' : 'Individual Student Account'}
+                </p>
               </div>
             </div>
           </div>
@@ -158,92 +166,111 @@ const StudentDashboard = ({ user }) => {
         {/* Quick Stats */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
           <div className="bg-white rounded-lg shadow p-6 text-center">
-            <div className="text-2xl font-bold text-blue-600">{data.enrolledCourses?.length || 0}</div>
-            <div className="text-sm text-gray-600">Enrolled Classes</div>
+            <div className="flex items-center justify-center mb-2">
+              <BookOpen className="w-6 h-6 text-blue-600 mr-2" />
+            </div>
+            <div className="text-2xl font-bold text-blue-600">{data.stats?.totalClasses || 0}</div>
+            <div className="text-sm text-gray-600">Enrolled Courses</div>
           </div>
 
           <div className="bg-white rounded-lg shadow p-6 text-center">
-            <div className="text-2xl font-bold text-green-600">{data.progress?.overall || 0}%</div>
-            <div className="text-sm text-gray-600">Overall Progress</div>
+            <div className="flex items-center justify-center mb-2">
+              <Target className="w-6 h-6 text-green-600 mr-2" />
+            </div>
+            <div className="text-2xl font-bold text-green-600">{data.stats?.averageProgress || 0}%</div>
+            <div className="text-sm text-gray-600">Average Progress</div>
           </div>
 
           <div className="bg-white rounded-lg shadow p-6 text-center">
-            <div className="text-2xl font-bold text-purple-600">{data.upcomingSessions?.length || 0}</div>
-            <div className="text-sm text-gray-600">Upcoming Sessions</div>
+            <div className="flex items-center justify-center mb-2">
+              <Clock className="w-6 h-6 text-purple-600 mr-2" />
+            </div>
+            <div className="text-2xl font-bold text-purple-600">{data.stats?.attendanceRate || 0}%</div>
+            <div className="text-sm text-gray-600">Attendance Rate</div>
           </div>
 
           <div className="bg-white rounded-lg shadow p-6 text-center">
-            <div className="text-2xl font-bold text-orange-600">{data.recentAssignments?.length || 0}</div>
-            <div className="text-sm text-gray-600">Recent Assignments</div>
+            <div className="flex items-center justify-center mb-2">
+              <Award className="w-6 h-6 text-orange-600 mr-2" />
+            </div>
+            <div className={`text-2xl font-bold ${data.stats?.averageGrade >= 80 ? 'text-green-600' : data.stats?.averageGrade >= 60 ? 'text-yellow-600' : 'text-red-600'}`}>
+              {data.stats?.averageGrade || 0}%
+            </div>
+            <div className="text-sm text-gray-600">Average Grade</div>
           </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Enrolled Classes */}
-          <div>
-            <div className="bg-white rounded-lg shadow p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-semibold text-gray-900">My Classes</h2>
-                <Link
-                  to="/student/classes"
-                  className="text-blue-600 hover:text-blue-800 text-sm font-medium"
-                >
-                  View All →
-                </Link>
-              </div>
+                     {/* Enrolled Courses */}
+           <div>
+             <div className="bg-white rounded-lg shadow p-6">
+               <div className="flex items-center justify-between mb-4">
+                 <h2 className="text-xl font-semibold text-gray-900">My Courses</h2>
+                 <Link
+                   to="/student/courses"
+                   className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                 >
+                   View All →
+                 </Link>
+               </div>
 
-              {!data.enrolledCourses || data.enrolledCourses.length === 0 ? (
-                <div className="text-center py-8">
-                  <div className="text-gray-400 text-4xl mb-2">📚</div>
-                  <p className="text-gray-500 mb-4">No classes enrolled yet</p>
-                  <Link
-                    to="/student/classes"
-                    className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition-colors"
-                  >
-                    Browse Classes
-                  </Link>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {data.enrolledCourses.slice(0, 3).map((cls) => (
-                    <div key={cls.id} className="border rounded-lg p-4">
-                      <div className="flex items-center justify-between mb-2">
-                        <h3 className="font-medium text-gray-900">{cls.name}</h3>
-                        <span className="text-sm text-gray-500">{cls.teacher?.name || 'Unknown Teacher'}</span>
-                      </div>
+               {!data.enrolledCourses || data.enrolledCourses.length === 0 ? (
+                 <div className="text-center py-8">
+                   <div className="text-gray-400 text-4xl mb-2">📚</div>
+                   <p className="text-gray-500 mb-4">No courses enrolled yet</p>
+                   <Link
+                     to="/student/courses"
+                     className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition-colors"
+                   >
+                     Browse Courses
+                   </Link>
+                 </div>
+               ) : (
+                 <div className="space-y-4">
+                   {data.enrolledCourses.slice(0, 3).map((course) => (
+                     <div key={course.id} className="border rounded-lg p-4">
+                       <div className="flex items-center justify-between mb-2">
+                         <h3 className="font-medium text-gray-900">{course.name}</h3>
+                         <span className="text-sm text-gray-500">{course.teacher?.name || course.teacher?.firstName + ' ' + course.teacher?.lastName || 'Unknown Teacher'}</span>
+                       </div>
 
-                      {data.progress?.courses && data.progress.courses.find(c => c.name === cls.name) && (
-                        <div className="mb-2">
-                          <div className="flex justify-between text-sm text-gray-600 mb-1">
-                            <span>Progress</span>
-                            <span className={getProgressColor(data.progress.courses.find(c => c.name === cls.name).progress)}>
-                              {data.progress.courses.find(c => c.name === cls.name).progress}%
-                            </span>
-                          </div>
-                          <div className="w-full bg-gray-200 rounded-full h-2">
-                            <div
-                              className={`h-2 rounded-full ${getProgressBarColor(data.progress.courses.find(c => c.name === cls.name).progress)}`}
-                              style={{ width: `${data.progress.courses.find(c => c.name === cls.name).progress}%` }}
-                            ></div>
-                          </div>
+                       {data.progress?.courses && data.progress.courses.find(c => c.name === course.name) && (
+                         <div className="mb-2">
+                           <div className="flex justify-between text-sm text-gray-600 mb-1">
+                             <span>Progress</span>
+                             <span className={getProgressColor(data.progress.courses.find(c => c.name === course.name).progress)}>
+                               {data.progress.courses.find(c => c.name === course.name).progress}%
+                             </span>
+                           </div>
+                           <div className="w-full bg-gray-200 rounded-full h-2">
+                             <div
+                               className={`h-2 rounded-full ${getProgressBarColor(data.progress.courses.find(c => c.name === course.name).progress)}`}
+                               style={{ width: `${data.progress.courses.find(c => c.name === course.name).progress}%` }}
+                             ></div>
+                           </div>
+                         </div>
+                       )}
+
+                                               <div className="flex justify-between text-xs text-gray-500">
+                          <span>
+                            {course.sessions && course.sessions.length > 0 
+                              ? `${course.sessions[0].day} ${course.sessions[0].startTime}-${course.sessions[0].endTime}`
+                              : 'No sessions scheduled'
+                            }
+                          </span>
+                          <Link
+                            to={`/student/courses/${course.id}`}
+                            className="text-blue-600 hover:text-blue-800"
+                          >
+                            View Details
+                          </Link>
                         </div>
-                      )}
-
-                      <div className="flex justify-between text-xs text-gray-500">
-                        <span>Next: {cls.schedule?.[0]?.day || 'TBD'}</span>
-                        <Link
-                          to={`/student/classes/${cls.id}`}
-                          className="text-blue-600 hover:text-blue-800"
-                        >
-                          View Details
-                        </Link>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
+                     </div>
+                   ))}
+                 </div>
+               )}
+             </div>
+           </div>
 
           {/* Upcoming Sessions */}
           <div>
@@ -258,38 +285,40 @@ const StudentDashboard = ({ user }) => {
                 </Link>
               </div>
 
-              {!data.upcomingSessions || data.upcomingSessions.length === 0 ? (
-                <div className="text-center py-8">
-                  <div className="text-gray-400 text-4xl mb-2">📅</div>
-                  <p className="text-gray-500">No upcoming sessions</p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {data.upcomingSessions.slice(0, 5).map((session) => (
-                    <div key={session.id} className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
-                      <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                        <span className="text-blue-600 font-medium text-sm">📚</span>
-                      </div>
+                             {!data.enrolledCourses || data.enrolledCourses.length === 0 ? (
+                 <div className="text-center py-8">
+                   <div className="text-gray-400 text-4xl mb-2">📅</div>
+                   <p className="text-gray-500">No upcoming sessions</p>
+                 </div>
+               ) : (
+                 <div className="space-y-4">
+                   {data.enrolledCourses.slice(0, 5).map((course) => 
+                     course.sessions?.map((session, sessionIndex) => (
+                       <div key={`${course.id}-${sessionIndex}`} className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
+                         <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                           <span className="text-blue-600 font-medium text-sm">📚</span>
+                         </div>
 
-                      <div className="flex-1">
-                        <h4 className="font-medium text-gray-900">{session.courseName}</h4>
-                        <p className="text-sm text-gray-600">
-                          {session.date} at {session.startTime}
-                        </p>
-                      </div>
+                         <div className="flex-1">
+                           <h4 className="font-medium text-gray-900">{course.name}</h4>
+                           <p className="text-sm text-gray-600">
+                             {session.day} at {session.startTime}
+                           </p>
+                         </div>
 
-                      <div className="text-right">
-                        <div className="text-sm font-medium text-gray-900">
-                          {session.teacher}
-                        </div>
-                        <div className="text-xs text-gray-500">
-                          {session.startTime} - {session.endTime}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
+                         <div className="text-right">
+                           <div className="text-sm font-medium text-gray-900">
+                             {course.teacher?.name || 'Unknown Teacher'}
+                           </div>
+                           <div className="text-xs text-gray-500">
+                             {session.startTime} - {session.endTime}
+                           </div>
+                         </div>
+                       </div>
+                     ))
+                   ).flat().slice(0, 5)}
+                 </div>
+               )}
             </div>
           </div>
         </div>
