@@ -56,26 +56,55 @@ const ChildrenManagement = ({ user }) => {
       
       console.log('Processed children array:', childrenArray);
       
-      // Transform backend data to match the expected format
-      // The backend now returns full student objects with parent field
-      const transformedChildren = childrenArray.map(child => ({
-        id: child.id,
-        name: `${child.firstName} ${child.lastName}`,
-        firstName: child.firstName,
-        lastName: child.lastName,
-        email: child.email,
-        enrolled_courses: child.enrollments?.length || 0,
-        avg_progress: calculateAverageProgress(child),
-        attended_sessions: calculateAttendedSessions(child),
-        total_sessions: calculateTotalSessions(child),
-        avg_grade_percentage: calculateAverageGrade(child),
-        relationship_type: 'child', // Default relationship type
-        parent: child.parent // Include parent information if available
-      }));
+      // Fetch detailed data for each child including courses, attendance, and grades
+      const childrenWithDetails = await Promise.all(
+        childrenArray.map(async (child) => {
+          try {
+            // Fetch student's detailed dashboard data
+            const dashboardService = await import('../../services/dashboardService');
+            const studentData = await dashboardService.default.getStudentDashboard(child.id);
+            
+            return {
+              id: child.id,
+              name: `${child.firstName} ${child.lastName}`,
+              firstName: child.firstName,
+              lastName: child.lastName,
+              email: child.email,
+              parentId: child.parentId, // Include parentId for proper account type detection
+              enrolled_courses: studentData.stats?.totalClasses || 0,
+              avg_progress: studentData.stats?.averageProgress || 0,
+              attended_sessions: 0, // Will be calculated from attendance data
+              total_sessions: studentData.stats?.totalSessions || 0,
+              avg_grade_percentage: studentData.stats?.averageGrade || 0,
+              relationship_type: 'child',
+              // Include the full student data for detailed display
+              studentData: studentData
+            };
+          } catch (error) {
+            console.error(`Failed to fetch details for child ${child.id}:`, error);
+            // Return basic data if detailed fetch fails
+            return {
+              id: child.id,
+              name: `${child.firstName} ${child.lastName}`,
+              firstName: child.firstName,
+              lastName: child.lastName,
+              email: child.email,
+              parentId: child.parentId,
+              enrolled_courses: 0,
+              avg_progress: 0,
+              attended_sessions: 0,
+              total_sessions: 0,
+              avg_grade_percentage: 0,
+              relationship_type: 'child',
+              studentData: null
+            };
+          }
+        })
+      );
 
-      setChildren(transformedChildren);
-      if (transformedChildren.length > 0 && !selectedChild) {
-        setSelectedChild(transformedChildren[0]);
+      setChildren(childrenWithDetails);
+      if (childrenWithDetails.length > 0 && !selectedChild) {
+        setSelectedChild(childrenWithDetails[0]);
       }
     } catch (error) {
       console.error('Failed to fetch children:', error);
@@ -405,13 +434,13 @@ const ChildrenManagement = ({ user }) => {
                 </h2>
                 <p className="text-purple-100">{selectedChild.email}</p>
                 <p className="text-purple-100 capitalize">
-                  {selectedChild.parent ? 'Linked to Parent Account' : 'Individual Student Account'}
+                  {selectedChild.parentId ? 'Linked to Parent Account' : 'Individual Student Account'}
                 </p>
-                {selectedChild.parent && (
-                  <p className="text-purple-100 text-sm">
-                    Parent: {selectedChild.parent.firstName} {selectedChild.parent.lastName}
-                  </p>
-                )}
+                                 {selectedChild.parentId && (
+                   <p className="text-purple-100 text-sm">
+                     Parent: {user.firstName} {user.lastName}
+                   </p>
+                 )}
               </div>
             </div>
 
@@ -426,9 +455,7 @@ const ChildrenManagement = ({ user }) => {
               </div>
               <div className="text-center">
                 <p className="text-3xl font-bold">
-                  {selectedChild.total_sessions > 0
-                    ? Math.round((selectedChild.attended_sessions / selectedChild.total_sessions) * 100)
-                    : 0}%
+                  {selectedChild.studentData?.stats?.attendanceRate || 0}%
                 </p>
                 <p className="text-purple-100">Attendance Rate</p>
               </div>

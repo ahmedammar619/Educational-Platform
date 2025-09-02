@@ -32,10 +32,9 @@ class ParentsService {
   }
 
   // Create child account
-  async createChildAccount(childData) {
+  async createChildAccount(childData, parentId) {
     try {
-      const { parentId, ...childAccountData } = childData;
-      const response = await api.post(`/api/parents/${parentId}/create-child-account`, childAccountData);
+      const response = await api.post(`/api/parents/${parentId}/create-child-account`, childData);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;

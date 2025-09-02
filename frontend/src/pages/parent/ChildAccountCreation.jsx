@@ -17,6 +17,7 @@ const ChildAccountCreation = ({ user, onSuccess, onCancel }) => {
   const [errors, setErrors] = useState({});
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [successData, setSuccessData] = useState(null); // New state to hold success data
 
   // Add CSS to hide browser's default password visibility toggle
   useEffect(() => {
@@ -72,8 +73,8 @@ const ChildAccountCreation = ({ user, onSuccess, onCancel }) => {
 
     if (!formData.password) {
       newErrors.password = 'Password is required';
-    } else if (formData.password.length < 6) {
-      newErrors.password = 'Password must be at least 6 characters';
+    } else if (formData.password.length < 8) {
+      newErrors.password = 'Password must be at least 8 characters';
     }
 
     if (!formData.confirmPassword) {
@@ -103,9 +104,8 @@ const ChildAccountCreation = ({ user, onSuccess, onCancel }) => {
     const loadingToast = showLoadingToast('Creating child account...');
 
     try {
-      // Prepare data according to backend AddChildDto
+      // Prepare data according to backend CreateChildAccountDto
       const childData = {
-        parentId: user.id, // Include the parent ID
         firstName: formData.firstName,
         lastName: formData.lastName,
         email: formData.email,
@@ -114,7 +114,7 @@ const ChildAccountCreation = ({ user, onSuccess, onCancel }) => {
       };
 
       console.log('Submitting child data:', childData);
-      const response = await parentsService.createChildAccount(childData);
+      const response = await parentsService.createChildAccount(childData, user.id);
       console.log('Child account created successfully:', response);
       
       // Dismiss loading toast and show success toast
@@ -122,6 +122,7 @@ const ChildAccountCreation = ({ user, onSuccess, onCancel }) => {
       showSuccessToast(`Child account for ${formData.firstName} ${formData.lastName} created successfully!`);
       
       setSubmitStatus('success');
+              setSuccessData(response); // Store success data
       setFormData({
         firstName: '',
         lastName: '',
@@ -151,6 +152,10 @@ const ChildAccountCreation = ({ user, onSuccess, onCancel }) => {
         errorMessage = err.message;
       } else if (err.error) {
         errorMessage = err.error;
+      } else if (err.response?.data?.message) {
+        errorMessage = err.response.data.message;
+      } else if (err.response?.data?.error) {
+        errorMessage = err.response.data.error;
       }
       
       setErrors({ submit: errorMessage });
@@ -170,12 +175,23 @@ const ChildAccountCreation = ({ user, onSuccess, onCancel }) => {
         </div>
         <h3 className="text-2xl font-bold text-gray-900 mb-2">Account Created Successfully!</h3>
         <p className="text-gray-600 mb-4">
-          Your child's account has been created and linked to your parent account.
+          {successData?.message || 'Your child\'s account has been created and linked to your parent account.'}
         </p>
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
           <p className="text-sm text-blue-800">
+            <strong>Account Details:</strong><br />
+            Student ID: <span className="font-mono">{successData?.student?.id || 'N/A'}</span><br />
+            Name: <span className="font-mono">{successData?.student?.firstName} {successData?.student?.lastName}</span><br />
+            Email: <span className="font-mono">{successData?.student?.email}</span><br />
+            Birth Date: <span className="font-mono">{successData?.student?.birthDate ? new Date(successData.student.birthDate).toLocaleDateString() : 'N/A'}</span><br />
+            Parent ID: <span className="font-mono">{successData?.student?.parentId || 'N/A'}</span><br />
+            Linked to Parent: <span className="font-mono">{successData?.parent?.name || 'N/A'}</span>
+          </p>
+        </div>
+        <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
+          <p className="text-sm text-green-800">
             <strong>Login Details:</strong><br />
-            Email: <span className="font-mono">{formData.email}</span><br />
+            Email: <span className="font-mono">{successData?.student?.email || formData.email}</span><br />
             Password: <span className="font-mono">[The password you set]</span>
           </p>
         </div>
@@ -300,7 +316,7 @@ const ChildAccountCreation = ({ user, onSuccess, onCancel }) => {
                 {errors.password && (
                   <p className="text-red-500 text-sm mt-1">{errors.password}</p>
                 )}
-                <p className="text-xs text-gray-500 mt-1">Minimum 6 characters</p>
+                <p className="text-xs text-gray-500 mt-1">Minimum 8 characters</p>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">

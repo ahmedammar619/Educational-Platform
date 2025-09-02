@@ -22,9 +22,9 @@ class DashboardService {
   }
 
   // Get teacher dashboard data
-  async getTeacherDashboard() {
+  async getTeacherDashboard(teacherId) {
     try {
-      const response = await api.get('/api/dashboard/teacher');
+      const response = await api.get(`/api/dashboard/teacher?userId=${teacherId}`);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
