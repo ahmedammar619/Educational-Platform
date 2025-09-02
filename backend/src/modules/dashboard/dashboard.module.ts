@@ -9,11 +9,25 @@ import { Class } from '../classes/entities/class.entity';
 import { Course } from '../courses/entities/course.entity';
 import { Enrollment } from '../enrollments/entities/enrollment.entity';
 import { ZoomMeeting } from '../zoom/entities/zoom-meeting.entity';
+import { AssignmentSubmission } from '../materials/entities/assignment-submission.entity';
+import { Attendance } from '../materials/entities/attendance.entity';
+import { Assignment } from '../materials/entities/assignment.entity';
 import { AuthModule } from '../auth/auth.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User, Parent, Student, Class, Course, Enrollment, ZoomMeeting]),
+    TypeOrmModule.forFeature([
+      User, 
+      Parent, 
+      Student, 
+      Class, 
+      Course, 
+      Enrollment, 
+      ZoomMeeting,
+      AssignmentSubmission,
+      Attendance,
+      Assignment
+    ]),
     AuthModule
   ],
   controllers: [DashboardController],

@@ -140,6 +140,16 @@ class ParentsService {
       throw error.response?.data || error.message;
     }
   }
+
+  // Get children teachers
+  async getChildrenTeachers(parentId) {
+    try {
+      const response = await api.get(`/api/parents/${parentId}/children-teachers`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  }
 }
 
 export default new ParentsService();

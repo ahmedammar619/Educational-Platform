@@ -9,6 +9,7 @@ import { AddChildDto } from './dto/add-child.dto';
 import { CreateChildAccountDto } from './dto/create-child-account.dto';
 import { Role } from '../../common/enums/role.enum';
 import { StudentsService } from '../students/students.service';
+import { EnrollmentsService } from '../enrollments/enrollments.service';
 import * as bcrypt from 'bcryptjs';
 
 @Injectable()
@@ -19,6 +20,7 @@ export class ParentsService {
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
     private readonly studentsService: StudentsService,
+    private readonly enrollmentsService: EnrollmentsService,
   ) {}
 
   async createParent(createParentDto: CreateParentDto): Promise<Parent> {
@@ -376,6 +378,87 @@ export class ParentsService {
         totalAssignments: 0,
         completedAssignments: 0
       }
+    };
+  }
+
+  async getChildrenTeachers(parentId: string): Promise<any> {
+    // Verify parent exists
+    const parent = await this.findOne(parentId);
+    
+    if (!parent.studentIds || parent.studentIds.length === 0) {
+      return {
+        teachers: [],
+        children: []
+      };
+    }
+
+    // Get all enrollments for the parent's children
+    const teacherMap = new Map();
+    const childrenData = [];
+
+    for (const childId of parent.studentIds) {
+      // Get child's enrollments
+      const enrollments = await this.enrollmentsService.getStudentEnrollments(childId);
+      
+      // Get child user data
+      const childUser = await this.userRepository.findOne({
+        where: { id: childId },
+        select: ['id', 'firstName', 'lastName', 'email']
+      });
+
+      if (childUser) {
+        childrenData.push({
+          id: childUser.id,
+          firstName: childUser.firstName,
+          lastName: childUser.lastName,
+          email: childUser.email
+        });
+
+        // Process each enrollment to get teacher information
+        for (const enrollment of enrollments) {
+          if (enrollment.course && enrollment.course.teacher) {
+            const teacherId = enrollment.course.teacher.id;
+            
+            if (!teacherMap.has(teacherId)) {
+              teacherMap.set(teacherId, {
+                id: teacherId,
+                firstName: enrollment.course.teacher.firstName,
+                lastName: enrollment.course.teacher.lastName,
+                email: enrollment.course.teacher.email,
+                phone: enrollment.course.teacher.phone,
+                courses: [],
+                children: []
+              });
+            }
+            
+            const teacher = teacherMap.get(teacherId);
+            
+            // Add course if not already present
+            const courseExists = teacher.courses.find(c => c.id === enrollment.course.id);
+            if (!courseExists) {
+              teacher.courses.push({
+                id: enrollment.course.id,
+                name: enrollment.course.name
+              });
+            }
+            
+            // Add child if not already present
+            const childExists = teacher.children.find(c => c.id === childId);
+            if (!childExists) {
+              teacher.children.push({
+                id: childId,
+                firstName: childUser.firstName,
+                lastName: childUser.lastName
+              });
+            }
+          }
+        }
+      }
+    }
+
+    return {
+      teachers: Array.from(teacherMap.values()),
+      children: childrenData
     };
   }
 }
