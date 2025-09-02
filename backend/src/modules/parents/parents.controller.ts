@@ -240,6 +240,30 @@ export class ParentsController {
     return this.parentsService.updateParent(id, updateParentDto);
   }
 
+  @Get(':id/children-teachers')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @ApiOperation({ summary: 'Get teachers for parent children (Protected)' })
+  @ApiResponse({
+    status: 200,
+    description: 'Teachers retrieved successfully',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Parent not found',
+  })
+  async getChildrenTeachers(@Param('id') id: string, @CurrentUser() currentUser: any) {
+    // Allow parents to get teachers for their own children only
+    if (currentUser.sub !== id) {
+      throw new ForbiddenException('You can only get teachers for your own children');
+    }
+    
+    return this.parentsService.getChildrenTeachers(id);
+  }
+
   @Delete(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.Admin)

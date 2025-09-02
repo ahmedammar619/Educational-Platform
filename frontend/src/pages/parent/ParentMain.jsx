@@ -204,7 +204,7 @@ const ParentMain = ({ user, onLogout }) => {
 
           {/* Main Content - With left margin for fixed sidebar and gap */}
           <div className="flex-1 min-w-0 lg:ml-72">
-            <Routes>
+            <Routes key={location.pathname}>
               <Route path="/" element={<ParentDashboard user={user} />} />
               <Route path="/children" element={<ChildrenManagement user={user} />} />
               <Route path="/schedule" element={<ParentSchedule user={user} />} />
