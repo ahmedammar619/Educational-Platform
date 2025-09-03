@@ -19,7 +19,7 @@ export class PostAttachment {
   @Column({ name: 'fileName', type: 'varchar', length: 255 })
   fileName: string;
 
-  @Column({ name: 'filePath', type: 'varchar', length: 500 })
+  @Column({ name: 'filePath', type: 'varchar', length: 1000 })
   filePath: string;
 
   @Column({ name: 'fileSize', type: 'int' })
