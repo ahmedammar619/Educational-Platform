@@ -7,14 +7,17 @@ WORKDIR /app
 # Copy package files
 COPY package*.json ./
 
-# Install all dependencies (including dev dependencies)
-RUN npm ci --include=dev
+# Install dependencies (production only for smaller image)
+RUN npm ci --only=production
 
 # Copy source code
 COPY . .
 
-# Expose port
+# Build the application
+RUN npm run build
+
+# Expose port (Railway will set PORT env var dynamically)
 EXPOSE 3000
 
-# Start in development mode with hot reloading
-CMD ["npm", "run", "start:dev"]
+# Start in production mode
+CMD ["npm", "run", "start:prod"]

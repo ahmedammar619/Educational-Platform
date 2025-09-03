@@ -147,12 +147,19 @@ async function bootstrap() {
   });
 
   const port = configService.get('PORT', 3000);
+  
+  console.log('🔧 Environment Debug:');
+  console.log('  PORT from env:', process.env.PORT);
+  console.log('  PORT from config:', port);
+  console.log('  NODE_ENV:', process.env.NODE_ENV);
+  
   await app.listen(port, '0.0.0.0');
 
   console.log('🚀 Educational Platform API Started');
-  console.log('📍 Server running on port ' + port);
+  console.log('📍 Server running on port ' + port + ' (0.0.0.0)');
   console.log('📚 API Documentation: http://localhost:' + port + '/api/docs');
   console.log('🔐 API endpoints: http://localhost:' + port + '/api');
+  console.log('🌐 External access: https://backend-production-ece4.up.railway.app/api');
   console.log('─'.repeat(50));
   
 }
