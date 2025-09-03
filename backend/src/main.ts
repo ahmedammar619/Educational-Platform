@@ -39,10 +39,7 @@ async function bootstrap() {
   // Global prefix
   app.setGlobalPrefix('api');
 
-  // Static file serving for uploads
-  app.useStaticAssets(join(__dirname, '..', 'uploads'), {
-    prefix: '/uploads/',
-  });
+  // Note: Files are now served from Cloudflare R2, no local static serving needed
 
   // Security Headers
   app.use(helmet());

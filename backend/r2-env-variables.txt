@@ -1,0 +1,12 @@
+# Add these environment variables to your Railway backend service:
+
+R2_BUCKET_NAME=baraem
+R2_REGION=weur
+R2_ENDPOINT=https://9f7f3b84be13f9cfee5aa178acad1d08.r2.cloudflarestorage.com
+R2_ACCESS_KEY_ID=m4QG6AZPRIB_xqmYUn_yj5RYCQIlL2jncuz-AN9z
+R2_SECRET_ACCESS_KEY=89deb69b386ac3aa2ab79bcd3769086fd3c055b3612af0d54b299d55438bd547
+R2_PUBLIC_URL=https://9f7f3b84be13f9cfee5aa178acad1d08.r2.cloudflarestorage.com/baraem
+
+# File Upload Configuration (optional - these have defaults)
+MAX_FILE_SIZE=104857600
+ALLOWED_EXTENSIONS=.pdf,.doc,.docx,.xls,.xlsx,.txt,.csv,.jpg,.jpeg,.png,.gif,.webp,.svg,.mp4,.webm,.ogg,.avi,.mov,.mp3,.wav,.ogg,.m4a,.zip,.rar,.7z,.tar,.gz

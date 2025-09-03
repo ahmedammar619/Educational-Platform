@@ -23,7 +23,7 @@ export class File {
   @Column({ length: 255 })
   fileName: string;
 
-  @Column({ length: 500 })
+  @Column({ length: 1000 })
   filePath: string;
 
   @Column('int')
