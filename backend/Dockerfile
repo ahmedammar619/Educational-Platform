@@ -7,14 +7,17 @@ WORKDIR /app
 # Copy package files
 COPY package*.json ./
 
-# Install dependencies (production only for smaller image)
-RUN npm ci --only=production
+# Install all dependencies (including dev dependencies for build)
+RUN npm ci --include=dev
 
 # Copy source code
 COPY . .
 
 # Build the application
 RUN npm run build
+
+# Remove dev dependencies after build to reduce image size
+RUN npm ci --only=production && npm cache clean --force
 
 # Expose port (Railway will set PORT env var dynamically)
 EXPOSE 3000
