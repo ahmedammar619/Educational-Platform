@@ -13,6 +13,16 @@ import { NestExpressApplication } from '@nestjs/platform-express';
 import { join } from 'path';
 
 async function bootstrap() {
+  console.log('🚀 Starting Educational Platform API...');
+  console.log('🔧 Environment Check:');
+  console.log('  NODE_ENV:', process.env.NODE_ENV);
+  console.log('  PORT:', process.env.PORT);
+  console.log('  DB_HOST:', process.env.DB_HOST);
+  console.log('  DB_PORT:', process.env.DB_PORT);
+  console.log('  DB_DATABASE:', process.env.DB_DATABASE);
+  console.log('  JWT_SECRET:', process.env.JWT_SECRET ? 'SET' : 'NOT SET');
+  console.log('  DB_PASSWORD:', process.env.DB_PASSWORD ? 'SET' : 'NOT SET');
+  
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
   const configService = app.get(ConfigService);
 
@@ -20,9 +30,11 @@ async function bootstrap() {
   const requiredEnvVars = ['JWT_SECRET', 'DB_PASSWORD'];
   for (const envVar of requiredEnvVars) {
     if (!process.env[envVar]) {
+      console.error(`❌ Missing required environment variable: ${envVar}`);
       throw new Error(`Missing required environment variable: ${envVar}`);
     }
   }
+  console.log('✅ All required environment variables are set');
 
   // Global prefix
   app.setGlobalPrefix('api');
@@ -154,7 +166,14 @@ async function bootstrap() {
   console.log('  NODE_ENV:', process.env.NODE_ENV);
   console.log('  All env vars:', Object.keys(process.env).filter(key => key.includes('PORT') || key.includes('DB') || key.includes('JWT')));
   
-  await app.listen(port, '0.0.0.0');
+  try {
+    console.log('🌐 Starting server on port', port, 'with host 0.0.0.0...');
+    await app.listen(port, '0.0.0.0');
+    console.log('✅ Server started successfully!');
+  } catch (error) {
+    console.error('❌ Failed to start server:', error);
+    throw error;
+  }
 
   console.log('🚀 Educational Platform API Started');
   console.log('📍 Server running on port ' + port + ' (0.0.0.0)');
