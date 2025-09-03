@@ -133,6 +133,13 @@ const TeacherClasses = ({ user }) => {
     );
   };
 
+  const handleWhatsAppClick = (phone, contactName) => {
+    // Remove any non-digit characters except + for international format
+    const cleanPhone = phone.replace(/[^\d+]/g, '');
+    const whatsappUrl = `https://wa.me/${cleanPhone}`;
+    window.open(whatsappUrl, '_blank');
+  };
+
   return (
     <div className="space-y-4 sm:space-y-6 h-full">
       {!showMaterialPages ? (
@@ -313,6 +320,13 @@ const StudentModal = ({ classData, onClose }) => {
   const [students, setStudents] = useState([]);
   const [loadingStudents, setLoadingStudents] = useState(true);
 
+  const handleWhatsAppClick = (phone, contactName) => {
+    // Remove any non-digit characters except + for international format
+    const cleanPhone = phone.replace(/[^\d+]/g, '');
+    const whatsappUrl = `https://wa.me/${cleanPhone}`;
+    window.open(whatsappUrl, '_blank');
+  };
+
   useEffect(() => {
     loadStudents();
   }, [classData]);
@@ -386,7 +400,8 @@ const StudentModal = ({ classData, onClose }) => {
         firstName: parentData.firstName || (parentData.name ? parentData.name.split(' ')[0] : 'Unknown'),
         lastName: parentData.lastName || (parentData.name ? parentData.name.split(' ')[1] || '' : 'Parent'),
         fullName: parentData.fullName || parentData.name || `${parentData.firstName || 'Unknown'} ${parentData.lastName || 'Parent'}`,
-        email: parentData.email || 'unknown@example.com'
+        email: parentData.email || 'unknown@example.com',
+        phone: parentData.phone || parentData.phoneNumber || null
       };
     } catch (error) {
       console.error('Error fetching parent details:', error);
@@ -395,7 +410,8 @@ const StudentModal = ({ classData, onClose }) => {
         firstName: 'Unknown',
         lastName: 'Parent',
         fullName: 'Unknown Parent',
-        email: 'unknown@example.com'
+        email: 'unknown@example.com',
+        phone: null
       };
     }
   };
@@ -424,7 +440,8 @@ const StudentModal = ({ classData, onClose }) => {
               firstName: student.parent.firstName || 'Unknown',
               lastName: student.parent.lastName || 'Parent',
               fullName: `${student.parent.firstName || 'Unknown'} ${student.parent.lastName || 'Parent'}`,
-              email: student.parent.email || 'unknown@example.com'
+              email: student.parent.email || 'unknown@example.com',
+              phone: student.parent.phone || student.parent.phoneNumber || null
             };
           } else {
             // Fetch parent details from API
@@ -584,7 +601,19 @@ const StudentModal = ({ classData, onClose }) => {
                         <p className="text-xs sm:text-sm text-blue-700">{group.parent.email}</p>
                       </div>
                       <div className="flex items-center gap-2">
-                        <button className="text-green-600 hover:text-green-900 text-xs sm:text-sm font-medium px-3 py-2 rounded-lg hover:bg-green-50 transition-colors">
+                        <button 
+                          onClick={() => {
+                            const phoneNumber = group.parent.phone || group.parent.phoneNumber;
+                            if (phoneNumber) {
+                              handleWhatsAppClick(phoneNumber, `${group.parent.firstName} ${group.parent.lastName}`);
+                            } else {
+                              // Fallback to email if no phone number
+                              const emailUrl = `mailto:${group.parent.email}`;
+                              window.open(emailUrl, '_blank');
+                            }
+                          }}
+                          className="text-green-600 hover:text-green-900 text-xs sm:text-sm font-medium px-3 py-2 rounded-lg hover:bg-green-50 transition-colors"
+                        >
                           <MessageSquare className="h-4 w-4 inline mr-1" />
                           Contact Parent
                         </button>
@@ -634,9 +663,30 @@ const StudentModal = ({ classData, onClose }) => {
 
                         {/* Show contact button for individual students */}
                         {group.isIndividual && (
-                          <button className="text-green-600 hover:text-green-900 text-xs sm:text-sm font-medium px-3 py-2 rounded-lg hover:bg-green-50 transition-colors">
+                          <button 
+                            onClick={() => {
+                              // For individual students, try to get phone number from various sources
+                              const student = group.students[0];
+                              
+                              // Check multiple sources for phone number
+                              const phoneNumber = student.phone || 
+                                                  student.phoneNumber || 
+                                                  student.user?.phone || 
+                                                  student.user?.phoneNumber ||
+                                                  student.parent?.phone || 
+                                                  student.parent?.phoneNumber;
+                              
+                              if (phoneNumber) {
+                                handleWhatsAppClick(phoneNumber, getStudentDisplayName(student));
+                              } else {
+                                // If no phone number found, show alert
+                                alert('No phone number available for this student. Please contact them via email.');
+                              }
+                            }}
+                            className="text-green-600 hover:text-green-900 text-xs sm:text-sm font-medium px-3 py-2 rounded-lg hover:bg-green-50 transition-colors"
+                          >
                             <MessageSquare className="h-4 w-4 inline mr-1" />
-                            Contact
+                            Contact Student
                           </button>
                         )}
                       </div>

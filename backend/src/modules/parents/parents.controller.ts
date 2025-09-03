@@ -135,6 +135,33 @@ export class ParentsController {
     return { children };
   }
 
+  @Get(':id/children-detailed')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @ApiOperation({ summary: 'Get parent children with detailed information (Protected)' })
+  @ApiResponse({
+    status: 200,
+    description: 'Children with detailed information retrieved successfully',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Parent not found',
+  })
+  async getChildrenDetailed(
+    @Param('id') id: string,
+    @CurrentUser() currentUser: any
+  ) {
+    // Allow parents to view their own children or admins
+    if (currentUser.sub !== id && currentUser.role !== Role.Admin) {
+      throw new ForbiddenException('You do not have permission to view this parent');
+    }
+    const children = await this.parentsService.getChildrenDetailed(id);
+    return { children };
+  }
+
   @Post(':id/create-child-account')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.Parent)
