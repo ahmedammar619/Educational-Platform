@@ -146,12 +146,13 @@ async function bootstrap() {
     `,
   });
 
-  const port = configService.get('PORT', 3000);
+  const port = process.env.PORT || 3000;
   
   console.log('🔧 Environment Debug:');
   console.log('  PORT from env:', process.env.PORT);
-  console.log('  PORT from config:', port);
+  console.log('  PORT used:', port);
   console.log('  NODE_ENV:', process.env.NODE_ENV);
+  console.log('  All env vars:', Object.keys(process.env).filter(key => key.includes('PORT') || key.includes('DB') || key.includes('JWT')));
   
   await app.listen(port, '0.0.0.0');
 
