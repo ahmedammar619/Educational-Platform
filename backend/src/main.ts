@@ -50,16 +50,23 @@ async function bootstrap() {
   app.use(helmet.hsts(securityConfig.headers.helmet.hsts));
 
   // Enhanced CORS configuration
+  const allowedOrigins = process.env.FRONTEND_URL 
+    ? process.env.FRONTEND_URL.split(',').map(url => url.trim())
+    : [
+        'http://localhost:3000',
+        'http://localhost:5173',
+        'http://localhost:3001',
+        'http://127.0.0.1:3000',
+        'http://127.0.0.1:5173'
+      ];
+
+  // Always include the frontend Railway URL as fallback
+  if (!allowedOrigins.includes('https://frontend-production-3cbc.up.railway.app')) {
+    allowedOrigins.push('https://frontend-production-3cbc.up.railway.app');
+  }
+
   const corsConfig = {
-    origin: process.env.FRONTEND_URL 
-      ? process.env.FRONTEND_URL.split(',').map(url => url.trim())
-      : [
-          'http://localhost:3000',
-          'http://localhost:5173',
-          'http://localhost:3001',
-          'http://127.0.0.1:3000',
-          'http://127.0.0.1:5173'
-        ],
+    origin: allowedOrigins,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
