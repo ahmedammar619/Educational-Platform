@@ -23,6 +23,7 @@ import { Enrollment } from './modules/enrollments/entities/enrollment.entity';
 import { WebhookEvent } from './modules/payments/entities/webhook-event.entity';
 import { Invoice } from './modules/payments/entities/invoice.entity';
 import { Subscription } from './modules/payments/entities/subscription.entity';
+import { ZoomMeeting } from './modules/zoom/entities/zoom-meeting.entity';
 
 export const AppDataSource = new DataSource({
   type: 'postgres',
@@ -31,7 +32,7 @@ export const AppDataSource = new DataSource({
   username: process.env.DB_USERNAME || 'postgres',
   password: process.env.DB_PASSWORD || 'password',
   database: process.env.DB_DATABASE || 'education_dev_db',
-  synchronize: process.env.DB_SYNC === 'true',
+  synchronize: process.env.NODE_ENV !== 'production' && process.env.DB_SYNC === 'true',
   logging: process.env.DB_LOGGING === 'true',
   entities: [
     User, 
@@ -50,9 +51,11 @@ export const AppDataSource = new DataSource({
     Enrollment,
     WebhookEvent,
     Invoice,
-    Subscription
+    Subscription,
+    ZoomMeeting
   ],
-  migrations: ['src/migrations/*.ts'],
+  migrations: process.env.NODE_ENV === 'production' ? ['dist/migrations/*.js'] : ['src/migrations/*.ts'],
+  migrationsRun: process.env.NODE_ENV === 'production',
   subscribers: [],
   ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
   extra: {
