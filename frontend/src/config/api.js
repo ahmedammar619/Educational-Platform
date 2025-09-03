@@ -7,7 +7,7 @@ console.log('  All env vars:', import.meta.env);
 export const API_CONFIG = {
   // Base URL for API calls
   // You can change this to match your backend URL
-  BASE_URL: import.meta.env.VITE_API_URL || 'http://localhost:3000',
+  BASE_URL: import.meta.env.VITE_API_URL || 'https://backend-production-ece4.up.railway.app',
   
   // API endpoints
   ENDPOINTS: {
