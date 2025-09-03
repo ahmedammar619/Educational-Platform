@@ -4,6 +4,7 @@ import { Repository, IsNull } from 'typeorm';
 import { unlink, mkdir, writeFile } from 'fs/promises';
 import * as fs from 'fs';
 import * as path from 'path';
+import { R2FileService } from '../../common/services/r2-file.service';
 import { Post } from './entities/post.entity';
 import { PostAttachment } from './entities/post-attachment.entity';
 import { Folder } from './entities/folder.entity';
@@ -43,6 +44,7 @@ export class MaterialsService {
     private readonly courseRepository: Repository<Course>,
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
+    private readonly r2FileService: R2FileService,
   ) {}
 
   // Posts
@@ -458,7 +460,7 @@ export class MaterialsService {
   }
 
   async uploadFile(courseId: string, file: Express.Multer.File, folderId?: string, userId?: string): Promise<File> {
-    console.log('📁 Service - Starting file upload:', {
+    console.log('📁 Service - Starting R2 file upload:', {
       courseId,
       fileName: file?.originalname,
       fileSize: file?.size,
@@ -485,14 +487,6 @@ export class MaterialsService {
       });
       if (!folder) {
         console.log('❌ Service - Folder not found:', { folderId, courseId });
-        // Let's also check if the folder exists at all
-        const anyFolder = await this.folderRepository.findOne({
-          where: { id: folderId }
-        });
-        console.log('🔍 Service - Folder exists in database:', !!anyFolder);
-        if (anyFolder) {
-          console.log('🔍 Service - Folder belongs to course:', anyFolder.courseId);
-        }
         throw new BadRequestException('Folder not found or does not belong to this course');
       }
       console.log('✅ Service - Folder found:', { name: folder.name, id: folder.id, courseId: folder.courseId });
@@ -500,65 +494,44 @@ export class MaterialsService {
       console.log('📁 Service - No folderId provided, uploading to root level');
     }
 
-    // Generate unique filename using the same pattern as PostsTab
-    const unique = Date.now() + "-" + Math.round(Math.random() * 1e9);
-    const ext = path.extname(file.originalname);
-    const baseName = path.basename(file.originalname, ext);
-    const fileName = `${baseName}-${unique}${ext}`;
-    
-    console.log('📁 Service - Generated filename:', fileName);
-    
-    // Create organized folder structure: uploads/Grade/Course/files/ (same as PostsTab)
-    const gradeName = course?.class?.name || 'Default-Grade';
-    const courseName = course?.name || 'Default-Course';
-    const uploadsDir = path.join(process.cwd(), 'uploads', gradeName, courseName, 'files');
-    
-    console.log('📁 Service - Upload directory:', uploadsDir);
-    
-    // Ensure directory exists (same logic as PostsTab)
-    const fs = require('fs');
-    if (!fs.existsSync(uploadsDir)) {
-      fs.mkdirSync(uploadsDir, { recursive: true });
-      console.log('📁 Service - Created directory:', uploadsDir);
+    try {
+      // Upload file to R2
+      console.log('☁️ Service - Uploading to R2...');
+      const uploadResult = await this.r2FileService.uploadFile(file, courseId, userId, folderId);
+      
+      console.log('✅ Service - R2 upload successful:', {
+        fileName: uploadResult.fileName,
+        fileUrl: uploadResult.fileUrl,
+        fileSize: uploadResult.fileSize
+      });
+
+      // Create file entity with R2 URL
+      const fileEntity = this.fileRepository.create({
+        fileName: uploadResult.fileName,
+        filePath: uploadResult.fileUrl, // Store R2 URL instead of local path
+        fileSize: uploadResult.fileSize,
+        mimeType: uploadResult.mimeType,
+        courseId,
+        folderId,
+        uploadedBy: userId
+      });
+
+      console.log('📁 Service - Creating file entity:', {
+        fileName: fileEntity.fileName,
+        filePath: fileEntity.filePath,
+        courseId: fileEntity.courseId,
+        folderId: fileEntity.folderId,
+        uploadedBy: fileEntity.uploadedBy
+      });
+
+      const savedFile = await this.fileRepository.save(fileEntity);
+      console.log('✅ Service - File saved successfully:', savedFile.id);
+      
+      return savedFile;
+    } catch (error) {
+      console.error('❌ Service - R2 upload failed:', error);
+      throw new BadRequestException(`File upload failed: ${error.message}`);
     }
-    
-    const filePath = path.join(uploadsDir, fileName);
-    
-    // Write file to disk (same as PostsTab)
-    fs.writeFileSync(filePath, file.buffer);
-    console.log('📁 Service - File saved to:', filePath);
-    
-    // Create relative path from uploads folder (same as PostsTab)
-    const relativePath = path.join(gradeName, courseName, 'files', fileName);
-
-    const fileEntity = this.fileRepository.create({
-      fileName: fileName,
-      filePath: relativePath,
-      fileSize: file.size,
-      mimeType: file.mimetype,
-      courseId,
-      folderId,
-      uploadedBy: userId
-    });
-
-    console.log('📁 Service - Creating file entity:', {
-      fileName: fileEntity.fileName,
-      filePath: fileEntity.filePath,
-      courseId: fileEntity.courseId,
-      folderId: fileEntity.folderId,
-      uploadedBy: fileEntity.uploadedBy
-    });
-
-    const savedFile = await this.fileRepository.save(fileEntity);
-    console.log('✅ Service - File saved successfully:', savedFile.id);
-    
-    // Verify the file was saved by querying the database directly (same as PostsTab)
-    const verifyFile = await this.fileRepository.findOne({
-      where: { id: savedFile.id }
-    });
-    console.log('📁 Service - Verification - file in database:', verifyFile);
-    
-    return savedFile;
   }
 
   async getCourseFolders(courseId: string): Promise<Folder[]> {
