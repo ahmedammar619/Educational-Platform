@@ -74,55 +74,39 @@ export class MaterialsService {
       if (file) {
         console.log('Creating post attachment for file:', file.originalname);
         
-        // Get course information for folder structure
-        const courseInfo = await this.courseRepository.findOne({ 
-          where: { id: courseId },
-          relations: ['class']
-        });
-        
-        // Generate unique filename using your old project pattern
-        const unique = Date.now() + "-" + Math.round(Math.random() * 1e9);
-        const ext = path.extname(file.originalname);
-        const baseName = path.basename(file.originalname, ext);
-        const fileName = `${baseName}-${unique}${ext}`;
-        
-        // Create organized folder structure: uploads/Grade/Course/posts/
-        const gradeName = courseInfo?.class?.name || 'Default-Grade';
-        const courseName = courseInfo?.name || 'Default-Course';
-        const uploadsDir = path.join(process.cwd(), 'uploads', gradeName, courseName, 'posts');
-        
-        // Ensure directory exists
-        const fs = require('fs');
-        if (!fs.existsSync(uploadsDir)) {
-          fs.mkdirSync(uploadsDir, { recursive: true });
+        try {
+          // Upload file to R2
+          console.log('☁️ Service - Uploading post attachment to R2...');
+          const uploadResult = await this.r2FileService.uploadFile(file, courseId, authorId, 'posts');
+          
+          console.log('✅ Service - R2 upload successful for post attachment:', {
+            fileName: uploadResult.fileName,
+            fileUrl: uploadResult.fileUrl,
+            fileSize: uploadResult.fileSize
+          });
+
+          // Create attachment record with R2 URL
+          const attachment = this.postAttachmentRepository.create({
+            postId: savedPost.id,
+            fileName: uploadResult.fileName,
+            filePath: uploadResult.fileUrl, // Store R2 URL instead of local path
+            fileSize: uploadResult.fileSize,
+            mimeType: uploadResult.mimeType
+          });
+          
+          console.log('Creating attachment record:', attachment);
+          const savedAttachment = await this.postAttachmentRepository.save(attachment);
+          console.log('Post attachment created successfully:', savedAttachment);
+          
+          // Verify the attachment was saved by querying the database directly
+          const verifyAttachment = await this.postAttachmentRepository.findOne({
+            where: { id: savedAttachment.id }
+          });
+          console.log('Verification - attachment in database:', verifyAttachment);
+        } catch (error) {
+          console.error('❌ Service - R2 upload failed for post attachment:', error);
+          throw new BadRequestException(`Post attachment upload failed: ${error.message}`);
         }
-        
-        const filePath = path.join(uploadsDir, fileName);
-        
-        // Write file to disk
-        fs.writeFileSync(filePath, file.buffer);
-        
-        console.log('File saved to:', filePath);
-        
-        // Create attachment record - store relative path from uploads folder
-        const relativePath = path.join(gradeName, courseName, 'posts', fileName);
-        const attachment = this.postAttachmentRepository.create({
-          postId: savedPost.id,
-          fileName: fileName, // Store only filename
-          filePath: relativePath, // Store relative path from uploads folder
-          fileSize: file.size,
-          mimeType: file.mimetype
-        });
-        
-        console.log('Creating attachment record:', attachment);
-        const savedAttachment = await this.postAttachmentRepository.save(attachment);
-        console.log('Post attachment created successfully:', savedAttachment);
-        
-        // Verify the attachment was saved by querying the database directly
-        const verifyAttachment = await this.postAttachmentRepository.findOne({
-          where: { id: savedAttachment.id }
-        });
-        console.log('Verification - attachment in database:', verifyAttachment);
       }
       
       return savedPost;
