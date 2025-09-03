@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Parent } from './entities/parent.entity';
 import { User } from '../users/entities/user.entity';
+import { Class } from '../classes/entities/class.entity';
 import { CreateParentDto } from './dto/create-parent.dto';
 import { UpdateParentDto } from './dto/update-parent.dto';
 import { AddChildDto } from './dto/add-child.dto';
@@ -19,6 +20,8 @@ export class ParentsService {
     private readonly parentRepository: Repository<Parent>,
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
+    @InjectRepository(Class)
+    private readonly classRepository: Repository<Class>,
     private readonly studentsService: StudentsService,
     private readonly enrollmentsService: EnrollmentsService,
   ) {}
@@ -221,6 +224,83 @@ export class ParentsService {
         select: ['id', 'firstName', 'lastName', 'email', 'role', 'createdAt']
       });
       return students;
+    }
+    
+    return [];
+  }
+
+  async getChildrenDetailed(parentId: string): Promise<any[]> {
+    const parent = await this.findOne(parentId);
+    
+    if (parent.studentIds && parent.studentIds.length > 0) {
+      // Fetch detailed student information including class data
+      const detailedChildren = await Promise.all(
+        parent.studentIds.map(async (studentId) => {
+          try {
+            // Get full student entity with user data
+            const student = await this.studentsService.findOne(studentId);
+            
+            // Calculate age from birthDate
+            let age = null;
+            if (student.birthDate) {
+              const birthDate = new Date(student.birthDate);
+              const today = new Date();
+              age = today.getFullYear() - birthDate.getFullYear();
+              const monthDiff = today.getMonth() - birthDate.getMonth();
+              if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+                age--;
+              }
+            }
+
+            // Get class information if classId exists
+            let classInfo = null;
+            if (student.classId) {
+              try {
+                                 classInfo = await this.classRepository.findOne({
+                   where: { id: student.classId },
+                   select: ['id', 'name']
+                 });
+              } catch (error) {
+                console.error(`Failed to fetch class info for classId ${student.classId}:`, error);
+              }
+            }
+
+            return {
+              id: student.id,
+              firstName: student.user.firstName,
+              lastName: student.user.lastName,
+              email: student.user.email,
+              birthDate: student.birthDate,
+              age: age,
+              classId: student.classId,
+                             className: classInfo?.name || 'Not specified',
+              parentId: student.parentId,
+              accountType: student.parentId ? 'Linked to Parent Account' : 'Individual Student Account',
+              createdAt: student.user.createdAt
+            };
+          } catch (error) {
+            console.error(`Failed to fetch detailed info for student ${studentId}:`, error);
+            // Return basic info if detailed fetch fails
+            const basicStudent = await this.userRepository.findOne({
+              where: { id: studentId },
+              select: ['id', 'firstName', 'lastName', 'email', 'role', 'createdAt']
+            });
+            
+            return {
+              id: basicStudent?.id,
+              firstName: basicStudent?.firstName,
+              lastName: basicStudent?.lastName,
+              email: basicStudent?.email,
+              age: null,
+              className: 'Not specified',
+              accountType: 'Unknown',
+              createdAt: basicStudent?.createdAt
+            };
+          }
+        })
+      );
+      
+      return detailedChildren;
     }
     
     return [];

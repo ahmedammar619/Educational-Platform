@@ -11,6 +11,16 @@ class StudentsService {
     }
   }
 
+  // Get student by ID
+  async getStudentById(studentId) {
+    try {
+      const response = await api.get(`/api/students/${studentId}`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  }
+
   // Get student profile
   async getStudentProfile() {
     try {

@@ -31,6 +31,16 @@ class ParentsService {
     }
   }
 
+  // Get parent's children with detailed information
+  async getMyChildrenDetailed(parentId) {
+    try {
+      const response = await api.get(`/api/parents/${parentId}/children-detailed`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  }
+
   // Create child account
   async createChildAccount(childData, parentId) {
     try {
