@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Edit, Trash2, Users, Calendar, DollarSign, BookOpen, Search, Filter, User, X, ChevronDown, ChevronRight, UserMinus } from 'lucide-react';
+import { Plus, Edit, Trash2, Users, Calendar, DollarSign, BookOpen, Search, Filter, User, X, ChevronDown, ChevronRight, UserMinus, ArrowUp } from 'lucide-react';
 import { classesService, usersService, coursesService } from '../../services';
 import { showErrorToast, showSuccessToast, getErrorMessage } from '../../utils/errorHandler';
 
@@ -25,6 +25,7 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
   const [showEditCourseModal, setShowEditCourseModal] = useState(false);
   const [showEnrollModal, setShowEnrollModal] = useState(false);
   const [showRemoveStudentModal, setShowRemoveStudentModal] = useState(false);
+  const [showLevelUpModal, setShowLevelUpModal] = useState(false);
   const [selectedClass, setSelectedClass] = useState(null);
   const [selectedCourse, setSelectedCourse] = useState(null);
   const [isCreatingCourse, setIsCreatingCourse] = useState(false);
@@ -311,6 +312,27 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
     }
   };
 
+  const handleLevelUpStudents = async (fromClassId, studentIds, toClassId) => {
+    try {
+      // First, remove students from the current class
+      for (const studentId of studentIds) {
+        await classesService.removeStudentFromClass(fromClassId, studentId);
+      }
+      
+      // Then, enroll them in the new class
+      await classesService.enrollStudents(toClassId, studentIds);
+      
+      // Reload classes to get updated student counts
+      await loadClasses();
+      setShowLevelUpModal(false);
+      setSelectedClass(null);
+      showSuccessToast(`${studentIds.length} student(s) moved to new class successfully!`);
+    } catch (error) {
+      console.error('Error leveling up students:', error);
+      showErrorToast(error, 'Failed to move students. Please try again.');
+    }
+  };
+
   return (
     <div className="space-y-4 sm:space-y-6 h-full">
       {/* Header */}
@@ -390,6 +412,17 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
                         disabled={!classItem.students || classItem.students.length === 0}
                       >
                         <UserMinus className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={() => {
+                          setSelectedClass(classItem);
+                          setShowLevelUpModal(true);
+                        }}
+                        className="text-purple-600 hover:text-purple-800 p-2 rounded-lg hover:bg-purple-50 transition-colors"
+                        title="Level Up Students"
+                        disabled={!classItem.students || classItem.students.length === 0}
+                      >
+                        <ArrowUp className="h-4 w-4" />
                       </button>
                       <button
                         onClick={() => {
@@ -676,6 +709,18 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
             setSelectedClass(null);
           }}
           onRemove={(studentId) => handleRemoveStudent(selectedClass.id, studentId)}
+        />
+      )}
+
+      {/* Level Up Students Modal */}
+      {showLevelUpModal && selectedClass && (
+        <LevelUpModal
+          classData={selectedClass}
+          onClose={() => {
+            setShowLevelUpModal(false);
+            setSelectedClass(null);
+          }}
+          onSubmit={(studentIds, toClassId) => handleLevelUpStudents(selectedClass.id, studentIds, toClassId)}
         />
       )}
     </div>
@@ -1551,6 +1596,250 @@ const RemoveStudentModal = ({ classData, onClose, onRemove }) => {
                   className="px-3 sm:px-4 py-2 border-2 border-red-600 text-red-600 rounded-md hover:bg-red-500 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 text-sm"
                 >
                   Remove Students
+                </button>
+              </div>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Level Up Students Modal Component
+const LevelUpModal = ({ classData, onClose, onSubmit }) => {
+  const [selectedStudents, setSelectedStudents] = useState([]);
+  const [selectedTargetClass, setSelectedTargetClass] = useState('');
+  const [enrolledStudents, setEnrolledStudents] = useState([]);
+  const [availableClasses, setAvailableClasses] = useState([]);
+  const [loadingStudents, setLoadingStudents] = useState(true);
+  const [loadingClasses, setLoadingClasses] = useState(true);
+
+  useEffect(() => {
+    loadEnrolledStudents();
+    loadAvailableClasses();
+  }, []);
+
+  const loadEnrolledStudents = async () => {
+    try {
+      setLoadingStudents(true);
+      const response = await usersService.getAllStudents();
+      
+      // Handle different response formats - extract students array
+      let studentsArray = [];
+      if (response && response.students && Array.isArray(response.students)) {
+        studentsArray = response.students;
+      } else if (Array.isArray(response)) {
+        studentsArray = response;
+      }
+      
+      // Filter only students enrolled in this class
+      const enrolledInClass = studentsArray.filter(student => 
+        student.classId === classData.id
+      );
+      
+      // Map student data to include user properties at the top level
+      const mappedStudents = enrolledInClass.map(student => ({
+        id: student.id,
+        firstName: student.user?.firstName,
+        lastName: student.user?.lastName,
+        email: student.user?.email,
+        fullName: student.user?.fullName || (student.user?.firstName && student.user?.lastName ? `${student.user.firstName} ${student.user.lastName}` : null),
+        birthDate: student.birthDate,
+        parentId: student.parentId,
+        classId: student.classId,
+        role: student.user?.role
+      }));
+      
+      setEnrolledStudents(mappedStudents);
+    } catch (error) {
+      console.error('Error loading enrolled students:', error);
+      setEnrolledStudents([]);
+      showErrorToast(error, 'Failed to load enrolled students. Please try again.');
+    } finally {
+      setLoadingStudents(false);
+    }
+  };
+
+  const loadAvailableClasses = async () => {
+    try {
+      setLoadingClasses(true);
+      const classesData = await classesService.getAllClasses();
+      
+      // Handle different response formats - convert object to array if needed
+      let classesArray = [];
+      if (Array.isArray(classesData)) {
+        classesArray = classesData;
+      } else if (classesData && typeof classesData === 'object') {
+        classesArray = Object.values(classesData).filter(item => 
+          item && typeof item === 'object' && item.id && !item._rateLimitInfo
+        );
+      }
+      
+      // Filter out the current class and sort by name
+      const availableClasses = classesArray
+        .filter(classItem => classItem.id !== classData.id)
+        .sort((a, b) => a.name.localeCompare(b.name));
+      
+      setAvailableClasses(availableClasses);
+    } catch (error) {
+      console.error('Error loading classes:', error);
+      setAvailableClasses([]);
+      showErrorToast(error, 'Failed to load available classes. Please try again.');
+    } finally {
+      setLoadingClasses(false);
+    }
+  };
+
+  const handleStudentToggle = (studentId) => {
+    setSelectedStudents(prev =>
+      prev.includes(studentId)
+        ? prev.filter(id => id !== studentId)
+        : [...prev, studentId]
+    );
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (selectedStudents.length === 0) {
+      alert('Please select at least one student to level up');
+      return;
+    }
+    if (!selectedTargetClass) {
+      alert('Please select a target class');
+      return;
+    }
+    
+    // Confirm level up
+    const confirmMessage = `Are you sure you want to move ${selectedStudents.length} student(s) from "${classData.name}" to the selected class?`;
+    if (window.confirm(confirmMessage)) {
+      onSubmit(selectedStudents, selectedTargetClass);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50" style={{margin: '0px'}}>
+      <div className="relative top-4 sm:top-20 mx-auto p-4 sm:p-5 border w-11/12 sm:w-2/3 max-w-2xl shadow-lg rounded-md bg-white">
+        <div className="mt-3">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-base sm:text-lg font-medium text-gray-900">
+              Level Up Students from {classData.name}
+            </h3>
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100 transition-colors"
+            >
+              <span className="sr-only">Close</span>
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+
+          <form onSubmit={handleSubmit}>
+            {/* Target Class Selection */}
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Select Target Class
+              </label>
+              {loadingClasses ? (
+                <div className="px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-sm text-gray-500">
+                  Loading classes...
+                </div>
+              ) : availableClasses.length === 0 ? (
+                <div className="px-3 py-2 border border-gray-300 rounded-md bg-yellow-50 text-sm text-yellow-700">
+                  No other classes available for level up
+                </div>
+              ) : (
+                <select
+                  required
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
+                  value={selectedTargetClass}
+                  onChange={(e) => setSelectedTargetClass(e.target.value)}
+                >
+                  <option value="">Choose a class to move students to</option>
+                  {availableClasses.map((classItem) => (
+                    <option key={classItem.id} value={classItem.id}>
+                      {classItem.name} - {classItem.price || 0} USD
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+
+            {/* Students Selection */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Select Students to Level Up
+              </label>
+
+              {loadingStudents ? (
+                <p className="text-gray-500 text-center py-4 text-sm">
+                  Loading enrolled students...
+                </p>
+              ) : enrolledStudents.length === 0 ? (
+                <p className="text-gray-500 text-center py-4 text-sm">
+                  No students are currently enrolled in this class
+                </p>
+              ) : (
+                <div className="max-h-60 overflow-y-auto border border-gray-200 rounded-md">
+                  {enrolledStudents.map((student) => {
+                    const isSelected = selectedStudents.includes(student.id);
+                    
+                    return (
+                      <label
+                        key={student.id}
+                        className="flex items-center p-2 sm:p-3 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => handleStudentToggle(student.id)}
+                          className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
+                        />
+                        <div className="ml-3 flex items-center">
+                          <div className="w-6 h-6 sm:w-8 sm:h-8 bg-purple-600 rounded-full flex items-center justify-center flex-shrink-0">
+                            <span className="text-start text-white text-xs sm:text-sm font-medium">
+                              {student.firstName ? student.firstName.charAt(0) : 
+                               (student.fullName ? student.fullName.charAt(0) : 
+                                (student.email ? student.email.charAt(0).toUpperCase() : 'S'))}
+                            </span>
+                          </div>
+                          <div className="ml-2 sm:ml-3 min-w-0 flex-1">
+                            <p className="text-xs sm:text-sm font-medium text-gray-900 truncate">
+                              {student.firstName && student.lastName
+                                ? `${student.firstName} ${student.lastName}`
+                                : (student.fullName || student.email || 'Unknown Student')
+                              }
+                            </p>
+                            <p className="text-xs text-gray-500 truncate">
+                              {student.email}
+                            </p>
+                          </div>
+                        </div>
+                      </label>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
+              <p className="text-xs sm:text-sm text-gray-600">
+                {selectedStudents.length} student(s) selected for level up
+              </p>
+              <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="px-3 sm:px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 text-sm transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={selectedStudents.length === 0 || !selectedTargetClass}
+                  className="px-3 sm:px-4 py-2 border-2 border-purple-600 text-purple-600 rounded-md hover:bg-purple-500 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 text-sm"
+                >
+                  Level Up Students
                 </button>
               </div>
             </div>
