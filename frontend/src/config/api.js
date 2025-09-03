@@ -1,8 +1,8 @@
 // API Configuration
-console.log('🔧 API Config Debug:', {
-  VITE_API_URL: import.meta.env.VITE_API_URL,
-  BASE_URL: import.meta.env.VITE_API_URL || 'http://localhost:3000'
-});
+console.log('🔧 API Config Debug:');
+console.log('  VITE_API_URL:', import.meta.env.VITE_API_URL);
+console.log('  BASE_URL:', import.meta.env.VITE_API_URL || 'http://localhost:3000');
+console.log('  All env vars:', import.meta.env);
 
 export const API_CONFIG = {
   // Base URL for API calls
