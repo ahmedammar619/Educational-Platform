@@ -314,7 +314,7 @@ const UserManagement = ({ user }) => {
 
       // Test with a simple GET request first
       console.log('🧪 Testing token with GET /api/users...');
-      const response = await fetch('http://localhost:3000/api/users', {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/users`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
