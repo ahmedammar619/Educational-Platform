@@ -152,9 +152,9 @@ class StudentsService {
   }
 
   // Get parent's children (for parent use)
-  async getParentChildren() {
+  async getParentChildren(parentId) {
     try {
-      const response = await api.get('/api/parents/children');
+      const response = await api.get(`/api/parents/${parentId}/children`);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;

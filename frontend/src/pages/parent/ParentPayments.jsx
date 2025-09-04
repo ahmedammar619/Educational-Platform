@@ -157,7 +157,7 @@ const ParentPayments = ({ user }) => {
       
       // Load all data in parallel
       const [childrenData, subscriptionsData, invoicesData, configData] = await Promise.all([
-        studentsService.getParentChildren(),
+        studentsService.getParentChildren(user.id),
         paymentService.getParentSubscriptions(),
         paymentService.getParentInvoices(),
         paymentService.getStripeConfig()
