@@ -1,139 +1,10 @@
 import { useState, useEffect } from 'react';
 import { CreditCard, Calendar, Download, AlertCircle, CheckCircle, Clock, X, RotateCcw } from 'lucide-react';
-import { loadStripe } from '@stripe/stripe-js';
-import { Elements, CardElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import paymentService from '../../services/paymentService';
 import studentsService from '../../services/studentsService';
 import { showSuccessToast, showErrorToast, showWarningToast } from '../../utils/toast';
 
-// Stripe Elements styles
-const cardElementOptions = {
-  style: {
-    base: {
-      fontSize: '16px',
-      color: '#424770',
-      '::placeholder': {
-        color: '#aab7c4',
-      },
-    },
-    invalid: {
-      color: '#9e2146',
-    },
-  },
-};
 
-// Payment Form Component
-const PaymentForm = ({ student, stripeConfig, onSuccess, onCancel }) => {
-  const stripe = useStripe();
-  const elements = useElements();
-  const [processing, setProcessing] = useState(false);
-  const [error, setError] = useState(null);
-
-  const handleSubmit = async (event) => {
-    event.preventDefault();
-    setProcessing(true);
-    setError(null);
-
-    if (!stripe || !elements) {
-      setError('Stripe has not loaded properly');
-      setProcessing(false);
-      return;
-    }
-
-    try {
-      // Create subscription
-      const { subscription, clientSecret } = await paymentService.createSubscription(student.id);
-
-      if (!clientSecret) {
-        throw new Error('Failed to create payment intent');
-      }
-
-      // Confirm payment
-      const { error: paymentError } = await stripe.confirmCardPayment(clientSecret, {
-        payment_method: {
-          card: elements.getElement(CardElement),
-          billing_details: {
-            name: `${student.firstName} ${student.lastName}`,
-            email: student.parent?.email || student.email,
-          },
-        },
-      });
-
-      if (paymentError) {
-        setError(paymentError.message);
-      } else {
-        showSuccessToast(`Successfully subscribed ${student.firstName} to monthly plan!`);
-        onSuccess();
-      }
-    } catch (err) {
-      console.error('Payment error:', err);
-      setError(err.message || 'An error occurred during payment');
-      showErrorToast('Payment failed. Please try again.');
-    } finally {
-      setProcessing(false);
-    }
-  };
-
-  return (
-    <div className="bg-white p-6 rounded-lg border">
-      <div className="mb-4">
-        <h3 className="text-lg font-medium text-gray-900">
-          Subscribe {student.firstName} {student.lastName}
-        </h3>
-        <p className="text-sm text-gray-500 mt-1">
-          Monthly subscription: {paymentService.formatCurrency(stripeConfig.priceInfo?.amount || 5000)}
-        </p>
-      </div>
-
-      <form onSubmit={handleSubmit}>
-        <div className="mb-4">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Card Information
-          </label>
-          <div className="border rounded-md p-3 bg-white">
-            <CardElement options={cardElementOptions} />
-          </div>
-        </div>
-
-        {error && (
-          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
-            <div className="flex">
-              <AlertCircle className="h-5 w-5 text-red-400 mr-2 mt-0.5" />
-              <span className="text-sm text-red-700">{error}</span>
-            </div>
-          </div>
-        )}
-
-        <div className="flex space-x-3">
-          <button
-            type="submit"
-            disabled={!stripe || processing}
-            className="flex-1 bg-purple-600 text-white py-2 px-4 rounded-md hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
-          >
-            {processing ? (
-              <>
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                Processing...
-              </>
-            ) : (
-              <>
-                <CreditCard className="h-4 w-4 mr-2" />
-                Subscribe Now
-              </>
-            )}
-          </button>
-          <button
-            type="button"
-            onClick={onCancel}
-            className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
-          >
-            Cancel
-          </button>
-        </div>
-      </form>
-    </div>
-  );
-};
 
 // Main Payments Component
 const ParentPayments = ({ user }) => {
@@ -141,11 +12,8 @@ const ParentPayments = ({ user }) => {
   const [subscriptions, setSubscriptions] = useState([]);
   const [invoices, setInvoices] = useState([]);
   const [stripeConfig, setStripeConfig] = useState(null);
-  const [stripePromise, setStripePromise] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('subscriptions');
-  const [showPaymentForm, setShowPaymentForm] = useState(false);
-  const [selectedStudent, setSelectedStudent] = useState(null);
 
   useEffect(() => {
     loadInitialData();
@@ -170,11 +38,6 @@ const ParentPayments = ({ user }) => {
       setInvoices(Array.isArray(invoicesData) ? invoicesData : []);
       setStripeConfig(configData || {});
 
-      // Initialize Stripe if configured
-      if (configData.configured && configData.publishableKey) {
-        const stripe = await loadStripe(configData.publishableKey);
-        setStripePromise(stripe);
-      }
 
     } catch (error) {
       console.error('Error loading payment data:', error);
@@ -184,13 +47,22 @@ const ParentPayments = ({ user }) => {
     }
   };
 
-  const handleSubscribe = (student) => {
+  const handleSubscribe = async (student) => {
     if (!stripeConfig?.configured) {
       showErrorToast('Payment system is not configured');
       return;
     }
-    setSelectedStudent(student);
-    setShowPaymentForm(true);
+    
+    try {
+      setLoading(true);
+      await paymentService.createSubscription(student.id);
+      // The payment service will redirect to Stripe, so we don't need to do anything else here
+    } catch (error) {
+      console.error('Subscription error:', error);
+      showErrorToast('Failed to start subscription process');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleCancelSubscription = async (studentId) => {
@@ -217,11 +89,6 @@ const ParentPayments = ({ user }) => {
     }
   };
 
-  const handlePaymentSuccess = () => {
-    setShowPaymentForm(false);
-    setSelectedStudent(null);
-    loadInitialData(); // Refresh data
-  };
 
   const getStudentSubscription = (studentId) => {
     return subscriptions.find(sub => sub.studentId === studentId);
@@ -261,24 +128,6 @@ const ParentPayments = ({ user }) => {
         <p className="text-gray-600 mt-1">Manage your children's subscriptions and view payment history</p>
       </div>
 
-      {/* Payment Form Modal */}
-      {showPaymentForm && selectedStudent && stripePromise && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg max-w-md w-full">
-            <Elements stripe={stripePromise}>
-              <PaymentForm
-                student={selectedStudent}
-                stripeConfig={stripeConfig}
-                onSuccess={handlePaymentSuccess}
-                onCancel={() => {
-                  setShowPaymentForm(false);
-                  setSelectedStudent(null);
-                }}
-              />
-            </Elements>
-          </div>
-        </div>
-      )}
 
       {/* Tabs */}
       <div className="border-b border-gray-200">

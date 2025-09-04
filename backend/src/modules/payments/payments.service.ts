@@ -25,8 +25,7 @@ export class PaymentsService {
   ) {}
 
   async createStudentSubscription(parentId: string, studentId: string): Promise<{
-    subscription: Subscription;
-    clientSecret: string;
+    checkoutUrl: string;
   }> {
     // Get parent user
     const parent = await this.userRepository.findOne({ where: { id: parentId } });
@@ -71,34 +70,18 @@ export class PaymentsService {
         });
       }
 
-      // Create subscription
-      const stripeSubscription = await this.stripeService.createSubscription(
-        stripeCustomer.id, 
-        undefined, 
+      // Create Stripe Checkout session
+      const checkoutSession = await this.stripeService.createCheckoutSession(
+        stripeCustomer.id,
+        `${student.firstName} ${student.lastName} - Monthly Subscription`,
         { 
+          parentId: parentId,
           studentId: studentId, 
-          parentId: parentId, 
           studentName: `${student.firstName} ${student.lastName}` 
         }
       );
 
-      // Create local subscription record
-      const subscription = await this.subscriptionRepository.save({
-        userId: parentId,
-        studentId: studentId,
-        stripeSubscriptionId: stripeSubscription.id,
-        stripeCustomerId: stripeCustomer.id,
-        status: stripeSubscription.status,
-        currentPeriodStart: new Date((stripeSubscription as any).current_period_start * 1000),
-        currentPeriodEnd: new Date((stripeSubscription as any).current_period_end * 1000),
-        amount: stripeSubscription.items.data[0].price.unit_amount || 0,
-        currency: stripeSubscription.items.data[0].price.currency || 'usd',
-      });
-
-      const latestInvoice = stripeSubscription.latest_invoice as any;
-      const clientSecret = latestInvoice?.payment_intent?.client_secret;
-
-      return { subscription, clientSecret };
+      return { checkoutUrl: checkoutSession.url };
     } catch (error) {
       throw new BadRequestException(`Failed to create subscription: ${error.message}`);
     }

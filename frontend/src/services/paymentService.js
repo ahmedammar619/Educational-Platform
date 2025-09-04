@@ -12,11 +12,19 @@ class PaymentService {
     }
   }
 
-  // Create subscription for a student
+  // Create subscription for a student (redirects to Stripe Checkout)
   async createSubscription(studentId) {
     try {
       console.log('💳 Creating subscription for student:', studentId);
       const response = await api.post(`/api/payments/subscribe/${studentId}`);
+      
+      // If we get a checkout URL, redirect to Stripe
+      if (response.data.checkoutUrl) {
+        console.log('🚀 Redirecting to Stripe Checkout:', response.data.checkoutUrl);
+        window.location.href = response.data.checkoutUrl;
+        return response.data;
+      }
+      
       return response.data;
     } catch (error) {
       console.error('❌ Error creating subscription:', error);

@@ -112,6 +112,48 @@ export class StripeService {
     }
   }
 
+  async createCheckoutSession(
+    customerId: string,
+    description: string,
+    metadata: any = {}
+  ): Promise<Stripe.Checkout.Session> {
+    this.validateStripeConfig();
+
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3001';
+    
+    try {
+      const session = await this.stripe.checkout.sessions.create({
+        customer: customerId,
+        payment_method_types: ['card'],
+        mode: 'subscription',
+        line_items: [
+          {
+            price: process.env.STRIPE_MONTHLY_PRICE_ID,
+            quantity: 1,
+          },
+        ],
+        success_url: `${frontendUrl}/parent/payments?session_id={CHECKOUT_SESSION_ID}&success=true`,
+        cancel_url: `${frontendUrl}/parent/payments?canceled=true`,
+        metadata: {
+          ...metadata,
+          description,
+        },
+        subscription_data: {
+          metadata: {
+            ...metadata,
+            description,
+          },
+        },
+      });
+
+      this.logger.log(`✅ Created Checkout session: ${session.id} for customer: ${customerId}`);
+      return session;
+    } catch (error) {
+      this.logger.error(`❌ Failed to create checkout session: ${error.message}`);
+      throw new BadRequestException(`Failed to create checkout session: ${error.message}`);
+    }
+  }
+
   async getCustomer(customerId: string): Promise<Stripe.Customer> {
     this.validateStripeConfig();
 
