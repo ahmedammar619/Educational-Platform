@@ -1,0 +1,18 @@
+# Stripe Configuration Environment Variables
+# Add these to your .env file and Railway environment variables
+
+# Stripe Keys
+STRIPE_SECRET_KEY=sk_test_51S16hQC6BZAoE8VbdSknqZoGz291iiaHV47KdjwJFG0GP8TFCwPhd5AgcCWlIlwCFERlugOCaQ7M7HcUZZZkys1A000eTh1tsf
+STRIPE_PUBLISHABLE_KEY=pk_test_51S16hQC6BZAoE8VbRt7YQmVM7w4fxquLkmOxKoqJj014cIOkbEjluZdOfRmvZsf86BYNJiJsPXUWNdU734KdIl9W00gzW0HyRY
+STRIPE_RESTRICTED_KEY=rk_test_51S16hQC6BZAoE8Vb5gzSV0hGm2AxuFbURoDl0UuN4VdYe7VNzjQe5A3ZeEfqQ4yr2Hkv3wb1pnDhpZb2IHZsoY4d00D8A9n5UH
+
+# Stripe Product & Price
+STRIPE_MONTHLY_PRODUCT_ID=prod_SzgEV34qPKZUOR
+STRIPE_MONTHLY_PRICE_ID=price_1S3gsCC6BZAoE8VbFoazWKO8
+
+# Webhook Configuration (for production)
+STRIPE_WEBHOOK_SECRET=whsec_YOUR_WEBHOOK_SECRET_HERE
+
+# Frontend Environment Variables
+# Add to frontend .env file:
+# VITE_STRIPE_PUBLISHABLE_KEY=pk_test_51S16hQC6BZAoE8VbRt7YQmVM7w4fxquLkmOxKoqJj014cIOkbEjluZdOfRmvZsf86BYNJiJsPXUWNdU734KdIl9W00gzW0HyRY

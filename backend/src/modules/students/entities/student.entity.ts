@@ -5,9 +5,11 @@ import {
   OneToOne,
   JoinColumn,
   ManyToOne,
+  OneToMany,
 } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
 import { Class } from '../../classes/entities/class.entity';
+import { Subscription } from '../../payments/entities/subscription.entity';
 
 @Entity('students')
 export class Student {
@@ -38,6 +40,17 @@ export class Student {
   @ManyToOne(() => Class, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'classId' })
   class: Class;
+
+  // One-to-many relationship with Subscriptions
+  @OneToMany(() => Subscription, subscription => subscription.student)
+  subscriptions: Subscription[];
+
+  // Subscription status fields
+  @Column({ name: 'subscription_status', type: 'varchar', length: 50, default: 'inactive' })
+  subscriptionStatus: string; // active, inactive, past_due, canceled
+
+  @Column({ name: 'subscription_end_date', type: 'timestamp', nullable: true })
+  subscriptionEndDate?: Date;
 
   get age(): number {
     const today = new Date();
