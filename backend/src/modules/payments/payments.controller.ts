@@ -29,7 +29,7 @@ export class PaymentsController {
   // Public endpoint for Stripe configuration
   @Get('config')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.PARENT, Role.ADMIN)
+  @Roles(Role.Parent, Role.Admin)
   getStripeConfig() {
     const priceInfo = this.stripeService.getMonthlyPriceInfo();
     const isConfigured = this.stripeService.isConfigured();
@@ -44,14 +44,14 @@ export class PaymentsController {
   // Parent Subscription Management
   @Post('subscribe/:studentId')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.PARENT)
+  @Roles(Role.Parent)
   async createSubscription(@Request() req, @Param('studentId') studentId: string) {
     return this.paymentsService.createStudentSubscription(req.user.userId, studentId);
   }
 
   @Delete('subscribe/:studentId')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.PARENT)
+  @Roles(Role.Parent)
   async cancelSubscription(@Request() req, @Param('studentId') studentId: string) {
     await this.paymentsService.cancelStudentSubscription(req.user.userId, studentId);
     return { message: 'Subscription cancelled successfully' };
@@ -59,14 +59,14 @@ export class PaymentsController {
 
   @Get('subscriptions')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.PARENT)
+  @Roles(Role.Parent)
   async getParentSubscriptions(@Request() req) {
     return this.paymentsService.getParentSubscriptions(req.user.userId);
   }
 
   @Get('invoices')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.PARENT)
+  @Roles(Role.Parent)
   async getParentInvoices(@Request() req) {
     return this.paymentsService.getParentInvoices(req.user.userId);
   }
