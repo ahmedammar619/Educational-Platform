@@ -44,6 +44,9 @@ export class User {
   @Column({ type: 'timestamp', nullable: true })
   resetTokenExpiry?: Date;
 
+  @Column({ nullable: true, length: 64 })
+  stripe_customer_id?: string;
+
   @CreateDateColumn()
   createdAt: Date;
 

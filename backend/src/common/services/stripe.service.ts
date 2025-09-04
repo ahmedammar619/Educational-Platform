@@ -112,6 +112,48 @@ export class StripeService {
     }
   }
 
+  async getCustomer(customerId: string): Promise<Stripe.Customer> {
+    this.validateStripeConfig();
+
+    try {
+      const customer = await this.stripe.customers.retrieve(customerId);
+      return customer as Stripe.Customer;
+    } catch (error) {
+      this.logger.error(`❌ Failed to get customer: ${error.message}`);
+      throw new BadRequestException(`Failed to get customer: ${error.message}`);
+    }
+  }
+
+  async getCustomerSubscriptions(customerId: string): Promise<Stripe.Subscription[]> {
+    this.validateStripeConfig();
+
+    try {
+      const subscriptions = await this.stripe.subscriptions.list({
+        customer: customerId,
+        limit: 100,
+      });
+      return subscriptions.data;
+    } catch (error) {
+      this.logger.error(`❌ Failed to get customer subscriptions: ${error.message}`);
+      throw new BadRequestException(`Failed to get customer subscriptions: ${error.message}`);
+    }
+  }
+
+  async getCustomerInvoices(customerId: string): Promise<Stripe.Invoice[]> {
+    this.validateStripeConfig();
+
+    try {
+      const invoices = await this.stripe.invoices.list({
+        customer: customerId,
+        limit: 100,
+      });
+      return invoices.data;
+    } catch (error) {
+      this.logger.error(`❌ Failed to get customer invoices: ${error.message}`);
+      throw new BadRequestException(`Failed to get customer invoices: ${error.message}`);
+    }
+  }
+
   async getSubscription(subscriptionId: string): Promise<Stripe.Subscription> {
     this.validateStripeConfig();
 
