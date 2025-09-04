@@ -163,10 +163,12 @@ const ParentPayments = ({ user }) => {
         paymentService.getStripeConfig()
       ]);
 
-      setChildren(childrenData);
-      setSubscriptions(subscriptionsData);
-      setInvoices(invoicesData);
-      setStripeConfig(configData);
+      console.log('💳 Payment data loaded:', { childrenData, subscriptionsData, invoicesData, configData });
+
+      setChildren(Array.isArray(childrenData) ? childrenData : []);
+      setSubscriptions(Array.isArray(subscriptionsData) ? subscriptionsData : []);
+      setInvoices(Array.isArray(invoicesData) ? invoicesData : []);
+      setStripeConfig(configData || {});
 
       // Initialize Stripe if configured
       if (configData.configured && configData.publishableKey) {
