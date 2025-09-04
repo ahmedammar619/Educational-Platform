@@ -26,7 +26,7 @@ export class R2FileService {
     // File restrictions
     this.maxFileSize = this.configService.get<number>('MAX_FILE_SIZE', 100 * 1024 * 1024); // 100MB default
     this.allowedExtensions = this.configService.get<string[]>('ALLOWED_EXTENSIONS', [
-      '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.txt', '.csv',
+      '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.txt', '.csv', '.log',
       '.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg',
       '.mp4', '.webm', '.ogg', '.avi', '.mov',
       '.mp3', '.wav', '.ogg', '.m4a',
