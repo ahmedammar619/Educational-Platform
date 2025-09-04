@@ -53,8 +53,8 @@ const PaymentForm = ({ student, stripeConfig, onSuccess, onCancel }) => {
         payment_method: {
           card: elements.getElement(CardElement),
           billing_details: {
-            name: `${student.user.firstName} ${student.user.lastName}`,
-            email: student.parent?.email || student.user.email,
+            name: `${student.firstName} ${student.lastName}`,
+            email: student.parent?.email || student.email,
           },
         },
       });
@@ -62,7 +62,7 @@ const PaymentForm = ({ student, stripeConfig, onSuccess, onCancel }) => {
       if (paymentError) {
         setError(paymentError.message);
       } else {
-        showSuccessToast(`Successfully subscribed ${student.user.firstName} to monthly plan!`);
+        showSuccessToast(`Successfully subscribed ${student.firstName} to monthly plan!`);
         onSuccess();
       }
     } catch (err) {
@@ -78,7 +78,7 @@ const PaymentForm = ({ student, stripeConfig, onSuccess, onCancel }) => {
     <div className="bg-white p-6 rounded-lg border">
       <div className="mb-4">
         <h3 className="text-lg font-medium text-gray-900">
-          Subscribe {student.user.firstName} {student.user.lastName}
+          Subscribe {student.firstName} {student.lastName}
         </h3>
         <p className="text-sm text-gray-500 mt-1">
           Monthly subscription: {paymentService.formatCurrency(stripeConfig.priceInfo?.amount || 5000)}
@@ -330,12 +330,12 @@ const ParentPayments = ({ user }) => {
                     <div className="flex items-center space-x-4">
                       <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
                         <span className="text-purple-600 font-medium">
-                          {student.user.firstName[0]}{student.user.lastName[0]}
+                          {student.firstName[0]}{student.lastName[0]}
                         </span>
                       </div>
                       <div>
                         <h3 className="text-lg font-medium text-gray-900">
-                          {student.user.firstName} {student.user.lastName}
+                          {student.firstName} {student.lastName}
                         </h3>
                         <div className="flex items-center space-x-4 mt-1">
                           <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusBadge.class}`}>
