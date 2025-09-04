@@ -150,6 +150,16 @@ class StudentsService {
       throw error.response?.data || error.message;
     }
   }
+
+  // Get parent's children (for parent use)
+  async getParentChildren() {
+    try {
+      const response = await api.get('/api/parents/children');
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  }
 }
 
 export default new StudentsService();
