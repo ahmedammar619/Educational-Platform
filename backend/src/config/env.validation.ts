@@ -142,6 +142,31 @@ class EnvironmentVariables {
   // Backup & Recovery
   @IsBoolean()
   ENABLE_AUTO_BACKUP: boolean;
+
+  // Stripe Configuration
+  @IsOptional()
+  @IsString()
+  STRIPE_SECRET_KEY?: string;
+
+  @IsOptional()
+  @IsString()
+  STRIPE_PUBLISHABLE_KEY?: string;
+
+  @IsOptional()
+  @IsString()
+  STRIPE_RESTRICTED_KEY?: string;
+
+  @IsOptional()
+  @IsString()
+  STRIPE_MONTHLY_PRODUCT_ID?: string;
+
+  @IsOptional()
+  @IsString()
+  STRIPE_MONTHLY_PRICE_ID?: string;
+
+  @IsOptional()
+  @IsString()
+  STRIPE_WEBHOOK_SECRET?: string;
 }
 
 export function validate(config: Record<string, unknown>) {

@@ -7,6 +7,8 @@ import {
   JoinColumn,
 } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
+import { Student } from '../../students/entities/student.entity';
+import { Subscription } from './subscription.entity';
 
 @Entity('invoices')
 export class Invoice {
@@ -19,6 +21,20 @@ export class Invoice {
   @ManyToOne(() => User, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'user_id' })
   user: User;
+
+  @Column({ name: 'student_id', type: 'uuid' })
+  studentId: string;
+
+  @ManyToOne(() => Student, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'student_id' })
+  student: Student;
+
+  @Column({ name: 'subscription_id', type: 'bigint', nullable: true })
+  subscriptionId?: string;
+
+  @ManyToOne(() => Subscription, { onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'subscription_id' })
+  subscription?: Subscription;
 
   @Column({ name: 'stripe_invoice_id', type: 'varchar', length: 64 })
   stripeInvoiceId: string; // e.g., "in_12345"
