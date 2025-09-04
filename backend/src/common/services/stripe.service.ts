@@ -169,17 +169,6 @@ export class StripeService {
     }
   }
 
-  async getCustomer(customerId: string): Promise<Stripe.Customer> {
-    this.validateStripeConfig();
-
-    try {
-      const customer = await this.stripe.customers.retrieve(customerId) as Stripe.Customer;
-      return customer;
-    } catch (error) {
-      this.logger.error(`❌ Failed to retrieve customer: ${error.message}`);
-      throw new BadRequestException(`Failed to retrieve customer: ${error.message}`);
-    }
-  }
 
   async getInvoices(customerId: string, limit = 10): Promise<Stripe.Invoice[]> {
     this.validateStripeConfig();
