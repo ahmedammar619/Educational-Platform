@@ -96,7 +96,7 @@ import { ZoomMeeting } from './modules/zoom/entities/zoom-meeting.entity';
         ],
         synchronize: process.env.NODE_ENV !== 'production' || process.env.DB_SYNC === 'true',
         migrationsRun: process.env.NODE_ENV === 'production' && process.env.DB_SYNC !== 'true',
-        migrations: process.env.NODE_ENV === 'production' ? ['dist/migrations/*.js'] : ['src/migrations/*.ts'],
+        migrations: process.env.NODE_ENV === 'production' ? ['dist/migrations/*.js'] : [],
         logging: process.env.DB_LOGGING === 'true',
         ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
         extra: {
