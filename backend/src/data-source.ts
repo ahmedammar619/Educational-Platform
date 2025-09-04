@@ -32,7 +32,7 @@ export const AppDataSource = new DataSource({
   username: process.env.DB_USERNAME || 'postgres',
   password: process.env.DB_PASSWORD || 'password',
   database: process.env.DB_DATABASE || 'education_dev_db',
-  synchronize: process.env.NODE_ENV !== 'production' && process.env.DB_SYNC === 'true',
+  synchronize: process.env.NODE_ENV !== 'production' || process.env.DB_SYNC === 'true',
   logging: process.env.DB_LOGGING === 'true',
   entities: [
     User, 
@@ -55,7 +55,7 @@ export const AppDataSource = new DataSource({
     ZoomMeeting
   ],
   migrations: process.env.NODE_ENV === 'production' ? ['dist/migrations/*.js'] : ['src/migrations/*.ts'],
-  migrationsRun: process.env.NODE_ENV === 'production',
+  migrationsRun: process.env.NODE_ENV === 'production' && process.env.DB_SYNC !== 'true',
   subscribers: [],
   ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
   extra: {

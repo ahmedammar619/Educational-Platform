@@ -495,41 +495,81 @@ export class MaterialsService {
     }
 
     try {
-      // Upload file to R2
-      console.log('☁️ Service - Uploading to R2...');
-      const uploadResult = await this.r2FileService.uploadFile(file, courseId, userId, folderId);
+      // Check if R2 is available (has credentials)
+      const hasR2Credentials = process.env.R2_ACCESS_KEY_ID && process.env.R2_SECRET_ACCESS_KEY;
       
-      console.log('✅ Service - R2 upload successful:', {
-        fileName: uploadResult.fileName,
-        fileUrl: uploadResult.fileUrl,
-        fileSize: uploadResult.fileSize
-      });
+      if (hasR2Credentials) {
+        // Upload file to R2
+        console.log('☁️ Service - Uploading to R2...');
+        const uploadResult = await this.r2FileService.uploadFile(file, courseId, userId, folderId);
+        
+        console.log('✅ Service - R2 upload successful:', {
+          fileName: uploadResult.fileName,
+          fileUrl: uploadResult.fileUrl,
+          fileSize: uploadResult.fileSize
+        });
 
-      // Create file entity with R2 URL
-      const fileEntity = this.fileRepository.create({
-        fileName: uploadResult.fileName,
-        filePath: uploadResult.fileUrl, // Store R2 URL instead of local path
-        fileSize: uploadResult.fileSize,
-        mimeType: uploadResult.mimeType,
-        courseId,
-        folderId,
-        uploadedBy: userId
-      });
+        // Create file entity with R2 URL
+        const fileEntity = this.fileRepository.create({
+          fileName: uploadResult.fileName,
+          filePath: uploadResult.fileUrl, // Store R2 URL instead of local path
+          fileSize: uploadResult.fileSize,
+          mimeType: uploadResult.mimeType,
+          courseId,
+          folderId,
+          uploadedBy: userId
+        });
 
-      console.log('📁 Service - Creating file entity:', {
-        fileName: fileEntity.fileName,
-        filePath: fileEntity.filePath,
-        courseId: fileEntity.courseId,
-        folderId: fileEntity.folderId,
-        uploadedBy: fileEntity.uploadedBy
-      });
+        const savedFile = await this.fileRepository.save(fileEntity);
+        console.log('✅ Service - File saved successfully:', savedFile.id);
+        return savedFile;
+      } else {
+        // Fall back to local storage
+        console.log('📁 Service - R2 not available, using local storage...');
+        
+        // Generate unique filename using the same pattern as before
+        const unique = Date.now() + "-" + Math.round(Math.random() * 1e9);
+        const ext = path.extname(file.originalname);
+        const baseName = path.basename(file.originalname, ext);
+        const fileName = `${baseName}-${unique}${ext}`;
+        
+        // Create organized folder structure: uploads/Grade/Course/files/
+        const gradeName = course?.class?.name || 'Default-Grade';
+        const courseName = course?.name || 'Default-Course';
+        const uploadsDir = path.join(process.cwd(), 'uploads', gradeName, courseName, 'files');
+        
+        // Ensure directory exists
+        const fs = require('fs');
+        if (!fs.existsSync(uploadsDir)) {
+          fs.mkdirSync(uploadsDir, { recursive: true });
+          console.log('📁 Service - Created directory:', uploadsDir);
+        }
+        
+        const filePath = path.join(uploadsDir, fileName);
+        
+        // Write file to disk
+        fs.writeFileSync(filePath, file.buffer);
+        console.log('📁 Service - File saved to:', filePath);
+        
+        // Create relative path from uploads folder
+        const relativePath = path.join(gradeName, courseName, 'files', fileName);
 
-      const savedFile = await this.fileRepository.save(fileEntity);
-      console.log('✅ Service - File saved successfully:', savedFile.id);
-      
-      return savedFile;
+        const fileEntity = this.fileRepository.create({
+          fileName: fileName,
+          filePath: relativePath,
+          fileSize: file.size,
+          mimeType: file.mimetype,
+          courseId,
+          folderId,
+          uploadedBy: userId
+        });
+
+        const savedFile = await this.fileRepository.save(fileEntity);
+        console.log('✅ Service - File saved successfully:', savedFile.id);
+        return savedFile;
+      }
     } catch (error) {
-      console.error('❌ Service - R2 upload failed:', error);
+      console.error('❌ Service - File upload failed:', error);
       throw new BadRequestException(`File upload failed: ${error.message}`);
     }
   }

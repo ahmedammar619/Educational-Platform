@@ -33,17 +33,23 @@ export class R2FileService {
       '.zip', '.rar', '.7z', '.tar', '.gz'
     ]);
 
-    // Initialize S3 Client for R2
-    this.s3Client = new S3Client({
-      region: this.region,
-      endpoint: this.endpoint,
-      credentials: {
-        accessKeyId: this.configService.get<string>('R2_ACCESS_KEY_ID'),
-        secretAccessKey: this.configService.get<string>('R2_SECRET_ACCESS_KEY'),
-      },
-    });
-
-    this.logger.log(`R2FileService initialized with bucket: ${this.bucketName}`);
+    // Initialize S3 Client for R2 (only if credentials are provided)
+    const accessKeyId = this.configService.get<string>('R2_ACCESS_KEY_ID');
+    const secretAccessKey = this.configService.get<string>('R2_SECRET_ACCESS_KEY');
+    
+    if (accessKeyId && secretAccessKey) {
+      this.s3Client = new S3Client({
+        region: this.region,
+        endpoint: this.endpoint,
+        credentials: {
+          accessKeyId,
+          secretAccessKey,
+        },
+      });
+      this.logger.log(`R2FileService initialized with bucket: ${this.bucketName}`);
+    } else {
+      this.logger.warn('R2FileService: R2 credentials not provided, service will not be available');
+    }
   }
 
   async uploadFile(file: Express.Multer.File, courseId: string, userId: string, folderId?: string): Promise<{
