@@ -155,7 +155,7 @@ class StudentsService {
   async getParentChildren(parentId) {
     try {
       const response = await api.get(`/api/parents/${parentId}/children`);
-      return response.data;
+      return response.data.children || []; // Extract the children array from the response
     } catch (error) {
       throw error.response?.data || error.message;
     }
