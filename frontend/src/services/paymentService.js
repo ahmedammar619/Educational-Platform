@@ -1,11 +1,10 @@
-import axios from 'axios';
-import { API_CONFIG } from '../config/api';
+import api from './api';
 
 class PaymentService {
   // Get Stripe configuration
   async getStripeConfig() {
     try {
-      const response = await axios.get(`${API_CONFIG.BASE_URL}/api/payments/config`);
+      const response = await api.get('/api/payments/config');
       return response.data;
     } catch (error) {
       console.error('❌ Error fetching Stripe config:', error);
@@ -17,7 +16,7 @@ class PaymentService {
   async createSubscription(studentId) {
     try {
       console.log('💳 Creating subscription for student:', studentId);
-      const response = await axios.post(`${API_CONFIG.BASE_URL}/api/payments/subscribe/${studentId}`);
+      const response = await api.post(`/api/payments/subscribe/${studentId}`);
       return response.data;
     } catch (error) {
       console.error('❌ Error creating subscription:', error);
@@ -29,7 +28,7 @@ class PaymentService {
   async cancelSubscription(studentId) {
     try {
       console.log('❌ Canceling subscription for student:', studentId);
-      const response = await axios.delete(`${API_CONFIG.BASE_URL}/api/payments/subscribe/${studentId}`);
+      const response = await api.delete(`/api/payments/subscribe/${studentId}`);
       return response.data;
     } catch (error) {
       console.error('❌ Error canceling subscription:', error);
@@ -41,7 +40,7 @@ class PaymentService {
   async reactivateSubscription(studentId) {
     try {
       console.log('🔄 Reactivating subscription for student:', studentId);
-      const response = await axios.post(`${API_CONFIG.BASE_URL}/api/payments/reactivate/${studentId}`);
+      const response = await api.post(`/api/payments/reactivate/${studentId}`);
       return response.data;
     } catch (error) {
       console.error('❌ Error reactivating subscription:', error);
@@ -52,7 +51,7 @@ class PaymentService {
   // Get all subscriptions for the current parent
   async getParentSubscriptions() {
     try {
-      const response = await axios.get(`${API_CONFIG.BASE_URL}/api/payments/subscriptions`);
+      const response = await api.get('/api/payments/subscriptions');
       return response.data;
     } catch (error) {
       console.error('❌ Error fetching subscriptions:', error);
@@ -63,7 +62,7 @@ class PaymentService {
   // Get all invoices for the current parent
   async getParentInvoices() {
     try {
-      const response = await axios.get(`${API_CONFIG.BASE_URL}/api/payments/invoices`);
+      const response = await api.get('/api/payments/invoices');
       return response.data;
     } catch (error) {
       console.error('❌ Error fetching invoices:', error);
