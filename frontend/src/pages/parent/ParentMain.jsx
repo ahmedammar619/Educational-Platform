@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation, Routes, Route } from 'react-router-dom';
-import { Home, Users, Calendar, MessageSquare, User, Bell, LogOut } from 'lucide-react';
+import { Home, Users, Calendar, MessageSquare, CreditCard, User, Bell, LogOut } from 'lucide-react';
 
 // Direct imports instead of lazy loading to fix React.lazy error
 import ParentDashboard from './ParentDashboard';
 import ChildrenManagement from './ChildrenManagement';
 import ParentSchedule from './ParentSchedule';
 import ParentCommunication from './ParentCommunication';
+import ParentPayments from './ParentPayments';
 
 const ParentMain = ({ user, onLogout }) => {
   const navigate = useNavigate();
@@ -18,6 +19,7 @@ const ParentMain = ({ user, onLogout }) => {
     if (path.includes('/children')) return 'children';
     if (path.includes('/schedule')) return 'schedule';
     if (path.includes('/communication')) return 'communication';
+    if (path.includes('/payments')) return 'payments';
     return 'dashboard';
   };
 
@@ -57,6 +59,7 @@ const ParentMain = ({ user, onLogout }) => {
     { id: 'children', name: 'Children', icon: Users, component: ChildrenManagement },
     { id: 'schedule', name: 'Schedule', icon: Calendar, component: ParentSchedule },
     { id: 'communication', name: 'Communication', icon: MessageSquare, component: ParentCommunication },
+    { id: 'payments', name: 'Payments', icon: CreditCard, component: ParentPayments },
   ];
 
   return (
@@ -209,6 +212,7 @@ const ParentMain = ({ user, onLogout }) => {
               <Route path="/children" element={<ChildrenManagement user={user} />} />
               <Route path="/schedule" element={<ParentSchedule user={user} />} />
               <Route path="/communication" element={<ParentCommunication user={user} />} />
+              <Route path="/payments" element={<ParentPayments user={user} />} />
             </Routes>
           </div>
         </div>
