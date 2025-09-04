@@ -54,7 +54,7 @@ export const AppDataSource = new DataSource({
     Subscription,
     ZoomMeeting
   ],
-  migrations: process.env.NODE_ENV === 'production' ? ['dist/migrations/*.js'] : ['src/migrations/*.ts'],
+  migrations: process.env.NODE_ENV === 'production' ? ['dist/migrations/*.js'] : [],
   migrationsRun: process.env.NODE_ENV === 'production' && process.env.DB_SYNC !== 'true',
   subscribers: [],
   ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
