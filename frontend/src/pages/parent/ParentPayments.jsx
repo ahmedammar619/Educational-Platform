@@ -17,6 +17,22 @@ const ParentPayments = ({ user }) => {
 
   useEffect(() => {
     loadInitialData();
+    
+    // Check if returning from Stripe checkout
+    const urlParams = new URLSearchParams(window.location.search);
+    const sessionId = urlParams.get('session_id');
+    const success = urlParams.get('success');
+    const canceled = urlParams.get('canceled');
+    
+    if (success === 'true' && sessionId) {
+      showSuccessToast('Payment successful! Your subscription is now active.');
+      // Clean up URL parameters
+      window.history.replaceState({}, document.title, window.location.pathname);
+    } else if (canceled === 'true') {
+      showWarningToast('Payment was canceled.');
+      // Clean up URL parameters
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
   }, []);
 
   const loadInitialData = async () => {

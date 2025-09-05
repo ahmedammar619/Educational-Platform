@@ -14,8 +14,8 @@ export class Subscription {
   @Column({ name: 'student_id', type: 'uuid' })
   studentId: string;
 
-  @Column({ name: 'stripe_subscription_id', type: 'varchar', length: 64 })
-  stripeSubscriptionId: string;
+  @Column({ name: 'stripe_subscription_id', type: 'varchar', length: 64, nullable: true })
+  stripeSubscriptionId?: string;
 
   @Column({ name: 'stripe_customer_id', type: 'varchar', length: 64, nullable: true })
   stripeCustomerId?: string;

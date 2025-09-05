@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Menu, X, Bell, Search, User, LogOut, Home, BookOpen, Calendar, Users, BarChart3, Settings, MessageSquare } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { authService } from '../../services';
+import baraemLogo from '../../assets/baraem.png';
 
 const Layout = ({ children, user, onLogout }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -37,8 +38,8 @@ const Layout = ({ children, user, onLogout }) => {
         <div className="fixed inset-y-0 left-0 flex w-64 flex-col bg-white">
           <div className="flex h-16 items-center justify-between px-4 border-b border-gray-200">
             <div className="flex items-center">
-              <div className="w-8 h-8 bg-gradient-to-br from-green-500 to-blue-600 rounded-lg flex items-center justify-center">
-                <span className="text-white text-lg font-bold">ب</span>
+              <div className="w-8 h-8 rounded-lg overflow-hidden">
+                <img src={baraemLogo} alt="Baraem Al-Nour Logo" className="w-full h-full object-cover" />
               </div>
               <span className="ml-2 text-lg font-semibold text-gray-900">براعم النور</span>
             </div>
@@ -98,8 +99,8 @@ const Layout = ({ children, user, onLogout }) => {
         <div className="flex flex-col flex-grow bg-white border-r border-gray-200">
           <div className="flex h-16 items-center px-4 border-b border-gray-200">
             <div className="flex items-center">
-              <div className="w-8 h-8 bg-gradient-to-br from-green-500 to-blue-600 rounded-lg flex items-center justify-center">
-                <span className="text-white text-lg font-bold">ب</span>
+              <div className="w-8 h-8 rounded-lg overflow-hidden">
+                <img src={baraemLogo} alt="Baraem Al-Nour Logo" className="w-full h-full object-cover" />
               </div>
               <span className="ml-2 text-lg font-semibold text-gray-900">براعم النور</span>
             </div>
