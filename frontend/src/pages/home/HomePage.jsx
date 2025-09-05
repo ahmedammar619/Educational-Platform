@@ -18,8 +18,8 @@ const HomePage = ({ onLoginClick }) => {
             <div className="min-h-screen bg-gray-50">
                 <Header onLoginClick={onLoginClick} />
                 <main>
-                    <HeroSection />
-                    <ServicesSection />
+                    <HeroSection onLoginClick={onLoginClick} />
+                    <ServicesSection  />
                     <AboutSection />
                 </main>
                 <Footer />

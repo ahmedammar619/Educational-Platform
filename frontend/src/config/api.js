@@ -1,7 +1,10 @@
 // API Configuration
+import { getVersion } from '../utils/version.js';
+
 console.log('🔧 API Config Debug:');
 console.log('  VITE_API_URL:', import.meta.env.VITE_API_URL);
 console.log('  BASE_URL:', import.meta.env.VITE_API_URL || 'http://localhost:3000');
+console.log('  VERSION:', getVersion());
 console.log('  All env vars:', import.meta.env);
 
 export const API_CONFIG = {

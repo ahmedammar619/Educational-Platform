@@ -1,7 +1,7 @@
 import React from 'react';
 import baraemLogo from '../../assets/baraem.png';
 
-const HeroSection = () => {
+const HeroSection = ({onLoginClick}) => {
   return (
     <section className="relative bg-gradient-to-br from-white via-blue-50 to-purple-50 py-12 ">
       {/* Background decoration */}
@@ -13,14 +13,14 @@ const HeroSection = () => {
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center">
           {/* Logo */}
-          <div className="mb-8 flex justify-center">
-            <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl overflow-hidden shadow-lg">
+          <div class="mb-4 flex justify-center">
+            <div className="w-36 h-36 rounded-xl overflow-hidden shadow-lg p-2 rounded-full">
               <img src={baraemLogo} alt="Baraem Al-Nour Logo" className="w-full h-full object-cover" />
             </div>
           </div>
           
           {/* Logo Text */}
-          <div className="mb-6">
+          <div className="mb-6 ">
             <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold text-green-600 mb-2">
               براعم النور
             </h1>
@@ -41,10 +41,18 @@ const HeroSection = () => {
           
           {/* Call to Action Buttons */}
           <div className="flex flex-col sm:flex-row gap-4 sm:gap-6 justify-center items-center">
-            <button className="w-full sm:w-auto bg-green-600 text-white px-8 sm:px-10 py-4 sm:py-5 rounded-lg text-lg sm:text-xl font-semibold hover:bg-green-700 transition-colors shadow-lg hover:shadow-xl">
+            <button 
+            onClick={() => {
+              onLoginClick();
+            }}
+            className="w-full sm:w-auto bg-green-600 text-white px-8 sm:px-10 py-4 sm:py-5 rounded-lg text-lg sm:text-xl font-semibold hover:bg-green-700 transition-colors shadow-lg hover:shadow-xl">
               Start Learning Journey
             </button>
-            <button className="w-full sm:w-auto bg-transparent text-green-600 border-2 border-green-600 px-8 sm:px-10 py-4 sm:py-5 rounded-lg text-lg sm:text-xl font-semibold hover:bg-green-600 hover:text-white transition-colors">
+            <button 
+            onClick={() => {
+              window.location.href = '#about';
+            }}
+            className="w-full sm:w-auto bg-transparent text-green-600 border-2 border-green-600 px-8 sm:px-10 py-4 sm:py-5 rounded-lg text-lg sm:text-xl font-semibold hover:bg-green-600 hover:text-white transition-colors">
               Learn More About Us
             </button>
           </div>

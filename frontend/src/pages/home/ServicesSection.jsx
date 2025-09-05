@@ -29,8 +29,8 @@ const ServicesSection = () => {
   ];
 
   return (
-    <section className="py-12 sm:py-16 lg:py-20 bg-white h-full">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <section id="services" className="py-12 sm:py-16 lg:py-20 bg-white h-full border-b border-gray-200 shadow-b shadow-gray-200">
+      <div  className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-12 sm:mb-16">
           <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900 mb-4 sm:mb-6">
             Our Educational Services
@@ -41,7 +41,7 @@ const ServicesSection = () => {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-6 sm:gap-8 mb-12 sm:mb-16">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-6 sm:gap-8 mb-12 sm:mb-8">
           {services.map((service, index) => (
             <div key={index} className="bg-gradient-to-br from-gray-50 to-white p-6 sm:p-8 rounded-2xl shadow-sm border border-gray-100 hover:shadow-lg transition-all duration-300">
               <div className="text-center mb-4 sm:mb-6">
@@ -69,7 +69,7 @@ const ServicesSection = () => {
         </div>
 
         {/* Call to action */}
-        <div className="text-center">
+        {/* <div className="text-center">
           <div className="bg-gradient-to-r from-green-50 to-blue-50 p-6 sm:p-8 rounded-2xl border border-green-100">
             <h3 className="text-xl sm:text-2xl font-bold text-gray-900 mb-3 sm:mb-4">
               Ready to Start Your Child's Islamic Education Journey?
@@ -86,7 +86,7 @@ const ServicesSection = () => {
               </button>
             </div>
           </div>
-        </div>
+        </div> */}
       </div>
     </section>
   );
