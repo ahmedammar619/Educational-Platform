@@ -3,7 +3,7 @@ import baraemLogo from '../../assets/baraem.png';
 
 const HeroSection = ({onLoginClick}) => {
   return (
-    <section className="relative bg-gradient-to-br from-white via-blue-50 to-purple-50 py-12 ">
+    <section className="relative bg-gradient-to-br from-white via-blue-50 to-purple-50 py-12 pt-7">
       {/* Background decoration */}
       <div className="absolute inset-0 overflow-hidden">
         <div className="absolute -top-40 -right-40 w-80 h-80 bg-green-200 rounded-full opacity-20 blur-3xl"></div>
@@ -14,7 +14,7 @@ const HeroSection = ({onLoginClick}) => {
         <div className="text-center">
           {/* Logo */}
           <div class="mb-4 flex justify-center">
-            <div className="w-36 h-36 rounded-xl overflow-hidden shadow-lg p-2 rounded-full">
+            <div className="w-36 h-36 ">
               <img src={baraemLogo} alt="Baraem Al-Nour Logo" className="w-full h-full object-cover" />
             </div>
           </div>
