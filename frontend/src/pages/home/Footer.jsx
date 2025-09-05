@@ -1,4 +1,5 @@
 import React from 'react';
+import baraemLogo from '../../assets/baraem.png';
 
 const Footer = () => {
   return (
@@ -8,8 +9,8 @@ const Footer = () => {
           {/* Brand Section */}
           <div className="col-span-1 sm:col-span-2 lg:col-span-1">
             <div className="flex items-center mb-4">
-              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-green-500 to-blue-600 rounded-lg flex items-center justify-center">
-                <span className="text-white text-xl sm:text-2xl font-bold">ب</span>
+              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg overflow-hidden">
+                <img src={baraemLogo} alt="Baraem Al-Nour Logo" className="w-full h-full object-cover" />
               </div>
               <div className="ml-3">
                 <h3 className="text-lg sm:text-xl font-bold">براعم النور</h3>

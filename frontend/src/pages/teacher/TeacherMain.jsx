@@ -4,6 +4,7 @@ import { Home, BookOpen, Calendar, Users, BarChart3, MessageSquare, User, Bell, 
 import TeacherDashboard from './TeacherDashboard';
 import TeacherClasses from './TeacherClasses';
 import TeacherSchedule from './TeacherSchedule';
+import baraemLogo from '../../assets/baraem.png';
 
 const TeacherMain = ({ user, onLogout }) => {
   const navigate = useNavigate();
@@ -48,8 +49,8 @@ const TeacherMain = ({ user, onLogout }) => {
           <div className="flex justify-between h-16">
             <div className="flex items-center">
               <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-blue-600 rounded-lg flex items-center justify-center">
-                  <span className="text-white text-xl font-bold">ب</span>
+                <div className="w-10 h-10 rounded-lg overflow-hidden">
+                  <img src={baraemLogo} alt="Baraem Al-Nour Logo" className="w-full h-full object-cover" />
                 </div>
                 <div>
                   <h1 className="text-xl font-bold text-gray-900">براعم النور</h1>

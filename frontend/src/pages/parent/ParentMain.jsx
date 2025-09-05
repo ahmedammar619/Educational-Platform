@@ -8,6 +8,7 @@ import ChildrenManagement from './ChildrenManagement';
 import ParentSchedule from './ParentSchedule';
 import ParentCommunication from './ParentCommunication';
 import ParentPayments from './ParentPayments';
+import baraemLogo from '../../assets/baraem.png';
 
 const ParentMain = ({ user, onLogout }) => {
   const navigate = useNavigate();
@@ -70,8 +71,8 @@ const ParentMain = ({ user, onLogout }) => {
           <div className="flex justify-between h-16">
             <div className="flex items-center">
               <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-blue-600 rounded-lg flex items-center justify-center">
-                  <span className="text-white text-xl font-bold">ب</span>
+                <div className="w-10 h-10 rounded-lg overflow-hidden">
+                  <img src={baraemLogo} alt="Baraem Al-Nour Logo" className="w-full h-full object-cover" />
                 </div>
                 <div>
                   <h1 className="text-xl font-bold text-gray-900">براعم النور</h1>

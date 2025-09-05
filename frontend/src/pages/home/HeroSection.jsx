@@ -1,4 +1,5 @@
 import React from 'react';
+import baraemLogo from '../../assets/baraem.png';
 
 const HeroSection = () => {
   return (
@@ -13,8 +14,8 @@ const HeroSection = () => {
         <div className="text-center">
           {/* Logo */}
           <div className="mb-8 flex justify-center">
-            <div className="w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-br from-green-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg">
-              <span className="text-white text-3xl sm:text-4xl font-bold">ب</span>
+            <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl overflow-hidden shadow-lg">
+              <img src={baraemLogo} alt="Baraem Al-Nour Logo" className="w-full h-full object-cover" />
             </div>
           </div>
           
