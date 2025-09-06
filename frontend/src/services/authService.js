@@ -15,6 +15,11 @@ class AuthService {
   // User login
   async login(credentials) {
     try {
+      console.log('🔐 Auth Login Debug:', {
+        endpoint: API_CONFIG.ENDPOINTS.AUTH.LOGIN,
+        baseUrl: API_CONFIG.BASE_URL,
+        fullUrl: `${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.AUTH.LOGIN}`
+      });
       const response = await api.post(API_CONFIG.ENDPOINTS.AUTH.LOGIN, credentials);
       const { token, user } = response.data;
       
