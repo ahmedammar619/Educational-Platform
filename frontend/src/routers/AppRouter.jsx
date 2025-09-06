@@ -2,12 +2,27 @@ import React, { useMemo, useCallback } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { Suspense, lazy } from 'react';
 import { authService } from '../services';
+import MainLayout from '../components/layout/MainLayout';
 
-// Lazy load all main page components
-const StudentMain = lazy(() => import('../pages/student/StudentMain'));
-const AdminMain = lazy(() => import('../pages/admin/AdminMain'));
-const ParentMain = lazy(() => import('../pages/parent/ParentMain'));
-const TeacherMain = lazy(() => import('../pages/teacher/TeacherMain'));
+// Lazy load individual page components
+const AdminDashboard = lazy(() => import('../pages/admin/AdminDashboard'));
+const UserManagement = lazy(() => import('../pages/admin/UserManagement'));
+const ClassManagement = lazy(() => import('../pages/admin/ClassManagement'));
+
+const StudentDashboard = lazy(() => import('../pages/student/StudentDashboard'));
+const StudentClasses = lazy(() => import('../pages/student/StudentClasses'));
+const StudentSchedule = lazy(() => import('../pages/student/StudentSchedule'));
+
+const ParentDashboard = lazy(() => import('../pages/parent/ParentDashboard'));
+const ChildrenManagement = lazy(() => import('../pages/parent/ChildrenManagement'));
+const ParentSchedule = lazy(() => import('../pages/parent/ParentSchedule'));
+const ParentCommunication = lazy(() => import('../pages/parent/ParentCommunication'));
+const ParentPayments = lazy(() => import('../pages/parent/ParentPayments'));
+
+const TeacherDashboard = lazy(() => import('../pages/teacher/TeacherDashboard'));
+const TeacherClasses = lazy(() => import('../pages/teacher/TeacherClasses'));
+const TeacherSchedule = lazy(() => import('../pages/teacher/TeacherSchedule'));
+
 const HomePage = lazy(() => import('../pages/home/HomePage'));
 
 // Loading component for Suspense fallback
@@ -46,69 +61,87 @@ const AppRouter = React.memo(({ user, onLogin, onLogout }) => {
   return (
     <Suspense fallback={<LoadingSpinner />}>
       <Routes>
-                 {/* Root path - redirect authenticated users to their role path */}
-         <Route 
-           path="/" 
-           element={
-             <Navigate to={roleRoute} replace />
-           } 
-         />
+        {/* Root path - redirect authenticated users to their role path */}
+        <Route 
+          path="/" 
+          element={
+            <Navigate to={roleRoute} replace />
+          } 
+        />
         
-                 {/* Admin routes */}
-         <Route 
-           path="/admin/*" 
-           element={
-             user.role === 'admin' ? (
-               <AdminMain user={user} onLogout={onLogout} />
-             ) : (
-               <Navigate to={roleRoute} replace />
-             )
-           } 
-         />
+        {/* Admin routes */}
+        <Route 
+          path="/admin/*" 
+          element={
+            user.role === 'admin' ? (
+              <MainLayout user={user} onLogout={onLogout} routes={[
+                { path: "/", element: <AdminDashboard user={user} /> },
+                { path: "/users", element: <UserManagement user={user} /> },
+                { path: "/classes", element: <ClassManagement user={user} /> },
+              ]} />
+            ) : (
+              <Navigate to={roleRoute} replace />
+            )
+          } 
+        />
         
-                 {/* Student routes */}
-         <Route 
-           path="/student/*" 
-           element={
-             user.role === 'student' ? (
-               <StudentMain user={user} onLogout={onLogout} />
-             ) : (
-               <Navigate to={roleRoute} replace />
-             )
-           } 
-         />
+        {/* Student routes */}
+        <Route 
+          path="/student/*" 
+          element={
+            user.role === 'student' ? (
+              <MainLayout user={user} onLogout={onLogout} routes={[
+                { path: "/", element: <StudentDashboard user={user} /> },
+                { path: "/classes", element: <StudentClasses user={user} /> },
+                { path: "/schedule", element: <StudentSchedule user={user} /> },
+              ]} />
+            ) : (
+              <Navigate to={roleRoute} replace />
+            )
+          } 
+        />
         
-                 {/* Parent routes */}
-         <Route 
-           path="/parent/*" 
-           element={
-             user.role === 'parent' ? (
-               <ParentMain user={user} onLogout={onLogout} />
-             ) : (
-               <Navigate to={roleRoute} replace />
-             )
-           } 
-         />
+        {/* Parent routes */}
+        <Route 
+          path="/parent/*" 
+          element={
+            user.role === 'parent' ? (
+              <MainLayout user={user} onLogout={onLogout} routes={[
+                { path: "/", element: <ParentDashboard user={user} /> },
+                { path: "/children", element: <ChildrenManagement user={user} /> },
+                { path: "/schedule", element: <ParentSchedule user={user} /> },
+                { path: "/communication", element: <ParentCommunication user={user} /> },
+                { path: "/payments", element: <ParentPayments user={user} /> },
+              ]} />
+            ) : (
+              <Navigate to={roleRoute} replace />
+            )
+          } 
+        />
         
-                 {/* Teacher routes */}
-         <Route 
-           path="/teacher/*" 
-           element={
-             user.role === 'teacher' ? (
-               <TeacherMain user={user} onLogout={onLogout} />
-             ) : (
-               <Navigate to={roleRoute} replace />
-             )
-           } 
-         />
+        {/* Teacher routes */}
+        <Route 
+          path="/teacher/*" 
+          element={
+            user.role === 'teacher' ? (
+              <MainLayout user={user} onLogout={onLogout} routes={[
+                { path: "/", element: <TeacherDashboard user={user} /> },
+                { path: "/classes", element: <TeacherClasses user={user} /> },
+                { path: "/schedule", element: <TeacherSchedule user={user} /> },
+              ]} />
+            ) : (
+              <Navigate to={roleRoute} replace />
+            )
+          } 
+        />
         
-                 {/* Default redirect for authenticated users */}
-         <Route 
-           path="*" 
-           element={
-             <Navigate to={roleRoute} replace />
-           } 
-         />
+        {/* Default redirect for authenticated users */}
+        <Route 
+          path="*" 
+          element={
+            <Navigate to={roleRoute} replace />
+          } 
+        />
       </Routes>
     </Suspense>
   );

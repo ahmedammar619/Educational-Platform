@@ -1,5 +1,5 @@
 import React from 'react';
-import baraemLogo from '../../assets/baraem.png';
+import baraemLogo from '../../assets/baraem.svg';
 
 const HeroSection = ({onLoginClick}) => {
   return (
