@@ -8,10 +8,12 @@ const baseUrl = isProduction
   : (import.meta.env.VITE_API_URL || 'http://localhost:3000'); // Local development
 const apiPrefix = '/api'; // All environments use /api prefix
 
-console.log('🔧 API Config Debug:');
+console.log('🔧 API Config Debug - FORCE REBUILD:');
+console.log('  IS_PRODUCTION:', isProduction);
 console.log('  VITE_API_URL:', import.meta.env.VITE_API_URL);
 console.log('  BASE_URL:', baseUrl);
 console.log('  API_PREFIX:', apiPrefix);
+console.log('  FULL_LOGIN_URL:', baseUrl + apiPrefix + '/auth/login');
 console.log('  VERSION:', getVersion());
 console.log('  All env vars:', import.meta.env);
 
