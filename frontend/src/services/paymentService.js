@@ -1,10 +1,11 @@
 import api from './api';
+import { API_CONFIG } from '../config/api';
 
 class PaymentService {
   // Get Stripe configuration
   async getStripeConfig() {
     try {
-      const response = await api.get('/payments/config');
+      const response = await api.get('/api/payments/config');
       return response.data;
     } catch (error) {
       console.error('❌ Error fetching Stripe config:', error);
@@ -16,7 +17,7 @@ class PaymentService {
   async createSubscription(studentId) {
     try {
       console.log('💳 Creating subscription for student:', studentId);
-      const response = await api.post(`/payments/subscribe/${studentId}`);
+      const response = await api.post(`/api/payments/subscribe/${studentId}`);
       
       // If we get a checkout URL, redirect to Stripe
       if (response.data.checkoutUrl) {
@@ -36,7 +37,7 @@ class PaymentService {
   async cancelSubscription(studentId) {
     try {
       console.log('❌ Canceling subscription for student:', studentId);
-      const response = await api.delete(`/payments/subscribe/${studentId}`);
+      const response = await api.delete(`/api/payments/subscribe/${studentId}`);
       return response.data;
     } catch (error) {
       console.error('❌ Error canceling subscription:', error);
@@ -59,7 +60,7 @@ class PaymentService {
   // Get all subscriptions for the current parent
   async getParentSubscriptions() {
     try {
-      const response = await api.get('/payments/subscriptions');
+      const response = await api.get('/api/payments/subscriptions');
       return response.data;
     } catch (error) {
       console.error('❌ Error fetching subscriptions:', error);
@@ -70,7 +71,7 @@ class PaymentService {
   // Get all invoices for the current parent
   async getParentInvoices() {
     try {
-      const response = await api.get('/payments/invoices');
+      const response = await api.get('/api/payments/invoices');
       return response.data;
     } catch (error) {
       console.error('❌ Error fetching invoices:', error);
@@ -103,7 +104,7 @@ class PaymentService {
   // Admin methods (for admin dashboard)
   async getAllSubscriptions() {
     try {
-      const response = await api.get('/payments/admin/subscriptions');
+      const response = await api.get('/api/payments/admin/subscriptions');
       return response.data;
     } catch (error) {
       console.error('❌ Error fetching all subscriptions:', error);
@@ -113,7 +114,7 @@ class PaymentService {
 
   async getSubscriptionStats() {
     try {
-      const response = await api.get('/payments/admin/stats');
+      const response = await api.get('/api/payments/admin/stats');
       return response.data;
     } catch (error) {
       console.error('❌ Error fetching subscription stats:', error);
