@@ -1,4 +1,5 @@
 import api from './api';
+import { API_CONFIG } from '../config/api';
 
 class ZoomService {
   // Get all meetings with optional filtering
@@ -14,7 +15,7 @@ class ZoomService {
     }
 
     const queryString = params.toString();
-    const url = queryString ? `/zoom?${queryString}` : '/zoom';
+    const url = queryString ? `/api/zoom?${queryString}` : '/api/zoom';
     
     const response = await api.get(url);
     return response.data;
@@ -22,19 +23,19 @@ class ZoomService {
 
   // Get meetings created by current user
   async getMyMeetings() {
-    const response = await api.get('/zoom/my-meetings');
+    const response = await api.get('/api/zoom/my-meetings');
     return response.data;
   }
 
   // Get a specific meeting by ID
   async getMeetingById(id) {
-    const response = await api.get(`/zoom/${id}`);
+    const response = await api.get(`/api/zoom/${id}`);
     return response.data;
   }
 
   // Create a new meeting
   async createMeeting(meetingData) {
-    const response = await api.post('/zoom', meetingData);
+    const response = await api.post('/api/zoom', meetingData);
     return response.data;
   }
 
@@ -46,25 +47,25 @@ class ZoomService {
 
   // Delete a meeting
   async deleteMeeting(id) {
-    await api.delete(`/zoom/${id}`);
+    await api.delete(`/api/zoom/${id}`);
   }
 
   // Join a meeting (increments join count)
   async joinMeeting(id, courseId = null) {
     const body = courseId ? { courseId } : {};
-    const response = await api.post(`/zoom/${id}/join`, body);
+    const response = await api.post(`/api/zoom/${id}/join`, body);
     return response.data;
   }
 
   // End a meeting manually (teacher/admin only)
   async endMeeting(id) {
-    const response = await api.post(`/zoom/${id}/end`);
+    const response = await api.post(`/api/zoom/${id}/end`);
     return response.data;
   }
 
   // Update all meeting statuses (admin only)
   async updateMeetingStatuses() {
-    const response = await api.post('/zoom/update-statuses');
+    const response = await api.post('/api/zoom/update-statuses');
     return response.data;
   }
 }
