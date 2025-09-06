@@ -1,32 +1,28 @@
 // API Configuration
 import { getVersion } from '../utils/version.js';
 
-// Determine if we're in Railway production environment
-const isRailwayProduction = import.meta.env.VITE_API_URL && import.meta.env.VITE_API_URL.includes('railway.app');
-
-// Check if the base URL already includes /api
+// Get the base URL
 const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+
+// Check if the base URL already includes /api in the path
 const hasApiInBaseUrl = baseUrl.includes('/api');
 
-// API prefix logic
+// API prefix logic - BOTH environments need /api prefix
 const getApiPrefix = () => {
   if (hasApiInBaseUrl) {
-    return ''; // Base URL already includes /api
+    return ''; // Base URL already includes /api in the path
   }
-  if (isRailwayProduction) {
-    return ''; // Railway backend might not have /api prefix
-  }
-  return '/api'; // Local Docker backend has /api prefix
+  return '/api'; // Both local and Railway backends need /api prefix
 };
 
 console.log('🔧 API Config Debug:');
 console.log('  VITE_API_URL:', import.meta.env.VITE_API_URL);
 console.log('  BASE_URL:', baseUrl);
 console.log('  VERSION:', getVersion());
-console.log('  isRailwayProduction:', isRailwayProduction);
 console.log('  hasApiInBaseUrl:', hasApiInBaseUrl);
 console.log('  API_PREFIX:', getApiPrefix());
 console.log('  LOGIN_ENDPOINT:', `${getApiPrefix()}/auth/login`);
+console.log('  FINAL_LOGIN_URL:', `${baseUrl}${getApiPrefix()}/auth/login`);
 console.log('  All env vars:', import.meta.env);
 
 export const API_CONFIG = {
