@@ -1,10 +1,11 @@
 import api from './api';
+import { API_CONFIG } from '../config/api';
 
 class StudentsService {
   // Get all students (for admin use)
   async getAllStudents() {
     try {
-      const response = await api.get('/students');
+      const response = await api.get(API_CONFIG.ENDPOINTS.STUDENTS);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -14,7 +15,7 @@ class StudentsService {
   // Get student by ID
   async getStudentById(studentId) {
     try {
-      const response = await api.get(`/students/${studentId}`);
+      const response = await api.get(`${API_CONFIG.ENDPOINTS.STUDENTS}/${studentId}`);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -24,7 +25,7 @@ class StudentsService {
   // Get student profile
   async getStudentProfile() {
     try {
-      const response = await api.get('/students/profile');
+      const response = await api.get(API_CONFIG.ENDPOINTS.STUDENTS + '/profile');
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -34,7 +35,7 @@ class StudentsService {
   // Update student profile
   async updateStudentProfile(profileData) {
     try {
-      const response = await api.put('/students/profile', profileData);
+      const response = await api.put(API_CONFIG.ENDPOINTS.STUDENTS + '/profile', profileData);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -44,7 +45,7 @@ class StudentsService {
   // Get student classes
   async getStudentClasses(studentId) {
     try {
-      const response = await api.get(`/students/${studentId}/classes`);
+      const response = await api.get(`${API_CONFIG.ENDPOINTS.STUDENTS}/${studentId}/classes`);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -54,7 +55,7 @@ class StudentsService {
   // Get student schedule
   async getStudentSchedule() {
     try {
-      const response = await api.get('/students/schedule');
+      const response = await api.get(API_CONFIG.ENDPOINTS.STUDENTS + '/schedule');
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -64,7 +65,7 @@ class StudentsService {
   // Enroll in class
   async enrollInClass(classId) {
     try {
-      const response = await api.post(`/students/classes/${classId}/enroll`);
+      const response = await api.post(`${API_CONFIG.ENDPOINTS.STUDENTS}/classes/${classId}/enroll`);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -74,7 +75,7 @@ class StudentsService {
   // Unenroll from class
   async unenrollFromClass(classId) {
     try {
-      const response = await api.delete(`/students/classes/${classId}/enroll`);
+      const response = await api.delete(`${API_CONFIG.ENDPOINTS.STUDENTS}/classes/${classId}/enroll`);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -84,7 +85,7 @@ class StudentsService {
   // Get student progress
   async getStudentProgress() {
     try {
-      const response = await api.get('/students/progress');
+      const response = await api.get(API_CONFIG.ENDPOINTS.STUDENTS + '/progress');
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -94,7 +95,7 @@ class StudentsService {
   // Get student attendance
   async getStudentAttendance() {
     try {
-      const response = await api.get('/students/attendance');
+      const response = await api.get(API_CONFIG.ENDPOINTS.STUDENTS + '/attendance');
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -104,7 +105,7 @@ class StudentsService {
   // Get student materials
   async getStudentMaterials() {
     try {
-      const response = await api.get('/students/materials');
+      const response = await api.get(API_CONFIG.ENDPOINTS.STUDENTS + '/materials');
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -114,7 +115,7 @@ class StudentsService {
   // Get student assignments
   async getStudentAssignments() {
     try {
-      const response = await api.get('/students/assignments');
+      const response = await api.get(API_CONFIG.ENDPOINTS.STUDENTS + '/assignments');
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -124,7 +125,7 @@ class StudentsService {
   // Submit assignment
   async submitAssignment(assignmentId, submissionData) {
     try {
-      const response = await api.post(`/students/assignments/${assignmentId}/submit`, submissionData);
+      const response = await api.post(`${API_CONFIG.ENDPOINTS.STUDENTS}/assignments/${assignmentId}/submit`, submissionData);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -134,7 +135,7 @@ class StudentsService {
   // Get student grades
   async getStudentGrades() {
     try {
-      const response = await api.get('/students/grades');
+      const response = await api.get(API_CONFIG.ENDPOINTS.STUDENTS + '/grades');
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -144,7 +145,7 @@ class StudentsService {
   // Get student statistics
   async getStudentStats() {
     try {
-      const response = await api.get('/students/stats');
+      const response = await api.get(API_CONFIG.ENDPOINTS.STUDENTS + '/stats');
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -154,7 +155,7 @@ class StudentsService {
   // Get parent's children (for parent use)
   async getParentChildren(parentId) {
     try {
-      const response = await api.get(`/parents/${parentId}/children`);
+      const response = await api.get(`${API_CONFIG.ENDPOINTS.PARENTS}/${parentId}/children`);
       return response.data.children || []; // Extract the children array from the response
     } catch (error) {
       throw error.response?.data || error.message;
