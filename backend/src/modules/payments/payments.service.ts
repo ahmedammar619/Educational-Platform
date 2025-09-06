@@ -45,13 +45,26 @@ export class PaymentsService {
       throw new NotFoundException('Student not found');
     }
 
-    // Check if subscription already exists
-    const existingSubscription = await this.subscriptionRepository.findOne({
-      where: { userId: parentId, studentId: studentId }
-    });
+    // Check Stripe directly for existing active subscriptions (source of truth)
+    if (parent.stripe_customer_id && this.stripeService.isConfigured()) {
+      try {
+        const stripeSubscriptions = await this.stripeService.getCustomerSubscriptions(parent.stripe_customer_id);
+        const studentName = `${student.firstName} ${student.lastName}`;
+        
+        // Check if there's an active subscription for this student in Stripe
+        const activeStripeSubscription = stripeSubscriptions.find(sub => 
+          (sub.status === 'active' || sub.status === 'trialing') &&
+          (sub.metadata?.studentId === studentId || 
+           sub.metadata?.studentName === studentName ||
+           sub.metadata?.description?.includes(studentName))
+        );
 
-    if (existingSubscription && ['active', 'trialing', 'incomplete'].includes(existingSubscription.status)) {
-      throw new BadRequestException('An active subscription already exists for this student');
+        if (activeStripeSubscription) {
+          throw new BadRequestException('An active subscription already exists for this student in Stripe');
+        }
+      } catch (stripeError) {
+        console.log('⚠️ Could not check Stripe subscriptions, proceeding with creation:', stripeError.message);
+      }
     }
 
     try {
@@ -113,25 +126,251 @@ export class PaymentsService {
     }
   }
 
-  async cancelStudentSubscription(parentId: string, studentId: string): Promise<void> {
-    const subscription = await this.subscriptionRepository.findOne({
-      where: { userId: parentId, studentId: studentId }
-    });
+  async cancelStudentSubscription(parentId: string, studentId: string) {
+    console.log(`🚫 Canceling subscription for parentId: "${parentId}", studentId: "${studentId}"`);
+    
+    if (!parentId || !studentId) {
+      throw new BadRequestException('Parent ID and Student ID are required');
+    }
 
-    if (!subscription) {
-      throw new NotFoundException('No active subscription found');
+    // First check current status to get Stripe subscription ID
+    const currentStatus = await this.getStudentSubscriptionStatus(parentId, studentId);
+    
+    if (!currentStatus.hasSubscription || !currentStatus.subscriptionDetails?.id) {
+      throw new NotFoundException('No active subscription found to cancel');
+    }
+
+    if (!this.stripeService.isConfigured()) {
+      throw new BadRequestException('Payment system is not configured');
     }
 
     try {
-      await this.stripeService.cancelSubscription(subscription.stripeSubscriptionId);
+      // Cancel the subscription in Stripe
+      console.log(`🚫 Canceling Stripe subscription: ${currentStatus.subscriptionDetails.id}`);
+      const canceledSubscription = await this.stripeService.cancelSubscription(currentStatus.subscriptionDetails.id, true);
       
-      // Update local record
-      await this.subscriptionRepository.update(subscription.id, {
-        status: 'canceled',
-        canceledAt: new Date(),
+      // Update our database
+      const dbSubscription = await this.subscriptionRepository.findOne({
+        where: { userId: parentId, studentId: studentId }
       });
+
+      if (dbSubscription) {
+        await this.subscriptionRepository.update(dbSubscription.id, {
+          status: canceledSubscription.status,
+          cancelAt: canceledSubscription.cancel_at ? new Date(canceledSubscription.cancel_at * 1000) : null,
+          canceledAt: canceledSubscription.canceled_at ? new Date(canceledSubscription.canceled_at * 1000) : null
+        });
+      }
+
+      console.log(`✅ Successfully canceled subscription: ${currentStatus.subscriptionDetails.id}`);
+      return {
+        success: true,
+        message: 'Subscription will be canceled at the end of the current billing period',
+        cancelAt: canceledSubscription.cancel_at ? new Date(canceledSubscription.cancel_at * 1000) : null
+      };
     } catch (error) {
+      console.error('❌ Error canceling subscription:', error);
       throw new BadRequestException(`Failed to cancel subscription: ${error.message}`);
+    }
+  }
+
+  async reactivateStudentSubscription(parentId: string, studentId: string) {
+    console.log(`🔄 Reactivating subscription for parentId: "${parentId}", studentId: "${studentId}"`);
+    
+    if (!parentId || !studentId) {
+      throw new BadRequestException('Parent ID and Student ID are required');
+    }
+
+    // First check current status to get Stripe subscription ID
+    const currentStatus = await this.getStudentSubscriptionStatus(parentId, studentId);
+    
+    if (!currentStatus.hasSubscription || !currentStatus.subscriptionDetails?.id) {
+      throw new NotFoundException('No subscription found for this student');
+    }
+
+    if (!currentStatus.isSetToCancel) {
+      throw new BadRequestException('Subscription is not set to cancel');
+    }
+
+    if (!this.stripeService.isConfigured()) {
+      throw new BadRequestException('Payment system is not configured');
+    }
+
+    try {
+      // Reactivate the subscription in Stripe
+      console.log(`🔄 Reactivating Stripe subscription: ${currentStatus.subscriptionDetails.id}`);
+      const reactivatedSubscription = await this.stripeService.reactivateSubscription(currentStatus.subscriptionDetails.id);
+      
+      // Update our database
+      const dbSubscription = await this.subscriptionRepository.findOne({
+        where: { userId: parentId, studentId: studentId }
+      });
+
+      if (dbSubscription) {
+        await this.subscriptionRepository.update(dbSubscription.id, {
+          status: reactivatedSubscription.status,
+          cancelAt: null, // Remove cancel date
+          canceledAt: null
+        });
+      }
+
+      console.log(`✅ Successfully reactivated subscription: ${currentStatus.subscriptionDetails.id}`);
+      return {
+        success: true,
+        message: 'Subscription has been reactivated and will continue billing',
+        subscriptionId: reactivatedSubscription.id
+      };
+    } catch (error) {
+      console.error('❌ Error reactivating subscription:', error);
+      throw new BadRequestException(`Failed to reactivate subscription: ${error.message}`);
+    }
+  }
+
+  async fixWebhookTable() {
+    try {
+      console.log('🔧 Fixing webhook_events table schema...');
+      
+      // Drop and recreate the webhook_events table with correct schema
+      await this.webhookEventRepository.query(`
+        DROP TABLE IF EXISTS webhook_events;
+        CREATE TABLE webhook_events (
+          id uuid NOT NULL DEFAULT uuid_generate_v4(),
+          stripe_event_id character varying(64) NOT NULL,
+          type character varying(100) NOT NULL,
+          payload jsonb NOT NULL,
+          created_at TIMESTAMP NOT NULL DEFAULT now(),
+          CONSTRAINT UQ_webhook_events_stripe_event_id UNIQUE (stripe_event_id),
+          CONSTRAINT PK_webhook_events PRIMARY KEY (id)
+        );
+      `);
+      
+      console.log('✅ Successfully fixed webhook_events table schema');
+      return { success: true, message: 'Webhook events table schema fixed successfully' };
+    } catch (error) {
+      console.error('❌ Error fixing webhook table:', error);
+      throw new BadRequestException(`Failed to fix webhook table: ${error.message}`);
+    }
+  }
+
+  async handleCheckoutSessionSuccess(sessionId: string) {
+    console.log(`🎉 Handling checkout session success: ${sessionId}`);
+    
+    try {
+      if (!sessionId || typeof sessionId !== 'string') {
+        throw new BadRequestException('Invalid session ID');
+      }
+
+      // Get the checkout session from Stripe
+      const session = await this.stripeService.getCheckoutSession(sessionId);
+      
+      if (!session) {
+        throw new BadRequestException('Checkout session not found');
+      }
+
+      console.log(`📋 Session details: payment_status=${session.payment_status}, mode=${session.mode}`);
+
+      if (session.payment_status !== 'paid') {
+        console.log(`⚠️ Payment not yet completed. Status: ${session.payment_status}`);
+        return {
+          success: false,
+          message: `Payment not completed. Status: ${session.payment_status}`,
+          sessionId: sessionId
+        };
+      }
+
+      // Extract metadata
+      const { parentId, studentId } = session.metadata || {};
+      
+      if (!parentId || !studentId) {
+        console.error(`❌ Missing metadata in session: ${JSON.stringify(session.metadata)}`);
+        throw new BadRequestException('Missing parentId or studentId in session metadata');
+      }
+
+      console.log(`📋 Processing successful payment for parent: ${parentId}, student: ${studentId}`);
+
+      // Find the incomplete subscription record
+      const subscription = await this.subscriptionRepository.findOne({
+        where: { userId: parentId, studentId: studentId, status: 'incomplete' }
+      });
+
+      if (!subscription) {
+        throw new BadRequestException('No incomplete subscription found');
+      }
+
+      // Get the subscription from Stripe
+      const stripeSubscription = session.subscription as any;
+      
+      if (!stripeSubscription) {
+        throw new BadRequestException('No subscription found in session');
+      }
+
+      // Update the subscription record
+      const updateData: any = {
+        stripeSubscriptionId: stripeSubscription.id,
+        stripeCustomerId: session.customer as string,
+        status: stripeSubscription.status,
+        amount: stripeSubscription.items?.data[0]?.price?.unit_amount || 0,
+        currency: stripeSubscription.items?.data[0]?.price?.currency || 'usd'
+      };
+
+      // Only set dates if they exist and are valid
+      if (stripeSubscription.current_period_start) {
+        updateData.currentPeriodStart = new Date(stripeSubscription.current_period_start * 1000);
+      }
+      if (stripeSubscription.current_period_end) {
+        updateData.currentPeriodEnd = new Date(stripeSubscription.current_period_end * 1000);
+      }
+
+      await this.subscriptionRepository.update(subscription.id, updateData);
+
+      // Create invoice record
+      if (stripeSubscription.latest_invoice) {
+        try {
+          const invoice = await this.stripeService.getInvoice(stripeSubscription.latest_invoice);
+          
+          const invoiceData: any = {
+            userId: parentId,
+            studentId: studentId,
+            subscriptionId: subscription.id,
+            stripeInvoiceId: invoice.id,
+            stripeSubscriptionId: stripeSubscription.id,
+            amountPaid: invoice.amount_paid || 0,
+            currency: invoice.currency || 'usd',
+            status: 'paid',
+          };
+
+          // Only set paidAt if it exists and is valid
+          if (invoice.status_transitions?.paid_at) {
+            invoiceData.paidAt = new Date(invoice.status_transitions.paid_at * 1000);
+          }
+
+          await this.invoiceRepository.save(invoiceData);
+          console.log(`📄 Created invoice record for subscription: ${stripeSubscription.id}`);
+        } catch (invoiceError) {
+          console.error('⚠️ Error creating invoice record:', invoiceError.message);
+          // Don't fail the whole process if invoice creation fails
+        }
+      }
+
+      // Store webhook event for audit
+      await this.storeWebhookEvent({
+        id: `manual_${sessionId.substring(0, 50)}`, // Truncate to fit 64 char limit
+        type: 'checkout.session.completed',
+        data: { object: session }
+      });
+
+      console.log(`✅ Successfully processed checkout session: ${sessionId}`);
+      
+      return {
+        success: true,
+        message: 'Payment processed successfully',
+        subscriptionId: stripeSubscription.id,
+        status: stripeSubscription.status
+      };
+
+    } catch (error) {
+      console.error('❌ Error handling checkout session success:', error);
+      throw new BadRequestException(`Failed to process payment: ${error.message}`);
     }
   }
 
@@ -149,6 +388,140 @@ export class PaymentsService {
       relations: ['student', 'student.user', 'subscription'],
       order: { createdAt: 'DESC' }
     });
+  }
+
+  async getStudentSubscriptionStatus(parentId: string, studentId: string) {
+    console.log(`🔍 Checking subscription status for parentId: "${parentId}", studentId: "${studentId}"`);
+    
+    if (!parentId || !studentId) {
+      throw new BadRequestException('Parent ID and Student ID are required');
+    }
+
+    // Get parent and student info
+    const [parent, student] = await Promise.all([
+      this.userRepository.findOne({ where: { id: parentId } }),
+      this.userRepository.findOne({ where: { id: studentId } })
+    ]);
+
+    if (!parent || !student) {
+      throw new NotFoundException('Parent or student not found');
+    }
+
+    let stripeSubscription = null;
+    let subscriptionDetails = null;
+
+    // FIRST: Check Stripe directly - this is the source of truth
+    if (parent.stripe_customer_id && this.stripeService.isConfigured()) {
+      try {
+        console.log(`🔍 Checking Stripe for customer: ${parent.stripe_customer_id}`);
+        
+        // Get all subscriptions for this Stripe customer
+        const stripeSubscriptions = await this.stripeService.getCustomerSubscriptions(parent.stripe_customer_id);
+        console.log(`📊 Found ${stripeSubscriptions.length} Stripe subscriptions for customer`);
+        
+        // Find the subscription for this specific student
+        const studentName = `${student.firstName} ${student.lastName}`;
+        stripeSubscription = stripeSubscriptions.find(sub => 
+          sub.metadata?.studentId === studentId || 
+          sub.metadata?.studentName === studentName ||
+          sub.metadata?.description?.includes(studentName)
+        );
+
+        if (stripeSubscription) {
+          console.log(`✅ Found Stripe subscription: ${stripeSubscription.id} with status: ${stripeSubscription.status}`);
+          
+          subscriptionDetails = {
+            id: stripeSubscription.id,
+            status: stripeSubscription.status,
+            currentPeriodStart: new Date((stripeSubscription as any).current_period_start * 1000),
+            currentPeriodEnd: new Date((stripeSubscription as any).current_period_end * 1000),
+            cancelAtPeriodEnd: (stripeSubscription as any).cancel_at_period_end,
+            cancelAt: (stripeSubscription as any).cancel_at ? new Date((stripeSubscription as any).cancel_at * 1000) : null,
+            amount: stripeSubscription.items?.data[0]?.price?.unit_amount || 0,
+            currency: stripeSubscription.items?.data[0]?.price?.currency || 'usd'
+          };
+
+          // Update or create database record to match Stripe
+          const dbSubscription = await this.subscriptionRepository.findOne({
+            where: { userId: parentId, studentId: studentId }
+          });
+
+          if (dbSubscription) {
+            // Update existing record
+            if (dbSubscription.status !== stripeSubscription.status || !dbSubscription.stripeSubscriptionId) {
+              console.log(`📝 Updating DB subscription from ${dbSubscription.status} to ${stripeSubscription.status}`);
+              await this.subscriptionRepository.update(dbSubscription.id, {
+                status: stripeSubscription.status,
+                stripeSubscriptionId: stripeSubscription.id,
+                stripeCustomerId: parent.stripe_customer_id,
+                currentPeriodStart: subscriptionDetails.currentPeriodStart,
+                currentPeriodEnd: subscriptionDetails.currentPeriodEnd,
+                cancelAt: subscriptionDetails.cancelAt,
+                amount: subscriptionDetails.amount,
+                currency: subscriptionDetails.currency
+              });
+            }
+          } else {
+            // Create new database record from Stripe data
+            console.log(`📝 Creating new DB subscription record for Stripe subscription: ${stripeSubscription.id}`);
+            await this.subscriptionRepository.save({
+              userId: parentId,
+              studentId: studentId,
+              stripeSubscriptionId: stripeSubscription.id,
+              stripeCustomerId: parent.stripe_customer_id,
+              status: stripeSubscription.status,
+              currentPeriodStart: subscriptionDetails.currentPeriodStart,
+              currentPeriodEnd: subscriptionDetails.currentPeriodEnd,
+              cancelAt: subscriptionDetails.cancelAt,
+              amount: subscriptionDetails.amount,
+              currency: subscriptionDetails.currency
+            });
+          }
+        } else {
+          console.log(`⚠️ No Stripe subscription found for student ${studentId} (${studentName})`);
+        }
+      } catch (error) {
+        console.error('❌ Error checking Stripe subscription:', error.message);
+      }
+    } else {
+      console.log('⚠️ No Stripe customer ID or Stripe not configured');
+    }
+
+    // Determine the final status
+    const hasStripeSubscription = !!stripeSubscription;
+    const status = stripeSubscription?.status || 'none';
+    const isActive = status === 'active' || status === 'trialing';
+    const isSetToCancel = subscriptionDetails?.cancelAtPeriodEnd === true;
+    const canSubscribe = !hasStripeSubscription || status === 'canceled' || status === 'none';
+    const canCancel = hasStripeSubscription && isActive && !isSetToCancel;
+    const canReactivate = hasStripeSubscription && isActive && isSetToCancel;
+
+    const result = {
+      hasSubscription: hasStripeSubscription,
+      status,
+      isActive,
+      canSubscribe,
+      canCancel,
+      canReactivate,
+      isSetToCancel,
+      subscriptionDetails,
+      stripeStatus: stripeSubscription?.status || null,
+      studentName: `${student.firstName} ${student.lastName}`
+    };
+
+    console.log(`📊 Final status for student ${studentId}:`, {
+      hasStripeSubscription,
+      status,
+      isActive,
+      isSetToCancel,
+      canSubscribe,
+      canCancel,
+      canReactivate,
+      hasSubscriptionDetails: !!subscriptionDetails,
+      subscriptionId: stripeSubscription?.id || 'none'
+    });
+
+    return result;
   }
 
   async getAllSubscriptions(): Promise<Subscription[]> {
@@ -186,31 +559,39 @@ export class PaymentsService {
   }
 
   async handleStripeWebhook(event: any): Promise<void> {
-    console.log(`Processing Stripe webhook: ${event.type}`);
+    console.log(`🔄 Processing Stripe webhook: ${event.type} (${event.id})`);
     
-    // Store webhook event for audit trail
+    // Store webhook event for audit trail FIRST
     await this.storeWebhookEvent(event);
     
     try {
       switch (event.type) {
         case 'checkout.session.completed':
+          console.log(`📋 Handling checkout.session.completed for session: ${event.data.object.id}`);
           await this.handleCheckoutSessionCompleted(event.data.object);
           break;
         case 'invoice.payment_succeeded':
+          console.log(`💰 Handling invoice.payment_succeeded for invoice: ${event.data.object.id}`);
           await this.handleInvoicePaymentSucceeded(event.data.object);
           break;
         case 'invoice.payment_failed':
+          console.log(`❌ Handling invoice.payment_failed for invoice: ${event.data.object.id}`);
           await this.handleInvoicePaymentFailed(event.data.object);
           break;
         case 'customer.subscription.updated':
+          console.log(`🔄 Handling customer.subscription.updated for subscription: ${event.data.object.id}`);
+          await this.handleSubscriptionChanged(event.data.object);
+          break;
         case 'customer.subscription.deleted':
+          console.log(`🗑️ Handling customer.subscription.deleted for subscription: ${event.data.object.id}`);
           await this.handleSubscriptionChanged(event.data.object);
           break;
         default:
-          console.log(`Unhandled webhook event type: ${event.type}`);
+          console.log(`⚠️ Unhandled webhook event type: ${event.type} (${event.id})`);
       }
+      console.log(`✅ Successfully processed webhook: ${event.type} (${event.id})`);
     } catch (error) {
-      console.error(`Error processing webhook ${event.type}:`, error);
+      console.error(`❌ Error processing webhook ${event.type} (${event.id}):`, error);
       throw error;
     }
   }
@@ -351,21 +732,27 @@ export class PaymentsService {
 
   private async storeWebhookEvent(event: any): Promise<void> {
     try {
+      console.log(`📝 Storing webhook event: ${event.type} (${event.id})`);
+      
       // Check if event already exists
       const existingEvent = await this.webhookEventRepository.findOne({
         where: { stripeEventId: event.id }
       });
 
       if (!existingEvent) {
-        await this.webhookEventRepository.save({
+        const webhookEvent = await this.webhookEventRepository.save({
           stripeEventId: event.id,
           type: event.type,
           payload: event,
         });
-        console.log(`Stored webhook event: ${event.type} (${event.id})`);
+        console.log(`✅ Successfully stored webhook event: ${event.type} (${event.id}) with ID: ${webhookEvent.id}`);
+      } else {
+        console.log(`⚠️ Webhook event already exists: ${event.type} (${event.id})`);
       }
     } catch (error) {
-      console.error('Failed to store webhook event:', error);
+      console.error('❌ Failed to store webhook event:', error);
+      console.error('Event details:', { id: event.id, type: event.type });
+      throw error; // Re-throw to ensure webhook processing fails if storage fails
     }
   }
 }
