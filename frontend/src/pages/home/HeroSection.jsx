@@ -13,7 +13,7 @@ const HeroSection = ({onLoginClick}) => {
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center">
           {/* Logo */}
-          <div class="mb-4 flex justify-center">
+          <div className="mb-4 flex justify-center">
             <div className="w-36 h-36 ">
               <img src={baraemLogo} alt="Baraem Al-Nour Logo" className="w-full h-full object-cover" />
             </div>
