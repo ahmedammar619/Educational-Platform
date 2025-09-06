@@ -2,7 +2,10 @@
 import { getVersion } from '../utils/version.js';
 
 // All environments use /api prefix
-const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+const isProduction = import.meta.env.PROD;
+const baseUrl = isProduction 
+  ? 'https://api.baraemalnour.org'  // Railway production
+  : (import.meta.env.VITE_API_URL || 'http://localhost:3000'); // Local development
 const apiPrefix = '/api'; // All environments use /api prefix
 
 console.log('🔧 API Config Debug:');
