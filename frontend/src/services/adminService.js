@@ -1,11 +1,10 @@
-import { API_CONFIG } from '../config/api';
 import api from './api';
 
 class AdminService {
   // Get admin dashboard stats
   async getDashboardStats() {
     try {
-      const response = await api.get('API_CONFIG.ENDPOINTS.ADMIN.ROOT/dashboard');
+      const response = await api.get('/api/admin/dashboard');
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -15,7 +14,7 @@ class AdminService {
   // Get admin dashboard (legacy method - keeping for backward compatibility)
   async getAdminDashboard() {
     try {
-      const response = await api.get('API_CONFIG.ENDPOINTS.ADMIN.ROOT/dashboard');
+      const response = await api.get('/api/admin/dashboard');
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -25,7 +24,7 @@ class AdminService {
   // Get all users
   async getAllUsers() {
     try {
-      const response = await api.get('API_CONFIG.ENDPOINTS.ADMIN.ROOT/users');
+      const response = await api.get('/api/admin/users');
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -35,7 +34,7 @@ class AdminService {
   // Get user by ID
   async getUserById(userId) {
     try {
-      const response = await api.get(`API_CONFIG.ENDPOINTS.ADMIN.ROOT/users/${userId}`);
+      const response = await api.get(`/api/admin/users/${userId}`);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -45,7 +44,7 @@ class AdminService {
   // Create user
   async createUser(userData) {
     try {
-      const response = await api.post('API_CONFIG.ENDPOINTS.ADMIN.ROOT/users', userData);
+      const response = await api.post('/api/admin/users', userData);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -55,7 +54,7 @@ class AdminService {
   // Update user
   async updateUser(userId, userData) {
     try {
-      const response = await api.put(`API_CONFIG.ENDPOINTS.ADMIN.ROOT/users/${userId}`, userData);
+      const response = await api.put(`/api/admin/users/${userId}`, userData);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -65,7 +64,7 @@ class AdminService {
   // Delete user
   async deleteUser(userId) {
     try {
-      const response = await api.delete(`API_CONFIG.ENDPOINTS.ADMIN.ROOT/users/${userId}`);
+      const response = await api.delete(`/api/admin/users/${userId}`);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -75,7 +74,7 @@ class AdminService {
   // Deactivate user
   async deactivateUser(userId) {
     try {
-      const response = await api.patch(`API_CONFIG.ENDPOINTS.ADMIN.ROOT/users/${userId}/deactivate`);
+      const response = await api.patch(`/api/admin/users/${userId}/deactivate`);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -85,7 +84,7 @@ class AdminService {
   // Reactivate user
   async reactivateUser(userId) {
     try {
-      const response = await api.patch(`API_CONFIG.ENDPOINTS.ADMIN.ROOT/users/${userId}/reactivate`);
+      const response = await api.patch(`/api/admin/users/${userId}/reactivate`);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -95,7 +94,7 @@ class AdminService {
   // Get recent users
   async getRecentUsers() {
     try {
-      const response = await api.get('API_CONFIG.ENDPOINTS.ADMIN.ROOT/users/recent');
+      const response = await api.get('/api/admin/users/recent');
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -105,7 +104,7 @@ class AdminService {
   // Get recent classes
   async getRecentClasses() {
     try {
-      const response = await api.get('API_CONFIG.ENDPOINTS.ADMIN.ROOTAPI_CONFIG.ENDPOINTS.CLASSES/recent');
+      const response = await api.get('/api/admin/classes/recent');
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -115,7 +114,7 @@ class AdminService {
   // Get user statistics
   async getUserStats() {
     try {
-      const response = await api.get('API_CONFIG.ENDPOINTS.ADMIN.ROOT/users/stats');
+      const response = await api.get('/api/admin/users/stats');
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -125,7 +124,7 @@ class AdminService {
   // Get system statistics
   async getSystemStats() {
     try {
-      const response = await api.get('API_CONFIG.ENDPOINTS.ADMIN.ROOT/system/stats');
+      const response = await api.get('/api/admin/system/stats');
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -135,7 +134,7 @@ class AdminService {
   // Get system logs
   async getSystemLogs() {
     try {
-      const response = await api.get('API_CONFIG.ENDPOINTS.ADMIN.ROOT/system/logs');
+      const response = await api.get('/api/admin/system/logs');
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -145,7 +144,7 @@ class AdminService {
   // Get audit trail
   async getAuditTrail() {
     try {
-      const response = await api.get('API_CONFIG.ENDPOINTS.ADMIN.ROOT/audit-trail');
+      const response = await api.get('/api/admin/audit-trail');
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -155,7 +154,7 @@ class AdminService {
   // Get system health
   async getSystemHealth() {
     try {
-      const response = await api.get('API_CONFIG.ENDPOINTS.ADMIN.ROOT/system/health');
+      const response = await api.get('/api/admin/system/health');
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;

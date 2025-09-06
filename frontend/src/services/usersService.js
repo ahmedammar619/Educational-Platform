@@ -4,7 +4,7 @@ class UsersService {
   // Get all users
   async getAllUsers() {
     try {
-      const response = await api.get('/users');
+      const response = await api.get('/api/users');
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -14,7 +14,7 @@ class UsersService {
   // Get all students
   async getAllStudents() {
     try {
-      const response = await api.get('/students');
+      const response = await api.get('/api/students');
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -24,7 +24,7 @@ class UsersService {
   // Get user by ID
   async getUserById(userId) {
     try {
-      const response = await api.get(`/users/${userId}`);
+      const response = await api.get(`/api/users/${userId}`);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -34,7 +34,7 @@ class UsersService {
   // Get users by role
   async getUsersByRole(role) {
     try {
-      const response = await api.get(`/users/role/${role}`);
+      const response = await api.get(`/api/users/role/${role}`);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -44,7 +44,7 @@ class UsersService {
   // Create new user
   async createUser(userData) {
     try {
-      const response = await api.post('/users', userData);
+      const response = await api.post('/api/users', userData);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -54,7 +54,7 @@ class UsersService {
   // Update user
   async updateUser(userId, userData) {
     try {
-      const response = await api.put(`/users/${userId}`, userData);
+      const response = await api.put(`/api/users/${userId}`, userData);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -64,7 +64,7 @@ class UsersService {
   // Delete user
   async deleteUser(userId) {
     try {
-      const response = await api.delete(`/users/${userId}`);
+      const response = await api.delete(`/api/users/${userId}`);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -74,7 +74,7 @@ class UsersService {
   // Get user profile
   async getUserProfile() {
     try {
-      const response = await api.get('/users/profile');
+      const response = await api.get('/api/users/profile');
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -84,7 +84,7 @@ class UsersService {
   // Update user profile
   async updateUserProfile(profileData) {
     try {
-      const response = await api.put('/users/profile', profileData);
+      const response = await api.put('/api/users/profile', profileData);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -94,7 +94,7 @@ class UsersService {
   // Change password
   async changePassword(passwordData) {
     try {
-      const response = await api.put('/users/change-password', passwordData);
+      const response = await api.put('/api/users/change-password', passwordData);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -104,7 +104,7 @@ class UsersService {
   // Deactivate account
   async deactivateAccount() {
     try {
-      const response = await api.put('/users/deactivate');
+      const response = await api.put('/api/users/deactivate');
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -115,7 +115,7 @@ class UsersService {
   async searchUsers(searchTerm, filters = {}) {
     try {
       const params = new URLSearchParams({ search: searchTerm, ...filters });
-      const response = await api.get(`/users/search?${params}`);
+      const response = await api.get(`/api/users/search?${params}`);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -125,7 +125,7 @@ class UsersService {
   // Get user statistics
   async getUserStats() {
     try {
-      const response = await api.get('/users/stats');
+      const response = await api.get('/api/users/stats');
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
