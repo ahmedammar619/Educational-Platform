@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Menu, X, User } from 'lucide-react';
-import baraemLogo from '../../assets/baraem.png';
+import baraemLogo from '../../assets/baraem.svg';
 
 const Header = ({ onLoginClick }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
