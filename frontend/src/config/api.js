@@ -4,15 +4,16 @@ import { getVersion } from '../utils/version.js';
 // Get the base URL
 const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
-// Check if the base URL already includes /api in the path
-const hasApiInBaseUrl = baseUrl.includes('/api');
-
-// API prefix logic - Only add /api if it's not already in the base URL
+// SIMPLE BULLETPROOF LOGIC: 
+// If base URL contains /api in the path, don't add it
+// Otherwise, always add /api
 const getApiPrefix = () => {
-  if (hasApiInBaseUrl) {
-    return ''; // Base URL already includes /api
+  // Check if /api is already in the URL path (not just domain)
+  const urlPath = new URL(baseUrl).pathname;
+  if (urlPath.includes('/api')) {
+    return ''; // Already has /api in path
   }
-  return '/api'; // Add /api prefix if not present
+  return '/api'; // Always add /api prefix
 };
 
 export const API_CONFIG = {
@@ -62,15 +63,16 @@ export const API_CONFIG = {
   },
 };
 
+const urlPath = new URL(baseUrl).pathname;
 console.log('🔧 API Config Debug:');
 console.log('  VITE_API_URL:', import.meta.env.VITE_API_URL);
 console.log('  BASE_URL:', baseUrl);
+console.log('  URL_PATH:', urlPath);
+console.log('  PATH_HAS_API:', urlPath.includes('/api'));
 console.log('  VERSION:', getVersion());
-console.log('  hasApiInBaseUrl:', hasApiInBaseUrl);
 console.log('  API_PREFIX:', getApiPrefix());
 console.log('  LOGIN_ENDPOINT:', `${getApiPrefix()}/auth/login`);
 console.log('  FINAL_LOGIN_URL:', `${baseUrl}${getApiPrefix()}/auth/login`);
 console.log('  AUTH.LOGIN from config:', API_CONFIG.ENDPOINTS.AUTH.LOGIN);
-console.log('  All env vars:', import.meta.env);
 
 export default API_CONFIG;
