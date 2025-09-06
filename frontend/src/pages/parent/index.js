@@ -1,4 +1,4 @@
-export { default as ParentMain } from './ParentMain';
+// ParentMain component has been removed - using MainLayout directly
 export { default as ParentDashboard } from './ParentDashboard';
 export { default as ParentSchedule } from './ParentSchedule';
 export { default as ParentCommunication } from './ParentCommunication';

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Menu, X, Bell, Search, User, LogOut, Home, BookOpen, Calendar, Users, BarChart3, Settings, MessageSquare } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { authService } from '../../services';
-import baraemLogo from '../../assets/baraem.png';
+import baraemLogo from '../../assets/baraem.svg';
 
 const Layout = ({ children, user, onLogout }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);

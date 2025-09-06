@@ -1,4 +1,4 @@
-export { default as TeacherMain } from './TeacherMain';
+// TeacherMain component has been removed - using MainLayout directly
 export { default as TeacherDashboard } from './TeacherDashboard';
 export { default as TeacherSchedule } from './TeacherSchedule';
 export { default as TeacherClasses } from './TeacherClasses';
