@@ -13,7 +13,7 @@ import {
   Bell,
   LogOut
 } from 'lucide-react';
-import baraemLogo from '../../assets/baraem.png';
+import baraemLogo from '../../assets/baraem.svg';
 
 // Role-based navigation configurations
 const getNavigationConfig = (role) => {
