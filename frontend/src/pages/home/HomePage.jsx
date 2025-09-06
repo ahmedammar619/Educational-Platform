@@ -10,8 +10,8 @@ const HomePage = ({ onLoginClick }) => {
     return (
         <>
             <Helmet>
-                <title>Baraem Al-Noor - Islamic Educational Platform</title>
-                <meta name="description" content="Baraem Al-Noor offers comprehensive Islamic education including Quran memorization, Arabic language learning, and Islamic studies for children of all ages." />
+                <title>Baraem Al-Nour - Islamic Educational Platform</title>
+                <meta name="description" content="Baraem Al-Nour offers comprehensive Islamic education including Quran memorization, Arabic language learning, and Islamic studies for children of all ages." />
                 <meta name="keywords" content="Islamic education, Quran memorization, Arabic learning, Islamic studies, children education" />
             </Helmet>
 

@@ -25,7 +25,7 @@ const HeroSection = ({onLoginClick}) => {
               براعم النور
             </h1>
             <p className="text-lg sm:text-xl md:text-2xl text-gray-700 font-medium">
-              Baraem Al-Noor
+              Baraem Al-Nour
             </p>
           </div>
           
@@ -36,7 +36,7 @@ const HeroSection = ({onLoginClick}) => {
           
           {/* Description */}
           <p className="text-base sm:text-lg md:text-xl text-gray-600 mb-8 sm:mb-10 max-w-4xl mx-auto leading-relaxed">
-            Welcome to Baraem Al-Noor, where we provide comprehensive Islamic education for children. Our platform offers Quran memorization, Arabic language learning, and Islamic studies in a nurturing, age-appropriate environment that helps young minds grow in faith and knowledge.
+            Welcome to Baraem Al-Nour, where we provide comprehensive Islamic education for children. Our platform offers Quran memorization, Arabic language learning, and Islamic studies in a nurturing, age-appropriate environment that helps young minds grow in faith and knowledge.
           </p>
           
           {/* Call to Action Buttons */}

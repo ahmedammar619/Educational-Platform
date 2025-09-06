@@ -1,6 +1,6 @@
 # User Creation Policy
 
-This document explains how different types of users are created in the Baraem Al-Noor Educational Platform.
+This document explains how different types of users are created in the Baraem Al-Nour Educational Platform.
 
 ## User Types & Creation Methods
 

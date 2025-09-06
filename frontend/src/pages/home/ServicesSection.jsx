@@ -75,7 +75,7 @@ const ServicesSection = () => {
               Ready to Start Your Child's Islamic Education Journey?
             </h3>
             <p className="text-sm sm:text-base text-gray-600 mb-4 sm:mb-6">
-              Join thousands of families who trust Baraem Al-Noor for their children's Islamic education.
+              Join thousands of families who trust Baraem Al-Nour for their children's Islamic education.
             </p>
             <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center">
               <button className="w-full sm:w-auto bg-green-600 text-white px-6 sm:px-8 py-3 sm:py-4 rounded-lg font-semibold hover:bg-green-700 transition-colors shadow-lg">

@@ -8,10 +8,10 @@ const AboutSection = () => {
           {/* Content */}
           <div>
             <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-6">
-              About Baraem Al-Noor
+              About Baraem Al-Nour
             </h2>
             <p className="text-lg text-gray-700 mb-6 leading-relaxed">
-              Baraem Al-Noor (براعم النور) means "Buds of Light" - representing our mission to nurture 
+              Baraem Al-Nour (براعم النور) means "Buds of Light" - representing our mission to nurture 
               young minds as they grow in Islamic knowledge and character. We believe that every child 
               is a precious gift from Allah, and it is our responsibility to provide them with the 
               best Islamic education possible.

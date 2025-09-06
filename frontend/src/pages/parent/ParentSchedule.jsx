@@ -68,7 +68,7 @@ const ParentSchedule = ({ user }) => {
       const mockChildrenSchedule = [
         {
           id: 1,
-          name: "Ahmad Al-Noor",
+          name: "Ahmad Al-Nour",
           age: 12,
           classesCount: 3,
           classes: [
@@ -102,7 +102,7 @@ const ParentSchedule = ({ user }) => {
         },
         {
           id: 2,
-          name: "Aisha Al-Noor",
+          name: "Aisha Al-Nour",
           age: 10,
           classesCount: 2,
           classes: [
@@ -141,7 +141,7 @@ const ParentSchedule = ({ user }) => {
             { day: "Wednesday", startTime: "16:00", endTime: "18:00" }
           ],
           childId: 1,
-          childName: "Ahmad Al-Noor"
+          childName: "Ahmad Al-Nour"
         },
         {
           id: 2,
@@ -155,7 +155,7 @@ const ParentSchedule = ({ user }) => {
             { day: "Thursday", startTime: "14:00", endTime: "16:00" }
           ],
           childId: 1,
-          childName: "Ahmad Al-Noor"
+          childName: "Ahmad Al-Nour"
         },
         {
           id: 3,
@@ -168,7 +168,7 @@ const ParentSchedule = ({ user }) => {
             { day: "Saturday", startTime: "10:00", endTime: "12:00" }
           ],
           childId: 1,
-          childName: "Ahmad Al-Noor"
+          childName: "Ahmad Al-Nour"
         },
         {
           id: 4,
@@ -182,7 +182,7 @@ const ParentSchedule = ({ user }) => {
             { day: "Wednesday", startTime: "14:00", endTime: "16:00" }
           ],
           childId: 2,
-          childName: "Aisha Al-Noor"
+          childName: "Aisha Al-Nour"
         },
         {
           id: 5,
@@ -195,7 +195,7 @@ const ParentSchedule = ({ user }) => {
             { day: "Friday", startTime: "15:00", endTime: "17:00" }
           ],
           childId: 2,
-          childName: "Aisha Al-Noor"
+          childName: "Aisha Al-Nour"
         }
       ];
 
