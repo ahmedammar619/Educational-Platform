@@ -1,10 +1,11 @@
+import { API_CONFIG } from '../config/api';
 import api from './api';
 
 class TeachersService {
   // Get teacher profile
   async getTeacherProfile() {
     try {
-      const response = await api.get('/teachers/profile');
+      const response = await api.get('API_CONFIG.ENDPOINTS.TEACHERS/profile');
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -14,7 +15,7 @@ class TeachersService {
   // Update teacher profile
   async updateTeacherProfile(profileData) {
     try {
-      const response = await api.put('/teachers/profile', profileData);
+      const response = await api.put('API_CONFIG.ENDPOINTS.TEACHERS/profile', profileData);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -24,7 +25,7 @@ class TeachersService {
   // Get teacher classes
   async getTeacherClasses() {
     try {
-      const response = await api.get('/teachers/classes');
+      const response = await api.get('API_CONFIG.ENDPOINTS.TEACHERSAPI_CONFIG.ENDPOINTS.CLASSES');
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -34,7 +35,7 @@ class TeachersService {
   // Get teacher students
   async getTeacherStudents() {
     try {
-      const response = await api.get('/teachers/students');
+      const response = await api.get('API_CONFIG.ENDPOINTS.TEACHERS/students');
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -44,7 +45,7 @@ class TeachersService {
   // Get teacher schedule
   async getTeacherSchedule() {
     try {
-      const response = await api.get('/teachers/schedule');
+      const response = await api.get('API_CONFIG.ENDPOINTS.TEACHERS/schedule');
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -54,7 +55,7 @@ class TeachersService {
   // Create class
   async createClass(classData) {
     try {
-      const response = await api.post('/teachers/classes', classData);
+      const response = await api.post('API_CONFIG.ENDPOINTS.TEACHERSAPI_CONFIG.ENDPOINTS.CLASSES', classData);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -64,7 +65,7 @@ class TeachersService {
   // Update class
   async updateClass(classId, classData) {
     try {
-      const response = await api.put(`/teachers/classes/${classId}`, classData);
+      const response = await api.put(`API_CONFIG.ENDPOINTS.TEACHERSAPI_CONFIG.ENDPOINTS.CLASSES/${classId}`, classData);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -74,7 +75,7 @@ class TeachersService {
   // Delete class
   async deleteClass(classId) {
     try {
-      const response = await api.delete(`/teachers/classes/${classId}`);
+      const response = await api.delete(`API_CONFIG.ENDPOINTS.TEACHERSAPI_CONFIG.ENDPOINTS.CLASSES/${classId}`);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -84,7 +85,7 @@ class TeachersService {
   // Get class details
   async getClassDetails(classId) {
     try {
-      const response = await api.get(`/teachers/classes/${classId}`);
+      const response = await api.get(`API_CONFIG.ENDPOINTS.TEACHERSAPI_CONFIG.ENDPOINTS.CLASSES/${classId}`);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -94,7 +95,7 @@ class TeachersService {
   // Get class students
   async getClassStudents(classId) {
     try {
-      const response = await api.get(`/teachers/classes/${classId}/students`);
+      const response = await api.get(`API_CONFIG.ENDPOINTS.TEACHERSAPI_CONFIG.ENDPOINTS.CLASSES/${classId}/students`);
       // Backend returns {students: []} format, extract the students array
       return response.data.students || response.data;
     } catch (error) {
@@ -105,7 +106,7 @@ class TeachersService {
   // Add student to class
   async addStudentToClass(classId, studentId) {
     try {
-      const response = await api.post(`/teachers/classes/${classId}/students`, { studentId });
+      const response = await api.post(`API_CONFIG.ENDPOINTS.TEACHERSAPI_CONFIG.ENDPOINTS.CLASSES/${classId}/students`, { studentId });
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -115,7 +116,7 @@ class TeachersService {
   // Remove student from class
   async removeStudentFromClass(classId, studentId) {
     try {
-      const response = await api.delete(`/teachers/classes/${classId}/students/${studentId}`);
+      const response = await api.delete(`API_CONFIG.ENDPOINTS.TEACHERSAPI_CONFIG.ENDPOINTS.CLASSES/${classId}/students/${studentId}`);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -125,7 +126,7 @@ class TeachersService {
   // Get teacher statistics
   async getTeacherStats() {
     try {
-      const response = await api.get('/teachers/stats');
+      const response = await api.get('API_CONFIG.ENDPOINTS.TEACHERS/stats');
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -135,7 +136,7 @@ class TeachersService {
   // Get teacher availability
   async getTeacherAvailability() {
     try {
-      const response = await api.get('/teachers/availability');
+      const response = await api.get('API_CONFIG.ENDPOINTS.TEACHERS/availability');
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -145,7 +146,7 @@ class TeachersService {
   // Update teacher availability
   async updateTeacherAvailability(availabilityData) {
     try {
-      const response = await api.put('/teachers/availability', availabilityData);
+      const response = await api.put('API_CONFIG.ENDPOINTS.TEACHERS/availability', availabilityData);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;

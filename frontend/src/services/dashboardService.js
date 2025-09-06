@@ -1,3 +1,4 @@
+import { API_CONFIG } from '../config/api';
 import api from './api';
 
 class DashboardService {
@@ -54,7 +55,7 @@ class DashboardService {
   // Get admin dashboard data
   async getAdminDashboard() {
     try {
-      const response = await api.get('/dashboard/admin');
+      const response = await api.get('/dashboardAPI_CONFIG.ENDPOINTS.ADMIN.ROOT');
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
