@@ -7,23 +7,13 @@ const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 // Check if the base URL already includes /api in the path
 const hasApiInBaseUrl = baseUrl.includes('/api');
 
-// API prefix logic - BOTH environments need /api prefix
+// API prefix logic - Only add /api if it's not already in the base URL
 const getApiPrefix = () => {
   if (hasApiInBaseUrl) {
-    return ''; // Base URL already includes /api in the path
+    return ''; // Base URL already includes /api
   }
-  return '/api'; // Both local and Railway backends need /api prefix
+  return '/api'; // Add /api prefix if not present
 };
-
-console.log('🔧 API Config Debug:');
-console.log('  VITE_API_URL:', import.meta.env.VITE_API_URL);
-console.log('  BASE_URL:', baseUrl);
-console.log('  VERSION:', getVersion());
-console.log('  hasApiInBaseUrl:', hasApiInBaseUrl);
-console.log('  API_PREFIX:', getApiPrefix());
-console.log('  LOGIN_ENDPOINT:', `${getApiPrefix()}/auth/login`);
-console.log('  FINAL_LOGIN_URL:', `${baseUrl}${getApiPrefix()}/auth/login`);
-console.log('  All env vars:', import.meta.env);
 
 export const API_CONFIG = {
   // Base URL for API calls
@@ -71,5 +61,16 @@ export const API_CONFIG = {
     VALIDATION_ERROR: 'Please check your input and try again.',
   },
 };
+
+console.log('🔧 API Config Debug:');
+console.log('  VITE_API_URL:', import.meta.env.VITE_API_URL);
+console.log('  BASE_URL:', baseUrl);
+console.log('  VERSION:', getVersion());
+console.log('  hasApiInBaseUrl:', hasApiInBaseUrl);
+console.log('  API_PREFIX:', getApiPrefix());
+console.log('  LOGIN_ENDPOINT:', `${getApiPrefix()}/auth/login`);
+console.log('  FINAL_LOGIN_URL:', `${baseUrl}${getApiPrefix()}/auth/login`);
+console.log('  AUTH.LOGIN from config:', API_CONFIG.ENDPOINTS.AUTH.LOGIN);
+console.log('  All env vars:', import.meta.env);
 
 export default API_CONFIG;
