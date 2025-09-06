@@ -1,42 +1,34 @@
 // API Configuration
-import { getVersion } from '../utils/version.js';
-
-// All environments use /api prefix
-const isProduction = import.meta.env.PROD;
-const baseUrl = isProduction 
-  ? 'https://api.baraemalnour.org'  // Railway production
-  : (import.meta.env.VITE_API_URL || 'http://localhost:3000'); // Local development
-const apiPrefix = '/api'; // All environments use /api prefix
-
-console.log('🔧 API Config Loaded:');
-console.log('  Environment:', isProduction ? 'PRODUCTION' : 'DEVELOPMENT');
-console.log('  BASE_URL:', baseUrl);
-console.log('  Full Login URL:', baseUrl + apiPrefix + '/auth/login');
+console.log('🔧 API Config Debug:');
+console.log('  VITE_API_URL:', import.meta.env.VITE_API_URL);
+console.log('  BASE_URL:', import.meta.env.VITE_API_URL || 'http://localhost:3000');
+console.log('  All env vars:', import.meta.env);
 
 export const API_CONFIG = {
   // Base URL for API calls
-  BASE_URL: baseUrl,
+  // You can change this to match your backend URL
+  BASE_URL: import.meta.env.VITE_API_URL || 'http://localhost:3000',
   
   // API endpoints
   ENDPOINTS: {
     AUTH: {
-      LOGIN: `${apiPrefix}/auth/login`,
-      REGISTER: `${apiPrefix}/auth/register`,
-      PROFILE: `${apiPrefix}/auth/profile`,
-      CHANGE_PASSWORD: `${apiPrefix}/auth/change-password`,
+      LOGIN: '/api/auth/login',
+      REGISTER: '/api/auth/register',
+      PROFILE: '/api/auth/profile',
+      CHANGE_PASSWORD: '/api/auth/change-password',
     },
-    USERS: `${apiPrefix}/users`,
-    COURSES: `${apiPrefix}/courses`,
-    CLASSES: `${apiPrefix}/classes`,
-    MATERIALS: `${apiPrefix}/materials`,
-    TEACHERS: `${apiPrefix}/teachers`,
-    STUDENTS: `${apiPrefix}/students`,
-    PARENTS: `${apiPrefix}/parents`,
+    USERS: '/api/users',
+    COURSES: '/api/courses',
+    CLASSES: '/api/classes',
+    MATERIALS: '/api/materials',
+    TEACHERS: '/api/teachers',
+    STUDENTS: '/api/students',
+    PARENTS: '/api/parents',
     ADMIN: {
-      ROOT: `${apiPrefix}/admin`,
-      DASHBOARD: `${apiPrefix}/admin/dashboard`,
-      USERS: `${apiPrefix}/admin/users`,
-      TEACHERS: `${apiPrefix}/admin/teachers`
+      ROOT: '/api/admin',
+      DASHBOARD: '/api/admin/dashboard',
+      USERS: '/api/admin/users',
+      TEACHERS: '/api/admin/teachers'
     },
   },
   

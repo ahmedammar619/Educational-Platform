@@ -7,20 +7,5 @@ export default defineConfig({
   server: {
     port: 3001,
     host: '0.0.0.0',
-    hmr: {
-      port: 3001,
-    },
-    watch: {
-      usePolling: true,
-    },
   },
-  build: {
-    rollupOptions: {
-      output: {
-        entryFileNames: `assets/[name]-[hash].js`,
-        chunkFileNames: `assets/[name]-[hash].js`,
-        assetFileNames: `assets/[name]-[hash].[ext]`
-      }
-    }
-  }
 })
