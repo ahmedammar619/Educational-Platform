@@ -1,5 +1,4 @@
 import api from './api';
-import { API_CONFIG } from '../config/api';
 
 class PaymentService {
   // Get Stripe configuration
@@ -49,7 +48,7 @@ class PaymentService {
   async reactivateSubscription(studentId) {
     try {
       console.log('🔄 Reactivating subscription for student:', studentId);
-      const response = await api.post(`/payments/reactivate/${studentId}`);
+      const response = await api.post(`/api/payments/reactivate/${studentId}`);
       return response.data;
     } catch (error) {
       console.error('❌ Error reactivating subscription:', error);
@@ -104,7 +103,7 @@ class PaymentService {
   // Admin methods (for admin dashboard)
   async getAllSubscriptions() {
     try {
-      const response = await api.get('/api/payments/admin/subscriptions');
+      const response = await api.get('/payments/admin/subscriptions');
       return response.data;
     } catch (error) {
       console.error('❌ Error fetching all subscriptions:', error);
@@ -114,7 +113,7 @@ class PaymentService {
 
   async getSubscriptionStats() {
     try {
-      const response = await api.get('/api/payments/admin/stats');
+      const response = await api.get('/payments/admin/stats');
       return response.data;
     } catch (error) {
       console.error('❌ Error fetching subscription stats:', error);
