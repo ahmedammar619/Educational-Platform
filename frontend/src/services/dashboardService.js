@@ -4,7 +4,7 @@ class DashboardService {
   // Get general dashboard data
   async getDashboardData() {
     try {
-      const response = await api.get('/api/dashboard');
+      const response = await api.get('/dashboard');
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -14,7 +14,7 @@ class DashboardService {
   // Get user-specific dashboard data
   async getUserDashboard() {
     try {
-      const response = await api.get('/api/dashboard/user');
+      const response = await api.get('/dashboard/user');
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -24,7 +24,7 @@ class DashboardService {
   // Get teacher dashboard data
   async getTeacherDashboard(teacherId) {
     try {
-      const response = await api.get(`/api/dashboard/teacher?userId=${teacherId}`);
+      const response = await api.get(`/dashboard/teacher?userId=${teacherId}`);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -34,7 +34,7 @@ class DashboardService {
   // Get student dashboard data
   async getStudentDashboard(studentId) {
     try {
-      const response = await api.get(`/api/dashboard/student?studentId=${studentId}`);
+      const response = await api.get(`/dashboard/student?studentId=${studentId}`);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -44,7 +44,7 @@ class DashboardService {
   // Get parent dashboard data
   async getParentDashboard(parentId) {
     try {
-      const response = await api.get(`/api/dashboard/parent?parentId=${parentId}`);
+      const response = await api.get(`/dashboard/parent?parentId=${parentId}`);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -54,7 +54,7 @@ class DashboardService {
   // Get admin dashboard data
   async getAdminDashboard() {
     try {
-      const response = await api.get('/api/dashboard/admin');
+      const response = await api.get('/dashboard/admin');
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -64,7 +64,7 @@ class DashboardService {
   // Get recent activities
   async getRecentActivities() {
     try {
-      const response = await api.get('/api/dashboard/activities');
+      const response = await api.get('/dashboard/activities');
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -74,7 +74,7 @@ class DashboardService {
   // Get notifications
   async getNotifications() {
     try {
-      const response = await api.get('/api/dashboard/notifications');
+      const response = await api.get('/dashboard/notifications');
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -84,7 +84,7 @@ class DashboardService {
   // Mark notification as read
   async markNotificationAsRead(notificationId) {
     try {
-      const response = await api.patch(`/api/dashboard/notifications/${notificationId}/read`);
+      const response = await api.patch(`/dashboard/notifications/${notificationId}/read`);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -94,7 +94,7 @@ class DashboardService {
   // Get upcoming events
   async getUpcomingEvents() {
     try {
-      const response = await api.get('/api/dashboard/events');
+      const response = await api.get('/dashboard/events');
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -104,7 +104,7 @@ class DashboardService {
   // Get announcements
   async getAnnouncements() {
     try {
-      const response = await api.get('/api/dashboard/announcements');
+      const response = await api.get('/dashboard/announcements');
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -114,7 +114,7 @@ class DashboardService {
   // Get system statistics
   async getSystemStats() {
     try {
-      const response = await api.get('/api/dashboard/stats');
+      const response = await api.get('/dashboard/stats');
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -124,7 +124,7 @@ class DashboardService {
   // Get user activity summary
   async getUserActivitySummary() {
     try {
-      const response = await api.get('/api/dashboard/activity-summary');
+      const response = await api.get('/dashboard/activity-summary');
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -134,7 +134,7 @@ class DashboardService {
   // Get course progress summary
   async getCourseProgressSummary() {
     try {
-      const response = await api.get('/api/dashboard/course-progress');
+      const response = await api.get('/dashboard/course-progress');
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -144,7 +144,7 @@ class DashboardService {
   // Get attendance summary
   async getAttendanceSummary() {
     try {
-      const response = await api.get('/api/dashboard/attendance-summary');
+      const response = await api.get('/dashboard/attendance-summary');
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;

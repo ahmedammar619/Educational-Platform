@@ -4,7 +4,7 @@ class TeachersService {
   // Get teacher profile
   async getTeacherProfile() {
     try {
-      const response = await api.get('/api/teachers/profile');
+      const response = await api.get('/teachers/profile');
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -14,7 +14,7 @@ class TeachersService {
   // Update teacher profile
   async updateTeacherProfile(profileData) {
     try {
-      const response = await api.put('/api/teachers/profile', profileData);
+      const response = await api.put('/teachers/profile', profileData);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -24,7 +24,7 @@ class TeachersService {
   // Get teacher classes
   async getTeacherClasses() {
     try {
-      const response = await api.get('/api/teachers/classes');
+      const response = await api.get('/teachers/classes');
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -34,7 +34,7 @@ class TeachersService {
   // Get teacher students
   async getTeacherStudents() {
     try {
-      const response = await api.get('/api/teachers/students');
+      const response = await api.get('/teachers/students');
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -44,7 +44,7 @@ class TeachersService {
   // Get teacher schedule
   async getTeacherSchedule() {
     try {
-      const response = await api.get('/api/teachers/schedule');
+      const response = await api.get('/teachers/schedule');
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -54,7 +54,7 @@ class TeachersService {
   // Create class
   async createClass(classData) {
     try {
-      const response = await api.post('/api/teachers/classes', classData);
+      const response = await api.post('/teachers/classes', classData);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -64,7 +64,7 @@ class TeachersService {
   // Update class
   async updateClass(classId, classData) {
     try {
-      const response = await api.put(`/api/teachers/classes/${classId}`, classData);
+      const response = await api.put(`/teachers/classes/${classId}`, classData);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -74,7 +74,7 @@ class TeachersService {
   // Delete class
   async deleteClass(classId) {
     try {
-      const response = await api.delete(`/api/teachers/classes/${classId}`);
+      const response = await api.delete(`/teachers/classes/${classId}`);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -84,7 +84,7 @@ class TeachersService {
   // Get class details
   async getClassDetails(classId) {
     try {
-      const response = await api.get(`/api/teachers/classes/${classId}`);
+      const response = await api.get(`/teachers/classes/${classId}`);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -94,7 +94,7 @@ class TeachersService {
   // Get class students
   async getClassStudents(classId) {
     try {
-      const response = await api.get(`/api/teachers/classes/${classId}/students`);
+      const response = await api.get(`/teachers/classes/${classId}/students`);
       // Backend returns {students: []} format, extract the students array
       return response.data.students || response.data;
     } catch (error) {
@@ -105,7 +105,7 @@ class TeachersService {
   // Add student to class
   async addStudentToClass(classId, studentId) {
     try {
-      const response = await api.post(`/api/teachers/classes/${classId}/students`, { studentId });
+      const response = await api.post(`/teachers/classes/${classId}/students`, { studentId });
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -115,7 +115,7 @@ class TeachersService {
   // Remove student from class
   async removeStudentFromClass(classId, studentId) {
     try {
-      const response = await api.delete(`/api/teachers/classes/${classId}/students/${studentId}`);
+      const response = await api.delete(`/teachers/classes/${classId}/students/${studentId}`);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -125,7 +125,7 @@ class TeachersService {
   // Get teacher statistics
   async getTeacherStats() {
     try {
-      const response = await api.get('/api/teachers/stats');
+      const response = await api.get('/teachers/stats');
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -135,7 +135,7 @@ class TeachersService {
   // Get teacher availability
   async getTeacherAvailability() {
     try {
-      const response = await api.get('/api/teachers/availability');
+      const response = await api.get('/teachers/availability');
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -145,7 +145,7 @@ class TeachersService {
   // Update teacher availability
   async updateTeacherAvailability(availabilityData) {
     try {
-      const response = await api.put('/api/teachers/availability', availabilityData);
+      const response = await api.put('/teachers/availability', availabilityData);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;

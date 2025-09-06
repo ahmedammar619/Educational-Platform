@@ -5,7 +5,7 @@ class CoursesService {
   // Get all courses
   async getAllCourses() {
     try {
-      const response = await api.get('/api/courses');
+      const response = await api.get('/courses');
       return response.data;
     } catch (error) {
       // Error is already handled by the API interceptor
@@ -16,7 +16,7 @@ class CoursesService {
   // Get course by ID
   async getCourseById(courseId) {
     try {
-      const response = await api.get(`/api/courses/${courseId}`);
+      const response = await api.get(`/courses/${courseId}`);
       return response.data;
     } catch (error) {
       // Error is already handled by the API interceptor
@@ -27,7 +27,7 @@ class CoursesService {
   // Create new course
   async createCourse(courseData) {
     try {
-      const response = await api.post('/api/courses', courseData);
+      const response = await api.post('/courses', courseData);
       return response.data;
     } catch (error) {
       // Error is already handled by the API interceptor
@@ -38,7 +38,7 @@ class CoursesService {
   // Update course
   async updateCourse(courseId, courseData) {
     try {
-      const response = await api.patch(`/api/courses/${courseId}`, courseData);
+      const response = await api.patch(`/courses/${courseId}`, courseData);
       return response.data;
     } catch (error) {
       // Error is already handled by the API interceptor
@@ -49,7 +49,7 @@ class CoursesService {
   // Delete course
   async deleteCourse(courseId) {
     try {
-      const response = await api.delete(`/api/courses/${courseId}`);
+      const response = await api.delete(`/courses/${courseId}`);
       return response.data;
     } catch (error) {
       // Error is already handled by the API interceptor
@@ -60,7 +60,7 @@ class CoursesService {
   // Get courses by class
   async getCoursesByClass(classId) {
     try {
-      const response = await api.get(`/api/courses/class/${classId}`);
+      const response = await api.get(`/courses/class/${classId}`);
       return response.data;
     } catch (error) {
       // Error is already handled by the API interceptor
@@ -71,7 +71,7 @@ class CoursesService {
   // Get courses by teacher (if implemented in backend)
   async getCoursesByTeacher(teacherId) {
     try {
-      const response = await api.get(`/api/courses/teacher/${teacherId}`);
+      const response = await api.get(`/courses/teacher/${teacherId}`);
       return response.data;
     } catch (error) {
       // Error is already handled by the API interceptor
@@ -82,7 +82,7 @@ class CoursesService {
   // Get enrolled courses for student (if implemented in backend)
   async getEnrolledCourses() {
     try {
-      const response = await api.get('/api/courses/enrolled');
+      const response = await api.get('/courses/enrolled');
       return response.data;
     } catch (error) {
       // Error is already handled by the API interceptor
@@ -93,7 +93,7 @@ class CoursesService {
   // Enroll in course (if implemented in backend)
   async enrollInCourse(courseId) {
     try {
-      const response = await api.post(`/api/courses/${courseId}/enroll`);
+      const response = await api.post(`/courses/${courseId}/enroll`);
       return response.data;
     } catch (error) {
       // Error is already handled by the API interceptor
@@ -104,7 +104,7 @@ class CoursesService {
   // Unenroll from course (if implemented in backend)
   async unenrollFromCourse(courseId) {
     try {
-      const response = await api.delete(`/api/courses/${courseId}/enroll`);
+      const response = await api.delete(`/courses/${courseId}/enroll`);
       return response.data;
     } catch (error) {
       // Error is already handled by the API interceptor
@@ -115,7 +115,7 @@ class CoursesService {
   // Get course materials
   async getCourseMaterials(courseId) {
     try {
-      const response = await api.get(`/api/courses/${courseId}/materials`);
+      const response = await api.get(`/courses/${courseId}/materials`);
       return response.data;
     } catch (error) {
       // Error is already handled by the API interceptor
@@ -126,7 +126,7 @@ class CoursesService {
   // Add course material
   async addCourseMaterial(courseId, materialData) {
     try {
-      const response = await api.post(`/api/courses/${courseId}/materials`, materialData);
+      const response = await api.post(`/courses/${courseId}/materials`, materialData);
       return response.data;
     } catch (error) {
       // Error is already handled by the API interceptor
@@ -140,7 +140,7 @@ class CoursesService {
   // Get course schedule
   async getCourseSchedule(courseId) {
     try {
-      const response = await api.get(`/api/courses/${courseId}/schedule`);
+      const response = await api.get(`/courses/${courseId}/schedule`);
       return response.data;
     } catch (error) {
       // Error is already handled by the API interceptor
@@ -152,7 +152,7 @@ class CoursesService {
   async searchCourses(searchTerm, filters = {}) {
     try {
       const params = new URLSearchParams({ search: searchTerm, ...filters });
-      const response = await api.get(`/api/courses/search?${params}`);
+      const response = await api.get(`/courses/search?${params}`);
       return response.data;
     } catch (error) {
       // Error is already handled by the API interceptor
@@ -163,7 +163,7 @@ class CoursesService {
   // Get course statistics
   async getCourseStats(courseId) {
     try {
-      const response = await api.get(`/api/courses/${courseId}/stats`);
+      const response = await api.get(`/courses/${courseId}/stats`);
       return response.data;
     } catch (error) {
       // Error is already handled by the API interceptor

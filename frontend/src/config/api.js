@@ -15,23 +15,23 @@ export const API_CONFIG = {
   // API endpoints
   ENDPOINTS: {
     AUTH: {
-      LOGIN: '/api/auth/login',
-      REGISTER: '/api/auth/register',
-      PROFILE: '/api/auth/profile',
-      CHANGE_PASSWORD: '/api/auth/change-password',
+      LOGIN: '/auth/login',
+      REGISTER: '/auth/register',
+      PROFILE: '/auth/profile',
+      CHANGE_PASSWORD: '/auth/change-password',
     },
-    USERS: '/api/users',
-    COURSES: '/api/courses',
-    CLASSES: '/api/classes',
-    MATERIALS: '/api/materials',
-    TEACHERS: '/api/teachers',
-    STUDENTS: '/api/students',
-    PARENTS: '/api/parents',
+    USERS: '/users',
+    COURSES: '/courses',
+    CLASSES: '/classes',
+    MATERIALS: '/materials',
+    TEACHERS: '/teachers',
+    STUDENTS: '/students',
+    PARENTS: '/parents',
     ADMIN: {
-      ROOT: '/api/admin',
-      DASHBOARD: '/api/admin/dashboard',
-      USERS: '/api/admin/users',
-      TEACHERS: '/api/admin/teachers'
+      ROOT: '/admin',
+      DASHBOARD: '/admin/dashboard',
+      USERS: '/admin/users',
+      TEACHERS: '/admin/teachers'
     },
   },
   

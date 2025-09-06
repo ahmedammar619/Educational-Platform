@@ -4,7 +4,7 @@ class PaymentService {
   // Get Stripe configuration
   async getStripeConfig() {
     try {
-      const response = await api.get('/api/payments/config');
+      const response = await api.get('/payments/config');
       return response.data;
     } catch (error) {
       console.error('❌ Error fetching Stripe config:', error);
@@ -16,7 +16,7 @@ class PaymentService {
   async createSubscription(studentId) {
     try {
       console.log('💳 Creating subscription for student:', studentId);
-      const response = await api.post(`/api/payments/subscribe/${studentId}`);
+      const response = await api.post(`/payments/subscribe/${studentId}`);
       
       // If we get a checkout URL, redirect to Stripe
       if (response.data.checkoutUrl) {
@@ -36,7 +36,7 @@ class PaymentService {
   async cancelSubscription(studentId) {
     try {
       console.log('❌ Canceling subscription for student:', studentId);
-      const response = await api.delete(`/api/payments/subscribe/${studentId}`);
+      const response = await api.delete(`/payments/subscribe/${studentId}`);
       return response.data;
     } catch (error) {
       console.error('❌ Error canceling subscription:', error);
@@ -48,7 +48,7 @@ class PaymentService {
   async reactivateSubscription(studentId) {
     try {
       console.log('🔄 Reactivating subscription for student:', studentId);
-      const response = await api.post(`/api/payments/reactivate/${studentId}`);
+      const response = await api.post(`/payments/reactivate/${studentId}`);
       return response.data;
     } catch (error) {
       console.error('❌ Error reactivating subscription:', error);
@@ -59,7 +59,7 @@ class PaymentService {
   // Get all subscriptions for the current parent
   async getParentSubscriptions() {
     try {
-      const response = await api.get('/api/payments/subscriptions');
+      const response = await api.get('/payments/subscriptions');
       return response.data;
     } catch (error) {
       console.error('❌ Error fetching subscriptions:', error);
@@ -70,7 +70,7 @@ class PaymentService {
   // Get all invoices for the current parent
   async getParentInvoices() {
     try {
-      const response = await api.get('/api/payments/invoices');
+      const response = await api.get('/payments/invoices');
       return response.data;
     } catch (error) {
       console.error('❌ Error fetching invoices:', error);
