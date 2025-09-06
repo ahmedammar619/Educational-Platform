@@ -1,37 +1,41 @@
 // API Configuration
 import { getVersion } from '../utils/version.js';
 
+// All environments use /api prefix
+const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+const apiPrefix = '/api'; // All environments use /api prefix
+
 console.log('🔧 API Config Debug:');
 console.log('  VITE_API_URL:', import.meta.env.VITE_API_URL);
-console.log('  BASE_URL:', import.meta.env.VITE_API_URL || 'http://localhost:3000');
+console.log('  BASE_URL:', baseUrl);
+console.log('  API_PREFIX:', apiPrefix);
 console.log('  VERSION:', getVersion());
 console.log('  All env vars:', import.meta.env);
 
 export const API_CONFIG = {
   // Base URL for API calls
-  // You can change this to match your backend URL
-  BASE_URL: import.meta.env.VITE_API_URL || 'http://localhost:3000',
+  BASE_URL: baseUrl,
   
   // API endpoints
   ENDPOINTS: {
     AUTH: {
-      LOGIN: '/auth/login',
-      REGISTER: '/auth/register',
-      PROFILE: '/auth/profile',
-      CHANGE_PASSWORD: '/auth/change-password',
+      LOGIN: `${apiPrefix}/auth/login`,
+      REGISTER: `${apiPrefix}/auth/register`,
+      PROFILE: `${apiPrefix}/auth/profile`,
+      CHANGE_PASSWORD: `${apiPrefix}/auth/change-password`,
     },
-    USERS: '/users',
-    COURSES: '/courses',
-    CLASSES: '/classes',
-    MATERIALS: '/materials',
-    TEACHERS: '/teachers',
-    STUDENTS: '/students',
-    PARENTS: '/parents',
+    USERS: `${apiPrefix}/users`,
+    COURSES: `${apiPrefix}/courses`,
+    CLASSES: `${apiPrefix}/classes`,
+    MATERIALS: `${apiPrefix}/materials`,
+    TEACHERS: `${apiPrefix}/teachers`,
+    STUDENTS: `${apiPrefix}/students`,
+    PARENTS: `${apiPrefix}/parents`,
     ADMIN: {
-      ROOT: '/admin',
-      DASHBOARD: '/admin/dashboard',
-      USERS: '/admin/users',
-      TEACHERS: '/admin/teachers'
+      ROOT: `${apiPrefix}/admin`,
+      DASHBOARD: `${apiPrefix}/admin/dashboard`,
+      USERS: `${apiPrefix}/admin/users`,
+      TEACHERS: `${apiPrefix}/admin/teachers`
     },
   },
   
