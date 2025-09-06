@@ -4,8 +4,15 @@ import { getVersion } from '../utils/version.js';
 // Determine if we're in Railway production environment
 const isRailwayProduction = import.meta.env.VITE_API_URL && import.meta.env.VITE_API_URL.includes('railway.app');
 
-// Railway backend might not have the /api prefix, so we need to handle both cases
+// Check if the base URL already includes /api
+const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+const hasApiInBaseUrl = baseUrl.includes('/api');
+
+// API prefix logic
 const getApiPrefix = () => {
+  if (hasApiInBaseUrl) {
+    return ''; // Base URL already includes /api
+  }
   if (isRailwayProduction) {
     return ''; // Railway backend might not have /api prefix
   }
@@ -14,9 +21,10 @@ const getApiPrefix = () => {
 
 console.log('🔧 API Config Debug:');
 console.log('  VITE_API_URL:', import.meta.env.VITE_API_URL);
-console.log('  BASE_URL:', import.meta.env.VITE_API_URL || 'http://localhost:3000');
+console.log('  BASE_URL:', baseUrl);
 console.log('  VERSION:', getVersion());
 console.log('  isRailwayProduction:', isRailwayProduction);
+console.log('  hasApiInBaseUrl:', hasApiInBaseUrl);
 console.log('  API_PREFIX:', getApiPrefix());
 console.log('  LOGIN_ENDPOINT:', `${getApiPrefix()}/auth/login`);
 console.log('  All env vars:', import.meta.env);
@@ -24,7 +32,7 @@ console.log('  All env vars:', import.meta.env);
 export const API_CONFIG = {
   // Base URL for API calls
   // You can change this to match your backend URL
-  BASE_URL: import.meta.env.VITE_API_URL || 'http://localhost:3000',
+  BASE_URL: baseUrl,
   
   // API endpoints - dynamically add /api prefix based on environment
   ENDPOINTS: {
