@@ -1,11 +1,10 @@
 import api from './api';
-import { API_CONFIG } from '../config/api';
 
 class UsersService {
   // Get all users
   async getAllUsers() {
     try {
-      const response = await api.get(API_CONFIG.ENDPOINTS.USERS);
+      const response = await api.get('/users');
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -15,7 +14,7 @@ class UsersService {
   // Get all students
   async getAllStudents() {
     try {
-      const response = await api.get(API_CONFIG.ENDPOINTS.STUDENTS);
+      const response = await api.get('/students');
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -25,7 +24,7 @@ class UsersService {
   // Get user by ID
   async getUserById(userId) {
     try {
-      const response = await api.get(`${API_CONFIG.ENDPOINTS.USERS}/${userId}`);
+      const response = await api.get(`/users/${userId}`);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -35,7 +34,7 @@ class UsersService {
   // Get users by role
   async getUsersByRole(role) {
     try {
-      const response = await api.get(`${API_CONFIG.ENDPOINTS.USERS}/role/${role}`);
+      const response = await api.get(`/users/role/${role}`);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -45,7 +44,7 @@ class UsersService {
   // Create new user
   async createUser(userData) {
     try {
-      const response = await api.post(API_CONFIG.ENDPOINTS.USERS, userData);
+      const response = await api.post('/users', userData);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -55,7 +54,7 @@ class UsersService {
   // Update user
   async updateUser(userId, userData) {
     try {
-      const response = await api.put(`${API_CONFIG.ENDPOINTS.USERS}/${userId}`, userData);
+      const response = await api.put(`/users/${userId}`, userData);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -65,7 +64,7 @@ class UsersService {
   // Delete user
   async deleteUser(userId) {
     try {
-      const response = await api.delete(`${API_CONFIG.ENDPOINTS.USERS}/${userId}`);
+      const response = await api.delete(`/users/${userId}`);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;

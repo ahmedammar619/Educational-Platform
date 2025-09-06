@@ -1,11 +1,10 @@
 import api from './api';
-import { API_CONFIG } from '../config/api';
 
 class AuthService {
   // User registration
   async register(userData) {
     try {
-      const response = await api.post(API_CONFIG.ENDPOINTS.AUTH.REGISTER, userData);
+      const response = await api.post('/auth/register', userData);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -15,12 +14,7 @@ class AuthService {
   // User login
   async login(credentials) {
     try {
-      console.log('🔐 Auth Login Debug:', {
-        endpoint: API_CONFIG.ENDPOINTS.AUTH.LOGIN,
-        baseUrl: API_CONFIG.BASE_URL,
-        fullUrl: `${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.AUTH.LOGIN}`
-      });
-      const response = await api.post(API_CONFIG.ENDPOINTS.AUTH.LOGIN, credentials);
+      const response = await api.post('/auth/login', credentials);
       const { token, user } = response.data;
       
       // Store token in localStorage
@@ -44,7 +38,7 @@ class AuthService {
   // Get current user profile
   async getProfile() {
     try {
-      const response = await api.get(API_CONFIG.ENDPOINTS.AUTH.PROFILE);
+      const response = await api.get('/auth/profile');
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -54,7 +48,7 @@ class AuthService {
   // Update user profile
   async updateProfile(profileData) {
     try {
-      const response = await api.put(API_CONFIG.ENDPOINTS.AUTH.PROFILE, profileData);
+      const response = await api.put('/auth/profile', profileData);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -64,7 +58,7 @@ class AuthService {
   // Change password
   async changePassword(passwordData) {
     try {
-      const response = await api.put(API_CONFIG.ENDPOINTS.AUTH.CHANGE_PASSWORD, passwordData);
+      const response = await api.put('/auth/change-password', passwordData);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
