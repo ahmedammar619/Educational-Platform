@@ -22,7 +22,7 @@ const Header = ({ onLoginClick }) => {
               </div>
               <div>
                 <h1 className="text-lg sm:text-xl font-bold text-gray-900">براعم النور</h1>
-                <p className="text-xs sm:text-sm text-gray-600">Baraem Al-Noor</p>
+                <p className="text-xs sm:text-sm text-gray-600">Baraem Al-Nour</p>
               </div>
             </div>
           </div>

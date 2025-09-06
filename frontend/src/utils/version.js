@@ -12,5 +12,5 @@ export const getVersionedUrl = (url) => {
 
 // Update document title with version for debugging
 if (import.meta.env.DEV) {
-  document.title = `Baraem Al-Noor v${VERSION.slice(-6)}`;
+  document.title = `Baraem Al-Nour v${VERSION.slice(-6)}`;
 }
