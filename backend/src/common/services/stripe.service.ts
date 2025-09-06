@@ -166,6 +166,32 @@ export class StripeService {
     }
   }
 
+  async getCheckoutSession(sessionId: string): Promise<Stripe.Checkout.Session> {
+    this.validateStripeConfig();
+
+    try {
+      const session = await this.stripe.checkout.sessions.retrieve(sessionId, {
+        expand: ['subscription']
+      });
+      return session;
+    } catch (error) {
+      this.logger.error(`❌ Failed to get checkout session: ${error.message}`);
+      throw new BadRequestException(`Failed to get checkout session: ${error.message}`);
+    }
+  }
+
+  async getInvoice(invoiceId: string): Promise<Stripe.Invoice> {
+    this.validateStripeConfig();
+
+    try {
+      const invoice = await this.stripe.invoices.retrieve(invoiceId);
+      return invoice;
+    } catch (error) {
+      this.logger.error(`❌ Failed to get invoice: ${error.message}`);
+      throw new BadRequestException(`Failed to get invoice: ${error.message}`);
+    }
+  }
+
   async getCustomerSubscriptions(customerId: string): Promise<Stripe.Subscription[]> {
     this.validateStripeConfig();
 

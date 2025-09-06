@@ -42,6 +42,14 @@ export class PaymentsController {
     };
   }
 
+  // Check real-time subscription status
+  @Get('status/:studentId')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.Parent, Role.Admin)
+  async getSubscriptionStatus(@Request() req, @Param('studentId') studentId: string) {
+    return this.paymentsService.getStudentSubscriptionStatus(req.user.sub, studentId);
+  }
+
   // Parent Subscription Management
   @Post('subscribe/:studentId')
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -56,6 +64,27 @@ export class PaymentsController {
   async cancelSubscription(@Request() req, @Param('studentId') studentId: string) {
     await this.paymentsService.cancelStudentSubscription(req.user.sub, studentId);
     return { message: 'Subscription cancelled successfully' };
+  }
+
+  @Post('reactivate/:studentId')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.Parent)
+  async reactivateSubscription(@Request() req, @Param('studentId') studentId: string) {
+    return this.paymentsService.reactivateStudentSubscription(req.user.sub, studentId);
+  }
+
+  // Temporary endpoint to fix webhook_events table
+  @Public()
+  @Post('fix-webhook-table')
+  async fixWebhookTable() {
+    return this.paymentsService.fixWebhookTable();
+  }
+
+  // Handle checkout session success (when user returns from Stripe)
+  @Public()
+  @Post('checkout-success')
+  async handleCheckoutSuccess(@Request() req, @Body() body: { sessionId: string }) {
+    return this.paymentsService.handleCheckoutSessionSuccess(body.sessionId);
   }
 
   @Get('subscriptions')

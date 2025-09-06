@@ -9,10 +9,11 @@ import { showSuccessToast, showErrorToast, showWarningToast } from '../../utils/
 // Main Payments Component
 const ParentPayments = ({ user }) => {
   const [children, setChildren] = useState([]);
-  const [subscriptions, setSubscriptions] = useState([]);
+  const [childrenStripeStatus, setChildrenStripeStatus] = useState({});
   const [invoices, setInvoices] = useState([]);
   const [stripeConfig, setStripeConfig] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [loadingStatus, setLoadingStatus] = useState({});
   const [activeTab, setActiveTab] = useState('subscriptions');
 
   useEffect(() => {
@@ -25,7 +26,7 @@ const ParentPayments = ({ user }) => {
     const canceled = urlParams.get('canceled');
     
     if (success === 'true' && sessionId) {
-      showSuccessToast('Payment successful! Your subscription is now active.');
+      handleStripeSuccess(sessionId);
       // Clean up URL parameters
       window.history.replaceState({}, document.title, window.location.pathname);
     } else if (canceled === 'true') {
@@ -35,37 +36,130 @@ const ParentPayments = ({ user }) => {
     }
   }, []);
 
+  const handleStripeSuccess = async (sessionId) => {
+    try {
+      console.log('🎉 Processing Stripe success for session:', sessionId);
+      showSuccessToast('Processing your payment...');
+      
+      const result = await paymentService.handleCheckoutSuccess(sessionId);
+      
+      if (result.success) {
+        showSuccessToast('Payment successful! Your subscription is now active.');
+        // Refresh the data to show updated status
+        await loadInitialData();
+      } else {
+        showErrorToast('Payment processing failed. Please contact support.');
+      }
+    } catch (error) {
+      console.error('❌ Error processing Stripe success:', error);
+      showErrorToast('Error processing payment. Please refresh the page.');
+    }
+  };
+
   const loadInitialData = async () => {
     try {
       setLoading(true);
       
-      // Load all data in parallel
-      const [childrenData, subscriptionsData, invoicesData, configData] = await Promise.all([
+      // First load children and config
+      const [childrenData, invoicesData, configData] = await Promise.all([
         studentsService.getParentChildren(user.id),
-        paymentService.getParentSubscriptions(),
         paymentService.getParentInvoices(),
         paymentService.getStripeConfig()
       ]);
 
-      console.log('💳 Payment data loaded:', { childrenData, subscriptionsData, invoicesData, configData });
+      console.log('💳 Basic data loaded:', { childrenData, invoicesData, configData });
 
       setChildren(Array.isArray(childrenData) ? childrenData : []);
-      setSubscriptions(Array.isArray(subscriptionsData) ? subscriptionsData : []);
       setInvoices(Array.isArray(invoicesData) ? invoicesData : []);
       setStripeConfig(configData || {});
 
-
+      // Then load REAL Stripe status for each child
+      if (Array.isArray(childrenData) && childrenData.length > 0) {
+        await loadAllChildrenStripeStatus(childrenData);
+      }
     } catch (error) {
-      console.error('Error loading payment data:', error);
+      console.error('❌ Error loading payment data:', error);
       showErrorToast('Failed to load payment information');
     } finally {
       setLoading(false);
     }
   };
 
+  const loadAllChildrenStripeStatus = async (childrenData) => {
+    console.log('🔍 Loading Stripe status for all children...');
+    
+    const statusPromises = childrenData.map(async (child) => {
+      try {
+        console.log(`🔍 Checking Stripe status for ${child.firstName} ${child.lastName} (${child.id})`);
+        const status = await paymentService.getStudentSubscriptionStatus(child.id);
+        console.log(`✅ ${child.firstName}: hasSubscription=${status.hasSubscription}, status=${status.status}, active=${status.isActive}`);
+        return { studentId: child.id, status };
+      } catch (error) {
+        console.error(`❌ Error loading status for ${child.firstName}:`, error);
+        return { 
+          studentId: child.id, 
+          status: { 
+            hasSubscription: false, 
+            status: 'Inactive', 
+            isActive: false, 
+            canSubscribe: true, 
+            canCancel: false 
+          }
+        };
+      }
+    });
+
+    try {
+      const statusResults = await Promise.all(statusPromises);
+      const statusMap = {};
+      statusResults.forEach(({ studentId, status }) => {
+        statusMap[studentId] = status;
+      });
+      
+      setChildrenStripeStatus(statusMap);
+      console.log('📊 All children Stripe status loaded:', statusMap);
+    } catch (error) {
+      console.error('❌ Error loading children Stripe status:', error);
+    }
+  };
+
+  const refreshStudentStripeStatus = async (studentId) => {
+    try {
+      setLoadingStatus(prev => ({ ...prev, [studentId]: true }));
+      console.log(`🔄 Refreshing Stripe status for student ${studentId}`);
+      
+      const status = await paymentService.getStudentSubscriptionStatus(studentId);
+      setChildrenStripeStatus(prev => ({ ...prev, [studentId]: status }));
+      
+      console.log(`✅ Refreshed status for student ${studentId}:`, status);
+      
+      if (status.hasSubscription) {
+        showSuccessToast(`✅ ACTIVE subscription found in Stripe! Status: ${status.status}`);
+      } else {
+        showWarningToast('❌ No subscription found in Stripe for this student');
+      }
+    } catch (error) {
+      console.error(`❌ Error refreshing status for student ${studentId}:`, error);
+      showErrorToast('Failed to refresh status');
+    } finally {
+      setLoadingStatus(prev => ({ ...prev, [studentId]: false }));
+    }
+  };
+
   const handleSubscribe = async (student) => {
     if (!stripeConfig?.configured) {
       showErrorToast('Payment system is not configured');
+      return;
+    }
+
+    // Show confirmation dialog
+    const stripeStatus = childrenStripeStatus[student.id];
+    const isResubscribe = stripeStatus?.status === 'canceled';
+    const confirmMessage = isResubscribe 
+      ? `Are you sure you want to resubscribe ${student.firstName} ${student.lastName}? This will start a new monthly subscription.`
+      : `Are you sure you want to subscribe ${student.firstName} ${student.lastName}? This will start a monthly subscription.`;
+    
+    if (!confirm(confirmMessage)) {
       return;
     }
     
@@ -87,21 +181,33 @@ const ParentPayments = ({ user }) => {
     }
 
     try {
+      setLoadingStatus(prev => ({ ...prev, [studentId]: true }));
       await paymentService.cancelSubscription(studentId);
       showSuccessToast('Subscription will be canceled at the end of the billing period');
-      loadInitialData(); // Refresh data
+      
+      // Refresh just this student's status
+      await refreshStudentStripeStatus(studentId);
     } catch (error) {
-      showErrorToast('Failed to cancel subscription');
+      console.error('❌ Cancel subscription error:', error);
+      showErrorToast(error.message || 'Failed to cancel subscription');
+    } finally {
+      setLoadingStatus(prev => ({ ...prev, [studentId]: false }));
     }
   };
 
   const handleReactivateSubscription = async (studentId) => {
     try {
+      setLoadingStatus(prev => ({ ...prev, [studentId]: true }));
       await paymentService.reactivateSubscription(studentId);
       showSuccessToast('Subscription reactivated successfully');
-      loadInitialData(); // Refresh data
+      
+      // Refresh just this student's status
+      await refreshStudentStripeStatus(studentId);
     } catch (error) {
-      showErrorToast('Failed to reactivate subscription');
+      console.error('❌ Reactivate subscription error:', error);
+      showErrorToast(error.message || 'Failed to reactivate subscription');
+    } finally {
+      setLoadingStatus(prev => ({ ...prev, [studentId]: false }));
     }
   };
 
@@ -184,9 +290,10 @@ const ParentPayments = ({ user }) => {
             </div>
           ) : (
             children.map((student) => {
-              const subscription = getStudentSubscription(student.id);
+              const stripeStatus = childrenStripeStatus[student.id];
+              const isLoadingThisStudent = loadingStatus[student.id];
               const statusBadge = paymentService.getSubscriptionStatusBadge(
-                subscription?.status || student.subscriptionStatus || 'inactive'
+                stripeStatus?.status || 'inactive'
               );
 
               return (
@@ -204,11 +311,27 @@ const ParentPayments = ({ user }) => {
                         </h3>
                         <div className="flex items-center space-x-4 mt-1">
                           <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusBadge.class}`}>
-                            {statusBadge.label}
+                            {isLoadingThisStudent ? (
+                              <>
+                                <Clock className="h-3 w-3 mr-1 animate-spin" />
+                                Checking...
+                              </>
+                            ) : (
+                              `${statusBadge.label}${stripeStatus?.hasSubscription ? ' (Stripe)' : ''}`
+                            )}
                           </span>
-                          {subscription?.currentPeriodEnd && (
+                          
+                          <button
+                            onClick={() => refreshStudentStripeStatus(student.id)}
+                            disabled={isLoadingThisStudent}
+                            className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 disabled:opacity-50"
+                          >
+                            {isLoadingThisStudent ? 'Checking...' : 'Refresh Status'}
+                          </button>
+                          
+                          {stripeStatus?.subscriptionDetails?.currentPeriodEnd && (
                             <span className="text-sm text-gray-500">
-                              Next billing: {new Date(subscription.currentPeriodEnd).toLocaleDateString()}
+                              Next billing: {new Date(stripeStatus.subscriptionDetails.currentPeriodEnd).toLocaleDateString()}
                             </span>
                           )}
                         </div>
@@ -216,51 +339,92 @@ const ParentPayments = ({ user }) => {
                     </div>
 
                     <div className="flex items-center space-x-2">
-                      {subscription?.status === 'active' && (
+                      {/* Cancel button - show if user has active subscription in Stripe */}
+                      {stripeStatus?.canCancel && (
                         <button
                           onClick={() => handleCancelSubscription(student.id)}
-                          className="px-3 py-1 text-sm border border-red-300 text-red-700 rounded-md hover:bg-red-50"
+                          disabled={isLoadingThisStudent}
+                          className="px-3 py-1 text-sm border border-red-300 text-red-700 rounded-md hover:bg-red-50 disabled:opacity-50"
                         >
                           <X className="h-4 w-4 mr-1 inline" />
                           Cancel
                         </button>
                       )}
                       
-                      {subscription?.cancelAt && (
+                      {/* Reactivate button - show if subscription is set to cancel but still active */}
+                      {stripeStatus?.canReactivate && (
                         <button
                           onClick={() => handleReactivateSubscription(student.id)}
-                          className="px-3 py-1 text-sm border border-green-300 text-green-700 rounded-md hover:bg-green-50"
+                          disabled={isLoadingThisStudent}
+                          className="px-3 py-1 text-sm border border-green-300 text-green-700 rounded-md hover:bg-green-50 disabled:opacity-50"
                         >
                           <RotateCcw className="h-4 w-4 mr-1 inline" />
                           Reactivate
                         </button>
                       )}
 
-                      {(!subscription || subscription.status === 'canceled' || subscription.status === 'inactive') && (
+                      {/* Subscribe/Resubscribe button - show if user can subscribe (no active subscription in Stripe) */}
+                      {stripeStatus?.canSubscribe && (
                         <button
-                          onClick={() => handleSubscribe(student)}
-                          className="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700"
+                          onClick={() => {
+                            console.log('🔘 Subscribe/Resubscribe clicked for student:', student.id, 'Status:', stripeStatus);
+                            handleSubscribe(student);
+                          }}
+                          disabled={isLoadingThisStudent}
+                          className="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 disabled:opacity-50"
                         >
                           <CreditCard className="h-4 w-4 mr-2 inline" />
-                          Subscribe
+                          {stripeStatus?.status === 'canceled' ? 'Resubscribe' : 'Subscribe'}
                         </button>
                       )}
+
+
                     </div>
                   </div>
 
-                  {subscription && (
+                  {stripeStatus?.hasSubscription && stripeStatus?.subscriptionDetails && (
                     <div className="mt-4 pt-4 border-t border-gray-200">
                       <div className="grid grid-cols-2 gap-4 text-sm">
                         <div>
                           <span className="text-gray-500">Amount:</span>
                           <span className="ml-2 font-medium">
-                            {paymentService.formatCurrency(subscription.amount, subscription.currency)}
+                            {paymentService.formatCurrency(stripeStatus.subscriptionDetails.amount || 0, stripeStatus.subscriptionDetails.currency)}
                           </span>
                         </div>
                         <div>
-                          <span className="text-gray-500">Started:</span>
-                          <span className="ml-2 font-medium">
-                            {new Date(subscription.createdAt).toLocaleDateString()}
+                          <span className="text-gray-500">Status:</span>
+                          <span className={`ml-2 font-medium ${stripeStatus.isActive ? 'text-green-600' : 'text-gray-600'}`}>
+                            {stripeStatus.status} {stripeStatus.isActive ? '(ACTIVE)' : ''}
+                          </span>
+                        </div>
+                        {stripeStatus.subscriptionDetails.currentPeriodStart && (
+                          <div>
+                            <span className="text-gray-500">Period Start:</span>
+                            <span className="ml-2 font-medium">
+                              {new Date(stripeStatus.subscriptionDetails.currentPeriodStart).toLocaleDateString()}
+                            </span>
+                          </div>
+                        )}
+                        {stripeStatus.subscriptionDetails.currentPeriodEnd && (
+                          <div>
+                            <span className="text-gray-500">Period End:</span>
+                            <span className="ml-2 font-medium">
+                              {new Date(stripeStatus.subscriptionDetails.currentPeriodEnd).toLocaleDateString()}
+                            </span>
+                          </div>
+                        )}
+                        {stripeStatus.subscriptionDetails.cancelAt && (
+                          <div>
+                            <span className="text-gray-500">Will Cancel:</span>
+                            <span className="ml-2 font-medium text-orange-600">
+                              {new Date(stripeStatus.subscriptionDetails.cancelAt).toLocaleDateString()}
+                            </span>
+                          </div>
+                        )}
+                        <div className="col-span-2">
+                          <span className="text-gray-500">Stripe ID:</span>
+                          <span className="ml-2 font-mono text-xs text-blue-600">
+                            {stripeStatus.subscriptionDetails.id}
                           </span>
                         </div>
                       </div>
@@ -351,3 +515,4 @@ const ParentPayments = ({ user }) => {
 };
 
 export default ParentPayments;
+

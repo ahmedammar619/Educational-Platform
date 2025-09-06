@@ -44,7 +44,7 @@ class PaymentService {
     }
   }
 
-  // Reactivate subscription for a student
+  // Reactivate subscription
   async reactivateSubscription(studentId) {
     try {
       console.log('🔄 Reactivating subscription for student:', studentId);
@@ -52,6 +52,18 @@ class PaymentService {
       return response.data;
     } catch (error) {
       console.error('❌ Error reactivating subscription:', error);
+      throw error;
+    }
+  }
+
+  // Handle checkout session success
+  async handleCheckoutSuccess(sessionId) {
+    try {
+      console.log('🎉 Handling checkout success for session:', sessionId);
+      const response = await api.post('/api/payments/checkout-success', { sessionId });
+      return response.data;
+    } catch (error) {
+      console.error('❌ Error handling checkout success:', error);
       throw error;
     }
   }
@@ -85,6 +97,18 @@ class PaymentService {
       return response.data;
     } catch (error) {
       console.error('❌ Error fetching student subscription:', error);
+      throw error;
+    }
+  }
+
+  // Get real-time subscription status from Stripe
+  async getStudentSubscriptionStatus(studentId) {
+    try {
+      console.log('🔍 Fetching real-time subscription status for student:', studentId);
+      const response = await api.get(`/api/payments/status/${studentId}`);
+      return response.data;
+    } catch (error) {
+      console.error('❌ Error fetching student subscription status:', error);
       throw error;
     }
   }
