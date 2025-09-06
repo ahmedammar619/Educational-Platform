@@ -1,10 +1,24 @@
 // API Configuration
 import { getVersion } from '../utils/version.js';
 
+// Determine if we're in Railway production environment
+const isRailwayProduction = import.meta.env.VITE_API_URL && import.meta.env.VITE_API_URL.includes('railway.app');
+
+// Railway backend might not have the /api prefix, so we need to handle both cases
+const getApiPrefix = () => {
+  if (isRailwayProduction) {
+    return ''; // Railway backend might not have /api prefix
+  }
+  return '/api'; // Local Docker backend has /api prefix
+};
+
 console.log('🔧 API Config Debug:');
 console.log('  VITE_API_URL:', import.meta.env.VITE_API_URL);
 console.log('  BASE_URL:', import.meta.env.VITE_API_URL || 'http://localhost:3000');
 console.log('  VERSION:', getVersion());
+console.log('  isRailwayProduction:', isRailwayProduction);
+console.log('  API_PREFIX:', getApiPrefix());
+console.log('  LOGIN_ENDPOINT:', `${getApiPrefix()}/auth/login`);
 console.log('  All env vars:', import.meta.env);
 
 export const API_CONFIG = {
@@ -12,26 +26,26 @@ export const API_CONFIG = {
   // You can change this to match your backend URL
   BASE_URL: import.meta.env.VITE_API_URL || 'http://localhost:3000',
   
-  // API endpoints
+  // API endpoints - dynamically add /api prefix based on environment
   ENDPOINTS: {
     AUTH: {
-      LOGIN: '/auth/login',
-      REGISTER: '/auth/register',
-      PROFILE: '/auth/profile',
-      CHANGE_PASSWORD: '/auth/change-password',
+      LOGIN: `${getApiPrefix()}/auth/login`,
+      REGISTER: `${getApiPrefix()}/auth/register`,
+      PROFILE: `${getApiPrefix()}/auth/profile`,
+      CHANGE_PASSWORD: `${getApiPrefix()}/auth/change-password`,
     },
-    USERS: '/users',
-    COURSES: '/courses',
-    CLASSES: '/classes',
-    MATERIALS: '/materials',
-    TEACHERS: '/teachers',
-    STUDENTS: '/students',
-    PARENTS: '/parents',
+    USERS: `${getApiPrefix()}/users`,
+    COURSES: `${getApiPrefix()}/courses`,
+    CLASSES: `${getApiPrefix()}/classes`,
+    MATERIALS: `${getApiPrefix()}/materials`,
+    TEACHERS: `${getApiPrefix()}/teachers`,
+    STUDENTS: `${getApiPrefix()}/students`,
+    PARENTS: `${getApiPrefix()}/parents`,
     ADMIN: {
-      ROOT: '/admin',
-      DASHBOARD: '/admin/dashboard',
-      USERS: '/admin/users',
-      TEACHERS: '/admin/teachers'
+      ROOT: `${getApiPrefix()}/admin`,
+      DASHBOARD: `${getApiPrefix()}/admin/dashboard`,
+      USERS: `${getApiPrefix()}/admin/users`,
+      TEACHERS: `${getApiPrefix()}/admin/teachers`
     },
   },
   
