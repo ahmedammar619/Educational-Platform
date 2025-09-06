@@ -4,6 +4,7 @@ import { BrowserRouter } from 'react-router-dom'
 import './index.css'
 import App from './App.jsx'
 import './utils/version.js' // Initialize version control
+import './debug-api.js' // Debug API configuration
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
