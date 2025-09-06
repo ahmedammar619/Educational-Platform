@@ -1,4 +1,3 @@
-import { API_CONFIG } from '../config/api';
 import api from './api';
 import { showErrorToast, showSuccessToast } from '../utils/errorHandler';
 
@@ -6,7 +5,7 @@ class ClassesService {
   // Get all classes
   async getAllClasses() {
     try {
-      const response = await api.get('API_CONFIG.ENDPOINTS.CLASSES');
+      const response = await api.get('/api/classes');
       return response.data;
     } catch (error) {
       // Error is already handled by the API interceptor
@@ -17,7 +16,7 @@ class ClassesService {
   // Get class by ID
   async getClassById(classId) {
     try {
-      const response = await api.get(`API_CONFIG.ENDPOINTS.CLASSES/${classId}`);
+      const response = await api.get(`/api/classes/${classId}`);
       return response.data;
     } catch (error) {
       // Error is already handled by the API interceptor
@@ -28,7 +27,7 @@ class ClassesService {
   // Create new class
   async createClass(classData) {
     try {
-      const response = await api.post('API_CONFIG.ENDPOINTS.CLASSES', classData);
+      const response = await api.post('/api/classes', classData);
       return response.data;
     } catch (error) {
       // Error is already handled by the API interceptor
@@ -39,7 +38,7 @@ class ClassesService {
   // Update class
   async updateClass(classId, classData) {
     try {
-      const response = await api.patch(`API_CONFIG.ENDPOINTS.CLASSES/${classId}`, classData);
+      const response = await api.patch(`/api/classes/${classId}`, classData);
       return response.data;
     } catch (error) {
       // Error is already handled by the API interceptor
@@ -50,7 +49,7 @@ class ClassesService {
   // Delete class
   async deleteClass(classId) {
     try {
-      const response = await api.delete(`API_CONFIG.ENDPOINTS.CLASSES/${classId}`);
+      const response = await api.delete(`/api/classes/${classId}`);
       return response.data;
     } catch (error) {
       // Error is already handled by the API interceptor
@@ -61,7 +60,7 @@ class ClassesService {
   // Enroll students in class
   async enrollStudents(classId, studentIds) {
     try {
-      const response = await api.post(`API_CONFIG.ENDPOINTS.CLASSES/${classId}/enroll`, {
+      const response = await api.post(`/api/classes/${classId}/enroll`, {
         studentIds
       });
       return response.data;
@@ -74,7 +73,7 @@ class ClassesService {
   // Remove student from class
   async removeStudentFromClass(classId, studentId) {
     try {
-      const response = await api.delete(`API_CONFIG.ENDPOINTS.CLASSES/${classId}/students/${studentId}`);
+      const response = await api.delete(`/api/classes/${classId}/students/${studentId}`);
       return response.data;
     } catch (error) {
       // Error is already handled by the API interceptor
@@ -85,7 +84,7 @@ class ClassesService {
   // Get classes by teacher
   async getClassesByTeacher(teacherId) {
     try {
-      const response = await api.get(`API_CONFIG.ENDPOINTS.CLASSES/teacher/${teacherId}`);
+      const response = await api.get(`/api/classes/teacher/${teacherId}`);
       return response.data;
     } catch (error) {
       // Error is already handled by the API interceptor
@@ -96,7 +95,7 @@ class ClassesService {
   // Get enrolled classes for student
   async getEnrolledClasses() {
     try {
-      const response = await api.get('API_CONFIG.ENDPOINTS.CLASSES/enrolled');
+      const response = await api.get('/api/classes/enrolled');
       return response.data;
     } catch (error) {
       // Error is already handled by the API interceptor
@@ -108,7 +107,7 @@ class ClassesService {
   async searchClasses(searchTerm, filters = {}) {
     try {
       const params = new URLSearchParams({ search: searchTerm, ...filters });
-      const response = await api.get(`API_CONFIG.ENDPOINTS.CLASSES/search?${params}`);
+      const response = await api.get(`/api/classes/search?${params}`);
       return response.data;
     } catch (error) {
       // Error is already handled by the API interceptor
@@ -119,7 +118,7 @@ class ClassesService {
   // Get class statistics
   async getClassStats(classId) {
     try {
-      const response = await api.get(`API_CONFIG.ENDPOINTS.CLASSES/${classId}/stats`);
+      const response = await api.get(`/api/classes/${classId}/stats`);
       return response.data;
     } catch (error) {
       // Error is already handled by the API interceptor

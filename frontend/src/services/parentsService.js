@@ -1,11 +1,10 @@
-import { API_CONFIG } from '../config/api';
 import api from './api';
 
 class ParentsService {
   // Get parent profile
   async getParentProfile() {
     try {
-      const response = await api.get('API_CONFIG.ENDPOINTS.PARENTS/profile');
+      const response = await api.get('/api/parents/profile');
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -15,7 +14,7 @@ class ParentsService {
   // Update parent profile
   async updateParentProfile(profileData) {
     try {
-      const response = await api.put('API_CONFIG.ENDPOINTS.PARENTS/profile', profileData);
+      const response = await api.put('/api/parents/profile', profileData);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -25,7 +24,7 @@ class ParentsService {
   // Get parent's children
   async getMyChildren(parentId) {
     try {
-      const response = await api.get(`API_CONFIG.ENDPOINTS.PARENTS/${parentId}/children`);
+      const response = await api.get(`/api/parents/${parentId}/children`);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -35,7 +34,7 @@ class ParentsService {
   // Get parent's children with detailed information
   async getMyChildrenDetailed(parentId) {
     try {
-      const response = await api.get(`API_CONFIG.ENDPOINTS.PARENTS/${parentId}/children-detailed`);
+      const response = await api.get(`/api/parents/${parentId}/children-detailed`);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -45,7 +44,7 @@ class ParentsService {
   // Create child account
   async createChildAccount(childData, parentId) {
     try {
-      const response = await api.post(`API_CONFIG.ENDPOINTS.PARENTS/${parentId}/create-child-account`, childData);
+      const response = await api.post(`/api/parents/${parentId}/create-child-account`, childData);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -55,7 +54,7 @@ class ParentsService {
   // Remove child account
   async removeChild(childId, parentId) {
     try {
-      const response = await api.delete(`API_CONFIG.ENDPOINTS.PARENTS/children/${childId}?parentId=${parentId}`);
+      const response = await api.delete(`/api/parents/children/${childId}?parentId=${parentId}`);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -65,7 +64,7 @@ class ParentsService {
   // Get child progress
   // async getChildProgress(childId, parentId) {
   //   try {
-  //     const response = await api.get(`API_CONFIG.ENDPOINTS.PARENTS/children/${childId}/progress?parentId=${parentId}`);
+  //     const response = await api.get(`/api/parents/children/${childId}/progress?parentId=${parentId}`);
   //     return response.data;
   //   } catch (error) {
   //     throw error.response?.data || error.message;
@@ -75,7 +74,7 @@ class ParentsService {
   // Get child attendance
   // async getChildAttendance(childId, parentId) {
   //   try {
-  //     const response = await api.get(`API_CONFIG.ENDPOINTS.PARENTS/children/${childId}/attendance?parentId=${parentId}`);
+  //     const response = await api.get(`/api/parents/children/${childId}/attendance?parentId=${parentId}`);
   //     return response.data;
   //   } catch (error) {
   //     throw error.response?.data || error.message;
@@ -85,7 +84,7 @@ class ParentsService {
   // Get child grades
   // async getChildGrades(childId, parentId) {
   //   try {
-  //     const response = await api.get(`API_CONFIG.ENDPOINTS.PARENTS/children/${childId}/grades?parentId=${parentId}`);
+  //     const response = await api.get(`/api/parents/children/${childId}/grades?parentId=${parentId}`);
   //     return response.data;
   //   } catch (error) {
   //     throw error.response?.data || error.message;
@@ -95,7 +94,7 @@ class ParentsService {
   // Get parent messages
   async getMessages() {
     try {
-      const response = await api.get('API_CONFIG.ENDPOINTS.PARENTS/messages');
+      const response = await api.get('/api/parents/messages');
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -105,7 +104,7 @@ class ParentsService {
   // Send message
   async sendMessage(messageData) {
     try {
-      const response = await api.post('API_CONFIG.ENDPOINTS.PARENTS/messages', messageData);
+      const response = await api.post('/api/parents/messages', messageData);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -115,7 +114,7 @@ class ParentsService {
   // Get parent dashboard
   async getParentDashboard() {
     try {
-      const response = await api.get('API_CONFIG.ENDPOINTS.PARENTS/dashboard');
+      const response = await api.get('/api/parents/dashboard');
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -125,7 +124,7 @@ class ParentsService {
   // Get parent schedule
   async getParentSchedule() {
     try {
-      const response = await api.get('API_CONFIG.ENDPOINTS.PARENTS/schedule');
+      const response = await api.get('/api/parents/schedule');
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -135,7 +134,7 @@ class ParentsService {
   // Get parent notifications
   async getParentNotifications() {
     try {
-      const response = await api.get('API_CONFIG.ENDPOINTS.PARENTS/notifications');
+      const response = await api.get('/api/parents/notifications');
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -145,7 +144,7 @@ class ParentsService {
   // Mark notification as read
   async markNotificationAsRead(notificationId) {
     try {
-      const response = await api.patch(`API_CONFIG.ENDPOINTS.PARENTS/notifications/${notificationId}/read`);
+      const response = await api.patch(`/api/parents/notifications/${notificationId}/read`);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -155,7 +154,7 @@ class ParentsService {
   // Get children teachers
   async getChildrenTeachers(parentId) {
     try {
-      const response = await api.get(`API_CONFIG.ENDPOINTS.PARENTS/${parentId}/children-teachers`);
+      const response = await api.get(`/api/parents/${parentId}/children-teachers`);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
