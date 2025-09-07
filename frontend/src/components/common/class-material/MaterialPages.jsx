@@ -7,7 +7,7 @@ import ZoomTab from './ZoomTab';
 import AssignmentsTab from './AssignmentsTab';
 import { materialsService } from '../../../services';
 
-const MaterialPages = ({ classData, onBack, currentUser }) => {
+const MaterialPages = ({ courseData, onBack, currentUser }) => {
   // Get theme colors based on user role
   const getThemeColors = () => {
     switch (currentUser?.role) {
@@ -121,7 +121,7 @@ const MaterialPages = ({ classData, onBack, currentUser }) => {
             <ArrowLeft className="h-5 w-5" />
           </button>
           <div>
-            <h1 className="text-xl sm:text-2xl font-bold text-gray-900">{classData?.name}</h1>
+            <h1 className="text-xl sm:text-2xl font-bold text-gray-900">{courseData?.name}</h1>
           </div>
         </div>
       </div>
@@ -189,19 +189,19 @@ const MaterialPages = ({ classData, onBack, currentUser }) => {
         {/* Content */}
         <div className="p-2 sm:p-4 flex-1 overflow-y-auto">
           {activeTab === 'posts' && (
-            <PostsTab currentUser={currentUser} theme={theme} courseId={classData?.id} />
+            <PostsTab currentUser={currentUser} theme={theme} courseId={courseData?.id} />
           )}
           {activeTab === 'files' && (
-            <FilesTab currentUser={currentUser} theme={theme} courseId={classData?.id} />
+            <FilesTab currentUser={currentUser} theme={theme} courseId={courseData?.id} />
           )}
           {activeTab === 'assignments' && (
-            <AssignmentsTab currentUser={currentUser} theme={theme} courseId={classData?.id} />
+            <AssignmentsTab currentUser={currentUser} theme={theme} courseId={courseData?.id} />
           )}
           {activeTab === 'attendance' && (
-            <AttendanceTab currentUser={currentUser} theme={theme} courseId={classData?.id} />
+            <AttendanceTab currentUser={currentUser} theme={theme} courseId={courseData?.id} />
           )}
           {activeTab === 'zoom' && (
-            <ZoomTab currentUser={currentUser} theme={theme} courseId={classData?.id} />
+            <ZoomTab currentUser={currentUser} theme={theme} courseId={courseData?.id} />
           )}
         </div>
       </div>

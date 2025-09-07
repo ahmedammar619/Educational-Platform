@@ -1,8 +1,9 @@
-import React, { useMemo, useCallback } from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import React, { useMemo, useCallback, useState } from 'react';
+import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { Suspense, lazy } from 'react';
 import { authService } from '../services';
 import MainLayout from '../components/layout/MainLayout';
+import MaterialPages from '../components/common/class-material/MaterialPages';
 
 // Lazy load individual page components
 const AdminDashboard = lazy(() => import('../pages/admin/AdminDashboard'));
@@ -39,6 +40,37 @@ const LoadingSpinner = () => (
 
 
 const AppRouter = React.memo(({ user, onLogin, onLogout }) => {
+  const navigate = useNavigate();
+  
+  // State for material page navigation
+  const [materialPageData, setMaterialPageData] = useState(null);
+  const [showMaterialPage, setShowMaterialPage] = useState(false);
+
+  // Function to handle opening material pages
+  const handleOpenMaterials = useCallback((courseData) => {
+    console.log('Opening materials for course:', courseData);
+    setMaterialPageData(courseData);
+    setShowMaterialPage(true);
+    
+    // Navigate to materials route based on user role
+    if (user?.role) {
+      const basePath = user.role === 'admin' ? '/admin' : '/student';
+      navigate(`${basePath}/materials`);
+    }
+  }, [navigate, user?.role]);
+
+  // Function to handle closing material pages
+  const handleCloseMaterials = useCallback(() => {
+    setShowMaterialPage(false);
+    setMaterialPageData(null);
+    
+    // Navigate back to classes
+    if (user?.role) {
+      const basePath = user.role === 'admin' ? '/admin' : '/student';
+      navigate(`${basePath}/classes`);
+    }
+  }, [navigate, user?.role]);
+
   // Show HomePage if user is not logged in
   if (!user) {
     return (
@@ -78,8 +110,15 @@ const AppRouter = React.memo(({ user, onLogin, onLogout }) => {
               <MainLayout user={user} onLogout={onLogout} routes={[
                 { path: "/", element: <AdminDashboard user={user} /> },
                 { path: "/users", element: <UserManagement user={user} /> },
-                { path: "/classes", element: <ClassManagement user={user} /> },
+                { path: "/classes", element: <ClassManagement user={user} onOpenMaterials={handleOpenMaterials} /> },
                 { path: "/payments", element: <AdminPayments user={user} /> },
+                { path: "/materials", element: showMaterialPage && materialPageData ? (
+                  <MaterialPages 
+                    courseData={materialPageData} 
+                    onBack={handleCloseMaterials} 
+                    currentUser={user} 
+                  />
+                ) : <Navigate to="/admin/classes" replace /> },
               ]} />
             ) : (
               <Navigate to={roleRoute} replace />
@@ -94,8 +133,15 @@ const AppRouter = React.memo(({ user, onLogin, onLogout }) => {
             user.role === 'student' ? (
               <MainLayout user={user} onLogout={onLogout} routes={[
                 { path: "/", element: <StudentDashboard user={user} /> },
-                { path: "/classes", element: <StudentClasses user={user} /> },
+                { path: "/classes", element: <StudentClasses user={user} onOpenMaterials={handleOpenMaterials} /> },
                 { path: "/schedule", element: <StudentSchedule user={user} /> },
+                { path: "/materials", element: showMaterialPage && materialPageData ? (
+                  <MaterialPages 
+                    courseData={materialPageData} 
+                    onBack={handleCloseMaterials} 
+                    currentUser={user} 
+                  />
+                ) : <Navigate to="/student/classes" replace /> },
               ]} />
             ) : (
               <Navigate to={roleRoute} replace />
