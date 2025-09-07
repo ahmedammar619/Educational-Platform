@@ -10,7 +10,8 @@ import {
   Headers,
   RawBody,
   HttpCode,
-  HttpStatus
+  HttpStatus,
+  Query
 } from '@nestjs/common';
 import { PaymentsService } from './payments.service';
 import { StripeService } from '../../common/services/stripe.service';
@@ -130,5 +131,34 @@ export class PaymentsController {
       console.error('Webhook error:', error.message);
       throw error;
     }
+  }
+
+  // Admin payment management endpoints
+  @Get('admin/stats')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.Admin)
+  async getAdminPaymentStats() {
+    return this.paymentsService.getAdminPaymentStats();
+  }
+
+  @Get('admin/subscriptions')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.Admin)
+  async getAdminSubscriptions(@Query() filters: any) {
+    return this.paymentsService.getAdminSubscriptions(filters);
+  }
+
+  @Get('admin/invoices')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.Admin)
+  async getAdminInvoices(@Query() filters: any) {
+    return this.paymentsService.getAdminInvoices(filters);
+  }
+
+  @Get('admin/webhook-events')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.Admin)
+  async getAdminWebhookEvents(@Query() filters: any) {
+    return this.paymentsService.getAdminWebhookEvents(filters);
   }
 }

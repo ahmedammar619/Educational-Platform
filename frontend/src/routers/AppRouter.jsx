@@ -8,6 +8,7 @@ import MainLayout from '../components/Layout/MainLayout';
 const AdminDashboard = lazy(() => import('../pages/admin/AdminDashboard'));
 const UserManagement = lazy(() => import('../pages/admin/UserManagement'));
 const ClassManagement = lazy(() => import('../pages/admin/ClassManagement'));
+const AdminPayments = lazy(() => import('../pages/admin/AdminPayments'));
 
 const StudentDashboard = lazy(() => import('../pages/student/StudentDashboard'));
 const StudentClasses = lazy(() => import('../pages/student/StudentClasses'));
@@ -78,6 +79,7 @@ const AppRouter = React.memo(({ user, onLogin, onLogout }) => {
                 { path: "/", element: <AdminDashboard user={user} /> },
                 { path: "/users", element: <UserManagement user={user} /> },
                 { path: "/classes", element: <ClassManagement user={user} /> },
+                { path: "/payments", element: <AdminPayments user={user} /> },
               ]} />
             ) : (
               <Navigate to={roleRoute} replace />
