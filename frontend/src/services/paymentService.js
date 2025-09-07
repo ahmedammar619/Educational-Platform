@@ -171,6 +171,53 @@ class PaymentService {
 
     return statusMap[status] || { label: status, class: 'bg-gray-100 text-gray-800' };
   }
+
+  // Admin payment management methods
+  async getAdminPaymentStats() {
+    try {
+      const response = await apiClient.get('/api/payments/admin/stats');
+      return response.data;
+    } catch (error) {
+      console.error('Error getting admin payment stats:', error);
+      throw error;
+    }
+  }
+
+  async getAdminSubscriptions(filters = {}) {
+    try {
+      const response = await apiClient.get('/api/payments/admin/subscriptions', {
+        params: filters
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error getting admin subscriptions:', error);
+      throw error;
+    }
+  }
+
+  async getAdminInvoices(filters = {}) {
+    try {
+      const response = await apiClient.get('/api/payments/admin/invoices', {
+        params: filters
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error getting admin invoices:', error);
+      throw error;
+    }
+  }
+
+  async getAdminWebhookEvents(filters = {}) {
+    try {
+      const response = await apiClient.get('/api/payments/admin/webhook-events', {
+        params: filters
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error getting admin webhook events:', error);
+      throw error;
+    }
+  }
 }
 
 export default new PaymentService();

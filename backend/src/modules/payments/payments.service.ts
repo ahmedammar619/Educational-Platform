@@ -374,6 +374,147 @@ export class PaymentsService {
     }
   }
 
+  // Admin payment management methods
+  async getAdminPaymentStats() {
+    try {
+      // Get total revenue from invoices
+      const totalRevenueResult = await this.invoiceRepository
+        .createQueryBuilder('invoice')
+        .select('SUM(invoice.amountPaid)', 'total')
+        .where('invoice.status = :status', { status: 'paid' })
+        .getRawOne();
+
+      // Get active subscriptions count
+      const activeSubscriptions = await this.subscriptionRepository.count({
+        where: { status: 'active' }
+      });
+
+      // Get total invoices count
+      const totalInvoices = await this.invoiceRepository.count();
+
+      // Get monthly revenue (last 30 days)
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      
+      const monthlyRevenueResult = await this.invoiceRepository
+        .createQueryBuilder('invoice')
+        .select('SUM(invoice.amountPaid)', 'total')
+        .where('invoice.status = :status', { status: 'paid' })
+        .andWhere('invoice.paidAt >= :date', { date: thirtyDaysAgo })
+        .getRawOne();
+
+      return {
+        totalRevenue: parseInt(totalRevenueResult?.total || '0'),
+        activeSubscriptions,
+        totalInvoices,
+        monthlyRevenue: parseInt(monthlyRevenueResult?.total || '0')
+      };
+    } catch (error) {
+      console.error('Error getting admin payment stats:', error);
+      throw new BadRequestException('Failed to get payment statistics');
+    }
+  }
+
+  async getAdminSubscriptions(filters: any) {
+    try {
+      const query = this.subscriptionRepository
+        .createQueryBuilder('subscription')
+        .leftJoinAndSelect('subscription.student', 'student')
+        .leftJoinAndSelect('student.user', 'user')
+        .orderBy('subscription.createdAt', 'DESC');
+
+      // Apply filters
+      if (filters.status && filters.status !== 'all') {
+        query.andWhere('subscription.status = :status', { status: filters.status });
+      }
+
+      if (filters.dateRange) {
+        const days = parseInt(filters.dateRange);
+        const date = new Date();
+        date.setDate(date.getDate() - days);
+        query.andWhere('subscription.createdAt >= :date', { date });
+      }
+
+      if (filters.search) {
+        query.andWhere(
+          '(user.firstName ILIKE :search OR user.lastName ILIKE :search OR user.email ILIKE :search)',
+          { search: `%${filters.search}%` }
+        );
+      }
+
+      return await query.getMany();
+    } catch (error) {
+      console.error('Error getting admin subscriptions:', error);
+      throw new BadRequestException('Failed to get subscriptions');
+    }
+  }
+
+  async getAdminInvoices(filters: any) {
+    try {
+      const query = this.invoiceRepository
+        .createQueryBuilder('invoice')
+        .leftJoinAndSelect('invoice.student', 'student')
+        .leftJoinAndSelect('student.user', 'user')
+        .orderBy('invoice.createdAt', 'DESC');
+
+      // Apply filters
+      if (filters.status && filters.status !== 'all') {
+        query.andWhere('invoice.status = :status', { status: filters.status });
+      }
+
+      if (filters.dateRange) {
+        const days = parseInt(filters.dateRange);
+        const date = new Date();
+        date.setDate(date.getDate() - days);
+        query.andWhere('invoice.createdAt >= :date', { date });
+      }
+
+      if (filters.search) {
+        query.andWhere(
+          '(user.firstName ILIKE :search OR user.lastName ILIKE :search OR user.email ILIKE :search)',
+          { search: `%${filters.search}%` }
+        );
+      }
+
+      return await query.getMany();
+    } catch (error) {
+      console.error('Error getting admin invoices:', error);
+      throw new BadRequestException('Failed to get invoices');
+    }
+  }
+
+  async getAdminWebhookEvents(filters: any) {
+    try {
+      const query = this.webhookEventRepository
+        .createQueryBuilder('webhook')
+        .orderBy('webhook.createdAt', 'DESC');
+
+      // Apply filters
+      if (filters.type && filters.type !== 'all') {
+        query.andWhere('webhook.type = :type', { type: filters.type });
+      }
+
+      if (filters.dateRange) {
+        const days = parseInt(filters.dateRange);
+        const date = new Date();
+        date.setDate(date.getDate() - days);
+        query.andWhere('webhook.createdAt >= :date', { date });
+      }
+
+      if (filters.search) {
+        query.andWhere(
+          '(webhook.stripeEventId ILIKE :search OR webhook.type ILIKE :search)',
+          { search: `%${filters.search}%` }
+        );
+      }
+
+      return await query.getMany();
+    } catch (error) {
+      console.error('Error getting admin webhook events:', error);
+      throw new BadRequestException('Failed to get webhook events');
+    }
+  }
+
   async getParentSubscriptions(parentId: string): Promise<Subscription[]> {
     return this.subscriptionRepository.find({
       where: { userId: parentId },
