@@ -22,6 +22,7 @@ const getNavigationConfig = (role) => {
       { id: 'dashboard', name: 'Dashboard', icon: Home, path: '/admin' },
       { id: 'users', name: 'User Management', icon: Users, path: '/admin/users' },
       { id: 'classes', name: 'Class Management', icon: BookOpen, path: '/admin/classes' },
+      { id: 'payments', name: 'Payments', icon: CreditCard, path: '/admin/payments' },
     ],
     teacher: [
       { id: 'dashboard', name: 'Dashboard', icon: Home, path: '/teacher' },

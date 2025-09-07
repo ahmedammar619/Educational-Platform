@@ -252,6 +252,77 @@ export class PaymentsService {
     }
   }
 
+  async addStudentNameColumns() {
+    try {
+      console.log('🔧 Adding student_name columns to payments tables...');
+      
+      // Add student_name column to subscriptions table
+      await this.subscriptionRepository.query(`
+        ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS student_name VARCHAR(255);
+      `);
+      
+      // Add student_name column to invoices table
+      await this.invoiceRepository.query(`
+        ALTER TABLE invoices ADD COLUMN IF NOT EXISTS student_name VARCHAR(255);
+      `);
+      
+      console.log('✅ Successfully added student_name columns');
+      return { success: true, message: 'Student name columns added successfully' };
+    } catch (error) {
+      console.error('❌ Error adding student name columns:', error);
+      throw new BadRequestException(`Failed to add student name columns: ${error.message}`);
+    }
+  }
+
+  async populateStudentNames() {
+    try {
+      console.log('🔧 Populating student_name fields from existing data...');
+      
+      // Update subscriptions with student names
+      const subscriptions = await this.subscriptionRepository
+        .createQueryBuilder('subscription')
+        .leftJoinAndSelect('subscription.student', 'student')
+        .leftJoinAndSelect('student.user', 'user')
+        .where('subscription.studentName IS NULL')
+        .getMany();
+
+      let updatedSubscriptions = 0;
+      for (const subscription of subscriptions) {
+        if (subscription.student?.user) {
+          const studentName = `${subscription.student.user.firstName} ${subscription.student.user.lastName}`.trim();
+          await this.subscriptionRepository.update(subscription.id, { studentName });
+          updatedSubscriptions++;
+        }
+      }
+
+      // Update invoices with student names
+      const invoices = await this.invoiceRepository
+        .createQueryBuilder('invoice')
+        .leftJoinAndSelect('invoice.student', 'student')
+        .leftJoinAndSelect('student.user', 'user')
+        .where('invoice.studentName IS NULL')
+        .getMany();
+
+      let updatedInvoices = 0;
+      for (const invoice of invoices) {
+        if (invoice.student?.user) {
+          const studentName = `${invoice.student.user.firstName} ${invoice.student.user.lastName}`.trim();
+          await this.invoiceRepository.update(invoice.id, { studentName });
+          updatedInvoices++;
+        }
+      }
+      
+      console.log(`✅ Successfully populated student names: ${updatedSubscriptions} subscriptions, ${updatedInvoices} invoices`);
+      return { 
+        success: true, 
+        message: `Student names populated successfully: ${updatedSubscriptions} subscriptions, ${updatedInvoices} invoices` 
+      };
+    } catch (error) {
+      console.error('❌ Error populating student names:', error);
+      throw new BadRequestException(`Failed to populate student names: ${error.message}`);
+    }
+  }
+
   async handleCheckoutSessionSuccess(sessionId: string) {
     console.log(`🎉 Handling checkout session success: ${sessionId}`);
     
@@ -308,6 +379,7 @@ export class PaymentsService {
       const updateData: any = {
         stripeSubscriptionId: stripeSubscription.id,
         stripeCustomerId: session.customer as string,
+        studentName: stripeSubscription.metadata?.studentName || session.metadata?.studentName || 'Unknown Student',
         status: stripeSubscription.status,
         amount: stripeSubscription.items?.data[0]?.price?.unit_amount || 0,
         currency: stripeSubscription.items?.data[0]?.price?.currency || 'usd'
@@ -331,6 +403,7 @@ export class PaymentsService {
           const invoiceData: any = {
             userId: parentId,
             studentId: studentId,
+            studentName: stripeSubscription.metadata?.studentName || session.metadata?.studentName || 'Unknown Student',
             subscriptionId: subscription.id,
             stripeInvoiceId: invoice.id,
             stripeSubscriptionId: stripeSubscription.id,
@@ -421,6 +494,7 @@ export class PaymentsService {
         .createQueryBuilder('subscription')
         .leftJoinAndSelect('subscription.student', 'student')
         .leftJoinAndSelect('student.user', 'user')
+        .leftJoinAndSelect('subscription.user', 'parent')
         .orderBy('subscription.createdAt', 'DESC');
 
       // Apply filters
@@ -437,12 +511,20 @@ export class PaymentsService {
 
       if (filters.search) {
         query.andWhere(
-          '(user.firstName ILIKE :search OR user.lastName ILIKE :search OR user.email ILIKE :search)',
+          '(user.firstName ILIKE :search OR user.lastName ILIKE :search OR user.email ILIKE :search OR parent.firstName ILIKE :search OR parent.lastName ILIKE :search OR parent.email ILIKE :search)',
           { search: `%${filters.search}%` }
         );
       }
 
-      return await query.getMany();
+      const subscriptions = await query.getMany();
+      console.log('📊 Admin subscriptions query result:', subscriptions.length, 'subscriptions found');
+      
+      // Log first subscription for debugging
+      if (subscriptions.length > 0) {
+        console.log('📋 Sample subscription data:', JSON.stringify(subscriptions[0], null, 2));
+      }
+
+      return subscriptions;
     } catch (error) {
       console.error('Error getting admin subscriptions:', error);
       throw new BadRequestException('Failed to get subscriptions');
@@ -455,6 +537,7 @@ export class PaymentsService {
         .createQueryBuilder('invoice')
         .leftJoinAndSelect('invoice.student', 'student')
         .leftJoinAndSelect('student.user', 'user')
+        .leftJoinAndSelect('invoice.user', 'parent')
         .orderBy('invoice.createdAt', 'DESC');
 
       // Apply filters
@@ -471,12 +554,15 @@ export class PaymentsService {
 
       if (filters.search) {
         query.andWhere(
-          '(user.firstName ILIKE :search OR user.lastName ILIKE :search OR user.email ILIKE :search)',
+          '(user.firstName ILIKE :search OR user.lastName ILIKE :search OR user.email ILIKE :search OR parent.firstName ILIKE :search OR parent.lastName ILIKE :search OR parent.email ILIKE :search)',
           { search: `%${filters.search}%` }
         );
       }
 
-      return await query.getMany();
+      const invoices = await query.getMany();
+      console.log('💳 Admin invoices query result:', invoices.length, 'invoices found');
+      
+      return invoices;
     } catch (error) {
       console.error('Error getting admin invoices:', error);
       throw new BadRequestException('Failed to get invoices');

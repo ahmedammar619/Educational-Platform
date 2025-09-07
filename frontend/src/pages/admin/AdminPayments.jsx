@@ -11,7 +11,9 @@ import {
   CheckCircle,
   XCircle,
   Clock,
-  AlertCircle
+  AlertCircle,
+  Eye,
+  User
 } from 'lucide-react';
 import paymentService from '../../services/paymentService';
 import { showErrorToast, showSuccessToast } from '../../utils/toast';
@@ -19,6 +21,7 @@ import { showErrorToast, showSuccessToast } from '../../utils/toast';
 const AdminPayments = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [activeTab, setActiveTab] = useState('subscriptions');
   const [paymentStats, setPaymentStats] = useState(null);
   const [subscriptions, setSubscriptions] = useState([]);
   const [invoices, setInvoices] = useState([]);
@@ -47,6 +50,12 @@ const AdminPayments = () => {
       setSubscriptions(subscriptionsData);
       setInvoices(invoicesData);
       setWebhookEvents(webhooksData);
+      
+      // Debug logging
+      console.log('📊 Payment stats:', statsData);
+      console.log('📋 Subscriptions data:', subscriptionsData);
+      console.log('💳 Invoices data:', invoicesData);
+      console.log('🔍 Webhook events data:', webhooksData);
     } catch (error) {
       console.error('Error loading payment data:', error);
       showErrorToast('Failed to load payment data');
@@ -64,6 +73,60 @@ const AdminPayments = () => {
 
   const handleFilterChange = (key, value) => {
     setFilters(prev => ({ ...prev, [key]: value }));
+  };
+
+  const handleTabChange = (tab) => {
+    setActiveTab(tab);
+  };
+
+  const handleViewDetails = (type, item) => {
+    console.log(`View details for ${type}:`, item);
+    
+    // Create detailed information based on type
+    let details = '';
+    
+    if (type === 'subscription') {
+      const studentName = item.studentName || `${item.student?.user?.firstName || ''} ${item.student?.user?.lastName || ''}`.trim() || 'Unknown Student';
+      details = `
+Subscription Details:
+- ID: ${item.id}
+- Student: ${studentName}
+- Student Email: ${item.student?.user?.email || 'N/A'}
+- Parent: ${item.user?.firstName || 'N/A'} ${item.user?.lastName || 'N/A'}
+- Parent Email: ${item.user?.email || 'N/A'}
+- Status: ${item.status}
+- Amount: ${formatCurrency(item.amount, item.currency)}
+- Stripe Subscription ID: ${item.stripeSubscriptionId || 'N/A'}
+- Created: ${formatDate(item.createdAt)}
+- Current Period: ${item.currentPeriodStart ? formatDate(item.currentPeriodStart) : 'N/A'} - ${item.currentPeriodEnd ? formatDate(item.currentPeriodEnd) : 'N/A'}
+      `;
+    } else if (type === 'invoice') {
+      const studentName = item.studentName || `${item.student?.user?.firstName || ''} ${item.student?.user?.lastName || ''}`.trim() || 'Unknown Student';
+      details = `
+Invoice Details:
+- ID: ${item.id}
+- Stripe Invoice ID: ${item.stripeInvoiceId}
+- Student: ${studentName}
+- Student Email: ${item.student?.user?.email || 'N/A'}
+- Parent: ${item.user?.firstName || 'N/A'} ${item.user?.lastName || 'N/A'}
+- Amount Paid: ${formatCurrency(item.amountPaid, item.currency)}
+- Status: ${item.status}
+- Paid At: ${item.paidAt ? formatDate(item.paidAt) : 'N/A'}
+- Created: ${formatDate(item.createdAt)}
+      `;
+    } else if (type === 'webhook') {
+      details = `
+Webhook Event Details:
+- ID: ${item.id}
+- Stripe Event ID: ${item.stripeEventId}
+- Type: ${item.type}
+- Created: ${formatDate(item.createdAt)}
+- Payload: ${JSON.stringify(item.payload, null, 2)}
+      `;
+    }
+    
+    // Show details in an alert (you can replace this with a modal later)
+    alert(details);
   };
 
   const getStatusIcon = (status) => {
@@ -112,6 +175,19 @@ const AdminPayments = () => {
       minute: '2-digit'
     });
   };
+
+  // Group subscriptions by parent
+  const groupedSubscriptions = subscriptions.reduce((acc, subscription) => {
+    const parentId = subscription.userId;
+    if (!acc[parentId]) {
+      acc[parentId] = {
+        parent: subscription.user || { firstName: 'Unknown', lastName: 'Parent', email: 'unknown@example.com' },
+        subscriptions: []
+      };
+    }
+    acc[parentId].subscriptions.push(subscription);
+    return acc;
+  }, {});
 
   if (loading) {
     return (
@@ -249,93 +325,253 @@ const AdminPayments = () => {
       <div className="bg-white rounded-lg shadow">
         <div className="border-b border-gray-200">
           <nav className="-mb-px flex space-x-8 px-6">
-            <button className="py-4 px-1 border-b-2 border-purple-500 text-purple-600 font-medium text-sm">
+            <button 
+              onClick={() => handleTabChange('subscriptions')}
+              className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'subscriptions' 
+                  ? 'border-purple-500 text-purple-600' 
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+            >
               Subscriptions
             </button>
-            <button className="py-4 px-1 border-b-2 border-transparent text-gray-500 hover:text-gray-700 font-medium text-sm">
+            <button 
+              onClick={() => handleTabChange('invoices')}
+              className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'invoices' 
+                  ? 'border-purple-500 text-purple-600' 
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+            >
               Invoices
             </button>
-            <button className="py-4 px-1 border-b-2 border-transparent text-gray-500 hover:text-gray-700 font-medium text-sm">
+            <button 
+              onClick={() => handleTabChange('webhooks')}
+              className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'webhooks' 
+                  ? 'border-purple-500 text-purple-600' 
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+            >
               Webhook Events
             </button>
           </nav>
         </div>
 
-        {/* Subscriptions Table */}
+        {/* Tab Content */}
         <div className="p-6">
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Student
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Amount
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Period
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Created
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {subscriptions.map((subscription) => (
-                  <tr key={subscription.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <div className="ml-4">
-                          <div className="text-sm font-medium text-gray-900">
-                            {subscription.student?.firstName} {subscription.student?.lastName}
-                          </div>
-                          <div className="text-sm text-gray-500">
-                            {subscription.student?.email}
-                          </div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        {getStatusIcon(subscription.status)}
-                        <span className={`ml-2 inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(subscription.status)}`}>
-                          {subscription.status}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {formatCurrency(subscription.amount, subscription.currency)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {subscription.currentPeriodStart && subscription.currentPeriodEnd ? (
-                        <div>
-                          <div>{formatDate(subscription.currentPeriodStart)}</div>
-                          <div className="text-xs text-gray-400">to {formatDate(subscription.currentPeriodEnd)}</div>
-                        </div>
-                      ) : (
-                        'N/A'
-                      )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {formatDate(subscription.createdAt)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <button className="text-purple-600 hover:text-purple-900">
-                        View Details
-                      </button>
-                    </td>
+          {activeTab === 'subscriptions' && (
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Parent
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Students
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Status
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Amount
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Period
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Created
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Actions
+                    </th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {Object.entries(groupedSubscriptions).map(([parentId, parentData]) => (
+                    <React.Fragment key={parentId}>
+                      {parentData.subscriptions.map((subscription, index) => (
+                        <tr key={subscription.id} className="hover:bg-gray-50">
+                          {index === 0 && (
+                            <td rowSpan={parentData.subscriptions.length} className="px-6 py-4 whitespace-nowrap border-r border-gray-200">
+                              <div className="flex items-center">
+                                <User className="h-5 w-5 text-gray-400 mr-3" />
+                                <div>
+                                  <div className="text-sm font-medium text-gray-900">
+                                    {parentData.parent.firstName} {parentData.parent.lastName}
+                                  </div>
+                                  <div className="text-sm text-gray-500">
+                                    {parentData.parent.email}
+                                  </div>
+                                </div>
+                              </div>
+                            </td>
+                          )}
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm font-medium text-gray-900">
+                              {subscription.studentName || `${subscription.student?.user?.firstName || ''} ${subscription.student?.user?.lastName || ''}`.trim() || 'Unknown Student'}
+                            </div>
+                            {/* <div className="text-sm text-gray-500">
+                              {subscription.student?.user?.email || 'N/A'}
+                            </div> */}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex items-center">
+                              {getStatusIcon(subscription.status)}
+                              <span className={`ml-2 inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(subscription.status)}`}>
+                                {subscription.status}
+                              </span>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {formatCurrency(subscription.amount, subscription.currency)}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {subscription.currentPeriodStart && subscription.currentPeriodEnd ? (
+                              <div>
+                                <div>{formatDate(subscription.currentPeriodStart)}</div>
+                                <div className="text-xs text-gray-400">to {formatDate(subscription.currentPeriodEnd)}</div>
+                              </div>
+                            ) : (
+                              'N/A'
+                            )}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {formatDate(subscription.createdAt)}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                            <button 
+                              onClick={() => handleViewDetails('subscription', subscription)}
+                              className="flex items-center text-purple-600 hover:text-purple-900"
+                            >
+                              <Eye className="h-4 w-4 mr-1" />
+                              View Details
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </React.Fragment>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {activeTab === 'invoices' && (
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Invoice ID
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Student
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Amount
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Status
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Paid At
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {invoices.map((invoice) => (
+                    <tr key={invoice.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-900">
+                        {invoice.stripeInvoiceId}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm font-medium text-gray-900">
+                          {invoice.studentName || `${invoice.student?.user?.firstName || ''} ${invoice.student?.user?.lastName || ''}`.trim() || 'Unknown Student'}
+                        </div>
+                        {/* <div className="text-sm text-gray-500">
+                          {invoice.student?.user?.email || 'N/A'}
+                        </div> */}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {formatCurrency(invoice.amountPaid, invoice.currency)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(invoice.status)}`}>
+                          {invoice.status}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {invoice.paidAt ? formatDate(invoice.paidAt) : 'N/A'}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        <button 
+                          onClick={() => handleViewDetails('invoice', invoice)}
+                          className="flex items-center text-purple-600 hover:text-purple-900"
+                        >
+                          <Eye className="h-4 w-4 mr-1" />
+                          View Details
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {activeTab === 'webhooks' && (
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Event ID
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Type
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Created
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {webhookEvents.map((event) => (
+                    <tr key={event.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-900">
+                        {event.stripeEventId}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
+                          {event.type}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {formatDate(event.createdAt)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        <button 
+                          onClick={() => handleViewDetails('webhook', event)}
+                          className="flex items-center text-purple-600 hover:text-purple-900"
+                        >
+                          <Eye className="h-4 w-4 mr-1" />
+                          View Details
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       </div>
     </div>

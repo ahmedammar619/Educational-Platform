@@ -175,7 +175,7 @@ class PaymentService {
   // Admin payment management methods
   async getAdminPaymentStats() {
     try {
-      const response = await apiClient.get('/api/payments/admin/stats');
+      const response = await api.get('/api/payments/admin/stats');
       return response.data;
     } catch (error) {
       console.error('Error getting admin payment stats:', error);
@@ -185,7 +185,7 @@ class PaymentService {
 
   async getAdminSubscriptions(filters = {}) {
     try {
-      const response = await apiClient.get('/api/payments/admin/subscriptions', {
+      const response = await api.get('/api/payments/admin/subscriptions', {
         params: filters
       });
       return response.data;
@@ -197,7 +197,7 @@ class PaymentService {
 
   async getAdminInvoices(filters = {}) {
     try {
-      const response = await apiClient.get('/api/payments/admin/invoices', {
+      const response = await api.get('/api/payments/admin/invoices', {
         params: filters
       });
       return response.data;
@@ -209,7 +209,7 @@ class PaymentService {
 
   async getAdminWebhookEvents(filters = {}) {
     try {
-      const response = await apiClient.get('/api/payments/admin/webhook-events', {
+      const response = await api.get('/api/payments/admin/webhook-events', {
         params: filters
       });
       return response.data;

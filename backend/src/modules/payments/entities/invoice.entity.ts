@@ -14,6 +14,9 @@ export class Invoice {
   @Column({ name: 'student_id', type: 'uuid' })
   studentId: string;
 
+  @Column({ name: 'student_name', type: 'varchar', length: 255, nullable: true })
+  studentName?: string;
+
   @Column({ name: 'subscription_id', type: 'bigint', nullable: true })
   subscriptionId?: string;
 
