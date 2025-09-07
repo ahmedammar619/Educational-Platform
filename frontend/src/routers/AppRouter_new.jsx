@@ -36,8 +36,6 @@ const LoadingSpinner = () => (
   </div>
 );
 
-
-
 const AppRouter = React.memo(({ user, onLogin, onLogout }) => {
   // Show HomePage if user is not logged in
   if (!user) {

@@ -81,6 +81,18 @@ export class PaymentsController {
     return this.paymentsService.fixWebhookTable();
   }
 
+  @Post('add-student-name-columns')
+  @Public()
+  async addStudentNameColumns() {
+    return this.paymentsService.addStudentNameColumns();
+  }
+
+  @Post('populate-student-names')
+  @Public()
+  async populateStudentNames() {
+    return this.paymentsService.populateStudentNames();
+  }
+
   // Handle checkout session success (when user returns from Stripe)
   @Public()
   @Post('checkout-success')
