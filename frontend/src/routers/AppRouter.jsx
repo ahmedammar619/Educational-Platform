@@ -2,7 +2,7 @@ import React, { useMemo, useCallback } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { Suspense, lazy } from 'react';
 import { authService } from '../services';
-import MainLayout from '../components/layout/MainLayout';
+import MainLayout from '../components/Layout/MainLayout';
 
 // Lazy load individual page components
 const AdminDashboard = lazy(() => import('../pages/admin/AdminDashboard'));
