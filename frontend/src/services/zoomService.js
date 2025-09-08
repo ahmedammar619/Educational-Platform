@@ -13,10 +13,20 @@ class ZoomService {
       params.append('search', filters.search);
     }
 
+    if (filters.courseId) {
+      params.append('courseId', filters.courseId);
+    }
+
     const queryString = params.toString();
     const url = queryString ? `/api/zoom?${queryString}` : '/api/zoom';
     
     const response = await api.get(url);
+    return response.data;
+  }
+
+  // Get meetings for a specific course
+  async getMeetingsByCourse(courseId) {
+    const response = await api.get(`/api/zoom/course/${courseId}`);
     return response.data;
   }
 
@@ -59,6 +69,12 @@ class ZoomService {
   // End a meeting manually (teacher/admin only)
   async endMeeting(id) {
     const response = await api.post(`/api/zoom/${id}/end`);
+    return response.data;
+  }
+
+  // Cancel an upcoming meeting (teacher/admin only)
+  async cancelMeeting(id) {
+    const response = await api.post(`/api/zoom/${id}/cancel`);
     return response.data;
   }
 

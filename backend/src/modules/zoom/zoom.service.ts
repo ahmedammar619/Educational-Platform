@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ZoomMeeting } from './entities/zoom-meeting.entity';
@@ -27,6 +27,12 @@ export class ZoomService {
       throw new NotFoundException('User not found');
     }
 
+    // Verify the course exists
+    const course = await this.courseRepository.findOne({ where: { id: createZoomMeetingDto.courseId } });
+    if (!course) {
+      throw new NotFoundException('Course not found');
+    }
+
     const meeting = this.zoomMeetingRepository.create({
       ...createZoomMeetingDto,
       createdById: userId,
@@ -38,7 +44,15 @@ export class ZoomService {
 
   async findAllMeetings(): Promise<ZoomMeeting[]> {
     return await this.zoomMeetingRepository.find({
-      relations: ['createdBy'],
+      relations: ['createdBy', 'course'],
+      order: { createdAt: 'DESC' },
+    });
+  }
+
+  async findMeetingsByCourse(courseId: string): Promise<ZoomMeeting[]> {
+    return await this.zoomMeetingRepository.find({
+      where: { courseId },
+      relations: ['createdBy', 'course'],
       order: { createdAt: 'DESC' },
     });
   }
@@ -46,7 +60,7 @@ export class ZoomService {
   async findMeetingsByUser(userId: string): Promise<ZoomMeeting[]> {
     return await this.zoomMeetingRepository.find({
       where: { createdById: userId },
-      relations: ['createdBy'],
+      relations: ['createdBy', 'course'],
       order: { createdAt: 'DESC' },
     });
   }
@@ -54,7 +68,7 @@ export class ZoomService {
   async findMeetingById(id: string): Promise<ZoomMeeting> {
     const meeting = await this.zoomMeetingRepository.findOne({
       where: { id },
-      relations: ['createdBy'],
+      relations: ['createdBy', 'course'],
     });
 
     if (!meeting) {
@@ -180,6 +194,25 @@ export class ZoomService {
     return await this.zoomMeetingRepository.save(meeting);
   }
 
+  async cancelMeeting(id: string, userId: string): Promise<ZoomMeeting> {
+    const meeting = await this.findMeetingById(id);
+    
+    // Check if user is the creator or admin
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+    if (meeting.createdById !== userId && user?.role !== 'admin') {
+      throw new ForbiddenException('You can only cancel your own meetings');
+    }
+
+    // Only allow canceling upcoming or scheduled meetings
+    const currentStatus = this.calculateMeetingStatus(meeting);
+    if (currentStatus === 'live' || currentStatus === 'ended') {
+      throw new BadRequestException('Cannot cancel a meeting that has already started or ended');
+    }
+
+    meeting.status = 'cancelled';
+    return await this.zoomMeetingRepository.save(meeting);
+  }
+
   async getMeetingsByStatus(status: string): Promise<ZoomMeeting[]> {
     const meetings = await this.findAllMeetings();
     return meetings.filter(meeting => this.calculateMeetingStatus(meeting) === status);
@@ -188,9 +221,12 @@ export class ZoomService {
   async searchMeetings(searchTerm: string): Promise<ZoomMeeting[]> {
     const queryBuilder = this.zoomMeetingRepository.createQueryBuilder('meeting')
       .leftJoinAndSelect('meeting.createdBy', 'user')
+      .leftJoinAndSelect('meeting.course', 'course')
       .where('meeting.title ILIKE :searchTerm', { searchTerm: `%${searchTerm}%` })
       .orWhere('meeting.description ILIKE :searchTerm', { searchTerm: `%${searchTerm}%` })
-      .orWhere('user.name ILIKE :searchTerm', { searchTerm: `%${searchTerm}%` })
+      .orWhere('user.firstName ILIKE :searchTerm', { searchTerm: `%${searchTerm}%` })
+      .orWhere('user.lastName ILIKE :searchTerm', { searchTerm: `%${searchTerm}%` })
+      .orWhere('course.name ILIKE :searchTerm', { searchTerm: `%${searchTerm}%` })
       .orderBy('meeting.createdAt', 'DESC');
 
     return await queryBuilder.getMany();
@@ -199,8 +235,9 @@ export class ZoomService {
   private calculateMeetingStatus(meeting: any): string {
     if (!meeting.date || !meeting.time || !meeting.period) return 'scheduled';
     
-    // If meeting was manually ended, keep it as ended
+    // If meeting was manually ended or cancelled, keep it as is
     if (meeting.status === 'ended') return 'ended';
+    if (meeting.status === 'cancelled') return 'cancelled';
     
     const now = new Date();
     

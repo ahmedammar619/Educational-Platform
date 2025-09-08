@@ -46,13 +46,17 @@ export class ZoomController {
   @ApiResponse({ status: 200, description: 'Meetings retrieved successfully', type: [ZoomMeetingResponseDto] })
   @ApiQuery({ name: 'status', required: false, description: 'Filter by meeting status' })
   @ApiQuery({ name: 'search', required: false, description: 'Search meetings by title, description, or creator' })
+  @ApiQuery({ name: 'courseId', required: false, description: 'Filter meetings by course ID' })
   async findAllMeetings(
     @Query('status') status?: string,
     @Query('search') search?: string,
+    @Query('courseId') courseId?: string,
   ): Promise<ZoomMeetingResponseDto[]> {
     let meetings;
 
-    if (search) {
+    if (courseId) {
+      meetings = await this.zoomService.findMeetingsByCourse(courseId);
+    } else if (search) {
       meetings = await this.zoomService.searchMeetings(search);
     } else if (status) {
       meetings = await this.zoomService.getMeetingsByStatus(status);
@@ -71,6 +75,17 @@ export class ZoomController {
   @ApiResponse({ status: 200, description: 'User meetings retrieved successfully', type: [ZoomMeetingResponseDto] })
   async findMyMeetings(@Request() req: any): Promise<ZoomMeetingResponseDto[]> {
     const meetings = await this.zoomService.findMeetingsByUser(req.user.sub);
+    return meetings.map(meeting => 
+      plainToClass(ZoomMeetingResponseDto, meeting, { excludeExtraneousValues: true })
+    );
+  }
+
+  @Get('course/:courseId')
+  @Roles(Role.Admin, Role.Teacher, Role.Student, Role.Parent)
+  @ApiOperation({ summary: 'Get meetings for a specific course' })
+  @ApiResponse({ status: 200, description: 'Course meetings retrieved successfully', type: [ZoomMeetingResponseDto] })
+  async findMeetingsByCourse(@Param('courseId') courseId: string): Promise<ZoomMeetingResponseDto[]> {
+    const meetings = await this.zoomService.findMeetingsByCourse(courseId);
     return meetings.map(meeting => 
       plainToClass(ZoomMeetingResponseDto, meeting, { excludeExtraneousValues: true })
     );
@@ -136,6 +151,18 @@ export class ZoomController {
   @ApiResponse({ status: 403, description: 'Forbidden - can only end your own meetings' })
   async endMeeting(@Param('id') id: string, @Request() req: any): Promise<ZoomMeetingResponseDto> {
     const meeting = await this.zoomService.endMeeting(id, req.user.sub);
+    return plainToClass(ZoomMeetingResponseDto, meeting, { excludeExtraneousValues: true });
+  }
+
+  @Post(':id/cancel')
+  @Roles(Role.Admin, Role.Teacher)
+  @ApiOperation({ summary: 'Cancel an upcoming meeting' })
+  @ApiResponse({ status: 200, description: 'Meeting cancelled successfully', type: ZoomMeetingResponseDto })
+  @ApiResponse({ status: 404, description: 'Meeting not found' })
+  @ApiResponse({ status: 403, description: 'Forbidden - can only cancel your own meetings' })
+  @ApiResponse({ status: 400, description: 'Bad request - cannot cancel a meeting that has started' })
+  async cancelMeeting(@Param('id') id: string, @Request() req: any): Promise<ZoomMeetingResponseDto> {
+    const meeting = await this.zoomService.cancelMeeting(id, req.user.sub);
     return plainToClass(ZoomMeetingResponseDto, meeting, { excludeExtraneousValues: true });
   }
 

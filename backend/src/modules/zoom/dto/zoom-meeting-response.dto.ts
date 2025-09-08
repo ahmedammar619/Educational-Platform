@@ -29,6 +29,16 @@ export class UserResponseDto {
   }
 }
 
+export class CourseResponseDto {
+  @ApiProperty()
+  @Expose()
+  id: string;
+
+  @ApiProperty()
+  @Expose()
+  name: string;
+}
+
 export class ZoomMeetingResponseDto {
   @ApiProperty()
   @Expose()
@@ -70,6 +80,11 @@ export class ZoomMeetingResponseDto {
   @Expose()
   @Type(() => UserResponseDto)
   createdBy: UserResponseDto;
+
+  @ApiProperty()
+  @Expose()
+  @Type(() => CourseResponseDto)
+  course: CourseResponseDto;
 
   @ApiProperty()
   @Expose()

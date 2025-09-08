@@ -44,6 +44,10 @@ const ZoomTab = ({ currentUser, theme, courseId }) => {
   const getMeetingStatus = (meeting) => {
     if (!meeting.date || !meeting.time || !meeting.period) return 'scheduled';
     
+    // If meeting was manually ended or cancelled, keep it as is
+    if (meeting.status === 'ended') return 'ended';
+    if (meeting.status === 'cancelled') return 'cancelled';
+    
     const now = new Date();
     
     // Parse time with AM/PM period
@@ -103,7 +107,11 @@ const ZoomTab = ({ currentUser, theme, courseId }) => {
     if (Object.keys(validationErrors).length === 0) {
       try {
         setLoading(true);
-        const createdMeeting = await zoomService.createMeeting(newMeeting);
+        const meetingData = {
+          ...newMeeting,
+          courseId: courseId
+        };
+        const createdMeeting = await zoomService.createMeeting(meetingData);
         setMeetings([createdMeeting, ...meetings]);
         setNewMeeting({ 
           title: '', 
@@ -206,14 +214,31 @@ const ZoomTab = ({ currentUser, theme, courseId }) => {
     if (window.confirm('Are you sure you want to end this meeting?')) {
       try {
         setLoading(true);
-        // You can add backend logic here to mark meeting as ended
-        // For now, we'll just update the local state
+        const updatedMeeting = await zoomService.endMeeting(meetingId);
         setMeetings(meetings.map(m => 
-          m.id === meetingId ? { ...m, status: 'ended' } : m
+          m.id === meetingId ? updatedMeeting : m
         ));
       } catch (error) {
         console.error('Error ending meeting:', error);
         alert('Failed to end meeting. Please try again.');
+      } finally {
+        setLoading(false);
+      }
+    }
+  };
+
+  // Handle canceling a meeting
+  const handleCancelMeeting = async (meetingId) => {
+    if (window.confirm('Are you sure you want to cancel this meeting?')) {
+      try {
+        setLoading(true);
+        const updatedMeeting = await zoomService.cancelMeeting(meetingId);
+        setMeetings(meetings.map(m => 
+          m.id === meetingId ? updatedMeeting : m
+        ));
+      } catch (error) {
+        console.error('Error canceling meeting:', error);
+        alert('Failed to cancel meeting. Please try again.');
       } finally {
         setLoading(false);
       }
@@ -227,6 +252,7 @@ const ZoomTab = ({ currentUser, theme, courseId }) => {
       const filters = {};
       if (filter !== 'all') filters.status = filter;
       if (searchTerm) filters.search = searchTerm;
+      if (courseId) filters.courseId = courseId;
       
       const meetingsData = await zoomService.getMeetings(filters);
       setMeetings(meetingsData);
@@ -547,7 +573,8 @@ const ZoomTab = ({ currentUser, theme, courseId }) => {
                 upcoming: 'bg-blue-100 text-blue-800',
                 live: 'bg-green-100 text-green-800',
                 ended: 'bg-gray-100 text-gray-800',
-                scheduled: 'bg-yellow-100 text-yellow-800'
+                scheduled: 'bg-yellow-100 text-yellow-800',
+                cancelled: 'bg-red-100 text-red-800'
               };
               
               return (
@@ -559,7 +586,8 @@ const ZoomTab = ({ currentUser, theme, courseId }) => {
                         <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColors[status]}`}>
                           {status === 'upcoming' ? 'Upcoming' : 
                            status === 'live' ? 'Live Now' : 
-                           status === 'ended' ? 'Ended' : 'Scheduled'}
+                           status === 'ended' ? 'Ended' : 
+                           status === 'cancelled' ? 'Cancelled' : 'Scheduled'}
                         </span>
                       </div>
                       
@@ -598,32 +626,47 @@ const ZoomTab = ({ currentUser, theme, courseId }) => {
                     <div className="flex items-center gap-2 ml-4">
                       {/* Main action button - different for creator vs other users */}
                       {meeting.createdBy?.id === currentUser?.id ? (
-                        // Meeting creator sees End Meeting button when live, or Ended when ended
+                        // Meeting creator sees Cancel/End Meeting button based on status
                         <button
-                          onClick={() => status === 'live' ? handleEndMeeting(meeting.id) : null}
-                          disabled={status === 'ended'}
+                          onClick={() => {
+                            if (status === 'upcoming' || status === 'scheduled') {
+                              handleCancelMeeting(meeting.id);
+                            } else if (status === 'live') {
+                              handleEndMeeting(meeting.id);
+                            }
+                          }}
+                          disabled={status === 'ended' || status === 'cancelled'}
                           className={`px-3 py-1 rounded-md transition-colors flex items-center gap-1 text-sm ${
-                            status === 'ended' 
+                            status === 'ended' || status === 'cancelled'
                               ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
+                              : status === 'upcoming' || status === 'scheduled'
+                              ? 'bg-red-600 text-white hover:bg-red-700'
                               : 'bg-orange-600 text-white hover:bg-orange-700'
                           }`}
                         >
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             {status === 'ended' ? (
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            ) : status === 'cancelled' ? (
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            ) : status === 'upcoming' || status === 'scheduled' ? (
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                             ) : (
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                             )}
                           </svg>
-                          {status === 'ended' ? 'Ended' : 'End Meeting'}
+                          {status === 'ended' ? 'Ended' : 
+                           status === 'cancelled' ? 'Cancelled' :
+                           status === 'upcoming' || status === 'scheduled' ? 'Cancel Meeting' : 
+                           'End Meeting'}
                         </button>
                       ) : (
                         // Other users see Join Now button
                         <button
                           onClick={() => handleJoinMeeting(meeting)}
-                          disabled={status === 'ended'}
+                          disabled={status === 'ended' || status === 'cancelled'}
                           className={`px-3 py-1 rounded-md transition-colors flex items-center gap-1 text-sm ${
-                            status === 'ended' 
+                            status === 'ended' || status === 'cancelled'
                               ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
                               : 'bg-green-600 text-white hover:bg-green-700'
                           }`}
@@ -631,7 +674,8 @@ const ZoomTab = ({ currentUser, theme, courseId }) => {
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
                           </svg>
-                          {status === 'ended' ? 'Ended' : 'Join Now'}
+                          {status === 'ended' ? 'Ended' : 
+                           status === 'cancelled' ? 'Cancelled' : 'Join Now'}
                         </button>
                       )}
                       

@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsUrl, IsDateString, IsIn, MinLength, MaxLength } from 'class-validator';
+import { IsString, IsOptional, IsUrl, IsDateString, IsIn, MinLength, MaxLength, IsUUID } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateZoomMeetingDto {
@@ -31,4 +31,9 @@ export class CreateZoomMeetingDto {
   @IsOptional()
   @IsIn(['AM', 'PM'])
   period?: string;
+
+  @ApiProperty({ description: 'Course ID for the meeting', example: 'uuid-string' })
+  @IsUUID()
+  @IsOptional()
+  courseId?: string;
 }

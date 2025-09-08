@@ -1,5 +1,6 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
+import { Course } from '../../courses/entities/course.entity';
 
 @Entity('zoom_meetings')
 export class ZoomMeeting {
@@ -33,9 +34,16 @@ export class ZoomMeeting {
   @Column({ type: 'uuid' })
   createdById: string;
 
+  @Column({ type: 'uuid', nullable: true })
+  courseId: string;
+
   @ManyToOne(() => User, { eager: true })
   @JoinColumn({ name: 'createdById' })
   createdBy: User;
+
+  @ManyToOne(() => Course, { eager: true })
+  @JoinColumn({ name: 'courseId' })
+  course: Course;
 
   @CreateDateColumn()
   createdAt: Date;
