@@ -11,7 +11,8 @@ import {
   Shield,
   User,
   Bell,
-  LogOut
+  LogOut,
+  Settings
 } from 'lucide-react';
 import baraemLogo from '../../assets/baraem.svg';
 
@@ -22,6 +23,7 @@ const getNavigationConfig = (role) => {
       { id: 'users', name: 'User Management', icon: Users, path: '/admin/users' },
       { id: 'classes', name: 'Class Management', icon: BookOpen, path: '/admin/classes' },
       { id: 'payments', name: 'Payments', icon: CreditCard, path: '/admin/payments' },
+      { id: 'settings', name: 'Settings', icon: Settings, path: '/admin/settings' },
     ],
     teacher: [
       { id: 'classes', name: 'Classes', icon: BookOpen, path: '/teacher/classes' },

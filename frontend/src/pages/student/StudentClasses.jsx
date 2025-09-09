@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { BookOpen, Clock, User, MapPin, Calendar, CheckCircle, Users, Search, Filter, ChevronDown, ChevronRight } from 'lucide-react';
+import { BookOpen, Clock, User, MapPin, Calendar, CheckCircle, Users, Search, Filter, ChevronDown, ChevronRight, ExternalLink } from 'lucide-react';
 import studentsService from '../../services/studentsService';
 import { showErrorToast } from '../../utils/errorHandler';
 
@@ -10,6 +10,7 @@ const StudentClasses = ({ user, onOpenMaterials }) => {
   const [filteredClasses, setFilteredClasses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [expandedClasses, setExpandedClasses] = useState(new Set());
+  const [googleFormUrl, setGoogleFormUrl] = useState(null);
   const [filters, setFilters] = useState({
     search: '',
     teacher: '',
@@ -25,6 +26,7 @@ const StudentClasses = ({ user, onOpenMaterials }) => {
 
   useEffect(() => {
     loadStudentClasses();
+    loadGoogleFormUrl();
   }, [user]);
 
   useEffect(() => {
@@ -51,6 +53,16 @@ const StudentClasses = ({ user, onOpenMaterials }) => {
       setEnrolledClasses([]);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadGoogleFormUrl = async () => {
+    try {
+      const response = await studentsService.getGoogleFormUrl();
+      setGoogleFormUrl(response.googleFormUrl);
+    } catch (error) {
+      console.error('Error loading Google form URL:', error);
+      // Don't show error toast for this as it's not critical
     }
   };
 
@@ -136,59 +148,30 @@ const StudentClasses = ({ user, onOpenMaterials }) => {
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="bg-white p-4 sm:p-6 rounded-lg shadow-sm border">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          <div className="relative">
-            <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Search classes..."
-              className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-              value={filters.search}
-              onChange={(e) => {
-                console.log('Search input changed:', e.target.value);
-                setFilters({ ...filters, search: e.target.value, page: 1 });
-              }}
-              style={{ colorScheme: 'light' }}
-              onFocus={(e) => e.target.placeholder = 'Search classes...'}
-              onBlur={(e) => e.target.placeholder = 'Search classes...'}
-            />
-          </div>
-
-          <select
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-            value={filters.teacher}
-            onChange={(e) => setFilters({ ...filters, teacher: e.target.value, page: 1 })}
-          >
-            <option value="">All Teachers</option>
-            {Array.from(new Set(enrolledClasses.flatMap(cls => cls.courses?.map(course => course.teacherName) || []))).map((teacherName) => (
-              <option key={teacherName} value={teacherName}>
-                {teacherName}
-              </option>
-            ))}
-          </select>
-
-          <select
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-            value={filters.limit}
-            onChange={(e) => setFilters({ ...filters, limit: e.target.value, page: 1 })}
-          >
-            <option value="10">10 per page</option>
-            <option value="25">25 per page</option>
-            <option value="50">50 per page</option>
-          </select>
-        </div>
-      </div>
-
       {/* Classes Cards */}
       {enrolledClasses.length === 0 ? (
         <div className="bg-white rounded-lg shadow-sm border">
           <div className="p-4 sm:p-6">
             <div className="text-center py-8">
               <BookOpen className="h-8 w-8 sm:h-12 sm:w-12 text-gray-400 mx-auto mb-4" />
-              <p className="text-sm sm:text-base text-gray-600">No classes enrolled yet</p>
-              <p className="text-xs sm:text-sm text-gray-500">Contact admin to get enrolled in classes</p>
+              <p className="text-sm sm:text-base text-gray-600 mb-2">No classes enrolled yet</p>
+              <p className="text-xs sm:text-sm text-gray-500 mb-6">
+                You haven't been assigned to any classes yet. Please complete the registration form to get enrolled.
+              </p>
+              {googleFormUrl && (
+                <a
+                  href={googleFormUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 px-6 py-3 text-red-600 border-2 border-red-300 rounded-lg hover:border-red-400 hover:bg-red-50 transition-colors duration-200 bg-transparent font-medium"
+                >
+                  <ExternalLink className="h-4 w-4" />
+                  Complete Registration Form
+                </a>
+              )}
+              {!googleFormUrl && (
+                <p className="text-xs text-gray-400">Please contact admin for registration</p>
+              )}
             </div>
           </div>
         </div>

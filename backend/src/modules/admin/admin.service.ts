@@ -1,10 +1,13 @@
-import { Injectable, ConflictException, BadRequestException } from '@nestjs/common';
+import { Injectable, ConflictException, BadRequestException, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from '../users/entities/user.entity';
+import { AppConfig } from './entities/app-config.entity';
 import { Role } from '../../common/enums/role.enum';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { UpdateConfigDto, UpdateGoogleFormUrlDto } from './dto/update-config.dto';
+import { ConfigService } from './config.service';
 import * as bcrypt from 'bcryptjs';
 
 @Injectable()
@@ -12,6 +15,9 @@ export class AdminService {
   constructor(
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
+    @InjectRepository(AppConfig)
+    private readonly configRepository: Repository<AppConfig>,
+    private readonly configService: ConfigService,
   ) {}
 
 
@@ -164,5 +170,32 @@ export class AdminService {
   async deleteUser(userId: string) {
     await this.userRepository.delete(userId);
     return { message: 'User deleted successfully' };
+  }
+
+  // Configuration management methods
+  async getConfig(key: string): Promise<string | null> {
+    return this.configService.getConfig(key);
+  }
+
+  async setConfig(updateConfigDto: UpdateConfigDto): Promise<AppConfig> {
+    return this.configService.setConfig(
+      updateConfigDto.key,
+      updateConfigDto.value,
+      updateConfigDto.description
+    );
+  }
+
+  async getGoogleFormUrl(): Promise<string | null> {
+    return this.configService.getGoogleFormUrl();
+  }
+
+  async setGoogleFormUrl(updateGoogleFormUrlDto: UpdateGoogleFormUrlDto): Promise<AppConfig> {
+    return this.configService.setGoogleFormUrl(updateGoogleFormUrlDto.url);
+  }
+
+  async getAllConfigs(): Promise<AppConfig[]> {
+    return this.configRepository.find({
+      order: { key: 'ASC' }
+    });
   }
 }

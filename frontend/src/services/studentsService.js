@@ -160,6 +160,16 @@ class StudentsService {
       throw error.response?.data || error.message;
     }
   }
+
+  // Get Google Form URL for student registration
+  async getGoogleFormUrl() {
+    try {
+      const response = await api.get('/api/public/google-form-url');
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  }
 }
 
 export default new StudentsService();

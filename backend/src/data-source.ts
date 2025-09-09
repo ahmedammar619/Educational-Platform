@@ -24,6 +24,7 @@ import { WebhookEvent } from './modules/payments/entities/webhook-event.entity';
 import { Invoice } from './modules/payments/entities/invoice.entity';
 import { Subscription } from './modules/payments/entities/subscription.entity';
 import { ZoomMeeting } from './modules/zoom/entities/zoom-meeting.entity';
+import { AppConfig } from './modules/admin/entities/app-config.entity';
 
 export const AppDataSource = new DataSource({
   type: 'postgres',
@@ -52,7 +53,8 @@ export const AppDataSource = new DataSource({
     WebhookEvent,
     Invoice,
     Subscription,
-    ZoomMeeting
+    ZoomMeeting,
+    AppConfig
   ],
   migrations: process.env.NODE_ENV === 'production' ? ['dist/migrations/*.js'] : [],
   migrationsRun: process.env.NODE_ENV === 'production' && process.env.DB_SYNC !== 'true',

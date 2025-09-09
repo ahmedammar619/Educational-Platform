@@ -9,6 +9,7 @@ import MaterialPages from '../components/common/class-material/MaterialPages';
 const UserManagement = lazy(() => import('../pages/admin/UserManagement'));
 const ClassManagement = lazy(() => import('../pages/admin/ClassManagement'));
 const AdminPayments = lazy(() => import('../pages/admin/AdminPayments'));
+const AdminSettings = lazy(() => import('../pages/admin/AdminSettings'));
 
 const StudentClasses = lazy(() => import('../pages/student/StudentClasses'));
 const StudentSchedule = lazy(() => import('../pages/student/StudentSchedule'));
@@ -108,6 +109,7 @@ const AppRouter = React.memo(({ user, onLogin, onLogout }) => {
                 { path: "/users", element: <UserManagement user={user} /> },
                 { path: "/classes", element: <ClassManagement user={user} onOpenMaterials={handleOpenMaterials} /> },
                 { path: "/payments", element: <AdminPayments user={user} /> },
+                { path: "/settings", element: <AdminSettings user={user} /> },
                 { path: "/materials", element: showMaterialPage && materialPageData ? (
                   <MaterialPages 
                     courseData={materialPageData} 

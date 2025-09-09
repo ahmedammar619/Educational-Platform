@@ -24,6 +24,7 @@ import {
 import { AdminService } from './admin.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { UpdateConfigDto, UpdateGoogleFormUrlDto } from './dto/update-config.dto';
 import { Role } from '../../common/enums/role.enum';
 
 @ApiTags('Admin')
@@ -111,5 +112,49 @@ export class AdminController {
   })
   async deleteUser(@Param('id') id: string) {
     return this.adminService.deleteUser(id);
+  }
+
+  // Configuration endpoints
+  @Get('config')
+  @ApiOperation({ summary: 'Get all configuration settings' })
+  @ApiResponse({
+    status: 200,
+    description: 'Configuration settings retrieved successfully',
+  })
+  async getAllConfigs() {
+    return this.adminService.getAllConfigs();
+  }
+
+  @Get('config/google-form-url')
+  @ApiOperation({ summary: 'Get Google Form URL for student registration' })
+  @ApiResponse({
+    status: 200,
+    description: 'Google Form URL retrieved successfully',
+  })
+  async getGoogleFormUrl() {
+    const url = await this.adminService.getGoogleFormUrl();
+    return { googleFormUrl: url };
+  }
+
+  @Put('config/google-form-url')
+  @ApiOperation({ summary: 'Set Google Form URL for student registration' })
+  @ApiBody({ type: UpdateGoogleFormUrlDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Google Form URL updated successfully',
+  })
+  async setGoogleFormUrl(@Body() updateGoogleFormUrlDto: UpdateGoogleFormUrlDto) {
+    return this.adminService.setGoogleFormUrl(updateGoogleFormUrlDto);
+  }
+
+  @Put('config')
+  @ApiOperation({ summary: 'Update a configuration setting' })
+  @ApiBody({ type: UpdateConfigDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Configuration updated successfully',
+  })
+  async setConfig(@Body() updateConfigDto: UpdateConfigDto) {
+    return this.adminService.setConfig(updateConfigDto);
   }
 }

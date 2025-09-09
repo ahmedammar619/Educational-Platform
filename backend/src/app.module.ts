@@ -26,6 +26,7 @@ import { MaterialsModule } from './modules/materials/materials.module';
 import { EnrollmentsModule } from './modules/enrollments/enrollments.module';
 import { PaymentsModule } from './modules/payments/payments.module';
 import { ZoomModule } from './modules/zoom/zoom.module';
+import { PublicModule } from './modules/public/public.module';
 
 // Guards and Interceptors
 import { CustomThrottlerGuard } from './common/guards/custom-throttler.guard';
@@ -54,6 +55,7 @@ import { WebhookEvent } from './modules/payments/entities/webhook-event.entity';
 import { Invoice } from './modules/payments/entities/invoice.entity';
 import { Subscription } from './modules/payments/entities/subscription.entity';
 import { ZoomMeeting } from './modules/zoom/entities/zoom-meeting.entity';
+import { AppConfig } from './modules/admin/entities/app-config.entity';
 
 @Module({
   imports: [
@@ -91,7 +93,8 @@ import { ZoomMeeting } from './modules/zoom/entities/zoom-meeting.entity';
           WebhookEvent,
           Invoice,
           Subscription,
-          ZoomMeeting
+          ZoomMeeting,
+          AppConfig
         ],
         synchronize: process.env.NODE_ENV !== 'production' || process.env.DB_SYNC === 'true',
         migrationsRun: process.env.NODE_ENV === 'production' && process.env.DB_SYNC !== 'true',
@@ -125,6 +128,7 @@ import { ZoomMeeting } from './modules/zoom/entities/zoom-meeting.entity';
     EnrollmentsModule,
     PaymentsModule,
     ZoomModule,
+    PublicModule,
   ],
   controllers: [AppController],
   providers: [

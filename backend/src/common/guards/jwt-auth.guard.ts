@@ -15,6 +15,13 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
       context.getClass(),
     ]);
 
+    console.log('🔍 JWT Auth Guard - Checking route:', {
+      path: context.switchToHttp().getRequest().url,
+      isPublic,
+      handler: context.getHandler().name,
+      className: context.getClass().name
+    });
+
     if (isPublic) {
       console.log('🔓 JWT Auth Guard - Public route, skipping authentication');
       return true;

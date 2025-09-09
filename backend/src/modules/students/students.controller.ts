@@ -10,12 +10,16 @@ import { RolesGuard } from '../../common/guards/roles.guard';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { ForbiddenException } from '@nestjs/common';
+import { ConfigService } from '../admin/config.service';
 
 @ApiTags('Students')
 @Controller('students')
 @ApiBearerAuth('JWT-auth')
 export class StudentsController {
-  constructor(private readonly studentsService: StudentsService) {}
+  constructor(
+    private readonly studentsService: StudentsService,
+    private readonly configService: ConfigService,
+  ) {}
 
   @Post()
   @Public()
@@ -241,6 +245,18 @@ export class StudentsController {
       throw new ForbiddenException('You do not have permission to view this student\'s classes');
     }
     return this.studentsService.getStudentClasses(id);
+  }
+
+  @Get('google-form-url')
+  @Public()
+  @ApiOperation({ summary: 'Get Google Form URL for student registration' })
+  @ApiResponse({
+    status: 200,
+    description: 'Google Form URL retrieved successfully',
+  })
+  async getGoogleFormUrl() {
+    const url = await this.configService.getGoogleFormUrl();
+    return { googleFormUrl: url };
   }
 
   private async isParentOfStudent(parentId: string, studentId: string): Promise<boolean> {
