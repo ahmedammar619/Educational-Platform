@@ -14,6 +14,11 @@ class ErrorBoundary extends React.Component {
   }
 
   static getDerivedStateFromError(error) {
+    // Only catch actual errors, not navigation/state changes
+    if (error.name === 'ChunkLoadError' || error.message?.includes('Loading chunk')) {
+      // Don't catch chunk loading errors during navigation
+      return { hasError: false, error: null };
+    }
     return { hasError: true, error };
   }
 
@@ -48,6 +53,7 @@ function App() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showLogin, setShowLogin] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   const validateToken = React.useCallback(async () => {
     try {
@@ -123,20 +129,25 @@ function App() {
   }, []);
 
   const handleLogout = React.useCallback(() => {
-    // Clear user state first
-    setUser(null);
-    // Then logout from authService
+    // Set logging out state to prevent error boundary issues
+    setIsLoggingOut(true);
+    
+    // Clear user state and logout from authService
     authService.logout();
-    // Navigate to home page to clear the URL
-    window.location.href = '/';
+    setUser(null);
+    
+    // Use setTimeout to ensure state updates are processed before navigation
+    setTimeout(() => {
+      window.location.href = '/';
+    }, 50);
   }, []);
 
-  if (loading) {
+  if (loading || isLoggingOut) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading...</p>
+          <p className="text-gray-600">{isLoggingOut ? 'Signing out...' : 'Loading...'}</p>
         </div>
       </div>
     );
