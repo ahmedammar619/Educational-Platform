@@ -34,18 +34,9 @@ import { Role } from '../../common/enums/role.enum';
 export class AdminController {
   constructor(private readonly adminService: AdminService) {}
 
-  @Get('dashboard')
-  @ApiOperation({ summary: 'Get admin dashboard statistics' })
-  @ApiResponse({
-    status: 200,
-    description: 'Dashboard statistics retrieved successfully',
-  })
-  async getDashboardStats() {
-    return this.adminService.getDashboardStats();
-  }
 
   @Get('users/recent')
-  @ApiOperation({ summary: 'Get recent users for admin dashboard' })
+  @ApiOperation({ summary: 'Get recent users' })
   @ApiResponse({
     status: 200,
     description: 'Recent users retrieved successfully',

@@ -196,7 +196,7 @@ const ChildAccountCreation = ({ user, onSuccess, onCancel }) => {
           </p>
         </div>
         <p className="text-gray-600 mb-6">
-          Your child can now log in using their email and password to access their student dashboard.
+          Your child can now log in using their email and password to access their student account.
         </p>
         <div className="flex justify-center space-x-3">
           <button

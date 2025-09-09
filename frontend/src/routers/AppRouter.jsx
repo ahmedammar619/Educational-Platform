@@ -6,22 +6,18 @@ import MainLayout from '../components/layout/MainLayout';
 import MaterialPages from '../components/common/class-material/MaterialPages';
 
 // Lazy load individual page components
-const AdminDashboard = lazy(() => import('../pages/admin/AdminDashboard'));
 const UserManagement = lazy(() => import('../pages/admin/UserManagement'));
 const ClassManagement = lazy(() => import('../pages/admin/ClassManagement'));
 const AdminPayments = lazy(() => import('../pages/admin/AdminPayments'));
 
-const StudentDashboard = lazy(() => import('../pages/student/StudentDashboard'));
 const StudentClasses = lazy(() => import('../pages/student/StudentClasses'));
 const StudentSchedule = lazy(() => import('../pages/student/StudentSchedule'));
 
-const ParentDashboard = lazy(() => import('../pages/parent/ParentDashboard'));
 const ChildrenManagement = lazy(() => import('../pages/parent/ChildrenManagement'));
 const ParentSchedule = lazy(() => import('../pages/parent/ParentSchedule'));
 const ParentCommunication = lazy(() => import('../pages/parent/ParentCommunication'));
 const ParentPayments = lazy(() => import('../pages/parent/ParentPayments'));
 
-const TeacherDashboard = lazy(() => import('../pages/teacher/TeacherDashboard'));
 const TeacherClasses = lazy(() => import('../pages/teacher/TeacherClasses'));
 const TeacherSchedule = lazy(() => import('../pages/teacher/TeacherSchedule'));
 
@@ -108,7 +104,7 @@ const AppRouter = React.memo(({ user, onLogin, onLogout }) => {
           element={
             user.role === 'admin' ? (
               <MainLayout user={user} onLogout={onLogout} routes={[
-                { path: "/", element: <AdminDashboard user={user} /> },
+                { path: "/", element: <Navigate to="/admin/users" replace /> },
                 { path: "/users", element: <UserManagement user={user} /> },
                 { path: "/classes", element: <ClassManagement user={user} onOpenMaterials={handleOpenMaterials} /> },
                 { path: "/payments", element: <AdminPayments user={user} /> },
@@ -132,7 +128,7 @@ const AppRouter = React.memo(({ user, onLogin, onLogout }) => {
           element={
             user.role === 'student' ? (
               <MainLayout user={user} onLogout={onLogout} routes={[
-                { path: "/", element: <StudentDashboard user={user} /> },
+                { path: "/", element: <Navigate to="/student/classes" replace /> },
                 { path: "/classes", element: <StudentClasses user={user} onOpenMaterials={handleOpenMaterials} /> },
                 { path: "/schedule", element: <StudentSchedule user={user} /> },
                 { path: "/materials", element: showMaterialPage && materialPageData ? (
@@ -155,7 +151,7 @@ const AppRouter = React.memo(({ user, onLogin, onLogout }) => {
           element={
             user.role === 'parent' ? (
               <MainLayout user={user} onLogout={onLogout} routes={[
-                { path: "/", element: <ParentDashboard user={user} /> },
+                { path: "/", element: <Navigate to="/parent/children" replace /> },
                 { path: "/children", element: <ChildrenManagement user={user} /> },
                 { path: "/schedule", element: <ParentSchedule user={user} /> },
                 { path: "/communication", element: <ParentCommunication user={user} /> },
@@ -173,7 +169,7 @@ const AppRouter = React.memo(({ user, onLogin, onLogout }) => {
           element={
             user.role === 'teacher' ? (
               <MainLayout user={user} onLogout={onLogout} routes={[
-                { path: "/", element: <TeacherDashboard user={user} /> },
+                { path: "/", element: <Navigate to="/teacher/classes" replace /> },
                 { path: "/classes", element: <TeacherClasses user={user} /> },
                 { path: "/schedule", element: <TeacherSchedule user={user} /> },
               ]} />

@@ -19,25 +19,21 @@ import baraemLogo from '../../assets/baraem.svg';
 const getNavigationConfig = (role) => {
   const baseConfig = {
     admin: [
-      { id: 'dashboard', name: 'Dashboard', icon: Home, path: '/admin' },
       { id: 'users', name: 'User Management', icon: Users, path: '/admin/users' },
       { id: 'classes', name: 'Class Management', icon: BookOpen, path: '/admin/classes' },
       { id: 'payments', name: 'Payments', icon: CreditCard, path: '/admin/payments' },
     ],
     teacher: [
-      { id: 'dashboard', name: 'Dashboard', icon: Home, path: '/teacher' },
       { id: 'classes', name: 'Classes', icon: BookOpen, path: '/teacher/classes' },
       { id: 'schedule', name: 'Schedule', icon: Calendar, path: '/teacher/schedule' },
     ],
     parent: [
-      { id: 'dashboard', name: 'Dashboard', icon: Home, path: '/parent' },
       { id: 'children', name: 'Children', icon: Users, path: '/parent/children' },
       { id: 'schedule', name: 'Schedule', icon: Calendar, path: '/parent/schedule' },
       { id: 'communication', name: 'Communication', icon: MessageSquare, path: '/parent/communication' },
       { id: 'payments', name: 'Payments', icon: CreditCard, path: '/parent/payments' },
     ],
     student: [
-      { id: 'dashboard', name: 'Dashboard', icon: Home, path: '/student' },
       { id: 'classes', name: 'Classes', icon: BookOpen, path: '/student/classes' },
       { id: 'schedule', name: 'Schedule', icon: Calendar, path: '/student/schedule' },
     ],
@@ -131,27 +127,21 @@ const MainLayout = ({ user, onLogout, children, routes }) => {
   const getCurrentTab = () => {
     const path = location.pathname;
 
-    // Check for exact matches first (excluding dashboard)
+    // Check for exact matches first
     for (const item of navigation) {
-      if (item.id !== 'dashboard' && path === item.path) {
+      if (path === item.path) {
         return item.id;
       }
-    }
-
-    // Check for dashboard (root path for each role)
-    const roleBasePath = `/${userRole}`;
-    if (path === roleBasePath || path === `${roleBasePath}/`) {
-      return 'dashboard';
     }
 
     // Fallback: check if path contains any navigation item
     for (const item of navigation) {
-      if (item.id !== 'dashboard' && path.includes(item.path.split('/').pop())) {
+      if (path.includes(item.path.split('/').pop())) {
         return item.id;
       }
     }
 
-    return 'dashboard';
+    return navigation[0]?.id || 'classes';
   };
 
   const [activeTab, setActiveTab] = useState(getCurrentTab());

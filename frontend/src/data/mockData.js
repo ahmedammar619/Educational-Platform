@@ -310,8 +310,8 @@ export const mockStudentProgress = {
   }
 };
 
-// Teacher Dashboard Data
-export const mockTeacherDashboard = {
+// Teacher Data
+export const mockTeacherData = {
   totalStudents: 8,
   totalCourses: 3,
   upcomingSessions: [
@@ -362,8 +362,8 @@ export const mockTeacherDashboard = {
   ]
 };
 
-// Admin Dashboard Data
-export const mockAdminDashboard = {
+// Admin Data
+export const mockAdminData = {
   totalUsers: 1250,
   totalTeachers: 45,
   totalStudents: 980,
@@ -411,8 +411,8 @@ export const mockAdminDashboard = {
   ]
 };
 
-// Parent Dashboard Data
-export const mockParentDashboard = {
+// Parent Data
+export const mockParentData = {
   children: [
     {
       id: '4',
@@ -458,8 +458,8 @@ export const mockParentDashboard = {
   ]
 };
 
-// Student Dashboard Data
-export const mockStudentDashboard = {
+// Student Data
+export const mockStudentData = {
   enrolledCourses: mockCourses.filter(course => 
     course.students.some(student => student.id === '4')
   ),
@@ -1376,14 +1376,14 @@ export const getMockData = (type, filters = {}) => {
       return mockCourses;
     case 'studentProgress':
       return mockStudentProgress[filters.studentId] || null;
-    case 'teacherDashboard':
-      return mockTeacherDashboard;
-    case 'adminDashboard':
-      return mockAdminDashboard;
-    case 'parentDashboard':
-      return mockParentDashboard;
-    case 'studentDashboard':
-      return mockStudentDashboard;
+    case 'teacherData':
+      return mockTeacherData;
+    case 'adminData':
+      return mockAdminData;
+    case 'parentData':
+      return mockParentData;
+    case 'studentData':
+      return mockStudentData;
     case 'availableCourses':
       return mockAvailableCourses;
     // New mock data types

@@ -128,7 +128,7 @@ async function bootstrap() {
     .addTag('System', 'System information and health checks')
     .addTag('Auth', 'Authentication operations (register, login, profile management)')
     .addTag('Users', 'User management and account operations')
-    .addTag('Admin', 'Administrative operations (dashboard, user management)')
+    .addTag('Admin', 'Administrative operations (user management)')
     .addTag('Parents', 'Parent-specific operations (signup, child management)')
     .addTag('Students', 'Student profile management')
     .addTag('Teachers', 'Teacher profile management')

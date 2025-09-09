@@ -26,7 +26,6 @@ export const API_CONFIG = {
     PARENTS: '/api/parents',
     ADMIN: {
       ROOT: '/api/admin',
-      DASHBOARD: '/api/admin/dashboard',
       USERS: '/api/admin/users',
       TEACHERS: '/api/admin/teachers'
     },

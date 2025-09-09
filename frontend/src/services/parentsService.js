@@ -111,15 +111,6 @@ class ParentsService {
     }
   }
 
-  // Get parent dashboard
-  async getParentDashboard() {
-    try {
-      const response = await api.get('/api/parents/dashboard');
-      return response.data;
-    } catch (error) {
-      throw error.response?.data || error.message;
-    }
-  }
 
   // Get parent schedule
   async getParentSchedule() {

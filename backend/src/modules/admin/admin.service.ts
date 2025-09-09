@@ -14,26 +14,6 @@ export class AdminService {
     private readonly userRepository: Repository<User>,
   ) {}
 
-  async getDashboardStats() {
-    const [totalUsers, totalTeachers] = await Promise.all([
-      this.userRepository.count(),
-      this.userRepository.count({ where: { role: Role.Teacher } }),
-    ]);
-
-    const usersByRole = await this.userRepository
-      .createQueryBuilder('user')
-      .select('user.role', 'role')
-      .addSelect('COUNT(*)', 'count')
-      .groupBy('user.role')
-      .getRawMany();
-
-    return {
-      totalUsers,
-      totalTeachers,
-      usersByRole,
-      timestamp: new Date().toISOString(),
-    };
-  }
 
   async getRecentUsers(limit: number = 10) {
     const recentUsers = await this.userRepository

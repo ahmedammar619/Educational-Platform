@@ -18,7 +18,6 @@ import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
 import { AdminModule } from './modules/admin/admin.module';
 import { TeachersModule } from './modules/teachers/teachers.module';
-import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { ParentsModule } from './modules/parents/parents.module';
 import { StudentsModule } from './modules/students/students.module';
 import { ClassesModule } from './modules/classes/classes.module';
@@ -118,7 +117,6 @@ import { ZoomMeeting } from './modules/zoom/entities/zoom-meeting.entity';
     UsersModule,
     AdminModule,
     TeachersModule,
-    DashboardModule,
     ParentsModule,
     StudentsModule,
     ClassesModule,

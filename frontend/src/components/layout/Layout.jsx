@@ -10,7 +10,6 @@ const Layout = ({ children, user, onLogout }) => {
   const location = useLocation();
 
   const navigation = [
-    { name: 'Dashboard', href: '/dashboard', icon: Home },
     { name: 'Classes', href: '/classes', icon: BookOpen },
     { name: 'Calendar', href: '/calendar', icon: Calendar },
     { name: 'Students', href: '/students', icon: Users },
