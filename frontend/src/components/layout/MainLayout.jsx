@@ -15,6 +15,7 @@ import {
   Settings
 } from 'lucide-react';
 import baraemLogo from '../../assets/baraem.svg';
+import UserProfilePopup from '../ui/UserProfilePopup';
 
 // Role-based navigation configurations
 const getNavigationConfig = (role) => {
@@ -120,6 +121,7 @@ const getRoleColors = (role) => {
 const MainLayout = ({ user, onLogout, children, routes }) => {
   const navigate = useNavigate();
   const location = useLocation();
+  const [showProfilePopup, setShowProfilePopup] = useState(false);
 
   const userRole = user?.role || 'student';
   const navigation = getNavigationConfig(userRole);
@@ -159,6 +161,17 @@ const MainLayout = ({ user, onLogout, children, routes }) => {
     if (navItem) {
       navigate(navItem.path);
     }
+  };
+
+  const handleProfileClick = () => {
+    console.log('Profile clicked!'); // Debug log
+    setShowProfilePopup(true);
+  };
+
+  const handleEditProfile = () => {
+    setShowProfilePopup(false);
+    // TODO: Implement profile edit functionality
+    alert('Profile edit functionality will be implemented soon!');
   };
 
   // Get user display name with fallback logic
@@ -232,11 +245,15 @@ const MainLayout = ({ user, onLogout, children, routes }) => {
               </button>
 
               <div className="flex items-center space-x-3">
-                <div className="flex items-center space-x-2">
+                <button
+                  onClick={handleProfileClick}
+                  className="flex items-center space-x-2 hover:bg-gray-50 p-2 rounded-lg transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                  type="button"
+                >
                   <div className={`w-8 h-8 ${colors.avatar} rounded-full flex items-center justify-center`}>
                     <User className="h-4 w-4 text-white" />
                   </div>
-                  <div className="hidden md:block">
+                  <div className="hidden md:block text-left">
                     <p className="text-sm font-medium text-gray-900">
                       {getUserDisplayName()}
                     </p>
@@ -244,14 +261,6 @@ const MainLayout = ({ user, onLogout, children, routes }) => {
                       {userRole.charAt(0).toUpperCase() + userRole.slice(1)}
                     </p>
                   </div>
-                </div>
-
-                <button
-                  onClick={onLogout}
-                  className={`p-2 text-gray-400 ${colors.hover}`}
-                  title="Logout"
-                >
-                  <LogOut className="h-5 w-5" />
                 </button>
               </div>
             </div>
@@ -304,6 +313,15 @@ const MainLayout = ({ user, onLogout, children, routes }) => {
           </div>
         </div>
       </div>
+
+      {/* User Profile Popup */}
+      <UserProfilePopup
+        user={user}
+        isOpen={showProfilePopup}
+        onClose={() => setShowProfilePopup(false)}
+        onEdit={handleEditProfile}
+        onLogout={onLogout}
+      />
     </div>
   );
 };

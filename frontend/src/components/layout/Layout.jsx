@@ -3,9 +3,11 @@ import { Menu, X, Bell, Search, User, LogOut, Home, BookOpen, Calendar, Users, B
 import { useNavigate, useLocation } from 'react-router-dom';
 import { authService } from '../../services';
 import baraemLogo from '../../assets/baraem.svg';
+import UserProfilePopup from '../ui/UserProfilePopup';
 
 const Layout = ({ children, user, onLogout }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [showProfilePopup, setShowProfilePopup] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -27,6 +29,17 @@ const Layout = ({ children, user, onLogout }) => {
     authService.logout();
     onLogout();
     setSidebarOpen(false);
+    setShowProfilePopup(false);
+  };
+
+  const handleProfileClick = () => {
+    setShowProfilePopup(true);
+  };
+
+  const handleEditProfile = () => {
+    setShowProfilePopup(false);
+    // TODO: Implement profile edit functionality
+    alert('Profile edit functionality will be implemented soon!');
   };
 
   return (
@@ -71,17 +84,20 @@ const Layout = ({ children, user, onLogout }) => {
           </nav>
           
           <div className="border-t border-gray-200 p-4">
-            <div className="flex items-center px-3 py-2">
+            <button
+              onClick={handleProfileClick}
+              className="w-full flex items-center px-3 py-2 hover:bg-gray-50 rounded-md transition-colors"
+            >
               <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
                 <span className="text-white text-sm font-medium">
                   {user?.name?.charAt(0) || 'U'}
                 </span>
               </div>
-              <div className="ml-3">
+              <div className="ml-3 text-left">
                 <p className="text-sm font-medium text-gray-700">{user?.name || 'User'}</p>
                 <p className="text-xs text-gray-500 capitalize">{user?.role || 'user'}</p>
               </div>
-            </div>
+            </button>
             <button
               onClick={handleLogout}
               className="w-full mt-3 flex items-center px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 rounded-md transition-colors"
@@ -126,17 +142,20 @@ const Layout = ({ children, user, onLogout }) => {
           </nav>
           
           <div className="border-t border-gray-200 p-4">
-            <div className="flex items-center px-3 py-2">
+            <button
+              onClick={handleProfileClick}
+              className="w-full flex items-center px-3 py-2 hover:bg-gray-50 rounded-md transition-colors"
+            >
               <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
                 <span className="text-white text-sm font-medium">
                   {user?.name?.charAt(0) || 'U'}
                 </span>
               </div>
-              <div className="ml-3">
+              <div className="ml-3 text-left">
                 <p className="text-sm font-medium text-gray-700">{user?.name || 'User'}</p>
                 <p className="text-xs text-gray-500 capitalize">{user?.role || 'user'}</p>
               </div>
-            </div>
+            </button>
             <button
               onClick={handleLogout}
               className="w-full mt-3 flex items-center px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 rounded-md transition-colors"
@@ -185,17 +204,22 @@ const Layout = ({ children, user, onLogout }) => {
 
               {/* Profile dropdown */}
               <div className="hidden lg:block">
-                <div className="flex items-center gap-x-4">
+                <button
+                  onClick={handleProfileClick}
+                  className="flex items-center gap-x-4 hover:bg-gray-50 p-2 rounded-lg transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                  type="button"
+                  style={{ zIndex: 10 }}
+                >
                   <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
                     <span className="text-white text-sm font-medium">
                       {user?.name?.charAt(0) || 'U'}
                     </span>
                   </div>
-                  <div className="text-sm">
+                  <div className="text-sm text-left">
                     <p className="font-medium text-gray-700">{user?.name || 'User'}</p>
                     <p className="text-gray-500 capitalize">{user?.role || 'user'}</p>
                   </div>
-                </div>
+                </button>
               </div>
             </div>
           </div>
@@ -208,6 +232,15 @@ const Layout = ({ children, user, onLogout }) => {
           </div>
         </main>
       </div>
+
+      {/* User Profile Popup */}
+      <UserProfilePopup
+        user={user}
+        isOpen={showProfilePopup}
+        onClose={() => setShowProfilePopup(false)}
+        onEdit={handleEditProfile}
+        onLogout={handleLogout}
+      />
     </div>
   );
 };
