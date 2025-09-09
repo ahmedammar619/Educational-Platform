@@ -112,6 +112,18 @@ const ZoomTab = ({ currentUser, theme, courseId }) => {
           courseId: courseId
         };
         const createdMeeting = await zoomService.createMeeting(meetingData);
+        
+        // Ensure createdBy is populated with current user data if not present
+        if (!createdMeeting.createdBy && currentUser) {
+          createdMeeting.createdBy = {
+            id: currentUser.id,
+            firstName: currentUser.firstName,
+            lastName: currentUser.lastName,
+            email: currentUser.email,
+            role: currentUser.role
+          };
+        }
+        
         setMeetings([createdMeeting, ...meetings]);
         setNewMeeting({ 
           title: '', 
@@ -143,6 +155,7 @@ const ZoomTab = ({ currentUser, theme, courseId }) => {
     
     try {
       // Track join count in backend and pass courseId for attendance marking
+      // The backend should handle unique student counting
       const updatedMeeting = await zoomService.joinMeeting(meeting.id, courseId);
       
       // Update local state
@@ -273,12 +286,13 @@ const ZoomTab = ({ currentUser, theme, courseId }) => {
     loadMeetings();
   }, [filter, searchTerm]);
 
-  // Initialize attendance records for scheduled class days
-  useEffect(() => {
-    if (courseId && currentUser?.role === 'admin') {
-      initializeAttendanceRecords();
-    }
-  }, [courseId, currentUser]);
+  // Note: Attendance records are now created automatically when Zoom meetings are created
+  // No need to initialize attendance records for course sessions
+  // useEffect(() => {
+  //   if (courseId && currentUser?.role === 'admin') {
+  //     initializeAttendanceRecords();
+  //   }
+  // }, [courseId, currentUser]);
 
   // Initialize attendance records for scheduled class days with all students absent
   const initializeAttendanceRecords = async () => {
@@ -577,6 +591,17 @@ const ZoomTab = ({ currentUser, theme, courseId }) => {
                 cancelled: 'bg-red-100 text-red-800'
               };
               
+              // Debug logging to understand the meeting creator issue
+              console.log('Meeting data:', {
+                id: meeting.id,
+                title: meeting.title,
+                createdById: meeting.createdBy?.id,
+                currentUserId: currentUser?.id,
+                isCreator: meeting.createdBy?.id === currentUser?.id,
+                canManage: canManageZoom(),
+                status: status
+              });
+              
               return (
                 <div key={meeting.id} className="bg-white border border-gray-200 rounded-lg p-4">
                   <div className="flex items-start justify-between">
@@ -608,7 +633,9 @@ const ZoomTab = ({ currentUser, theme, courseId }) => {
                           <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                           </svg>
-                          {meeting.createdBy ? `${meeting.createdBy.firstName} ${meeting.createdBy.lastName}` : 'Host'}
+                          {meeting.createdBy && meeting.createdBy.firstName && meeting.createdBy.lastName 
+                            ? `${meeting.createdBy.firstName} ${meeting.createdBy.lastName}` 
+                            : 'Host'}
                         </span>
                         {meeting.joinCount > 0 && (
                           <span className="flex items-center gap-1">
@@ -625,8 +652,8 @@ const ZoomTab = ({ currentUser, theme, courseId }) => {
                     
                     <div className="flex items-center gap-2 ml-4">
                       {/* Main action button - different for creator vs other users */}
-                      {meeting.createdBy?.id === currentUser?.id ? (
-                        // Meeting creator sees Cancel/End Meeting button based on status
+                      {(meeting.createdBy?.id === currentUser?.id || canManageZoom()) ? (
+                        // Meeting creator or admin sees Cancel/End Meeting button based on status
                         <button
                           onClick={() => {
                             if (status === 'upcoming' || status === 'scheduled') {

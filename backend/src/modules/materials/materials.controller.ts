@@ -592,19 +592,7 @@ export class MaterialsController {
     fileStream.pipe(res);
   }
 
-  // Attendance
-  @Post('courses/:courseId/attendance')
-  @Roles(Role.Admin, Role.Teacher)
-  async markAttendance(
-    @Param('courseId') courseId: string,
-    @Body() attendanceDto: MarkAttendanceDto,
-    @Req() req,
-  ): Promise<AttendanceResponseDto> {
-    const attendance = await this.materialsService.markAttendance(courseId, attendanceDto, req.user.sub);
-    return plainToClass(AttendanceResponseDto, attendance, { excludeExtraneousValues: true });
-  }
-
-  // Bulk Attendance - New endpoint for handling multiple students at once
+  // Bulk Attendance - Must come before single attendance route
   @Post('courses/:courseId/attendance/bulk')
   @Roles(Role.Admin, Role.Teacher)
   @ApiOperation({ summary: 'Mark bulk attendance for multiple students' })
@@ -618,6 +606,24 @@ export class MaterialsController {
     @Body() bulkAttendanceDto: BulkAttendanceDto,
     @Req() req,
   ): Promise<BulkAttendanceResponseDto> {
+    console.log('=== BULK ATTENDANCE ENDPOINT HIT ===');
+    console.log('Received bulk attendance data:', {
+      courseId,
+      bulkAttendanceDto: {
+        date: bulkAttendanceDto.date,
+        dateType: typeof bulkAttendanceDto.date,
+        day: bulkAttendanceDto.day,
+        dayType: typeof bulkAttendanceDto.day,
+        time: bulkAttendanceDto.time,
+        timeType: typeof bulkAttendanceDto.time,
+        meetingId: bulkAttendanceDto.meetingId,
+        students: bulkAttendanceDto.students,
+        studentsType: typeof bulkAttendanceDto.students,
+        studentsLength: bulkAttendanceDto.students?.length
+      }
+    });
+    console.log('Raw bulkAttendanceDto object:', bulkAttendanceDto);
+    
     const attendanceRecords = await this.materialsService.markBulkAttendance(courseId, bulkAttendanceDto, req.user.sub);
     
     // Transform the response to match the expected format
@@ -633,6 +639,32 @@ export class MaterialsController {
     };
     
     return plainToClass(BulkAttendanceResponseDto, response, { excludeExtraneousValues: true });
+  }
+
+  // Single Attendance - Must come after bulk route
+  @Post('courses/:courseId/attendance')
+  @Roles(Role.Admin, Role.Teacher)
+  async markAttendance(
+    @Param('courseId') courseId: string,
+    @Body() attendanceDto: MarkAttendanceDto,
+    @Req() req,
+  ): Promise<AttendanceResponseDto> {
+    console.log('=== SINGLE ATTENDANCE ENDPOINT HIT ===');
+    console.log('Received single attendance data:', {
+      courseId,
+      attendanceDto: {
+        studentId: attendanceDto.studentId,
+        studentIdType: typeof attendanceDto.studentId,
+        date: attendanceDto.date,
+        dateType: typeof attendanceDto.date,
+        status: attendanceDto.status,
+        statusType: typeof attendanceDto.status
+      }
+    });
+    console.log('Raw attendanceDto object:', attendanceDto);
+    
+    const attendance = await this.materialsService.markAttendance(courseId, attendanceDto, req.user.sub);
+    return plainToClass(AttendanceResponseDto, attendance, { excludeExtraneousValues: true });
   }
 
   // Get Bulk Attendance - Retrieve attendance data in bulk format
@@ -651,6 +683,26 @@ export class MaterialsController {
     return attendance.map(record => 
       plainToClass(BulkAttendanceResponseDto, record, { excludeExtraneousValues: true })
     );
+  }
+
+  // Get Bulk Attendance by Meeting ID - Retrieve attendance data for a specific meeting
+  @Get('courses/:courseId/attendance/bulk/meeting/:meetingId')
+  @Roles(Role.Admin, Role.Teacher)
+  @ApiOperation({ summary: 'Get bulk attendance data for a specific meeting' })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'Bulk attendance data for the specified meeting retrieved successfully', 
+    type: BulkAttendanceResponseDto 
+  })
+  @ApiResponse({ status: 404, description: 'Course or meeting not found' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 403, description: 'Forbidden - insufficient permissions' })
+  async getBulkAttendanceByMeeting(
+    @Param('courseId') courseId: string,
+    @Param('meetingId') meetingId: string,
+  ): Promise<BulkAttendanceResponseDto> {
+    const attendance = await this.materialsService.getAttendanceByMeeting(courseId, meetingId);
+    return plainToClass(BulkAttendanceResponseDto, attendance, { excludeExtraneousValues: true });
   }
 
   @Get('courses/:courseId/attendance')

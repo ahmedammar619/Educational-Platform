@@ -5,11 +5,13 @@ import {
   CreateDateColumn,
   ManyToOne,
   JoinColumn,
+  Unique,
 } from 'typeorm';
 import { Course } from '../../courses/entities/course.entity';
 import { User } from '../../users/entities/user.entity';
 
 @Entity('attendance')
+@Unique(['courseId', 'studentId', 'meetingId'])
 export class Attendance {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -29,12 +31,15 @@ export class Attendance {
   @Column({ type: 'varchar', length: 20, nullable: true })
   time: string; // e.g., '09:00-11:00', '14:00-16:00', '10:00-12:00'
 
+  @Column({ type: 'uuid', nullable: true })
+  meetingId: string; // ID of the Zoom meeting
+
   @Column({
     type: 'enum',
-    enum: ['present', 'absent', 'late'],
+    enum: ['present', 'absent'],
     default: 'absent'
   })
-  status: 'present' | 'absent' | 'late';
+  status: 'present' | 'absent';
 
   @Column('uuid')
   markedBy: string;
@@ -57,4 +62,8 @@ export class Attendance {
   @ManyToOne(() => User)
   @JoinColumn({ name: 'markedBy' })
   marker: User;
+
+  @ManyToOne('ZoomMeeting', 'attendance')
+  @JoinColumn({ name: 'meetingId' })
+  meeting: any;
 }

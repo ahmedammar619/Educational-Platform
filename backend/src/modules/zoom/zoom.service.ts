@@ -1,12 +1,13 @@
 import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, Not, IsNull, In } from 'typeorm';
 import { ZoomMeeting } from './entities/zoom-meeting.entity';
 import { CreateZoomMeetingDto } from './dto/create-zoom-meeting.dto';
 import { UpdateZoomMeetingDto } from './dto/update-zoom-meeting.dto';
 import { User } from '../users/entities/user.entity';
 import { Attendance } from '../materials/entities/attendance.entity';
 import { Course } from '../courses/entities/course.entity';
+import { Role } from '../../common/enums/role.enum';
 
 @Injectable()
 export class ZoomService {
@@ -39,7 +40,13 @@ export class ZoomService {
       status: this.calculateMeetingStatus(createZoomMeetingDto),
     });
 
-    return await this.zoomMeetingRepository.save(meeting);
+    const savedMeeting = await this.zoomMeetingRepository.save(meeting);
+
+    // Create attendance records for all students when meeting is created
+    await this.createAttendanceRecordsForMeeting(savedMeeting, createZoomMeetingDto.courseId);
+
+    // Return the meeting with the createdBy relationship loaded
+    return await this.findMeetingById(savedMeeting.id);
   }
 
   async findAllMeetings(): Promise<ZoomMeeting[]> {
@@ -102,12 +109,59 @@ export class ZoomService {
       throw new ForbiddenException('You can only delete your own meetings');
     }
 
-    await this.zoomMeetingRepository.remove(meeting);
+    // Use a database transaction to ensure data consistency
+    await this.zoomMeetingRepository.manager.transaction(async (transactionalEntityManager) => {
+      try {
+        console.log('Deleting meeting:', meeting.title, 'ID:', id);
+        
+        // First, delete all associated attendance records
+        const attendanceRecords = await transactionalEntityManager.find('Attendance', {
+          where: { meetingId: id }
+        });
+        
+        console.log('Found attendance records to delete:', attendanceRecords.length);
+        
+        if (attendanceRecords.length > 0) {
+          await transactionalEntityManager.remove('Attendance', attendanceRecords);
+          console.log('✅ Deleted', attendanceRecords.length, 'attendance records');
+        }
+        
+        // Then delete the meeting
+        await transactionalEntityManager.remove('ZoomMeeting', meeting);
+        console.log('✅ Successfully deleted meeting:', meeting.title);
+        
+      } catch (error) {
+        console.error('Error deleting meeting in transaction:', error);
+        throw new Error(`Failed to delete meeting: ${error.message}`);
+      }
+    });
   }
 
   async incrementJoinCount(id: string, studentId?: string, courseId?: string): Promise<ZoomMeeting> {
     const meeting = await this.findMeetingById(id);
-    meeting.joinCount += 1;
+    
+    // Only increment join count if this is a new student joining
+    if (studentId) {
+      // Check if this student has already joined this meeting
+      const existingAttendance = await this.attendanceRepository.findOne({
+        where: {
+          meetingId: id,
+          studentId: studentId,
+          status: 'present'
+        }
+      });
+      
+      // Only increment if this is the first time this student is joining
+      if (!existingAttendance) {
+        meeting.joinCount += 1;
+        console.log(`✅ New student joined meeting ${meeting.title}. Join count: ${meeting.joinCount}`);
+      } else {
+        console.log(`⚠️ Student ${studentId} already joined meeting ${meeting.title}. Join count remains: ${meeting.joinCount}`);
+      }
+    } else {
+      // If no studentId provided, increment anyway (for backward compatibility)
+      meeting.joinCount += 1;
+    }
     
     // Auto-mark attendance if studentId and courseId are provided
     if (studentId && courseId && meeting.date) {
@@ -117,49 +171,199 @@ export class ZoomService {
     return await this.zoomMeetingRepository.save(meeting);
   }
 
+  // Fix attendance records for a meeting - ensure all students are included
+  async fixAttendanceForMeeting(meeting: ZoomMeeting, courseId: string): Promise<number> {
+    try {
+      console.log('Fixing attendance records for meeting:', meeting.title, 'Course ID:', courseId);
+      
+      // Get all students enrolled in this course
+      const students = await this.getCourseStudents(courseId);
+      console.log('Found students for fixing:', students.length, students.map(s => s.fullName || `${s.firstName} ${s.lastName}`));
+      
+      if (students.length === 0) {
+        console.log('No students found for course:', courseId);
+        return 0;
+      }
+
+      // Get the actual day name from the meeting date
+      const meetingDate = new Date(meeting.date);
+      const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+      const actualDay = dayNames[meetingDate.getDay()];
+      
+      // Format the actual meeting time
+      const actualTime = meeting.time && meeting.period ? `${meeting.time} ${meeting.period}` : 'Scheduled Time';
+      
+      console.log('Meeting data - Day:', actualDay, 'Time:', actualTime, 'Date:', meetingDate);
+      
+      let createdCount = 0;
+      
+      for (const student of students) {
+        // Check if attendance record already exists for this meeting
+        const existingAttendance = await this.attendanceRepository.findOne({
+          where: {
+            courseId,
+            studentId: student.id,
+            meetingId: meeting.id
+          }
+        });
+
+        if (!existingAttendance) {
+          const attendance = this.attendanceRepository.create({
+            courseId,
+            studentId: student.id,
+            date: meetingDate,
+            day: actualDay,
+            time: actualTime,
+            meetingId: meeting.id,
+            status: 'absent', // Default to absent, will be updated when student joins
+            markedBy: meeting.createdById,
+            markedAt: new Date()
+          });
+          await this.attendanceRepository.save(attendance);
+          createdCount++;
+          console.log('✅ Created attendance record for student:', student.fullName || `${student.firstName} ${student.lastName}`, 'as ABSENT');
+        } else {
+          console.log('Attendance record already exists for student:', student.fullName || `${student.firstName} ${student.lastName}`);
+        }
+      }
+      
+      console.log('✅ Fixed attendance records - created/updated', createdCount, 'records for', students.length, 'students');
+      return students.length;
+    } catch (error) {
+      console.error('Error fixing attendance records for meeting:', error);
+      return 0;
+    }
+  }
+
+  // Create attendance records for all students when a meeting is created
+  async createAttendanceRecordsForMeeting(meeting: ZoomMeeting, courseId: string): Promise<void> {
+    try {
+      console.log('Creating attendance records for meeting:', meeting.title, 'Course ID:', courseId);
+      
+      // Get all students enrolled in this course
+      const students = await this.getCourseStudents(courseId);
+      console.log('Found students:', students.length, students.map(s => s.fullName));
+      
+      if (students.length > 0) {
+        // Create attendance records for all students using actual meeting data
+        const attendanceRecords: Attendance[] = [];
+        
+        // Get the actual day name from the meeting date
+        const meetingDate = new Date(meeting.date);
+        const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+        const actualDay = dayNames[meetingDate.getDay()];
+        
+        // Format the actual meeting time
+        const actualTime = meeting.time && meeting.period ? `${meeting.time} ${meeting.period}` : 'Scheduled Time';
+        
+        console.log('Meeting data - Day:', actualDay, 'Time:', actualTime, 'Date:', meetingDate);
+        
+        for (const student of students) {
+          // Check if attendance record already exists for this meeting
+          const existingAttendance = await this.attendanceRepository.findOne({
+            where: {
+              courseId,
+              studentId: student.id,
+              meetingId: meeting.id
+            }
+          });
+
+          if (!existingAttendance) {
+            const attendance = this.attendanceRepository.create({
+              courseId,
+              studentId: student.id,
+              date: meetingDate,
+              day: actualDay,
+              time: actualTime,
+              meetingId: meeting.id,
+              status: 'absent', // Default to absent, will be updated when student joins
+              markedBy: meeting.createdById,
+              markedAt: new Date()
+            });
+            attendanceRecords.push(attendance);
+            console.log('Created attendance record for student:', student.fullName, 'as ABSENT');
+          } else {
+            console.log('Attendance record already exists for student:', student.fullName);
+          }
+        }
+        
+        if (attendanceRecords.length > 0) {
+          await this.attendanceRepository.save(attendanceRecords);
+          console.log('✅ Saved', attendanceRecords.length, 'attendance records - all marked as ABSENT');
+        } else {
+          console.log('No new attendance records to save');
+        }
+      } else {
+        console.log('❌ No students found for course:', courseId);
+        // Try to get students from a different approach
+        console.log('Attempting alternative method to get students...');
+        const alternativeStudents = await this.getStudentsAlternative(courseId);
+        console.log('Alternative method found students:', alternativeStudents.length);
+      }
+    } catch (error) {
+      console.error('Error creating attendance records for meeting:', error);
+      // Don't throw error as this shouldn't interrupt the meeting creation process
+    }
+  }
+
+  // Alternative method to get students if the first method fails
+  private async getStudentsAlternative(courseId: string): Promise<User[]> {
+    try {
+      // Try to get students through enrollments
+      const enrollments = await this.attendanceRepository.query(`
+        SELECT DISTINCT u.* FROM users u
+        JOIN enrollments e ON u.id = e.student_id
+        JOIN courses c ON e.course_id = c.id
+        WHERE c.id = $1 AND u.role = 'student'
+      `, [courseId]);
+      
+      console.log('Alternative method - enrollments found:', enrollments.length);
+      return enrollments;
+    } catch (error) {
+      console.error('Alternative method failed:', error);
+      return [];
+    }
+  }
+
   // Auto-mark attendance when student joins meeting
   private async markAttendanceForStudent(meeting: ZoomMeeting, studentId: string, courseId: string): Promise<void> {
     try {
-      const today = new Date().toISOString().split('T')[0];
+      console.log('Marking attendance for student:', { studentId, courseId, meetingId: meeting.id });
       
-      // Only mark attendance if the meeting is scheduled for today
-      if (meeting.date === today) {
-        // Get the course schedule to find the correct day and time
-        const courseSchedule = this.getCourseScheduleForDate(meeting.date);
-        
-        if (courseSchedule) {
-          // Get all students enrolled in this course
-          const students = await this.getCourseStudents(courseId);
-          
-          // Get existing attendance records for this date
-          const existingAttendance = await this.attendanceRepository.find({
-            where: {
-              courseId,
-              date: new Date(meeting.date)
-            },
-            relations: ['student']
-          });
-          
-          // Create attendance data for bulk update
-          const attendanceData = {
-            date: meeting.date,
-            day: courseSchedule.day,
-            time: courseSchedule.time,
-            students: students.map(student => {
-              // Check if this student already has attendance marked
-              const existingRecord = existingAttendance.find(record => record.studentId === student.id);
-              
-              return {
-                id: student.id,
-                name: `${student.firstName} ${student.lastName}`,
-                status: student.id === studentId ? 'present' : (existingRecord?.status || 'absent')
-              };
-            })
-          };
-          
-          // Use bulk attendance marking
-          await this.markBulkAttendance(courseId, attendanceData, studentId);
+      // Find the attendance record for this specific meeting and student
+      const attendanceRecord = await this.attendanceRepository.findOne({
+        where: {
+          courseId,
+          studentId,
+          meetingId: meeting.id
         }
+      });
+
+      console.log('Found attendance record:', attendanceRecord);
+
+      if (attendanceRecord) {
+        // Update the attendance status to present
+        attendanceRecord.status = 'present';
+        attendanceRecord.markedBy = studentId; // The student who joined
+        attendanceRecord.markedAt = new Date();
+        await this.attendanceRepository.save(attendanceRecord);
+        console.log('Successfully marked student as present:', studentId);
+      } else {
+        console.log('No attendance record found for student:', studentId);
+        // Create a new attendance record if it doesn't exist
+        const newAttendance = this.attendanceRepository.create({
+          courseId,
+          studentId,
+          date: new Date(meeting.date),
+          day: meeting.date ? new Date(meeting.date).toLocaleDateString('en-US', { weekday: 'long' }) : null,
+          time: meeting.time && meeting.period ? `${meeting.time} ${meeting.period}` : null,
+          meetingId: meeting.id,
+          status: 'present',
+          markedBy: studentId,
+          markedAt: new Date()
+        });
+        await this.attendanceRepository.save(newAttendance);
+        console.log('Created new attendance record and marked as present:', studentId);
       }
     } catch (error) {
       console.error('Error marking attendance:', error);
@@ -209,8 +413,35 @@ export class ZoomService {
       throw new BadRequestException('Cannot cancel a meeting that has already started or ended');
     }
 
-    meeting.status = 'cancelled';
-    return await this.zoomMeetingRepository.save(meeting);
+    // Use a database transaction to ensure data consistency
+    await this.zoomMeetingRepository.manager.transaction(async (transactionalEntityManager) => {
+      try {
+        console.log('Cancelling meeting:', meeting.title, 'ID:', id);
+        
+        // First, delete all associated attendance records
+        const attendanceRecords = await transactionalEntityManager.find('Attendance', {
+          where: { meetingId: id }
+        });
+        
+        console.log('Found attendance records to delete:', attendanceRecords.length);
+        
+        if (attendanceRecords.length > 0) {
+          await transactionalEntityManager.remove('Attendance', attendanceRecords);
+          console.log('✅ Deleted', attendanceRecords.length, 'attendance records for cancelled meeting');
+        }
+        
+        // Then update the meeting status to cancelled
+        meeting.status = 'cancelled';
+        await transactionalEntityManager.save('ZoomMeeting', meeting);
+        console.log('✅ Successfully cancelled meeting:', meeting.title);
+        
+      } catch (error) {
+        console.error('Error cancelling meeting:', error);
+        throw new Error(`Failed to cancel meeting: ${error.message}`);
+      }
+    });
+
+    return meeting;
   }
 
   async getMeetingsByStatus(status: string): Promise<ZoomMeeting[]> {
@@ -230,6 +461,33 @@ export class ZoomService {
       .orderBy('meeting.createdAt', 'DESC');
 
     return await queryBuilder.getMany();
+  }
+
+  // Create attendance records for existing meetings that don't have them
+  async createMissingAttendanceRecords(): Promise<void> {
+    try {
+      // Get all meetings that have a courseId
+      const meetings = await this.zoomMeetingRepository.find({
+        where: { courseId: Not(IsNull()) },
+        relations: ['course']
+      });
+
+      for (const meeting of meetings) {
+        if (meeting.courseId) {
+          // Check if attendance records already exist for this meeting
+          const existingAttendance = await this.attendanceRepository.findOne({
+            where: { meetingId: meeting.id }
+          });
+
+          if (!existingAttendance) {
+            // Create attendance records for this meeting
+            await this.createAttendanceRecordsForMeeting(meeting, meeting.courseId);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error creating missing attendance records:', error);
+    }
   }
 
   private calculateMeetingStatus(meeting: any): string {
@@ -276,17 +534,177 @@ export class ZoomService {
 
   // Get all students enrolled in a course (through class enrollment)
   private async getCourseStudents(courseId: string): Promise<User[]> {
-    const course = await this.courseRepository.findOne({
-      where: { id: courseId },
-      relations: ['class', 'class.students']
-    });
+    console.log('🔍 Getting students for course:', courseId);
+    
+    try {
+      // First try the direct class relation approach
+      const course = await this.courseRepository.findOne({
+        where: { id: courseId },
+        relations: ['class']
+      });
 
-    if (!course) {
-      throw new NotFoundException('Course not found');
+      if (!course) {
+        console.log('❌ Course not found:', courseId);
+        throw new NotFoundException('Course not found');
+      }
+
+      console.log('✅ Course found:', course.name, 'Class ID:', course.classId);
+      console.log('📚 Class relation:', course.class?.name);
+      console.log('👥 Students array in class:', course.class?.students?.length || 0);
+      console.log('👥 Student IDs in class:', course.class?.students);
+      
+      // Get students from the class that contains this course
+      let students: User[] = [];
+      
+      if (course.class?.students && course.class.students.length > 0) {
+        // Get students by their IDs from the students array
+        students = await this.userRepository.find({
+          where: { 
+            id: In(course.class.students),
+            role: Role.Student 
+          }
+        });
+        console.log('👥 Students found by IDs:', students.length, students.map(s => s.fullName || `${s.firstName} ${s.lastName}`));
+      }
+      
+      // If no students found through class relation, try getting students by classId
+      if (students.length === 0) {
+        console.log('⚠️ No students found through class relation, trying to get students by classId...');
+        
+        // Get the class first to get student IDs
+        const classEntity = await this.courseRepository.manager.findOne('Class', {
+          where: { id: course.classId }
+        });
+        
+        console.log('📋 Class entity found:', classEntity ? 'Yes' : 'No');
+        console.log('📋 Class entity students:', (classEntity as any)?.students);
+        
+        if (classEntity && (classEntity as any).students && (classEntity as any).students.length > 0) {
+          console.log('✅ Found class with student IDs:', (classEntity as any).students);
+          
+          // Get students by their IDs
+          students = await this.userRepository.find({
+            where: { 
+              id: In((classEntity as any).students),
+              role: Role.Student 
+            }
+          });
+          
+          console.log('✅ Found students by IDs:', students.length, students.map(s => s.fullName || `${s.firstName} ${s.lastName}`));
+        } else {
+          console.log('❌ No students found in class entity');
+        }
+      }
+      
+      // If still no students, try a raw query approach
+      if (students.length === 0) {
+        console.log('🔍 Trying raw query approach...');
+        
+        // Use raw query to get students from the class
+        const rawStudents = await this.userRepository.query(`
+          SELECT u.* FROM users u
+          JOIN classes c ON c.students @> ARRAY[u.id::text]
+          JOIN courses co ON co."classId" = c.id
+          WHERE co.id = $1 AND u.role = 'student'
+        `, [courseId]);
+        
+        console.log('🔍 Raw query found students:', rawStudents.length, rawStudents.map(s => s.fullName || `${s.first_name} ${s.last_name}`));
+        students = rawStudents;
+      }
+      
+      console.log('🎯 Final students count:', students.length);
+      console.log('🎯 Final students:', students.map(s => s.fullName || `${s.firstName} ${s.lastName}`));
+      
+      return students;
+    } catch (error) {
+      console.error('Error getting course students:', error);
+      return [];
     }
+  }
 
-    // Get students from the class that contains this course
-    return course.class?.students || [];
+  // Debug method to check student retrieval
+  async debugCourseStudents(courseId: string): Promise<User[]> {
+    console.log('🐛 DEBUG: Getting students for course:', courseId);
+    return await this.getCourseStudents(courseId);
+  }
+
+  // Debug method to check attendance records for a course
+  async debugAttendanceForCourse(courseId: string): Promise<{ message: string; meetings: any[]; attendanceRecords: any[] }> {
+    console.log('🐛 DEBUG: Checking attendance for course:', courseId);
+    
+    // Get all meetings for this course
+    const meetings = await this.zoomMeetingRepository.find({
+      where: { courseId },
+      order: { createdAt: 'DESC' }
+    });
+    
+    console.log('📅 Found meetings:', meetings.length, meetings.map(m => ({ id: m.id, title: m.title, date: m.date })));
+    
+    // Get all attendance records for this course
+    const attendanceRecords = await this.attendanceRepository.find({
+      where: { courseId },
+      relations: ['student', 'meeting'],
+      order: { date: 'DESC' }
+    });
+    
+    console.log('📊 Found attendance records:', attendanceRecords.length);
+    console.log('📊 Sample attendance record:', attendanceRecords[0] ? {
+      id: attendanceRecords[0].id,
+      studentId: attendanceRecords[0].studentId,
+      meetingId: attendanceRecords[0].meetingId,
+      status: attendanceRecords[0].status,
+      studentName: attendanceRecords[0].student?.fullName || `${attendanceRecords[0].student?.firstName} ${attendanceRecords[0].student?.lastName}`,
+      meetingTitle: attendanceRecords[0].meeting?.title
+    } : 'No records');
+    
+    return {
+      message: `Found ${meetings.length} meetings and ${attendanceRecords.length} attendance records for course ${courseId}`,
+      meetings: meetings.map(m => ({
+        id: m.id,
+        title: m.title,
+        date: m.date,
+        time: m.time,
+        period: m.period,
+        status: m.status,
+        createdAt: m.createdAt
+      })),
+      attendanceRecords: attendanceRecords.map(a => ({
+        id: a.id,
+        studentId: a.studentId,
+        meetingId: a.meetingId,
+        status: a.status,
+        date: a.date,
+        studentName: a.student?.fullName || `${a.student?.firstName} ${a.student?.lastName}`,
+        meetingTitle: a.meeting?.title
+      }))
+    };
+  }
+
+  // Clean up orphaned attendance records (attendance without valid meetings)
+  async cleanupOrphanedAttendance(): Promise<number> {
+    try {
+      console.log('Cleaning up orphaned attendance records...');
+      
+      // Find all attendance records that reference non-existent meetings
+      const orphanedRecords = await this.attendanceRepository
+        .createQueryBuilder('attendance')
+        .leftJoin('attendance.meeting', 'meeting')
+        .where('meeting.id IS NULL')
+        .andWhere('attendance.meetingId IS NOT NULL')
+        .getMany();
+      
+      console.log('Found orphaned attendance records:', orphanedRecords.length);
+      
+      if (orphanedRecords.length > 0) {
+        await this.attendanceRepository.remove(orphanedRecords);
+        console.log('✅ Cleaned up', orphanedRecords.length, 'orphaned attendance records');
+      }
+      
+      return orphanedRecords.length;
+    } catch (error) {
+      console.error('Error cleaning up orphaned attendance records:', error);
+      return 0;
+    }
   }
 
   // Mark bulk attendance (reuse from materials service)
@@ -296,12 +714,13 @@ export class ZoomService {
 
     // Process each student's attendance
     for (const studentAttendance of attendanceData.students) {
-      // Check if attendance already exists for this student on this date
+      // Check if attendance already exists for this student on this date and meeting
       const existingAttendance = await this.attendanceRepository.findOne({
         where: {
           courseId,
           studentId: studentAttendance.id,
-          date: attendanceDate
+          date: attendanceDate,
+          meetingId: attendanceData.meetingId
         }
       });
 
@@ -310,6 +729,7 @@ export class ZoomService {
         existingAttendance.status = studentAttendance.status;
         existingAttendance.day = attendanceData.day;
         existingAttendance.time = attendanceData.time;
+        existingAttendance.meetingId = attendanceData.meetingId;
         existingAttendance.markedBy = markerId;
         existingAttendance.markedAt = new Date();
         attendanceRecords.push(await this.attendanceRepository.save(existingAttendance));
@@ -321,6 +741,7 @@ export class ZoomService {
           date: attendanceDate,
           day: attendanceData.day,
           time: attendanceData.time,
+          meetingId: attendanceData.meetingId,
           status: studentAttendance.status,
           markedBy: markerId,
           markedAt: new Date()

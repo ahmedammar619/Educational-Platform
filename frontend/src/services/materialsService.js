@@ -248,9 +248,13 @@ class MaterialsService {
   // Attendance
   async markAttendance(courseId, attendanceData) {
     try {
-      const response = await api.post(`/api/materials/courses/${courseId}/attendance/bulk`, attendanceData);
+      const url = `/api/materials/courses/${courseId}/attendance/bulk`;
+      console.log('Calling attendance endpoint:', url);
+      console.log('With data:', attendanceData);
+      const response = await api.post(url, attendanceData);
       return response.data;
     } catch (error) {
+      console.error('Attendance API error:', error);
       // Error is already handled by the API interceptor
       throw error;
     }

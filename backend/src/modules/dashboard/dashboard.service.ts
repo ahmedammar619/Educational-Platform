@@ -332,7 +332,7 @@ export class DashboardService {
 
     // Calculate attendance rate based on present vs total sessions
     const presentCount = attendanceRecords.filter(record => 
-      record.status === 'present' || record.status === 'late'
+      record.status === 'present'
     ).length;
 
     const totalCount = attendanceRecords.length;

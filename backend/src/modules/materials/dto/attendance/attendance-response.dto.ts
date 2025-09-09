@@ -16,7 +16,7 @@ export class AttendanceResponseDto {
   date: Date;
 
   @Expose()
-  status: 'present' | 'absent' | 'late';
+  status: 'present' | 'absent';
 
   @Expose()
   markedBy: string;

@@ -8,8 +8,8 @@ export class StudentAttendanceDto {
   @IsString()
   name: string;
 
-  @IsEnum(['present', 'absent', 'late'])
-  status: 'present' | 'absent' | 'late';
+  @IsEnum(['present', 'absent'])
+  status: 'present' | 'absent';
 }
 
 export class BulkAttendanceDto {
@@ -21,6 +21,10 @@ export class BulkAttendanceDto {
 
   @IsString()
   time: string; // e.g., '09:00-11:00', '14:00-16:00', '10:00-12:00'
+
+  @IsString()
+  @IsOptional()
+  meetingId?: string; // ID of the Zoom meeting
 
   @IsArray()
   @ValidateNested({ each: true })

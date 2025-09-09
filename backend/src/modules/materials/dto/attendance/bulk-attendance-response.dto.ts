@@ -10,7 +10,7 @@ export class StudentAttendanceResponseDto {
   name: string;
 
   @Expose()
-  status: 'present' | 'absent' | 'late';
+  status: 'present' | 'absent';
 }
 
 export class BulkAttendanceResponseDto {
@@ -28,6 +28,12 @@ export class BulkAttendanceResponseDto {
 
   @Expose()
   time: string;
+
+  @Expose()
+  meetingId: string;
+
+  @Expose()
+  meetingName: string;
 
   @Expose()
   markedBy: string;

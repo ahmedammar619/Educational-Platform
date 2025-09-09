@@ -7,8 +7,8 @@ export class MarkAttendanceDto {
   @IsDateString()
   date: string;
 
-  @IsEnum(['present', 'absent', 'late'])
-  status: 'present' | 'absent' | 'late';
+  @IsEnum(['present', 'absent'])
+  status: 'present' | 'absent';
 
   @IsOptional()
   @IsString()

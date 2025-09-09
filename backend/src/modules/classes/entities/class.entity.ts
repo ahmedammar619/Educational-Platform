@@ -30,6 +30,9 @@ export class Class {
   @Column({ type: 'simple-array', nullable: true, default: '' })
   courseIds: string[];
 
+  @Column({ type: 'simple-array', nullable: true, default: '' })
+  students: string[];
+
   @CreateDateColumn()
   createdAt: Date;
 
@@ -40,11 +43,6 @@ export class Class {
   @OneToMany('Course', 'class')
   courses: any[];
 
-  @ManyToMany(() => User)
-  @JoinTable({
-    name: 'class_students',
-    joinColumn: { name: 'class_id' },
-    inverseJoinColumn: { name: 'student_id' }
-  })
-  students: User[];
+  // Note: students are stored as an array of IDs in the students field above
+  // The ManyToMany relationship is not used in this implementation
 }

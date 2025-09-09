@@ -9,6 +9,7 @@ import {
   UseGuards,
   Query,
   Request,
+  BadRequestException,
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
 import { ZoomService } from './zoom.service';
@@ -173,5 +174,83 @@ export class ZoomController {
   async updateMeetingStatuses(): Promise<{ message: string }> {
     await this.zoomService.updateMeetingStatuses();
     return { message: 'Meeting statuses updated successfully' };
+  }
+
+  @Post('create-missing-attendance')
+  @Roles(Role.Admin, Role.Teacher)
+  @ApiOperation({ summary: 'Create missing attendance records for existing meetings' })
+  @ApiResponse({ status: 200, description: 'Missing attendance records created successfully' })
+  async createMissingAttendanceRecords(): Promise<{ message: string }> {
+    await this.zoomService.createMissingAttendanceRecords();
+    return { message: 'Missing attendance records created successfully' };
+  }
+
+  @Post(':id/create-attendance')
+  @Roles(Role.Admin, Role.Teacher)
+  @ApiOperation({ summary: 'Create attendance records for a specific meeting' })
+  @ApiResponse({ status: 200, description: 'Attendance records created successfully' })
+  async createAttendanceForMeeting(@Param('id') id: string): Promise<{ message: string }> {
+    const meeting = await this.zoomService.findMeetingById(id);
+    if (meeting.courseId) {
+      await this.zoomService.createAttendanceRecordsForMeeting(meeting, meeting.courseId);
+      return { message: `Attendance records created for meeting: ${meeting.title}` };
+    } else {
+      throw new BadRequestException('Meeting does not have a course ID');
+    }
+  }
+
+  @Post(':id/fix-attendance')
+  @Roles(Role.Admin, Role.Teacher)
+  @ApiOperation({ summary: 'Fix attendance records for a specific meeting - ensure all students are included' })
+  @ApiResponse({ status: 200, description: 'Attendance records fixed successfully' })
+  async fixAttendanceForMeeting(@Param('id') id: string): Promise<{ message: string; studentsCount: number }> {
+    const meeting = await this.zoomService.findMeetingById(id);
+    if (meeting.courseId) {
+      const studentsCount = await this.zoomService.fixAttendanceForMeeting(meeting, meeting.courseId);
+      return { 
+        message: `Attendance records fixed for meeting: ${meeting.title}`, 
+        studentsCount 
+      };
+    } else {
+      throw new BadRequestException('Meeting does not have a course ID');
+    }
+  }
+
+  @Delete('cleanup-orphaned-attendance')
+  @Roles(Role.Admin)
+  @ApiOperation({ summary: 'Clean up orphaned attendance records (attendance without valid meetings)' })
+  @ApiResponse({ status: 200, description: 'Orphaned attendance records cleaned up successfully' })
+  async cleanupOrphanedAttendance(): Promise<{ message: string; deletedCount: number }> {
+    const deletedCount = await this.zoomService.cleanupOrphanedAttendance();
+    return { 
+      message: `Cleaned up ${deletedCount} orphaned attendance records`, 
+      deletedCount 
+    };
+  }
+
+  @Post('debug-students/:courseId')
+  @Roles(Role.Admin, Role.Teacher)
+  @ApiOperation({ summary: 'Debug student retrieval for a specific course' })
+  @ApiResponse({ status: 200, description: 'Student debug information retrieved' })
+  async debugStudents(@Param('courseId') courseId: string): Promise<{ message: string; students: any[] }> {
+    const students = await this.zoomService.debugCourseStudents(courseId);
+    return { 
+      message: `Found ${students.length} students for course ${courseId}`, 
+      students: students.map(s => ({
+        id: s.id,
+        name: s.fullName || `${s.firstName} ${s.lastName}`,
+        email: s.email,
+        role: s.role
+      }))
+    };
+  }
+
+  @Get('debug-attendance/:courseId')
+  @Roles(Role.Admin, Role.Teacher)
+  @ApiOperation({ summary: 'Debug attendance records for a specific course' })
+  @ApiResponse({ status: 200, description: 'Attendance debug information retrieved' })
+  async debugAttendance(@Param('courseId') courseId: string): Promise<{ message: string; meetings: any[]; attendanceRecords: any[] }> {
+    const debugInfo = await this.zoomService.debugAttendanceForCourse(courseId);
+    return debugInfo;
   }
 }

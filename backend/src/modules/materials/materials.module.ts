@@ -15,6 +15,7 @@ import { AssignmentSubmission } from './entities/assignment-submission.entity';
 import { Attendance } from './entities/attendance.entity';
 import { Course } from '../courses/entities/course.entity';
 import { User } from '../users/entities/user.entity';
+import { ZoomMeeting } from '../zoom/entities/zoom-meeting.entity';
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { User } from '../users/entities/user.entity';
       Attendance,
       Course,
       User,
+      ZoomMeeting,
     ]),
     MulterModule.register({
       storage: memoryStorage(),
