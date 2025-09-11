@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { ArrowLeft } from 'lucide-react';
 import PostsTab from './PostsTab';
 import FilesTab from './FilesTab';
@@ -88,6 +88,8 @@ const MaterialPages = ({ courseData, onBack, currentUser }) => {
   };
 
   const [activeTab, setActiveTab] = useState(getDefaultTab());
+  const tabsContainerRef = useRef(null);
+  const [scrollPosition, setScrollPosition] = useState(0);
 
   // Update active tab when user role changes
   useEffect(() => {
@@ -96,6 +98,24 @@ const MaterialPages = ({ courseData, onBack, currentUser }) => {
       setActiveTab(newDefaultTab);
     }
   }, [currentUser?.role]);
+
+  // Handle horizontal scroll for tabs
+  const handleTabScroll = (e) => {
+    setScrollPosition(e.target.scrollLeft);
+  };
+
+  // Get available tabs based on permissions
+  const getAvailableTabs = () => {
+    const tabs = [];
+    if (canViewPosts()) tabs.push({ id: 'posts', label: 'Posts' });
+    if (canViewFiles()) tabs.push({ id: 'files', label: 'Files' });
+    if (canViewAssignments()) tabs.push({ id: 'assignments', label: 'Assignments' });
+    if (canViewAttendance()) tabs.push({ id: 'attendance', label: 'Attendance' });
+    if (canViewZoom()) tabs.push({ id: 'zoom', label: 'Zoom' });
+    return tabs;
+  };
+
+  const availableTabs = getAvailableTabs();
 
   // Helper function to check if user can view a specific tab
   const canViewTab = (tabName) => {
@@ -112,78 +132,42 @@ const MaterialPages = ({ courseData, onBack, currentUser }) => {
   return (
     <div className="h-screen flex flex-col space-y-4 sm:space-y-6 overflow-hidden" style={{ height: 'calc(100vh - 100px)' }}>
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
-        <div className="flex items-center gap-3 justify-center">
-          <button
-            onClick={onBack}
-            className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors"
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </button>
-          <div>
-            <h1 className="text-xl sm:text-2xl font-bold text-gray-900">{courseData?.name}</h1>
-          </div>
+      <div className="flex items-center gap-3 p-3 sm:p-4 bg-white border-b border-gray-200 flex-shrink-0">
+        <button
+          onClick={onBack}
+          className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors"
+        >
+          <ArrowLeft className="h-5 w-5" />
+        </button>
+        <div>
+          <h1 className="text-lg sm:text-xl font-bold text-gray-900">{courseData?.name}</h1>
         </div>
       </div>
 
-      {/* Tabs */}
+      {/* Tabs Carousel */}
       <div className="bg-white rounded-lg shadow-sm border flex-shrink-0" style={{ marginTop: '10px' }}>
-        <div className="flex border-b border-gray-200">
-          {canViewPosts() && (
+        <div 
+          ref={tabsContainerRef}
+          className="flex border-b border-gray-200 overflow-x-auto hide-scrollbar"
+          onScroll={handleTabScroll}
+          style={{ 
+            WebkitOverflowScrolling: 'touch',
+            scrollbarWidth: 'none',
+            msOverflowStyle: 'none'
+          }}
+        >
+          {availableTabs.map((tab) => (
             <button
-              onClick={() => setActiveTab('posts')}
-              className={`px-4 py-3 text-sm font-medium transition-colors ${activeTab === 'posts'
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`px-4 py-3 text-sm font-medium transition-colors whitespace-nowrap flex-shrink-0 ${activeTab === tab.id
                 ? `text-${theme.primary}-600 border-b-2 border-${theme.primary}-600 bg-${theme.primaryLight}`
                 : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
                 }`}
             >
-              Posts
+              {tab.label}
             </button>
-          )}
-          {canViewFiles() && (
-            <button
-              onClick={() => setActiveTab('files')}
-              className={`px-4 py-3 text-sm font-medium transition-colors ${activeTab === 'files'
-                ? `text-${theme.primary}-600 border-b-2 border-${theme.primary}-600 bg-${theme.primaryLight}`
-                : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
-                }`}
-            >
-              Files
-            </button>
-          )}
-          {canViewAssignments() && (
-            <button
-              onClick={() => setActiveTab('assignments')}
-              className={`px-4 py-3 text-sm font-medium transition-colors ${activeTab === 'assignments'
-                ? `text-${theme.primary}-600 border-b-2 border-${theme.primary}-600 bg-${theme.primaryLight}`
-                : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
-                }`}
-            >
-              Assignments
-            </button>
-          )}
-          {canViewAttendance() && (
-            <button
-              onClick={() => setActiveTab('attendance')}
-              className={`px-4 py-3 text-sm font-medium transition-colors ${activeTab === 'attendance'
-                ? `text-${theme.primary}-600 border-b-2 border-${theme.primary}-600 bg-${theme.primaryLight}`
-                : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
-                }`}
-            >
-              Attendance
-            </button>
-          )}
-          {canViewZoom() && (
-            <button
-              onClick={() => setActiveTab('zoom')}
-              className={`px-4 py-3 text-sm font-medium transition-colors ${activeTab === 'zoom'
-                ? `text-${theme.primary}-600 border-b-2 border-${theme.primary}-600 bg-${theme.primaryLight}`
-                : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
-                }`}
-            >
-              Zoom
-            </button>
-          )}
+          ))}
         </div>
 
         {/* Content */}

@@ -267,7 +267,7 @@ const AssignmentsTab = ({ currentUser, theme, courseId }) => {
   };
 
   return (
-    <div className="h-[450px] flex flex-col">
+    <div className="h-[600px] flex flex-col">
       {/* Fixed height container with scroll */}
       <div className="flex-1 overflow-y-auto space-y-6 pr-2">
         {/* Header with Create Assignment Button */}
@@ -339,40 +339,43 @@ const AssignmentsTab = ({ currentUser, theme, courseId }) => {
         ) : (
           <div className="space-y-4">
             {assignments.map((assignment) => (
-              <div key={assignment.id} className="bg-white rounded-lg border border-gray-200 p-6 hover:shadow-sm transition-shadow">
+              <div key={assignment.id} className="bg-white rounded-lg shadow-sm border border-gray-100 p-4 hover:shadow-md transition-shadow">
                 {/* Assignment Header */}
-                <div className="flex items-start justify-between mb-4">
+                <div className="flex items-start justify-between mb-3">
                   <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-2">
-                      <h3 className="text-lg font-semibold text-gray-900">{assignment.name}</h3>
+                    {/* Title and Status */}
+                    <div className="flex items-center justify-between mb-2">
+                      <h3 className="text-lg font-bold text-gray-900">{assignment.name}</h3>
                       {isOverdue(assignment.dueDate, assignment.dueTime) && (
-                        <span className="px-2 py-1 bg-red-100 text-red-800 text-xs font-medium rounded-full flex items-center gap-1">
+                        <span className="px-2 py-1 bg-red-50 text-red-600 text-xs font-medium rounded-full flex items-center gap-1">
                           <AlertCircle className="h-3 w-3" />
                           Overdue
                         </span>
                       )}
                     </div>
-                    <p className="text-gray-600 mb-3">{assignment.description}</p>
+                    
+                    {/* Course/Subject */}
+                    <p className="text-sm text-gray-500 mb-3">{assignment.name}</p>
 
                     {/* Assignment Details */}
-                    <div className="flex flex-wrap gap-4 text-sm text-gray-500">
-                      <div className="flex items-center gap-1">
-                        <Calendar className="h-4 w-4" />
-                        Due: {formatDate(assignment.dueDate)} at {assignment.dueTime}
+                    <div className="space-y-2 text-sm text-gray-500">
+                      <div className="flex items-center gap-2">
+                        <Calendar className="h-4 w-4 text-gray-400" />
+                        <span>Due: {formatDate(assignment.dueDate)} at {assignment.dueTime}</span>
                       </div>
-                      <div className="flex items-center gap-1">
-                        <Star className="h-4 w-4" />
-                        {assignment.marks} points
+                      <div className="flex items-center gap-2">
+                        <Star className="h-4 w-4 text-gray-400" />
+                        <span>{assignment.marks} points</span>
                       </div>
-                      <div className="flex items-center gap-1">
-                        <User className="h-4 w-4" />
-                        {assignment.submissions?.length || 0} submission{(assignment.submissions?.length || 0) !== 1 ? 's' : ''}
+                      <div className="flex items-center gap-2">
+                        <User className="h-4 w-4 text-gray-400" />
+                        <span>{assignment.submissions?.length || 0} submission{(assignment.submissions?.length || 0) !== 1 ? 's' : ''}</span>
                       </div>
                     </div>
                   </div>
 
-                  {/* Assignment Actions */}
-                  <div className="flex gap-2 ml-4">
+                  {/* Action Icons */}
+                  <div className="flex items-center gap-2 ml-4">
                     {canCreateAssignment() && (
                       <>
                         <button
@@ -438,14 +441,14 @@ const AssignmentsTab = ({ currentUser, theme, courseId }) => {
                         case 'not_submitted':
                           return (
                             <div className="flex items-center gap-2 text-orange-600">
-                              <Clock className="h-4 w-4" />
+                              <Clock className="h-4 w-4 flex-shrink-0" />
                               <span className="text-sm">Not submitted</span>
                             </div>
                           );
                         case 'submitted':
                           return (
                             <div className="flex items-center gap-2 text-blue-600">
-                              <CheckCircle className="h-4 w-4" />
+                              <CheckCircle className="h-4 w-4 flex-shrink-0" />
                               <span className="text-sm">Submitted - Awaiting grade</span>
                             </div>
                           );
@@ -453,7 +456,7 @@ const AssignmentsTab = ({ currentUser, theme, courseId }) => {
                           return (
                             <div className="space-y-2">
                               <div className="flex items-center gap-2 text-green-600">
-                                <CheckCircle className="h-4 w-4" />
+                                <CheckCircle className="h-4 w-4 flex-shrink-0" />
                                 <span className="text-sm">Graded: {submissionGrade}/{assignment.marks}</span>
                               </div>
                               {assignment.submissions.find(sub => sub.studentId === currentUser?.id)?.feedback && (

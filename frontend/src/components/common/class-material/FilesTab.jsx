@@ -639,7 +639,7 @@ const FilesTab = ({ currentUser, theme, courseId }) => {
 
 
   return (
-    <div className="h-[450px] flex flex-col">
+    <div className="h-[600px] flex flex-col">
       {/* Fixed height container with scroll */}
       <div className="flex-1 overflow-y-auto space-y-3 pr-2">
       {loading ? (
