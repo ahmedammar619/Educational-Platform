@@ -902,7 +902,10 @@ const StudentSchedule = ({ user }) => {
             /* Remove all margins and padding from events globally */
             .fc-timegrid-event {
               margin: 0 !important;
-              border-radius: 0 !important;
+              border-radius: 6px !important;
+              width: 100% !important;
+              height: 100% !important;
+              box-sizing: border-box !important;
             }
             .fc-timegrid-event:hover {
               margin: 0 !important;
@@ -910,28 +913,30 @@ const StudentSchedule = ({ user }) => {
             /* Desktop event styling */
             @media (min-width: 768px) {
               .fc-timegrid-event {
-                font-size: 0.8rem !important;
-                padding: 1px !important;
+                font-size: 0.9rem !important;
+                padding: 2px !important;
                 margin: 0 !important;
                 border-radius: 6px !important;
                 min-height: 30px !important;
+                width: 100% !important;
+                height: 100% !important;
               }
               .fc-timegrid-event .fc-event-title {
-                font-size: 0.8rem !important;
+                font-size: 0.9rem !important;
                 line-height: 1.2 !important;
                 font-weight: 600 !important;
-                color: #000000 !important;
+                color: #dc2626 !important;
               }
               .fc-timegrid-event .fc-event-time {
-                font-size: 0.7rem !important;
+                font-size: 0.8rem !important;
                 line-height: 1.1 !important;
-                color: #000000 !important;
+                color: #dc2626 !important;
                 opacity: 0.8 !important;
               }
               .fc-timegrid-event .fc-event-instructor {
-                font-size: 0.7rem !important;
+                font-size: 0.75rem !important;
                 line-height: 1.1 !important;
-                color: #000000 !important;
+                color: #dc2626 !important;
                 opacity: 0.7 !important;
               }
             }
@@ -954,32 +959,38 @@ const StudentSchedule = ({ user }) => {
               }
               .fc-timegrid-event {
                 font-size: 0.6rem !important;
-                padding: 1px !important;
+                padding: 2px !important;
                 margin: 0 !important;
-                border-radius: 0 !important;
-                min-height: 20px !important;
-                max-height: 40px !important;
+                border-radius: 6px !important;
+                min-height: 100% !important;
+                max-height: 100% !important;
                 overflow: hidden !important;
                 width: 100% !important;
                 height: 100% !important;
+                position: absolute !important;
+                top: 0 !important;
+                left: 0 !important;
+                right: 0 !important;
+                bottom: 0 !important;
+                box-sizing: border-box !important;
               }
               .fc-timegrid-event .fc-event-title {
                 font-size: 0.6rem !important;
                 line-height: 1.1 !important;
                 font-weight: 600 !important;
                 margin-bottom: 1px !important;
-                color: #000000 !important;
+                color: #dc2626 !important;
               }
               .fc-timegrid-event .fc-event-time {
                 font-size: 0.45rem !important;
                 line-height: 1 !important;
-                color: #000000 !important;
+                color: #dc2626 !important;
                 opacity: 0.8 !important;
               }
               .fc-timegrid-event .fc-event-instructor {
                 font-size: 0.5rem !important;
                 line-height: 1 !important;
-                color: #000000 !important;
+                color: #dc2626 !important;
                 opacity: 0.7 !important;
               }
               .fc-timegrid-event .event-content {
@@ -1001,7 +1012,11 @@ const StudentSchedule = ({ user }) => {
                 left: 0 !important;
                 right: 0 !important;
                 bottom: 0 !important;
+                width: 100% !important;
+                height: 100% !important;
                 box-sizing: border-box !important;
+                margin: 0 !important;
+                padding: 2px !important;
               }
             }
           `}</style>
@@ -1057,7 +1072,7 @@ const StudentSchedule = ({ user }) => {
               const isRecurring = event.extendedProps.isRecurring;
 
               // Base Tailwind classes for all events - read-only for students
-              const baseClasses = 'border-l-4 text-xs font-medium p-1 m-0 cursor-pointer transition-all duration-200 hover:shadow-md';
+              const baseClasses = 'border-l-4 text-xs font-medium p-1 m-0 cursor-pointer transition-all duration-200 hover:shadow-md w-full h-full';
 
               // Color classes using Tailwind - red theme for students
               let colorClasses = 'bg-red-100 border-red-300 text-red-800';
@@ -1071,10 +1086,10 @@ const StudentSchedule = ({ user }) => {
 
               return {
                 html: `
-                  <div class="event-content">
-                    <div class="fc-event-title">${event.title}</div>
-                    <div class="fc-event-time">${arg.timeText}</div>
-                    <div class="fc-event-instructor">${instructor}</div>
+                  <div class="event-content" style="width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: flex-start;">
+                    <div class="fc-event-title" style="color: #dc2626; font-weight: 600;">${event.title}</div>
+                    <div class="fc-event-time" style="color: #dc2626; opacity: 0.8;">${arg.timeText}</div>
+                    <div class="fc-event-instructor" style="color: #dc2626; opacity: 0.7;">${instructor}</div>
                   </div>
                 `
               };

@@ -97,7 +97,6 @@ export class TeachersService {
         // Get class details
         const classEntity = await this.classRepository.findOne({
           where: { id: classId },
-          relations: ['students'],
         });
         
         if (classEntity) {
