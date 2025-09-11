@@ -831,7 +831,7 @@ const UserManagement = ({ user }) => {
       </div> */}
 
       {/* Filters */}
-      <div className="bg-white p-4 sm:p-6 rounded-lg shadow-sm border">
+      <div className="bg-white rounded-lg shadow-sm border">
         <div className="grid grid-cols-3 gap-4">
           <div className="relative">
             <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />

@@ -334,21 +334,20 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
   };
 
   return (
-    <div className="space-y-6 sm:space-y-8 h-full p-4 sm:p-6">
+    <div className="space-y-4 sm:space-y-8 h-full">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4">
-        <div className="flex-1">
-          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900 mb-1">Class Management</h1>
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-lg sm:text-xl md:text-2xl font-bold text-gray-900">Class Management</h1>
           <p className="text-sm sm:text-base text-gray-600">Manage classes and their courses</p>
         </div>
-        <div className="flex-shrink-0">
+        <div className="flex items-center space-x-3">
           <button
             onClick={() => setShowCreateClassModal(true)}
-            className="flex items-center justify-center space-x-2 border-2 border-green-600 text-green-600 px-4 py-2 rounded-lg hover:bg-green-600 hover:text-white transition-all duration-200 font-medium"
+            className="flex items-center space-x-2 border-2 border-green-600 text-green-600 px-4 py-2 rounded-lg hover:bg-green-600 hover:text-white transition-all duration-200"
           >
             <Plus className="h-4 w-4" />
-            <span className="hidden sm:inline">Add Class</span>
-            <span className="sm:hidden">Add</span>
+            <span>Add Class</span>
           </button>
         </div>
       </div>
