@@ -24,7 +24,6 @@ const UserManagement = ({ user }) => {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
-  const hasShownSuccessToast = useRef(false);
 
   useEffect(() => {
     fetchUsers();
@@ -34,16 +33,8 @@ const UserManagement = ({ user }) => {
     filterUsers();
   }, [filters, allUsers]);
 
-  // Cleanup effect to reset toast flags
-  useEffect(() => {
-    return () => {
-      hasShownSuccessToast.current = false;
-    };
-  }, []);
 
   const fetchUsers = async () => {
-    const loadingToast = showLoadingToast('Loading users...');
-    
     try {
       setLoading(true);
       
@@ -116,20 +107,12 @@ const UserManagement = ({ user }) => {
       
       console.log('Transformed users:', transformedUsers);
       setAllUsers(transformedUsers);
-      
-      // Dismiss loading toast and show success toast only once
-      dismissToast(loadingToast);
-      if (!hasShownSuccessToast.current) {
-        showSuccessToast(`Loaded ${transformedUsers.length} users successfully!`);
-        hasShownSuccessToast.current = true;
-      }
     } catch (err) {
       console.error('Error fetching users:', err);
       // Fallback to empty array if API fails
       setAllUsers([]);
       
-      // Dismiss loading toast and show error toast
-      dismissToast(loadingToast);
+      // Show error toast
       showErrorToast('Failed to load users. Please try again.');
     } finally {
       setLoading(false);
@@ -249,9 +232,6 @@ const UserManagement = ({ user }) => {
       // Dismiss loading toast and show success toast
       dismissToast(loadingToast);
       showSuccessToast(`User ${response.firstName} ${response.lastName} created successfully!`);
-      
-      // Reset the success toast flag so it can show again on next fetch
-      hasShownSuccessToast.current = false;
     } catch (error) {
       console.error('Error creating user:', error);
       const errorMessage = error.message || error.response?.data?.message || 'Unknown error occurred';
@@ -287,9 +267,6 @@ const UserManagement = ({ user }) => {
       // Dismiss loading toast and show success toast
       dismissToast(loadingToast);
       showSuccessToast(`User ${response.firstName} ${response.lastName} updated successfully!`);
-      
-      // Reset the success toast flag so it can show again on next fetch
-      hasShownSuccessToast.current = false;
     } catch (error) {
       console.error('Error updating user:', error);
       const errorMessage = error.message || error.response?.data?.message || 'Unknown error occurred';
@@ -788,8 +765,8 @@ const UserManagement = ({ user }) => {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">User Management</h1>
-          <p className="text-gray-600">Manage student and teacher accounts</p>
+          <h1 className="text-lg sm:text-xl md:text-2xl font-bold text-gray-900">User Management</h1>
+          <p className="text-sm sm:text-base text-gray-600">Manage student and teacher accounts</p>
         </div>
         <div className="flex items-center space-x-3">
           <button
@@ -803,7 +780,7 @@ const UserManagement = ({ user }) => {
       </div>
 
       {/* Relationship Summary */}
-      <div className="bg-white p-4 rounded-lg shadow-sm border">
+      {/* <div className="bg-white p-4 rounded-lg shadow-sm border">
         <h3 className="text-sm font-medium text-gray-900 mb-3">Parent-Child Relationship Summary</h3>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
           <div className="text-center">
@@ -831,7 +808,7 @@ const UserManagement = ({ user }) => {
             <div className="text-gray-600">Teachers</div>
           </div>
         </div>
-      </div>
+      </div> */}
 
       {/* Deletion Rules Info */}
       {/* <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">

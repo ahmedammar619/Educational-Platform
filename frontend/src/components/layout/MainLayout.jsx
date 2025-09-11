@@ -14,7 +14,8 @@ import {
   LogOut,
   Settings,
   Menu,
-  X
+  X,
+  Newspaper
 } from 'lucide-react';
 import baraemLogo from '../../assets/baraem.svg';
 import UserProfilePopup from '../ui/UserProfilePopup';
@@ -26,7 +27,7 @@ const getNavigationConfig = (role) => {
       { id: 'users', name: 'User Management', icon: Users, path: '/admin/users' },
       { id: 'classes', name: 'Class Management', icon: BookOpen, path: '/admin/classes' },
       { id: 'payments', name: 'Payments', icon: CreditCard, path: '/admin/payments' },
-      { id: 'settings', name: 'Settings', icon: Settings, path: '/admin/settings' },
+      { id: 'form', name: 'Form', icon: Newspaper, path: '/admin/form' },
     ],
     teacher: [
       { id: 'classes', name: 'Classes', icon: BookOpen, path: '/teacher/classes' },

@@ -205,20 +205,20 @@ const StudentClasses = ({ user, onOpenMaterials }) => {
 
                       {/* Class Info */}
                       <div className="mt-4 grid grid-cols-3 gap-4">
-                        <div className="text-center">
-                          <p className="text-xs text-gray-500 flex items-center justify-center gap-1">
+                        <div className="text-center bg-gray-50 rounded-lg p-3">
+                          <p className="text-xs text-gray-500 flex items-center justify-center gap-1 mb-1">
                             <Calendar className="h-3 w-3 text-gray-400" /> Start Date
                           </p>
                           <p className="font-medium text-gray-900 text-sm">{classItem.startDate}</p>
                         </div>
-                        <div className="text-center">
-                          <p className="text-xs text-gray-500 flex items-center justify-center gap-1">
+                        <div className="text-center bg-gray-50 rounded-lg p-3">
+                          <p className="text-xs text-gray-500 flex items-center justify-center gap-1 mb-1">
                             <Calendar className="h-3 w-3 text-gray-400" /> End Date
                           </p>
                           <p className="font-medium text-gray-900 text-sm">{classItem.endDate}</p>
                         </div>
-                        <div className="text-center">
-                          <p className="text-xs text-gray-500 flex items-center justify-center gap-1">
+                        <div className="text-center bg-gray-50 rounded-lg p-3">
+                          <p className="text-xs text-gray-500 flex items-center justify-center gap-1 mb-1">
                             <Users className="h-3 w-3 text-gray-400" /> Students
                           </p>
                           <p className="font-medium text-gray-900 text-sm">{classItem.numberOfStudents}</p>
@@ -236,32 +236,44 @@ const StudentClasses = ({ user, onOpenMaterials }) => {
                         {classItem.courses.length === 0 ? (
                           <p className="text-gray-500 text-center py-4 text-sm md:text-base">No courses available in this class.</p>
                         ) : (
-                          <div className="space-y-3 md:space-y-4">
+                          <div className="space-y-4">
                             {classItem.courses.map((course) => (
                               <div key={course.id} className="bg-white rounded-lg border border-gray-200 p-3 md:p-4">
                                 <div className="mb-3 md:mb-4">
-                                  <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-3">
+                                  <div className="flex items-center gap-2">
                                     <h5 className="text-sm md:text-base font-semibold text-gray-900 leading-tight text-start">{course.name}</h5>
-                                    <div className="flex items-center gap-2">
-                                      <span className="text-gray-400 hidden md:inline">|</span>
-                                      <div className="flex items-center gap-1">
-                                        <User className="h-3 w-3 md:h-4 md:w-4 text-gray-500" />
-                                        <span className="text-xs md:text-sm text-gray-600">{course.teacherName}</span>
-                                      </div>
+                                    <span className="text-gray-400">|</span>
+                                    <div className="flex items-center gap-1">
+                                      <User className="h-3 w-3 md:h-4 md:w-4 text-gray-500" />
+                                      <span className="text-xs md:text-sm text-gray-600">{course.teacherName}</span>
                                     </div>
                                   </div>
                                 </div>
-                                
-                                <div className="flex flex-col md:flex-row gap-3 md:gap-4">
-                                  <div className="flex-1">
-                                    <p className="text-xs md:text-sm text-gray-500 mb-1">Sessions</p>
-                                    <p className="font-medium text-gray-900 text-xs md:text-sm leading-relaxed">
-                                      {course.sessionTime.map(session =>
-                                        `${session.day} ${session.startTime}-${session.endTime}`
-                                      ).join(', ')}
-                                    </p>
+
+                                {/* Course Content */}
+                                <div className="space-y-4">
+                                  {/* Sessions */}
+                                  <div className="bg-gray-50 rounded-lg p-3">
+                                    <div className="flex items-center gap-2 mb-2">
+                                      <Calendar className="h-4 w-4 text-gray-500" />
+                                      <p className="text-sm font-medium text-gray-700">Schedule</p>
+                                    </div>
+                                    <div className="space-y-1">
+                                      {course.sessionTime && course.sessionTime.length > 0 ? (
+                                        course.sessionTime.map((session, index) => (
+                                          <div key={index} className="flex items-center justify-between bg-white rounded-md px-3 py-2 border border-gray-200">
+                                            <span className="text-sm font-medium text-gray-900">{session.day}</span>
+                                            <span className="text-sm text-gray-600">{session.startTime} - {session.endTime}</span>
+                                          </div>
+                                        ))
+                                      ) : (
+                                        <p className="text-sm text-gray-500 italic">No sessions scheduled</p>
+                                      )}
+                                    </div>
                                   </div>
-                                  <div className="flex-shrink-0">
+
+                                  {/* Course Material Button */}
+                                  <div className="flex justify-center sm:justify-end">
                                     <button
                                       onClick={() => onOpenMaterials && onOpenMaterials(course)}
                                       className="w-full md:w-auto px-4 py-2 border-2 border-red-600 text-red-600 font-semibold text-xs md:text-sm rounded-lg hover:bg-red-600 hover:text-white transition-all duration-200 uppercase tracking-wide"

@@ -1,18 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { Settings, Save, ExternalLink, AlertCircle, CheckCircle } from 'lucide-react';
+import { Newspaper, Save, ExternalLink, AlertCircle, CheckCircle } from 'lucide-react';
 import { showErrorToast, showSuccessToast } from '../../utils/errorHandler';
 import { API_CONFIG } from '../../config/api';
 
-const AdminSettings = ({ user }) => {
+const AdminForm = ({ user }) => {
   const [googleFormUrl, setGoogleFormUrl] = useState('');
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    loadSettings();
+    loadFormSettings();
   }, []);
 
-  const loadSettings = async () => {
+  const loadFormSettings = async () => {
     setLoading(true);
     try {
       const response = await fetch(`${API_CONFIG.BASE_URL}/api/admin/config/google-form-url`, {
@@ -26,12 +26,12 @@ const AdminSettings = ({ user }) => {
         const data = await response.json();
         setGoogleFormUrl(data.googleFormUrl || '');
       } else {
-        console.error('Failed to load settings:', response.status, response.statusText);
-        showErrorToast('Failed to load settings');
+        console.error('Failed to load form settings:', response.status, response.statusText);
+        showErrorToast('Failed to load form settings');
       }
     } catch (error) {
-      console.error('Error loading settings:', error);
-      showErrorToast('Failed to load settings');
+      console.error('Error loading form settings:', error);
+      showErrorToast('Failed to load form settings');
     } finally {
       setLoading(false);
     }
@@ -63,14 +63,14 @@ const AdminSettings = ({ user }) => {
       });
 
       if (response.ok) {
-        showSuccessToast('Google Form URL updated successfully');
+        showSuccessToast('Registration form URL updated successfully');
       } else {
         const errorData = await response.json();
-        showErrorToast(errorData.message || 'Failed to update Google Form URL');
+        showErrorToast(errorData.message || 'Failed to update registration form URL');
       }
     } catch (error) {
-      console.error('Error saving settings:', error);
-      showErrorToast('Failed to save settings');
+      console.error('Error saving form settings:', error);
+      showErrorToast('Failed to save form settings');
     } finally {
       setSaving(false);
     }
@@ -87,8 +87,8 @@ const AdminSettings = ({ user }) => {
       <div className="bg-white rounded-lg shadow-sm border">
         <div className="p-4 sm:p-6">
           <div className="text-center py-8">
-            <Settings className="h-8 w-8 sm:h-12 sm:w-12 text-gray-400 mx-auto mb-4" />
-            <p className="text-sm sm:text-base text-gray-600">Loading settings...</p>
+            <Newspaper className="h-8 w-8 sm:h-12 sm:w-12 text-gray-400 mx-auto mb-4" />
+            <p className="text-sm sm:text-base text-gray-600">Loading form settings...</p>
           </div>
         </div>
       </div>
@@ -100,8 +100,8 @@ const AdminSettings = ({ user }) => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">System Settings</h1>
-          <p className="text-sm sm:text-base text-gray-600">Manage system configuration and settings</p>
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Registration Form</h1>
+          <p className="text-sm sm:text-base text-gray-600">Manage student registration form configuration</p>
         </div>
       </div>
 
@@ -109,7 +109,7 @@ const AdminSettings = ({ user }) => {
       <div className="bg-white rounded-lg shadow-sm border">
         <div className="p-4 sm:p-6">
           <div className="flex items-center gap-2 mb-4">
-            <Settings className="h-5 w-5 text-blue-600" />
+            <Newspaper className="h-5 w-5 text-blue-600" />
             <h2 className="text-lg font-semibold text-gray-900">Student Registration Form</h2>
           </div>
           
@@ -169,7 +169,7 @@ const AdminSettings = ({ user }) => {
                 ) : (
                   <>
                     <Save className="h-4 w-4" />
-                    Save Settings
+                    Save Form Settings
                   </>
                 )}
               </button>
@@ -188,7 +188,7 @@ const AdminSettings = ({ user }) => {
           
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-600">Google Form URL:</span>
+              <span className="text-sm text-gray-600">Registration Form URL:</span>
               <span className={`text-sm font-medium ${googleFormUrl ? 'text-green-600' : 'text-gray-400'}`}>
                 {googleFormUrl ? 'Configured' : 'Not configured'}
               </span>
@@ -205,4 +205,4 @@ const AdminSettings = ({ user }) => {
   );
 };
 
-export default AdminSettings;
+export default AdminForm;

@@ -334,20 +334,21 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
   };
 
   return (
-    <div className="space-y-4 sm:space-y-6 h-full">
+    <div className="space-y-6 sm:space-y-8 h-full p-4 sm:p-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Class Management</h1>
-          <p className="text-gray-600">Manage classes and their courses</p>
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4">
+        <div className="flex-1">
+          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900 mb-1">Class Management</h1>
+          <p className="text-sm sm:text-base text-gray-600">Manage classes and their courses</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex-shrink-0">
           <button
             onClick={() => setShowCreateClassModal(true)}
-            className="flex items-center justify-center space-x-2 border-2 border-green-600 text-green-600 px-4 py-2 rounded-lg hover:bg-green-600 hover:text-white transition-all duration-200"
+            className="flex items-center justify-center space-x-2 border-2 border-green-600 text-green-600 px-4 py-2 rounded-lg hover:bg-green-600 hover:text-white transition-all duration-200 font-medium"
           >
             <Plus className="h-4 w-4" />
-            <span>Add Class</span>
+            <span className="hidden sm:inline">Add Class</span>
+            <span className="sm:hidden">Add</span>
           </button>
         </div>
       </div>
@@ -365,18 +366,18 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
         </div>
               ) : (
           <>
-            <div className="bg-white rounded-lg shadow-sm border">
+            <div className="bg-white rounded-xl shadow-sm border">
               <div className="p-4 sm:p-6">
-                <div className="space-y-4">
+                <div className="space-y-6">
                   {filteredClasses.map((classItem) => (
                     <div key={classItem.id} className="bg-white rounded-xl shadow-sm border hover:shadow-md transition-all">
                 {/* Class Header */}
                 <div className="p-4 sm:p-6 border-b border-gray-100">
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                     <div className="flex items-center gap-3">
                       <button
                         onClick={() => toggleClassExpansion(classItem.id)}
-                        className="text-gray-500 hover:text-gray-700 transition-colors"
+                        className="text-gray-500 hover:text-gray-700 transition-colors p-1 rounded-lg hover:bg-gray-100"
                       >
                         {expandedClasses.has(classItem.id) ? (
                           <ChevronDown className="h-5 w-5" />
@@ -391,7 +392,7 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
                     </div>
 
                     {/* Class Actions */}
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1 sm:gap-2 flex-wrap">
                       <button
                         onClick={() => {
                           setSelectedClass(classItem);
@@ -407,7 +408,7 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
                           setSelectedClass(classItem);
                           setShowRemoveStudentModal(true);
                         }}
-                        className="text-orange-600 hover:text-orange-800 p-2 rounded-lg hover:bg-orange-50 transition-colors"
+                        className="text-orange-600 hover:text-orange-800 p-2 rounded-lg hover:bg-orange-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         title="Remove Students"
                         disabled={!classItem.students || classItem.students.length === 0}
                       >
@@ -418,7 +419,7 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
                           setSelectedClass(classItem);
                           setShowLevelUpModal(true);
                         }}
-                        className="text-purple-600 hover:text-purple-800 p-2 rounded-lg hover:bg-purple-50 transition-colors"
+                        className="text-purple-600 hover:text-purple-800 p-2 rounded-lg hover:bg-purple-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         title="Level Up Students"
                         disabled={!classItem.students || classItem.students.length === 0}
                       >
@@ -455,27 +456,27 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
                   </div>
 
                   {/* Class Info */}
-                  <div className="mt-4 grid grid-cols-4 gap-4">
-                    <div className="text-center">
-                      <p className="text-xs text-gray-500 flex items-center justify-center gap-1">
+                  <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+                    <div className="text-center bg-gray-50 rounded-lg p-3">
+                      <p className="text-xs text-gray-500 flex items-center justify-center gap-1 mb-1">
                         <Calendar className="h-3 w-3 text-gray-400" /> Start Date
                       </p>
                       <p className="font-medium text-gray-900 text-sm">{classItem.startDate || 'N/A'}</p>
                     </div>
-                    <div className="text-center">
-                      <p className="text-xs text-gray-500 flex items-center justify-center gap-1">
+                    <div className="text-center bg-gray-50 rounded-lg p-3">
+                      <p className="text-xs text-gray-500 flex items-center justify-center gap-1 mb-1">
                         <Calendar className="h-3 w-3 text-gray-400" /> End Date
                       </p>
                       <p className="font-medium text-gray-900 text-sm">{classItem.endDate || 'N/A'}</p>
                     </div>
-                    <div className="text-center">
-                      <p className="text-xs text-gray-500 flex items-center justify-center gap-1">
+                    <div className="text-center bg-gray-50 rounded-lg p-3">
+                      <p className="text-xs text-gray-500 flex items-center justify-center gap-1 mb-1">
                         <DollarSign className="h-3 w-3 text-gray-400" /> Price
                       </p>
-                      <p className="font-medium text-gray-900 text-sm">{classItem.price || 0}</p>
+                      <p className="font-medium text-gray-900 text-sm">${classItem.price || 0}</p>
                     </div>
-                    <div className="text-center">
-                      <p className="text-xs text-gray-500 flex items-center justify-center gap-1">
+                    <div className="text-center bg-gray-50 rounded-lg p-3">
+                      <p className="text-xs text-gray-500 flex items-center justify-center gap-1 mb-1">
                         <Users className="h-3 w-3 text-gray-400" /> Students
                       </p>
                       <p className="font-medium text-gray-900 text-sm">{classItem.numberOfStudents || 0}</p>
@@ -493,18 +494,19 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
                     {(classItem.courses || []).length === 0 ? (
                       <p className="text-gray-500 text-center py-4">No courses added yet. Click the + button to add a course.</p>
                     ) : (
-                      <div className="space-y-3">
+                      <div className="space-y-4">
                         {(classItem.courses || []).map((course) => {
                           console.log('Course object:', course);
                           return (
-                          <div key={course.id} className="bg-white rounded-lg border border-gray-200 p-4">
-                            <div className="flex items-center justify-between mb-3">
+                          <div key={course.id} className="bg-white rounded-lg border border-gray-200 p-3 md:p-4">
+                            <div className="mb-3 md:mb-4">
+                              <div className="flex items-center justify-between gap-2">
                               <div className="flex items-center gap-2">
-                                <h5 className="font-semibold text-gray-900">{course.name}</h5>
-                                <span className="text-gray-400">|</span>
+                                  <h5 className="text-sm md:text-base font-semibold text-gray-900 leading-tight text-start">{course.name}</h5>
+                                  <span className="text-gray-400 hidden md:inline">|</span>
                                 <div className="flex items-center gap-1">
-                                  <User className="h-4 w-4 text-gray-500" />
-                                  <span className="text-sm text-gray-600">{course.teacherName}</span>
+                                    <User className="h-3 w-3 md:h-4 md:w-4 text-gray-500" />
+                                    <span className="text-xs md:text-sm text-gray-600">{course.teacherName}</span>
                                 </div>
                               </div>
                               <div className="flex items-center gap-2">
@@ -526,22 +528,37 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
                                 >
                                   <Trash2 className="h-4 w-4" />
                                 </button>
+                                </div>
                               </div>
                             </div>
 
-                            <div className="flex flex-col sm:flex-row gap-4 text-sm items-center">
-                              <div className="flex-1">
-                                <p className="text-gray-500">Sessions</p>
-                                <p className="font-medium text-gray-900">
-                                  {course.sessionTime.map(session =>
-                                    `${session.day} ${session.startTime}-${session.endTime}`
-                                  ).join(', ')}
-                                </p>
+                            {/* Course Content */}
+                            <div className="space-y-4">
+                              {/* Sessions */}
+                              <div className="bg-gray-50 rounded-lg p-3">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <Calendar className="h-4 w-4 text-gray-500" />
+                                  <p className="text-sm font-medium text-gray-700">Schedule</p>
                               </div>
-                              <div className="flex-shrink-0">
+                                <div className="space-y-1">
+                                  {course.sessionTime && course.sessionTime.length > 0 ? (
+                                    course.sessionTime.map((session, index) => (
+                                      <div key={index} className="flex items-center justify-between bg-white rounded-md px-3 py-2 border border-gray-200">
+                                        <span className="text-sm font-medium text-gray-900">{session.day}</span>
+                                        <span className="text-sm text-gray-600">{session.startTime} - {session.endTime}</span>
+                                      </div>
+                                    ))
+                                  ) : (
+                                    <p className="text-sm text-gray-500 italic">No sessions scheduled</p>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* Course Material Button */}
+                              <div className="flex justify-center sm:justify-end">
                                 <button
                                   onClick={() => onOpenMaterials && onOpenMaterials(course)}
-                                  className="px-3 py-2 border-2 border-green-600 text-green-600 font-semibold text-xs rounded-lg hover:bg-green-600 hover:text-white transition-all duration-200 uppercase"
+                                  className="w-full md:w-auto px-4 py-2 border-2 border-green-600 text-green-600 font-semibold text-xs md:text-sm rounded-lg hover:bg-green-600 hover:text-white transition-all duration-200 uppercase tracking-wide"
                                 >
                                   Course Material
                                 </button>
