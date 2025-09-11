@@ -172,8 +172,8 @@ const TeacherClasses = ({ user }) => {
                   {classes.map((classItem) => (
                     <div key={classItem.id} className="bg-white rounded-xl shadow-sm border hover:shadow-md transition-all">
                       {/* Class Header */}
-                      <div className="p-4 sm:p-6 border-b border-gray-100">
-                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                      <div className="p-3 md:p-4 lg:p-6 border-b border-gray-100">
+                        <div className="flex items-center justify-between">
                           <div className="flex items-center gap-3">
                             <button
                               onClick={() => toggleClassExpansion(classItem.id)}
@@ -208,20 +208,20 @@ const TeacherClasses = ({ user }) => {
 
                         {/* Class Info */}
                         <div className="mt-4 grid grid-cols-3 gap-4">
-                          <div className="text-center">
-                            <p className="text-xs text-gray-500 flex items-center justify-center gap-1">
+                          <div className="text-center bg-gray-50 rounded-lg p-3">
+                            <p className="text-xs text-gray-500 flex items-center justify-center gap-1 mb-1">
                               <Calendar className="h-3 w-3 text-gray-400" /> Start Date
                             </p>
                             <p className="font-medium text-gray-900 text-sm">{classItem.startDate}</p>
                           </div>
-                          <div className="text-center">
-                            <p className="text-xs text-gray-500 flex items-center justify-center gap-1">
+                          <div className="text-center bg-gray-50 rounded-lg p-3">
+                            <p className="text-xs text-gray-500 flex items-center justify-center gap-1 mb-1">
                               <Calendar className="h-3 w-3 text-gray-400" /> End Date
                             </p>
                             <p className="font-medium text-gray-900 text-sm">{classItem.endDate}</p>
                           </div>
-                          <div className="text-center">
-                            <p className="text-xs text-gray-500 flex items-center justify-center gap-1">
+                          <div className="text-center bg-gray-50 rounded-lg p-3">
+                            <p className="text-xs text-gray-500 flex items-center justify-center gap-1 mb-1">
                               <Users className="h-3 w-3 text-gray-400" /> Students
                             </p>
                             <p className="font-medium text-gray-900 text-sm">
@@ -243,35 +243,51 @@ const TeacherClasses = ({ user }) => {
                       {expandedClasses.has(classItem.id) && (
                         <div className="p-4 sm:p-6 bg-gray-50">
                           <div className="flex items-center justify-between mb-4">
-                            <h4 className="text-lg font-semibold text-gray-800">My Courses ({getTeacherCourses(classItem).length})</h4>
+                            <h4 className="text-base md:text-lg font-semibold text-gray-800">My Courses ({getTeacherCourses(classItem).length})</h4>
                           </div>
 
                           {getTeacherCourses(classItem).length === 0 ? (
-                            <p className="text-gray-500 text-center py-4">No courses assigned to you in this class.</p>
+                            <p className="text-gray-500 text-center py-4 text-sm md:text-base">No courses assigned to you in this class.</p>
                           ) : (
-                            <div className="space-y-3">
+                            <div className="space-y-4">
                               {getTeacherCourses(classItem).map((course) => (
-                                <div key={course.id} className="bg-white rounded-lg border border-gray-200 p-4">
-                                  <div className="mb-3">
-                                    <h5 className="text-start font-semibold text-gray-900">{course.name}</h5>
+                                <div key={course.id} className="bg-white rounded-lg border border-gray-200 p-3 md:p-4">
+                                  <div className="mb-3 md:mb-4">
+                                    <div className="flex items-center gap-2">
+                                      <h5 className="text-sm md:text-base font-semibold text-gray-900 leading-tight text-start">{course.name}</h5>
+                                    </div>
                                   </div>
 
-                                  <div className="flex flex-col sm:flex-row gap-4 text-sm items-center">
-                                    <div className="flex-1">
-                                      <p className="text-gray-500">Sessions</p>
-                                      <p className="font-medium text-gray-900">
-                                        {course.sessionTime.map(session =>
-                                          `${session.day} ${session.startTime}-${session.endTime}`
-                                        ).join(', ')}
-                                      </p>
+                                  {/* Course Content */}
+                                  <div className="space-y-4">
+                                    {/* Sessions */}
+                                    <div className="bg-gray-50 rounded-lg p-3">
+                                      <div className="flex items-center gap-2 mb-2">
+                                        <Calendar className="h-4 w-4 text-gray-500" />
+                                        <p className="text-sm font-medium text-gray-700">Schedule</p>
+                                      </div>
+                                      <div className="space-y-1">
+                                        {course.sessionTime && course.sessionTime.length > 0 ? (
+                                          course.sessionTime.map((session, index) => (
+                                            <div key={index} className="flex items-center justify-between bg-white rounded-md px-3 py-2 border border-gray-200">
+                                              <span className="text-sm font-medium text-gray-900">{session.day}</span>
+                                              <span className="text-sm text-gray-600">{session.startTime} - {session.endTime}</span>
+                                            </div>
+                                          ))
+                                        ) : (
+                                          <p className="text-sm text-gray-500 italic">No sessions scheduled</p>
+                                        )}
+                                      </div>
                                     </div>
-                                    <div className="flex-shrink-0">
+
+                                    {/* Course Material Button */}
+                                    <div className="flex justify-center sm:justify-end">
                                       <button
                                         onClick={() => {
                                           setSelectedClassForMaterial(course);
                                           setShowMaterialPages(true);
                                         }}
-                                        className="px-3 py-2 border-2 border-blue-600 text-blue-600 font-semibold text-xs rounded-lg hover:bg-blue-600 hover:text-white transition-all duration-200 uppercase"
+                                        className="w-full md:w-auto px-4 py-2 border-2 border-blue-600 text-blue-600 font-semibold text-xs md:text-sm rounded-lg hover:bg-blue-600 hover:text-white transition-all duration-200 uppercase tracking-wide"
                                       >
                                         Course Material
                                       </button>
@@ -507,23 +523,6 @@ const StudentModal = ({ classData, onClose }) => {
     }
   };
 
-  const getAttendanceRate = (studentId) => {
-    // Mock attendance data - in real app this would come from database
-    const attendanceRates = {
-      '4': 95, // Aisha Al-Mahmoud
-      '6': 88, // Hassan Al-Rahman
-      '8': 92, // Zainab Al-Fatima
-    };
-
-    return attendanceRates[studentId] || Math.floor(Math.random() * 30) + 70;
-  };
-
-  const getAttendanceColor = (rate) => {
-    if (rate >= 90) return 'bg-green-500';
-    if (rate >= 80) return 'bg-yellow-500';
-    if (rate >= 70) return 'bg-orange-500';
-    return 'bg-red-500';
-  };
   
   // Helper function to get student display name from various data structures
   const getStudentDisplayName = (student) => {
@@ -590,17 +589,24 @@ const StudentModal = ({ classData, onClose }) => {
                 {/* Parent Header - only show for groups with parents */}
                 {!group.isIndividual && (
                   <div className="bg-blue-50 px-3 py-3 border-b">
-                    <div className="flex items-center space-x-3">
-                      <div className="w-8 h-8 sm:w-10 sm:h-10 bg-blue-600 rounded-full flex items-center justify-center flex-shrink-0">
-                        <User className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
-                      </div>
-                      <div className="text-start min-w-0 flex-1">
-                        <h4 className="font-semibold text-blue-900 text-sm sm:text-base">
-                          {group.parent.firstName} {group.parent.lastName}
-                        </h4>
-                        <p className="text-xs sm:text-sm text-blue-700">{group.parent.email}</p>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-8 h-8 sm:w-10 sm:h-10 bg-blue-600 rounded-full flex items-center justify-center flex-shrink-0">
+                          <User className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
+                        </div>
+                        <div className="text-start min-w-0">
+                          <h4 className="font-semibold text-blue-900 text-sm sm:text-base">
+                            {group.parent.firstName} {group.parent.lastName}
+                          </h4>
+                          <p className="text-xs sm:text-sm text-blue-700">{group.parent.email}</p>
+                        </div>
                       </div>
                       <div className="flex items-center gap-2">
+                        {group.students.length > 1 && (
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                            {group.students.length} Student{group.students.length !== 1 ? 's' : ''}
+                          </span>
+                        )}
                         <button 
                           onClick={() => {
                             const phoneNumber = group.parent.phone || group.parent.phoneNumber;
@@ -617,11 +623,6 @@ const StudentModal = ({ classData, onClose }) => {
                           <MessageSquare className="h-4 w-4 inline mr-1" />
                           Contact Parent
                         </button>
-                        {group.students.length > 1 && (
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                            {group.students.length} Student{group.students.length !== 1 ? 's' : ''}
-                          </span>
-                        )}
                       </div>
                     </div>
                   </div>
@@ -651,15 +652,6 @@ const StudentModal = ({ classData, onClose }) => {
                       </div>
 
                       <div className="flex items-center gap-3">
-                        <div className="text-center">
-                          <p className="text-xs text-gray-500">Attendance</p>
-                          <div className="flex items-center gap-1">
-                            <div className={`w-3 h-3 rounded-full ${getAttendanceColor(getAttendanceRate(student.id))}`}></div>
-                            <span className="text-xs font-medium text-gray-900">
-                              {getAttendanceRate(student.id)}%
-                            </span>
-                          </div>
-                        </div>
 
                         {/* Show contact button for individual students */}
                         {group.isIndividual && (
