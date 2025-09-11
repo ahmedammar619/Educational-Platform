@@ -13,3 +13,8 @@ body {
   background-color: #3b82f6;
   color: white;
 }
+
+/* Hide scrollbar for webkit browsers */
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}

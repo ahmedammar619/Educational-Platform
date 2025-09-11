@@ -12,7 +12,9 @@ import {
   User,
   Bell,
   LogOut,
-  Settings
+  Settings,
+  Menu,
+  X
 } from 'lucide-react';
 import baraemLogo from '../../assets/baraem.svg';
 import UserProfilePopup from '../ui/UserProfilePopup';
@@ -122,6 +124,7 @@ const MainLayout = ({ user, onLogout, children, routes }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const [showProfilePopup, setShowProfilePopup] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const userRole = user?.role || 'student';
   const navigation = getNavigationConfig(userRole);
@@ -161,6 +164,12 @@ const MainLayout = ({ user, onLogout, children, routes }) => {
     if (navItem) {
       navigate(navItem.path);
     }
+    // Close sidebar on mobile after navigation
+    setSidebarOpen(false);
+  };
+
+  const toggleSidebar = () => {
+    setSidebarOpen(!sidebarOpen);
   };
 
   const handleProfileClick = () => {
@@ -240,6 +249,14 @@ const MainLayout = ({ user, onLogout, children, routes }) => {
             </div>
 
             <div className="flex items-center space-x-4">
+              {/* Mobile menu button */}
+              <button
+                onClick={toggleSidebar}
+                className="lg:hidden p-2 text-gray-400 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded-md"
+              >
+                {sidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+              </button>
+
               <button className={`p-2 text-gray-400 ${colors.hover}`}>
                 <Bell className="h-5 w-5" />
               </button>
@@ -268,10 +285,52 @@ const MainLayout = ({ user, onLogout, children, routes }) => {
         </div>
       </nav>
 
-      <div className="pt-16 pr-8 pl-2">
-        <div className="flex flex-col lg:flex-row gap-8 pt-6">
-          {/* Sidebar Navigation - Fixed */}
-          <div className="lg:w-64 flex-shrink-0 lg:fixed lg:top-16 lg:left-4 lg:h-screen lg:overflow-y-auto lg:z-40">
+      {/* Dropdown Navigation - Mobile */}
+      <div className="lg:hidden">
+        {/* Overlay */}
+        {sidebarOpen && (
+          <div 
+            className="fixed inset-0 bg-black bg-opacity-50 z-40 transition-opacity duration-300 ease-in-out"
+            onClick={() => setSidebarOpen(false)}
+          />
+        )}
+        
+        {/* Dropdown Menu */}
+        <div className={`
+          fixed top-16 left-0 right-0 z-50 bg-white shadow-lg border-b 
+          transform transition-all duration-300 ease-in-out
+          ${sidebarOpen 
+            ? 'translate-y-0 opacity-100' 
+            : '-translate-y-full opacity-0 pointer-events-none'
+          }
+        `}>
+          <div className="px-4 py-4">
+            <nav className="space-y-2">
+              {navigation.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => handleTabChange(item.id)}
+                    className={`w-full flex items-center space-x-3 px-3 py-3 rounded-md text-sm font-medium transition-colors ${activeTab === item.id
+                      ? `${colors.active} border`
+                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                      }`}
+                  >
+                    <Icon className="h-5 w-5" />
+                    <span>{item.name}</span>
+                  </button>
+                );
+              })}
+            </nav>
+          </div>
+        </div>
+      </div>
+
+      <div className="pt-16">
+        <div className="flex">
+          {/* Desktop Sidebar - Fixed */}
+          <div className="hidden lg:block lg:w-64 flex-shrink-0 lg:fixed lg:top-16 lg:left-4 lg:h-screen lg:overflow-y-auto lg:z-40">
             <div className="bg-white rounded-lg shadow-sm border p-4 mt-6">
               <nav className="space-y-2">
                 {navigation.map((item) => {
@@ -292,11 +351,10 @@ const MainLayout = ({ user, onLogout, children, routes }) => {
                 })}
               </nav>
             </div>
-
           </div>
 
-          {/* Main Content - With left margin for fixed sidebar and gap */}
-          <div className="flex-1 min-w-0 lg:ml-72">
+          {/* Main Content - Responsive */}
+          <div className="flex-1 min-w-0 lg:ml-72 px-4 lg:px-8 pt-6">
             {routes ? (
               <Routes>
                 {routes.map((route) => (

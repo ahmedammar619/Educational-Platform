@@ -183,7 +183,7 @@ const StudentClasses = ({ user, onOpenMaterials }) => {
                 {filteredClasses.map((classItem) => (
                   <div key={classItem.id} className="bg-white rounded-xl shadow-sm border hover:shadow-md transition-all">
                     {/* Class Header */}
-                    <div className="p-4 sm:p-6 border-b border-gray-100">
+                    <div className="p-3 md:p-4 lg:p-6 border-b border-gray-100">
                       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                         <div className="flex items-center gap-3">
                           <button
@@ -230,30 +230,32 @@ const StudentClasses = ({ user, onOpenMaterials }) => {
                     {expandedClasses.has(classItem.id) && (
                       <div className="p-4 sm:p-6 bg-gray-50">
                         <div className="flex items-center justify-between mb-4">
-                          <h4 className="text-lg font-semibold text-gray-800">My Courses ({classItem.courses.length})</h4>
+                          <h4 className="text-base md:text-lg font-semibold text-gray-800">My Courses ({classItem.courses.length})</h4>
                         </div>
 
                         {classItem.courses.length === 0 ? (
-                          <p className="text-gray-500 text-center py-4">No courses available in this class.</p>
+                          <p className="text-gray-500 text-center py-4 text-sm md:text-base">No courses available in this class.</p>
                         ) : (
-                          <div className="space-y-3">
+                          <div className="space-y-3 md:space-y-4">
                             {classItem.courses.map((course) => (
-                              <div key={course.id} className="bg-white rounded-lg border border-gray-200 p-4">
-                                <div className="mb-3">
-                                  <div className="flex items-center gap-2">
-                                    <h5 className="text-start font-semibold text-gray-900">{course.name}</h5>
-                                    <span className="text-gray-400">|</span>
-                                    <div className="flex items-center gap-1">
-                                      <User className="h-4 w-4 text-gray-500" />
-                                      <span className="text-sm text-gray-600">{course.teacherName}</span>
+                              <div key={course.id} className="bg-white rounded-lg border border-gray-200 p-3 md:p-4">
+                                <div className="mb-3 md:mb-4">
+                                  <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-3">
+                                    <h5 className="text-sm md:text-base font-semibold text-gray-900 leading-tight text-start">{course.name}</h5>
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-gray-400 hidden md:inline">|</span>
+                                      <div className="flex items-center gap-1">
+                                        <User className="h-3 w-3 md:h-4 md:w-4 text-gray-500" />
+                                        <span className="text-xs md:text-sm text-gray-600">{course.teacherName}</span>
+                                      </div>
                                     </div>
                                   </div>
                                 </div>
                                 
-                                <div className="flex flex-col sm:flex-row gap-4 text-sm items-center">
+                                <div className="flex flex-col md:flex-row gap-3 md:gap-4">
                                   <div className="flex-1">
-                                    <p className="text-gray-500">Sessions</p>
-                                    <p className="font-medium text-gray-900">
+                                    <p className="text-xs md:text-sm text-gray-500 mb-1">Sessions</p>
+                                    <p className="font-medium text-gray-900 text-xs md:text-sm leading-relaxed">
                                       {course.sessionTime.map(session =>
                                         `${session.day} ${session.startTime}-${session.endTime}`
                                       ).join(', ')}
@@ -262,9 +264,9 @@ const StudentClasses = ({ user, onOpenMaterials }) => {
                                   <div className="flex-shrink-0">
                                     <button
                                       onClick={() => onOpenMaterials && onOpenMaterials(course)}
-                                      className="px-3 py-2 border-2 border-red-600 text-red-600 font-semibold text-xs rounded-lg hover:bg-red-600 hover:text-white transition-all duration-200 uppercase"
+                                      className="w-full md:w-auto px-4 py-2 border-2 border-red-600 text-red-600 font-semibold text-xs md:text-sm rounded-lg hover:bg-red-600 hover:text-white transition-all duration-200 uppercase tracking-wide"
                                     >
-                                      course Material
+                                      Course Material
                                     </button>
                                   </div>
                                 </div>
@@ -282,7 +284,7 @@ const StudentClasses = ({ user, onOpenMaterials }) => {
 
           {/* Pagination */}
           {pagination && pagination.pages > 1 && (
-            <div className="bg-white px-3 sm:px-4 py-3 flex items-center justify-between border-t border-gray-200 mt-6 rounded-b-lg">
+            <div className="bg-white px-3 sm:px-4 py-3 flex items-center justify-between border-t border-gray-200 mt-6 rounded-b-lg overflow-x-auto hide-scrollbar" style={{scrollbarWidth: 'none', msOverflowStyle: 'none'}}>
               {/* Mobile */}
               <div className="flex items-center justify-between w-full sm:hidden">
                 <button
@@ -305,7 +307,7 @@ const StudentClasses = ({ user, onOpenMaterials }) => {
               </div>
 
               {/* Desktop */}
-              <div className="hidden sm:flex items-center space-x-2">
+              <div className="hidden sm:flex items-center space-x-2 overflow-x-auto hide-scrollbar" style={{scrollbarWidth: 'none', msOverflowStyle: 'none'}}>
                 <button
                   onClick={() => setFilters({ ...filters, page: 1 })}
                   disabled={filters.page === 1}
