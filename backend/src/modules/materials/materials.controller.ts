@@ -75,6 +75,7 @@ export class MaterialsController {
           firstName: post.author.firstName,
           lastName: post.author.lastName,
           email: post.author.email,
+          phone: post.author.phone,
           role: post.author.role
         } : undefined,
         attachments: post.attachments ? post.attachments.map(attachment => ({
@@ -116,6 +117,7 @@ export class MaterialsController {
           firstName: post.author.firstName,
           lastName: post.author.lastName,
           email: post.author.email,
+          phone: post.author.phone,
           role: post.author.role
         } : undefined,
         attachments: post.attachments ? post.attachments.map(attachment => ({
@@ -184,6 +186,7 @@ export class MaterialsController {
           firstName: post.author.firstName,
           lastName: post.author.lastName,
           email: post.author.email,
+          phone: post.author.phone,
           role: post.author.role
         } : undefined,
         attachments: post.attachments ? post.attachments.map(attachment => ({

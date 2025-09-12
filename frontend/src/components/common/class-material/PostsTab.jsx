@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
-import { Edit, Trash2, Download, FileText, X, Paperclip, FileImage, FileVideo, File, Archive, FileType } from 'lucide-react';
-import { materialsService } from '../../../services';
+import { Edit, Trash2, Download, FileText, X, Paperclip, FileImage, FileVideo, File, Archive, FileType, Mail, Phone, User, MessageCircle } from 'lucide-react';
+import { materialsService, usersService } from '../../../services';
 import { showErrorToast, showSuccessToast } from '../../../utils/errorHandler';
 
 const PostsTab = ({ currentUser, theme, courseId }) => {
@@ -18,6 +18,11 @@ const PostsTab = ({ currentUser, theme, courseId }) => {
   const [editPostMessage, setEditPostMessage] = useState('');
   const [editAttachedFiles, setEditAttachedFiles] = useState([]);
   const scrollContainerRef = useRef(null);
+  
+  // Contact modal state
+  const [showContactModal, setShowContactModal] = useState(false);
+  const [selectedUser, setSelectedUser] = useState(null);
+  const [loadingUserDetails, setLoadingUserDetails] = useState(false);
   
   // Loading states for preventing double clicks
   const [loadingStates, setLoadingStates] = useState({
@@ -39,6 +44,72 @@ const PostsTab = ({ currentUser, theme, courseId }) => {
   // Helper function to update loading states
   const updateLoadingState = (key, value) => {
     setLoadingStates(prev => ({ ...prev, [key]: value }));
+  };
+
+  // Function to handle opening contact modal
+  const handleOpenContactModal = async (post) => {
+    try {
+      setLoadingUserDetails(true);
+      
+      // Determine which user to use
+      const user = post.authorId === currentUser?.id ? currentUser : post.author;
+      
+      if (!user) {
+        showErrorToast(null, 'User information not available');
+        return;
+      }
+      
+      // Check if we already have complete user info (including phone) from post.author
+      if (user.phone !== undefined || (user.email && user.firstName && user.lastName)) {
+        // We have complete info, use it directly
+        console.log('Using existing user data:', user);
+        setSelectedUser(user);
+        setShowContactModal(true);
+        setLoadingUserDetails(false);
+        return;
+      }
+      
+      // If we don't have complete info, fetch from users table
+      const userId = user.id;
+      if (!userId) {
+        showErrorToast(null, 'User ID not available');
+        return;
+      }
+      
+      // Fetch complete user details from users table
+      const userDetails = await usersService.getUserById(userId);
+      console.log('Fetched user details:', userDetails); // Debug log
+      
+      setSelectedUser(userDetails);
+      setShowContactModal(true);
+    } catch (error) {
+      console.error('Error fetching user details:', error);
+      showErrorToast(error, 'Failed to load user information');
+      
+      // Fallback to existing data if API call fails
+      const user = post.authorId === currentUser?.id ? currentUser : post.author;
+      setSelectedUser(user);
+      setShowContactModal(true);
+    } finally {
+      setLoadingUserDetails(false);
+    }
+  };
+
+  // Function to handle WhatsApp contact
+  const handleWhatsAppContact = (user) => {
+    if (!user?.phone) {
+      showErrorToast(null, 'Phone number not available for WhatsApp contact');
+      return;
+    }
+
+    // Remove any non-digit characters from phone number
+    const cleanPhone = user.phone.replace(/\D/g, '');
+    
+    // Create WhatsApp URL with the phone number
+    const whatsappUrl = `https://wa.me/${cleanPhone}`;
+    
+    // Open WhatsApp in a new tab
+    window.open(whatsappUrl, '_blank');
   };
 
   // Load posts when component mounts or courseId changes
@@ -552,7 +623,7 @@ const PostsTab = ({ currentUser, theme, courseId }) => {
   };
 
   return (
-    <div className="h-[600px] flex flex-col">
+    <div className="h-[700px] lg:h-[450px] flex flex-col">
       {/* Fixed height container with scroll */}
       <div ref={scrollContainerRef} className="flex-1 overflow-y-auto space-y-6 pr-2">
       {/* Posts List */}
@@ -624,7 +695,11 @@ const PostsTab = ({ currentUser, theme, courseId }) => {
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-3">
                   <div className="relative">
-                    <div className={`w-10 h-10 ${(post.authorId === currentUser?.id ? currentUser?.role : post.author?.role) === 'admin' ? 'bg-green-600' : 'bg-blue-500'} rounded-full flex items-center justify-center flex-shrink-0`}>
+                    <div 
+                      className={`w-10 h-10 ${(post.authorId === currentUser?.id ? currentUser?.role : post.author?.role) === 'admin' ? 'bg-green-600' : 'bg-blue-500'} rounded-full flex items-center justify-center flex-shrink-0 cursor-pointer hover:opacity-80 transition-opacity`}
+                      onClick={() => handleOpenContactModal(post)}
+                      title="Click to view contact info"
+                    >
                       <span className="text-white font-medium">
                         {post.authorId === currentUser?.id ? (
                           currentUser?.firstName?.charAt(0)?.toUpperCase() || 
@@ -637,7 +712,11 @@ const PostsTab = ({ currentUser, theme, courseId }) => {
                       </div>
                   </div>
                   <div>
-                    <span className="text-gray-900 font-medium">
+                    <span 
+                      className="text-gray-900 font-medium cursor-pointer hover:text-blue-600 transition-colors"
+                      onClick={() => handleOpenContactModal(post)}
+                      title="Click to view contact info"
+                    >
                       {post.authorId === currentUser?.id ? (
                         currentUser?.firstName && currentUser?.lastName
                           ? `${currentUser.firstName} ${currentUser.lastName}`
@@ -1018,6 +1097,115 @@ const PostsTab = ({ currentUser, theme, courseId }) => {
                 ) : (
                   'Update Post'
                 )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Contact Info Modal */}
+      {showContactModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" style={{ margin: '0px' }}>
+          <div className="bg-white rounded-lg p-6 w-96 shadow-xl">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">Contact Information</h3>
+              <button
+                onClick={() => {
+                  setShowContactModal(false);
+                  setSelectedUser(null);
+                }}
+                className="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100 transition-colors"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {loadingUserDetails ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="flex items-center gap-3">
+                  <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                  <p className="text-gray-600">Loading contact information...</p>
+                </div>
+              </div>
+            ) : selectedUser ? (
+              <div className="space-y-4">
+                {/* User Avatar and Name */}
+                <div className="flex items-center gap-4">
+                  <div className={`w-16 h-16 ${selectedUser?.role === 'admin' ? 'bg-green-600' : selectedUser?.role === 'teacher' ? 'bg-blue-500' : selectedUser?.role === 'parent' ? 'bg-purple-500' : 'bg-red-500'} rounded-full flex items-center justify-center flex-shrink-0`}>
+                    <span className="text-white font-medium text-xl">
+                      {selectedUser?.firstName?.charAt(0)?.toUpperCase() || 
+                       selectedUser?.name?.charAt(0)?.toUpperCase() || 'U'}
+                    </span>
+                  </div>
+                  <div>
+                    <h4 className="text-lg font-medium text-gray-900">
+                      {selectedUser?.firstName && selectedUser?.lastName
+                        ? `${selectedUser.firstName} ${selectedUser.lastName}`
+                        : selectedUser?.name || 'Unknown User'}
+                    </h4>
+                    <p className="text-sm text-gray-500 capitalize">
+                      {selectedUser?.role || 'User'}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Contact Details */}
+                <div className="space-y-3">
+                  {selectedUser?.email && (
+                    <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                      <Mail className="h-5 w-5 text-gray-500" />
+                      <div>
+                        <p className="text-sm font-medium text-start text-gray-700">Email</p>
+                        <p className="text-sm text-gray-600">{selectedUser.email}</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {selectedUser?.phone && (
+                    <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                      <Phone className="h-5 w-5 text-gray-500" />
+                      <div>
+                        <p className="text-sm font-medium text-start text-gray-700">Phone</p>
+                        <p className="text-sm text-gray-600">{selectedUser.phone}</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {(!selectedUser?.email && !selectedUser?.phone) && (
+                    <div className="text-center py-4">
+                      <p className="text-gray-500 text-sm">No contact information available</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <p className="text-gray-500 text-sm">Failed to load user information</p>
+              </div>
+            )}
+
+            <div className="flex justify-between items-center mt-6">
+              {/* WhatsApp Button */}
+              {selectedUser?.phone && (
+                <button
+                  onClick={() => handleWhatsAppContact(selectedUser)}
+                  className="flex items-center gap-2 px-4 py-2 border-2 border-green-500 text-green-500 rounded-lg hover:bg-green-50 transition-colors"
+                  title="Contact via WhatsApp"
+                >
+                  <MessageCircle className="h-4 w-4" />
+                  WhatsApp
+                </button>
+              )}
+              
+              {/* Close Button */}
+              <button
+                onClick={() => {
+                  setShowContactModal(false);
+                  setSelectedUser(null);
+                }}
+                className="px-4 py-2 border-2 border-gray-400 text-gray-600 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                Close
               </button>
             </div>
           </div>

@@ -267,22 +267,9 @@ const AssignmentsTab = ({ currentUser, theme, courseId }) => {
   };
 
   return (
-    <div className="h-[600px] flex flex-col">
+    <div className="h-[700px] lg:h-[450px] flex flex-col">
       {/* Fixed height container with scroll */}
       <div className="flex-1 overflow-y-auto space-y-6 pr-2">
-        {/* Header with Create Assignment Button */}
-        {canCreateAssignment() && (
-          <div className="flex justify-between items-center">
-            <h2 className="text-xl font-bold text-gray-900">Assignments</h2>
-            <button
-              onClick={() => setShowCreateAssignment(true)}
-              className={`px-4 py-2 border-2 border-${theme.primary}-600 text-${theme.primary}-600 rounded-lg hover:bg-${theme.primaryLight} transition-colors flex items-center gap-2`}
-            >
-              <Plus className="h-5 w-5" />
-              Create Assignment
-            </button>
-          </div>
-        )}
 
         {/* Assignments List */}
         {loading ? (
@@ -353,7 +340,7 @@ const AssignmentsTab = ({ currentUser, theme, courseId }) => {
                         </span>
                       )}
                     </div>
-                    
+
                     {/* Course/Subject */}
                     <p className="text-sm text-gray-500 mb-3">{assignment.name}</p>
 
@@ -948,6 +935,19 @@ const AssignmentsTab = ({ currentUser, theme, courseId }) => {
           </div>
         )}
       </div>
+
+      {/* Bottom Create Assignment Button - Fixed at bottom */}
+      {canCreateAssignment() && (
+        <div className="text-center pt-3 border-t border-gray-200">
+          <button
+            onClick={() => setShowCreateAssignment(true)}
+            className={`px-3 py-2 border-2 border-${theme.primary}-600 text-${theme.primary}-600 rounded-lg hover:bg-${theme.primaryLight} transition-colors flex items-center gap-2`}
+          >
+            <Plus className="h-5 w-5" />
+            Create Assignment
+          </button>
+        </div>
+      )}
     </div>
   );
 };
