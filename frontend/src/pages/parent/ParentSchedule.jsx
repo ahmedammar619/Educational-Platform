@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Calendar, Clock, User, Filter, ChevronLeft, ChevronRight, Users, BookOpen, GraduationCap, MapPin } from 'lucide-react';
+import { Calendar, Clock, User, Filter, ChevronLeft, ChevronRight, Users, BookOpen, GraduationCap, MapPin, RefreshCw } from 'lucide-react';
 import { format, startOfWeek, endOfWeek, eachDayOfInterval, isSameDay, addWeeks, subWeeks, parseISO, addDays, isAfter, isBefore, startOfDay, endOfDay } from 'date-fns';
 import { mockUsers, mockCourses } from '../../data/mockData';
 import FullCalendar from '@fullcalendar/react';
@@ -19,6 +19,7 @@ const ParentSchedule = ({ user }) => {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [childrenSummary, setChildrenSummary] = useState([]);
   const [selectedChildFilter, setSelectedChildFilter] = useState(''); // specific child ID or empty
+  const [refreshing, setRefreshing] = useState(false);
   const calendarRef = useRef(null);
   const carouselRef = useRef(null);
 
@@ -26,6 +27,42 @@ const ParentSchedule = ({ user }) => {
     if (user) {
       loadParentSchedule();
     }
+  }, [user]);
+
+  // Auto-refresh when page becomes visible (user switches back to tab)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden && user?.id) {
+        console.log('Page became visible, refreshing schedule...');
+        // Force complete refresh when page becomes visible
+        setCourses([]);
+        setSchedule([]);
+        setChildrenSummary([]);
+        loadParentSchedule(true);
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [user]);
+
+  // Periodic refresh every 1 minute (more frequent for better updates)
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const interval = setInterval(() => {
+      console.log('Periodic refresh triggered...');
+      // Force complete refresh on periodic updates
+      setCourses([]);
+      setSchedule([]);
+      setChildrenSummary([]);
+      loadParentSchedule(true);
+    }, 1 * 60 * 1000); // 1 minute
+
+    return () => clearInterval(interval);
   }, [user]);
 
   // Ensure selectedDate is always today on initial load
@@ -101,17 +138,26 @@ const ParentSchedule = ({ user }) => {
       
       setSchedule(allEvents.sort((a, b) => new Date(a.start_time) - new Date(b.start_time)));
       console.log('=== END EVENT GENERATION DEBUG ===');
+    } else {
+      // If no courses, clear the schedule
+      console.log('No courses available, clearing schedule');
+      setSchedule([]);
     }
   }, [courses]);
 
-  const loadParentSchedule = async () => {
+  const loadParentSchedule = async (isRefresh = false) => {
     if (!user?.id) {
       console.error('No user ID available');
       setLoading(false);
+      setRefreshing(false);
       return;
     }
 
-    setLoading(true);
+    if (isRefresh) {
+      setRefreshing(true);
+    } else {
+      setLoading(true);
+    }
 
     try {
       console.log('Loading parent schedule for user:', user.id);
@@ -170,6 +216,7 @@ const ParentSchedule = ({ user }) => {
       setChildrenSummary([]);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
@@ -628,6 +675,16 @@ const ParentSchedule = ({ user }) => {
     setSelectedDate(new Date());
   };
 
+  const handleRefresh = async () => {
+    console.log('Refreshing parent schedule...');
+    // Clear existing data first to force a complete refresh
+    setCourses([]);
+    setSchedule([]);
+    setChildrenSummary([]);
+    // Then reload
+    await loadParentSchedule(true);
+  };
+
   // FullCalendar event handlers - Parents can only view, not modify
   const handleDateSelect = (selectInfo) => {
     // Parents cannot add events - just clear the selection
@@ -734,6 +791,19 @@ const ParentSchedule = ({ user }) => {
           </div>
 
           <button
+            onClick={handleRefresh}
+            disabled={refreshing}
+            className={`px-3 py-2 rounded-md text-sm font-medium flex items-center space-x-2 ${
+              refreshing
+                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            }`}
+          >
+            <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+            <span>{refreshing ? 'Refreshing...' : 'Refresh'}</span>
+          </button>
+
+          <button
             onClick={goToToday}
             className="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 text-sm font-medium"
           >
@@ -771,8 +841,11 @@ const ParentSchedule = ({ user }) => {
               }
             </p>
             {selectedChildFilter && (
-              <p className="text-xs text-purple-600 mt-1">
+              <p className="text-xs text-purple-600 mt-1 flex items-center">
                 Showing classes for: {childrenSummary.find(c => c.id === selectedChildFilter)?.name}
+                {refreshing && (
+                  <RefreshCw className="h-3 w-3 ml-2 animate-spin text-purple-400" />
+                )}
               </p>
             )}
           </div>

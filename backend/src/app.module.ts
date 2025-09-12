@@ -23,7 +23,6 @@ import { StudentsModule } from './modules/students/students.module';
 import { ClassesModule } from './modules/classes/classes.module';
 import { CoursesModule } from './modules/courses/courses.module';
 import { MaterialsModule } from './modules/materials/materials.module';
-import { EnrollmentsModule } from './modules/enrollments/enrollments.module';
 import { PaymentsModule } from './modules/payments/payments.module';
 import { ZoomModule } from './modules/zoom/zoom.module';
 import { PublicModule } from './modules/public/public.module';
@@ -50,7 +49,6 @@ import { File } from './modules/materials/entities/file.entity';
 import { Assignment } from './modules/materials/entities/assignment.entity';
 import { AssignmentSubmission } from './modules/materials/entities/assignment-submission.entity';
 import { Attendance } from './modules/materials/entities/attendance.entity';
-import { Enrollment } from './modules/enrollments/entities/enrollment.entity';
 import { WebhookEvent } from './modules/payments/entities/webhook-event.entity';
 import { Invoice } from './modules/payments/entities/invoice.entity';
 import { Subscription } from './modules/payments/entities/subscription.entity';
@@ -89,7 +87,6 @@ import { AppConfig } from './modules/admin/entities/app-config.entity';
           Assignment,
           AssignmentSubmission,
           Attendance,
-          Enrollment,
           WebhookEvent,
           Invoice,
           Subscription,
@@ -125,7 +122,6 @@ import { AppConfig } from './modules/admin/entities/app-config.entity';
     ClassesModule,
     CoursesModule,
     MaterialsModule,
-    EnrollmentsModule,
     PaymentsModule,
     ZoomModule,
     PublicModule,

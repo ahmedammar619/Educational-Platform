@@ -79,16 +79,16 @@ class CoursesService {
     }
   }
 
-  // Get enrolled courses for student (if implemented in backend)
-  async getEnrolledCourses() {
-    try {
-      const response = await api.get('/api/courses/enrolled');
-      return response.data;
-    } catch (error) {
-      // Error is already handled by the API interceptor
-      throw error;
-    }
-  }
+  // Get enrolled courses for student (deprecated - students now get courses through class enrollment)
+  // async getEnrolledCourses() {
+  //   try {
+  //     const response = await api.get('/api/courses/enrolled');
+  //     return response.data;
+  //   } catch (error) {
+  //     // Error is already handled by the API interceptor
+  //     throw error;
+  //   }
+  // }
 
   // Enroll in course (if implemented in backend)
   async enrollInCourse(courseId) {

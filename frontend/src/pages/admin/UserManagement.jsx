@@ -378,7 +378,7 @@ const UserManagement = ({ user }) => {
           // Handle specific error cases
           if (error.message && error.message.includes('related data')) {
             showErrorToast(
-              'Cannot delete this user because they have related data (courses, enrollments, etc.). ' +
+              'Cannot delete this user because they have related data (courses, classes, etc.). ' +
               'Please remove all related data first or consider deactivating the user instead.'
             );
           } else {
@@ -821,7 +821,7 @@ const UserManagement = ({ user }) => {
           <div className="ml-3">
             <h3 className="text-sm font-medium text-blue-800">User Deletion Rules</h3>
             <div className="mt-2 text-sm text-blue-700">
-              <p>• <strong>Teachers, Students, and Parents</strong> cannot be deleted if they have related data (courses, enrollments, materials, etc.)</p>
+              <p>• <strong>Teachers, Students, and Parents</strong> cannot be deleted if they have related data (courses, classes, materials, etc.)</p>
               <p>• <strong>Admin users</strong> can be deleted if they don't have related data</p>
               <p>• <strong>Disabled delete buttons</strong> indicate users that cannot be deleted</p>
               <p>• Consider deactivating users instead of deleting them</p>

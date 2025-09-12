@@ -614,6 +614,17 @@ export class ParentsService {
           const classId = studentEntity.classId;
           console.log(`Student ${student.firstName} is in class: ${classId}`);
 
+          // Check if student is enrolled in any class
+          if (!classId) {
+            console.log(`Student ${student.firstName} is not enrolled in any class`);
+            return {
+              id: student.id,
+              name: `${student.firstName} ${student.lastName}`,
+              classesCount: 0,
+              classes: []
+            };
+          }
+
           // Get the class first
           const classEntity = await this.classRepository.findOne({
             where: { id: classId }

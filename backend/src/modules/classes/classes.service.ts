@@ -9,7 +9,6 @@ import { CreateClassDto } from './dto/create-class.dto';
 import { UpdateClassDto } from './dto/update-class.dto';
 import { EnrollStudentsDto } from './dto/enroll-students.dto';
 import { Role } from '../../common/enums/role.enum';
-import { EnrollmentsService } from '../enrollments/enrollments.service';
 
 @Injectable()
 export class ClassesService {
@@ -22,7 +21,6 @@ export class ClassesService {
     private readonly courseRepository: Repository<Course>,
     @InjectRepository(Student)
     private readonly studentRepository: Repository<Student>,
-    private readonly enrollmentsService: EnrollmentsService,
   ) {}
 
   async createClass(createClassDto: CreateClassDto): Promise<Class> {
@@ -151,12 +149,8 @@ export class ClassesService {
       await this.studentRepository.update(student.id, { classId });
     }
 
-    // Automatically enroll students in all courses within the class
-    for (const student of students) {
-      for (const course of classCourses) {
-        await this.enrollmentsService.enrollStudentInCourse(student.id, course.id);
-      }
-    }
+    // Students are now automatically enrolled in all courses within the class
+    // No need for individual course enrollment - class enrollment gives access to all courses
   }
 
   async removeStudentFromClass(classId: string, studentId: string): Promise<void> {
@@ -167,10 +161,8 @@ export class ClassesService {
       where: { classId }
     });
 
-    // Remove student from all courses in the class
-    for (const course of classCourses) {
-      await this.enrollmentsService.unenrollStudentFromCourse(studentId, course.id);
-    }
+    // Student is automatically removed from all courses when removed from class
+    // No need for individual course unenrollment
 
     // Update student record to remove classId
     await this.studentRepository.update(studentId, { classId: null });

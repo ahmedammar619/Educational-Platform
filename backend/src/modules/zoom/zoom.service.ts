@@ -309,16 +309,16 @@ export class ZoomService {
   // Alternative method to get students if the first method fails
   private async getStudentsAlternative(courseId: string): Promise<User[]> {
     try {
-      // Try to get students through enrollments
-      const enrollments = await this.attendanceRepository.query(`
+      // Get students through class enrollment (since students are enrolled in classes, not individual courses)
+      const students = await this.attendanceRepository.query(`
         SELECT DISTINCT u.* FROM users u
-        JOIN enrollments e ON u.id = e.student_id
-        JOIN courses c ON e.course_id = c.id
+        JOIN students s ON u.id = s.id
+        JOIN courses c ON s.class_id = c.class_id
         WHERE c.id = $1 AND u.role = 'student'
       `, [courseId]);
       
-      console.log('Alternative method - enrollments found:', enrollments.length);
-      return enrollments;
+      console.log('Alternative method - students found through class:', students.length);
+      return students;
     } catch (error) {
       console.error('Alternative method failed:', error);
       return [];
