@@ -25,27 +25,27 @@ import UserProfilePopup from '../ui/UserProfilePopup';
 const getNavigationConfig = (role) => {
   const baseConfig = {
     admin: [
+      { id: 'announcements', name: 'Announcements', icon: Megaphone, path: '/admin/announcements' },
       { id: 'users', name: 'User Management', icon: Users, path: '/admin/users' },
       { id: 'classes', name: 'Class Management', icon: BookOpen, path: '/admin/classes' },
       { id: 'payments', name: 'Payments', icon: CreditCard, path: '/admin/payments' },
       { id: 'form', name: 'Form', icon: Newspaper, path: '/admin/form' },
-      { id: 'announcements', name: 'Announcements', icon: Megaphone, path: '/admin/announcements' },
     ],
     teacher: [
+      { id: 'announcements', name: 'Announcements', icon: Megaphone, path: '/teacher/announcements' },
       { id: 'classes', name: 'Classes', icon: BookOpen, path: '/teacher/classes' },
       { id: 'schedule', name: 'Schedule', icon: Calendar, path: '/teacher/schedule' },
-      { id: 'announcements', name: 'Announcements', icon: Megaphone, path: '/teacher/announcements' },
     ],
     parent: [
+      { id: 'announcements', name: 'Announcements', icon: Megaphone, path: '/parent/announcements' },
       { id: 'children', name: 'Children', icon: Users, path: '/parent/children' },
       { id: 'schedule', name: 'Schedule', icon: Calendar, path: '/parent/schedule' },
       { id: 'payments', name: 'Payments', icon: CreditCard, path: '/parent/payments' },
-      { id: 'announcements', name: 'Announcements', icon: Megaphone, path: '/parent/announcements' },
     ],
     student: [
+      { id: 'announcements', name: 'Announcements', icon: Megaphone, path: '/student/announcements' },
       { id: 'classes', name: 'Classes', icon: BookOpen, path: '/student/classes' },
       { id: 'schedule', name: 'Schedule', icon: Calendar, path: '/student/schedule' },
-      { id: 'announcements', name: 'Announcements', icon: Megaphone, path: '/student/announcements' },
     ],
   };
 

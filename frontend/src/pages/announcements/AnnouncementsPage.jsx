@@ -12,7 +12,7 @@ const AnnouncementsPage = ({ currentUser, theme }) => {
   ];
 
   return (
-    <div className="space-y-6 h-full mb-10">
+    <div className="space-y-6 h-full">
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>

@@ -447,7 +447,7 @@ const AnnouncementsPostsTab = ({ currentUser, theme }) => {
           <img
             src={imageUrl}
             alt={fileName}
-            className="max-w-full h-auto max-h-96 rounded-lg border border-gray-200 cursor-pointer hover:opacity-90 transition-opacity"
+            className="w-full h-auto max-h-96 rounded-lg border border-gray-200 cursor-pointer hover:opacity-90 transition-opacity"
             onClick={() => handleOpenFile(attachment)}
             title={`Click to open ${fileName}`}
           />
@@ -526,7 +526,7 @@ const AnnouncementsPostsTab = ({ currentUser, theme }) => {
           <video
             src={videoUrl}
             controls
-            className="max-w-full h-auto max-h-96 rounded-lg border border-gray-200"
+            className="w-full h-auto max-h-96 rounded-lg border border-gray-200"
             title={fileName}
           />
           {/* Download overlay */}
