@@ -36,7 +36,6 @@ const getNavigationConfig = (role) => {
     parent: [
       { id: 'children', name: 'Children', icon: Users, path: '/parent/children' },
       { id: 'schedule', name: 'Schedule', icon: Calendar, path: '/parent/schedule' },
-      { id: 'communication', name: 'Communication', icon: MessageSquare, path: '/parent/communication' },
       { id: 'payments', name: 'Payments', icon: CreditCard, path: '/parent/payments' },
     ],
     student: [

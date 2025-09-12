@@ -1,26 +1,25 @@
 import { useState, useEffect } from 'react';
-import { Users, Plus, ArrowLeft } from 'lucide-react';
+import { Users, Plus, ArrowLeft, MessageCircle } from 'lucide-react';
 import ChildAccountCreation from './ChildAccountCreation';
 import parentsService from '../../services/parentsService';
 
 const ChildrenManagement = ({ user }) => {
   const [children, setChildren] = useState([]);
   const [selectedChild, setSelectedChild] = useState(null);
+  const [teachers, setTeachers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [teachersLoading, setTeachersLoading] = useState(false);
   const [showAddChildForm, setShowAddChildForm] = useState(false);
   const [error, setError] = useState(null);
   const [forceRender, setForceRender] = useState(0); // Force re-render mechanism
 
   useEffect(() => {
     fetchChildren();
+    fetchTeachers();
   }, []);
 
-
-
-  // Debug useEffect to monitor showAddChildForm changes
-  useEffect(() => {
-    console.log('showAddChildForm changed to:', showAddChildForm);
-  }, [showAddChildForm]);
+  // Remove this useEffect as fetchTeachers() doesn't depend on selectedChild
+  // The filtering happens in getTeachersForSelectedChild() which runs on every render
 
   const fetchChildren = async () => {
     try {
@@ -67,6 +66,28 @@ const ChildrenManagement = ({ user }) => {
     }
   };
 
+  const fetchTeachers = async () => {
+    try {
+      setTeachersLoading(true);
+      const response = await parentsService.getChildrenTeachers(user.id);
+
+      console.log('Debug - Raw API Response:', response);
+
+      if (response && response.teachers) {
+        console.log('Debug - Teachers from API:', response.teachers);
+        setTeachers(response.teachers);
+      } else {
+        console.log('Debug - No teachers in response, setting empty array');
+        setTeachers([]);
+      }
+    } catch (error) {
+      console.error('Failed to fetch teachers:', error);
+      setTeachers([]);
+    } finally {
+      setTeachersLoading(false);
+    }
+  };
+
   // const fetchChildProgress = async (childId) => {
   //   try {
   //     setProgressLoading(true);
@@ -109,6 +130,66 @@ const ChildrenManagement = ({ user }) => {
     return 'text-red-600';
   };
 
+  // Helper function to get teachers for selected child
+  const getTeachersForSelectedChild = () => {
+    if (!selectedChild || !teachers.length) return [];
+
+    const filteredTeachers = teachers.filter(teacher => {
+      // Check if teacher has children array and if it contains the selected child
+      if (!teacher.children || !Array.isArray(teacher.children)) {
+        return false;
+      }
+
+      return teacher.children.some(child => child.id === selectedChild.id);
+    });
+
+    return filteredTeachers;
+  };
+
+  // Helper function to get courses for selected child and teacher
+  const getCoursesForTeacherAndChild = (teacher) => {
+    if (!selectedChild || !teacher.children) return [];
+
+    // Find the selected child in the teacher's children array
+    const childData = teacher.children.find(child => child.id === selectedChild.id);
+
+    // Return the courses specific to this child
+    return childData ? childData.courses || [] : [];
+  };
+
+  // Helper function to generate WhatsApp URL
+  const generateWhatsAppUrl = (phoneNumber) => {
+    console.log('Original phone number:', phoneNumber);
+    // Remove any non-digit characters and ensure it starts with country code
+    const cleanPhone = phoneNumber.replace(/\D/g, '');
+    const whatsappPhone = cleanPhone.startsWith('+') ? cleanPhone.substring(1) : cleanPhone;
+    const url = `https://wa.me/${whatsappPhone}`;
+    console.log('Generated WhatsApp URL:', url);
+    return url;
+  };
+
+  // Helper function to get avatar color and initial
+  const getAvatarInfo = (name, index) => {
+    const colors = [
+      { bg: 'bg-green-100', text: 'text-green-600' },
+      { bg: 'bg-blue-100', text: 'text-blue-600' },
+      { bg: 'bg-purple-100', text: 'text-purple-600' },
+      { bg: 'bg-orange-100', text: 'text-orange-600' },
+      { bg: 'bg-red-100', text: 'text-red-600' },
+      { bg: 'bg-indigo-100', text: 'text-indigo-600' },
+      { bg: 'bg-pink-100', text: 'text-pink-600' },
+      { bg: 'bg-teal-100', text: 'text-teal-600' }
+    ];
+
+    const colorIndex = index % colors.length;
+    const initial = name.charAt(0).toUpperCase();
+
+    return {
+      ...colors[colorIndex],
+      initial
+    };
+  };
+
   if (loading) {
     console.log('Rendering loading state');
     return (
@@ -136,18 +217,8 @@ const ChildrenManagement = ({ user }) => {
     );
   }
 
-  // Debug: Log current state
-  console.log('Current render state:', {
-    children: children.length,
-    showAddChildForm,
-    selectedChild: !!selectedChild,
-    forceRender
-  });
-
-  // Show Add Child Form as a separate page - CHECK THIS FIRST
-  console.log('Checking showAddChildForm condition:', showAddChildForm);
+  // Show Add Child Form as a separate page
   if (showAddChildForm) {
-    console.log('Rendering child account creation form');
     return (
       <div className="space-y-6 h-full">
         {/* Header for Add Child Page */}
@@ -337,39 +408,88 @@ const ChildrenManagement = ({ user }) => {
               </div>
             </div>
 
-            {/* Contact Information */}
-            <div className="bg-gray-50 rounded-lg md:rounded-xl p-4 md:p-6">
-              <h3 className="text-base md:text-lg font-semibold text-gray-900 mb-3 md:mb-4">Contact Information</h3>
-              <div className="flex items-center">
-                <div className="w-8 h-8 md:w-10 md:h-10 bg-purple-100 rounded-lg flex items-center justify-center mr-3 md:mr-4 flex-shrink-0">
-                  <svg className="w-4 h-4 md:w-5 md:h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207" />
-                  </svg>
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="font-medium text-gray-900 text-sm md:text-base break-all">{selectedChild.email}</div>
-                  <div className="text-xs md:text-sm text-gray-500">Email address</div>
-                </div>
-              </div>
-            </div>
+            {/* Teachers Section */}
+            <div className="mt-4 md:mt-6">
+              <h3 className="text-base md:text-lg font-semibold text-gray-900 mb-3 md:mb-4">Teachers</h3>
 
-            {/* Parent Information */}
-            {selectedChild.parentId && (
-              <div className="mt-4 md:mt-6 bg-blue-50 rounded-lg md:rounded-xl p-4 md:p-6">
-                <h3 className="text-base md:text-lg font-semibold text-gray-900 mb-3 md:mb-4">Parent Information</h3>
-                <div className="flex items-center">
-                  <div className="w-8 h-8 md:w-10 md:h-10 bg-blue-100 rounded-lg flex items-center justify-center mr-3 md:mr-4 flex-shrink-0">
-                    <svg className="w-4 h-4 md:w-5 md:h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                    </svg>
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="font-medium text-gray-900 text-sm md:text-base">{user.firstName} {user.lastName}</div>
-                    <div className="text-xs md:text-sm text-gray-500">Parent/Guardian</div>
-                  </div>
+              {teachersLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-purple-600"></div>
+                  <span className="ml-2 text-sm text-gray-600">Loading teachers...</span>
                 </div>
-              </div>
-            )}
+              ) : (
+                <>
+                  {getTeachersForSelectedChild().length > 0 ? (
+                    <div className="space-y-4">
+                      {getTeachersForSelectedChild().map((teacher, index) => {
+                        console.log('Teacher data:', teacher);
+                        const avatarInfo = getAvatarInfo(teacher.firstName || teacher.lastName || 'T', index);
+                        const courses = getCoursesForTeacherAndChild(teacher);
+
+                        return (
+                          <div key={teacher.id} className="bg-gray-50 rounded-lg md:rounded-xl p-4 md:p-6">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center flex-1">
+                                <div className={`w-8 h-8 md:w-10 md:h-10 ${avatarInfo.bg} rounded-lg flex items-center justify-center mr-3 md:mr-4 flex-shrink-0`}>
+                                  <span className={`${avatarInfo.text} font-semibold text-sm md:text-base`}>
+                                    {avatarInfo.initial}
+                                  </span>
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                  <div className="font-medium text-gray-900 text-sm md:text-base">
+                                    {teacher.firstName} {teacher.lastName}
+                                  </div>
+                                  <div className="text-xs md:text-sm text-gray-500">
+                                    {courses.length > 0 ? (
+                                      <>
+                                        <span className="font-medium">Courses:</span>{' '}
+                                        {courses.map((course, courseIndex) => (
+                                          <span key={course.id}>
+                                            {course.name}
+                                            {courseIndex < courses.length - 1 && ', '}
+                                          </span>
+                                        ))}
+                                      </>
+                                    ) : (
+                                      'Teacher'
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                              {teacher.phone ? (
+                                <button
+                                  onClick={() => window.open(generateWhatsAppUrl(teacher.phone), '_blank')}
+                                  className="flex items-center space-x-1 bg-green-500 text-white px-3 py-1.5 rounded-lg hover:bg-green-600 transition-colors text-xs ml-4 flex-shrink-0"
+                                >
+                                  <MessageCircle className="w-3 h-3" />
+                                  <span>WhatsApp</span>
+                                </button>
+                              ) : (
+                                <div className="text-xs text-gray-400 px-3 py-1.5 ml-4 flex-shrink-0">
+                                  No Phone
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8">
+                      <div className="text-gray-400 mb-2">
+                        <Users className="h-8 w-8 mx-auto" />
+                      </div>
+                      <p className="text-sm text-gray-600">
+                        No teachers found for {selectedChild.firstName || selectedChild.name}
+                      </p>
+                      <p className="text-xs text-gray-500 mt-1">
+                        Teachers will appear here once your child is enrolled in courses
+                      </p>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
           </div>
         </div>
       )}

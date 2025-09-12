@@ -5,13 +5,13 @@ import { Parent } from './entities/parent.entity';
 import { User } from '../users/entities/user.entity';
 import { Class } from '../classes/entities/class.entity';
 import { Course } from '../courses/entities/course.entity';
+import { Student } from '../students/entities/student.entity';
 import { CreateParentDto } from './dto/create-parent.dto';
 import { UpdateParentDto } from './dto/update-parent.dto';
 import { AddChildDto } from './dto/add-child.dto';
 import { CreateChildAccountDto } from './dto/create-child-account.dto';
 import { Role } from '../../common/enums/role.enum';
 import { StudentsService } from '../students/students.service';
-import { EnrollmentsService } from '../enrollments/enrollments.service';
 import * as bcrypt from 'bcryptjs';
 
 @Injectable()
@@ -25,8 +25,9 @@ export class ParentsService {
     private readonly classRepository: Repository<Class>,
     @InjectRepository(Course)
     private readonly courseRepository: Repository<Course>,
+    @InjectRepository(Student)
+    private readonly studentRepository: Repository<Student>,
     private readonly studentsService: StudentsService,
-    private readonly enrollmentsService: EnrollmentsService,
   ) {}
 
   async createParent(createParentDto: CreateParentDto): Promise<Parent> {
@@ -475,14 +476,11 @@ export class ParentsService {
       };
     }
 
-    // Get all enrollments for the parent's children
+    // Get all teachers for the parent's children based on their class assignments
     const teacherMap = new Map();
     const childrenData = [];
 
     for (const childId of parent.studentIds) {
-      // Get child's enrollments
-      const enrollments = await this.enrollmentsService.getStudentEnrollments(childId);
-      
       // Get child user data
       const childUser = await this.userRepository.findOne({
         where: { id: childId },
@@ -497,42 +495,69 @@ export class ParentsService {
           email: childUser.email
         });
 
-        // Process each enrollment to get teacher information
-        for (const enrollment of enrollments) {
-          if (enrollment.course && enrollment.course.teacher) {
-            const teacherId = enrollment.course.teacher.id;
-            
-            if (!teacherMap.has(teacherId)) {
-              teacherMap.set(teacherId, {
-                id: teacherId,
-                firstName: enrollment.course.teacher.firstName,
-                lastName: enrollment.course.teacher.lastName,
-                email: enrollment.course.teacher.email,
-                phone: enrollment.course.teacher.phone,
-                courses: [],
-                children: []
-              });
-            }
-            
-            const teacher = teacherMap.get(teacherId);
-            
-            // Add course if not already present
-            const courseExists = teacher.courses.find(c => c.id === enrollment.course.id);
-            if (!courseExists) {
-              teacher.courses.push({
-                id: enrollment.course.id,
-                name: enrollment.course.name
-              });
-            }
-            
-            // Add child if not already present
-            const childExists = teacher.children.find(c => c.id === childId);
-            if (!childExists) {
-              teacher.children.push({
-                id: childId,
-                firstName: childUser.firstName,
-                lastName: childUser.lastName
-              });
+        // Get child's class and all courses in that class
+        const student = await this.studentRepository.findOne({
+          where: { id: childId },
+          relations: ['class']
+        });
+
+        if (student && student.class) {
+          // Get all courses in the child's class
+          const classCourses = await this.courseRepository.find({
+            where: { classId: student.class.id },
+            relations: ['teacher']
+          });
+
+          // Process each course to get teacher information
+          for (const course of classCourses) {
+            if (course.teacher) {
+              const teacherId = course.teacher.id;
+              
+              if (!teacherMap.has(teacherId)) {
+                teacherMap.set(teacherId, {
+                  id: teacherId,
+                  firstName: course.teacher.firstName,
+                  lastName: course.teacher.lastName,
+                  email: course.teacher.email,
+                  phone: course.teacher.phone,
+                  courses: [],
+                  children: []
+                });
+              }
+              
+              const teacher = teacherMap.get(teacherId);
+              
+              // Add course if not already present
+              const courseExists = teacher.courses.find(c => c.id === course.id);
+              if (!courseExists) {
+                teacher.courses.push({
+                  id: course.id,
+                  name: course.name
+                });
+              }
+              
+              // Add child if not already present
+              const childExists = teacher.children.find(c => c.id === childId);
+              if (!childExists) {
+                teacher.children.push({
+                  id: childId,
+                  firstName: childUser.firstName,
+                  lastName: childUser.lastName,
+                  courses: [{
+                    id: course.id,
+                    name: course.name
+                  }]
+                });
+              } else {
+                // Add course to existing child if not already present
+                const childCourseExists = childExists.courses.find(c => c.id === course.id);
+                if (!childCourseExists) {
+                  childExists.courses.push({
+                    id: course.id,
+                    name: course.name
+                  });
+                }
+              }
             }
           }
         }
@@ -559,7 +584,7 @@ export class ParentsService {
       };
     }
 
-    // Get children with their enrollments and course schedules
+    // Get children with their class assignments and course schedules
     const childrenSchedule = await Promise.all(
       parent.studentIds.map(async (studentId) => {
         try {

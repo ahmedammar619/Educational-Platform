@@ -16,7 +16,6 @@ const StudentSchedule = lazy(() => import('../pages/student/StudentSchedule'));
 
 const ChildrenManagement = lazy(() => import('../pages/parent/ChildrenManagement'));
 const ParentSchedule = lazy(() => import('../pages/parent/ParentSchedule'));
-const ParentCommunication = lazy(() => import('../pages/parent/ParentCommunication'));
 const ParentPayments = lazy(() => import('../pages/parent/ParentPayments'));
 
 const TeacherClasses = lazy(() => import('../pages/teacher/TeacherClasses'));
@@ -156,7 +155,6 @@ const AppRouter = React.memo(({ user, onLogin, onLogout }) => {
                 { path: "/", element: <Navigate to="/parent/children" replace /> },
                 { path: "/children", element: <ChildrenManagement user={user} /> },
                 { path: "/schedule", element: <ParentSchedule user={user} /> },
-                { path: "/communication", element: <ParentCommunication user={user} /> },
                 { path: "/payments", element: <ParentPayments user={user} /> },
               ]} />
             ) : (
