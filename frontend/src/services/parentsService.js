@@ -113,9 +113,9 @@ class ParentsService {
 
 
   // Get parent schedule
-  async getParentSchedule() {
+  async getParentSchedule(parentId) {
     try {
-      const response = await api.get('/api/parents/schedule');
+      const response = await api.get(`/api/parents/${parentId}/schedule`);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;

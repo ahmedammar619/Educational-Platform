@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import { Parent } from './entities/parent.entity';
 import { User } from '../users/entities/user.entity';
 import { Class } from '../classes/entities/class.entity';
+import { Course } from '../courses/entities/course.entity';
 import { CreateParentDto } from './dto/create-parent.dto';
 import { UpdateParentDto } from './dto/update-parent.dto';
 import { AddChildDto } from './dto/add-child.dto';
@@ -22,6 +23,8 @@ export class ParentsService {
     private readonly userRepository: Repository<User>,
     @InjectRepository(Class)
     private readonly classRepository: Repository<Class>,
+    @InjectRepository(Course)
+    private readonly courseRepository: Repository<Course>,
     private readonly studentsService: StudentsService,
     private readonly enrollmentsService: EnrollmentsService,
   ) {}
@@ -541,4 +544,188 @@ export class ParentsService {
       children: childrenData
     };
   }
+
+  async getParentSchedule(parentId: string): Promise<any> {
+    const parent = await this.findOne(parentId);
+    
+    console.log('Parent schedule request for parentId:', parentId);
+    console.log('Parent studentIds:', parent.studentIds);
+    
+    if (!parent.studentIds || parent.studentIds.length === 0) {
+      console.log('No student IDs found for parent');
+      return {
+        children: [],
+        schedule: []
+      };
+    }
+
+    // Get children with their enrollments and course schedules
+    const childrenSchedule = await Promise.all(
+      parent.studentIds.map(async (studentId) => {
+        try {
+          console.log(`Processing student: ${studentId}`);
+          
+          // Get student details
+          const student = await this.userRepository.findOne({
+            where: { id: studentId, role: Role.Student },
+            select: ['id', 'firstName', 'lastName', 'email', 'createdAt']
+          });
+
+          if (!student) {
+            console.log(`Student not found: ${studentId}`);
+            return null;
+          }
+
+          console.log(`Found student: ${student.firstName} ${student.lastName}`);
+
+          // Get student's classId from the students table
+          const studentEntity = await this.studentsService.findOne(studentId);
+          
+          if (!studentEntity) {
+            console.log(`Student entity not found: ${studentId}`);
+            return null;
+          }
+
+          const classId = studentEntity.classId;
+          console.log(`Student ${student.firstName} is in class: ${classId}`);
+
+          // Get the class first
+          const classEntity = await this.classRepository.findOne({
+            where: { id: classId }
+          });
+
+          if (!classEntity) {
+            console.log(`Class not found: ${classId}`);
+            return null;
+          }
+
+          console.log(`Class ${classEntity.name} found`);
+
+          // First, let's check what courses exist in this class
+          const coursesWithoutTeacher = await this.courseRepository.find({
+            where: { classId: classId }
+          });
+          
+          console.log(`Raw courses in class ${classId}:`, coursesWithoutTeacher.map(c => ({
+            id: c.id,
+            name: c.name,
+            teacherId: c.teacherId
+          })));
+
+          // Get all courses in the class with their teachers
+          const courses = await this.courseRepository.find({
+            where: { classId: classId },
+            relations: ['teacher']
+          });
+
+          console.log(`Found ${courses.length} courses in class ${classEntity.name}`);
+          
+          // Debug: Log course and teacher details
+          courses.forEach(course => {
+            console.log(`Course: ${course.name}, TeacherId: ${course.teacherId}, Teacher:`, course.teacher);
+            if (course.teacher) {
+              console.log(`Teacher details: firstName=${course.teacher.firstName}, lastName=${course.teacher.lastName}`);
+            } else {
+              console.log(`Teacher is null/undefined for course: ${course.name}`);
+            }
+          });
+
+          const classes = await Promise.all(courses.map(async (course) => {
+            let teacherName = 'Teacher TBD';
+            
+            if (course.teacher) {
+              teacherName = `${course.teacher.firstName} ${course.teacher.lastName}`;
+            } else if (course.teacherId) {
+              // If relationship didn't load, try to fetch teacher manually
+              try {
+                const teacher = await this.userRepository.findOne({
+                  where: { id: course.teacherId }
+                });
+                if (teacher) {
+                  teacherName = `${teacher.firstName} ${teacher.lastName}`;
+                  console.log(`Manually fetched teacher for ${course.name}: ${teacherName}`);
+                }
+              } catch (error) {
+                console.log(`Error fetching teacher for course ${course.name}:`, error);
+              }
+            }
+            
+            console.log(`Mapping course ${course.name}: teacherName="${teacherName}"`);
+            
+            return {
+              id: course.id,
+              name: course.name || 'Unknown Course',
+              description: `Course for ${course.name || 'Unknown Course'}`,
+              teacherId: course.teacherId || null,
+              teacher: teacherName,
+              schedule: course.sessions || [],
+              startDate: classEntity.startDate || new Date(),
+              endDate: classEntity.endDate || new Date(),
+              enrolledAt: new Date() // Since student is in the class, they're enrolled
+            };
+          }));
+
+          console.log(`Student ${student.firstName} classes:`, classes.length, classes.map(c => ({ name: c.name, schedule: c.schedule })));
+
+          return {
+            id: student.id,
+            name: `${student.firstName} ${student.lastName}`,
+            age: this.calculateAge(student.createdAt),
+            classesCount: classes.length,
+            classes: classes
+          };
+        } catch (error) {
+          console.error(`Error getting schedule for student ${studentId}:`, error);
+          return null;
+        }
+      })
+    );
+
+    // Filter out null results
+    const validChildren = childrenSchedule.filter(child => child !== null);
+
+    // Convert classes to schedule events
+    const scheduleEvents = [];
+    validChildren.forEach(child => {
+      child.classes.forEach(classItem => {
+        if (classItem.schedule && Array.isArray(classItem.schedule)) {
+          classItem.schedule.forEach(session => {
+            scheduleEvents.push({
+              id: `class-${classItem.id}-${session.day}-${child.id}`,
+              title: classItem.name,
+              type: 'lecture',
+              day: session.day,
+              startTime: session.startTime,
+              endTime: session.endTime,
+              instructor: classItem.teacher,
+              courseTitle: classItem.name,
+              description: classItem.description,
+              classId: classItem.id,
+              childId: child.id,
+              childName: child.name,
+              enrolledAt: classItem.enrolledAt
+            });
+          });
+        }
+      });
+    });
+
+    return {
+      children: validChildren,
+      schedule: scheduleEvents
+    };
+  }
+
+  private calculateAge(birthDate: Date): number {
+    const today = new Date();
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const monthDiff = today.getMonth() - birthDate.getMonth();
+    
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+      age--;
+    }
+    
+    return age;
+  }
+
 }

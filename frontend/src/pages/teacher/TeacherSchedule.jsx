@@ -174,39 +174,42 @@ const TeacherSchedule = ({ user }) => {
     // Parse schedule using the course sessions data
     const scheduleInfo = parseScheduleFromCourse(course);
 
-    if (!scheduleInfo) return events;
+    if (!scheduleInfo || !scheduleInfo.sessions) {
+      console.log('No schedule info for course:', course.name, course.sessions);
+      return events;
+    }
 
     console.log(`Generating events for course: ${course.name}`);
     console.log(`Class duration: ${classStartDate.toDateString()} to ${classEndDate.toDateString()}`);
 
-    // Find the first occurrence of each scheduled day within the class period
-    const firstOccurrences = scheduleInfo.days.map(dayOfWeek => {
-      let date = new Date(classStartDate);
-      while (date.getDay() !== dayOfWeek && isBefore(date, classEndDate)) {
-        date = addDays(date, 1);
+    // Generate events for each session
+    scheduleInfo.sessions.forEach(session => {
+      // Find the first occurrence of this session's day within the class period
+      let firstOccurrence = new Date(classStartDate);
+      while (firstOccurrence.getDay() !== session.day && isBefore(firstOccurrence, classEndDate)) {
+        firstOccurrence = addDays(firstOccurrence, 1);
       }
-      return date;
-    });
 
-    // Generate events for each scheduled day, repeating weekly but only within class duration
-    firstOccurrences.forEach(firstDate => {
-      let currentOccurrence = new Date(firstDate);
+      console.log(`First occurrence for ${session.dayName}:`, format(firstOccurrence, 'EEEE yyyy-MM-dd'));
+
+      // Generate events for this session, repeating weekly but only within class duration
+      let currentOccurrence = new Date(firstOccurrence);
 
       // Only generate events if the first occurrence is within the class period
       if (isBefore(currentOccurrence, classEndDate) || isSameDay(currentOccurrence, classEndDate)) {
         while (isBefore(currentOccurrence, classEndDate) || isSameDay(currentOccurrence, classEndDate)) {
-          // Set the time for this occurrence
+          // Set the time for this occurrence using the session's specific time
           const eventDate = new Date(currentOccurrence);
-          eventDate.setHours(scheduleInfo.hour, scheduleInfo.minute, 0, 0);
+          eventDate.setHours(session.startHour, session.startMinute, 0, 0);
 
-          // Calculate end time based on session duration (60 minutes default)
+          // Calculate end time using the session's end time
           const eventEndDate = new Date(eventDate);
-          eventEndDate.setMinutes(eventEndDate.getMinutes() + 60);
+          eventEndDate.setHours(session.endHour, session.endMinute, 0, 0);
 
           // Only add the event if it's within the class period
           if (isBefore(eventDate, classEndDate) || isSameDay(eventDate, classEndDate)) {
             events.push({
-              id: `course-${course.id}-${eventDate.getTime()}`,
+              id: `course-${course.id}-${session.dayName}-${eventDate.getTime()}`,
               title: course.name,
               type: 'lecture',
               start_time: eventDate.toISOString(),
@@ -218,7 +221,9 @@ const TeacherSchedule = ({ user }) => {
               classId: course.classInfo.id,
               courseId: course.id,
               isRecurring: true,
-              weekNumber: Math.floor((eventDate.getTime() - classStartDate.getTime()) / (7 * 24 * 60 * 60 * 1000)) + 1
+              weekNumber: Math.floor((eventDate.getTime() - classStartDate.getTime()) / (7 * 24 * 60 * 60 * 1000)) + 1,
+              sessionDay: session.dayName,
+              sessionTime: `${session.startTime}-${session.endTime}`
             });
           }
 
@@ -234,24 +239,77 @@ const TeacherSchedule = ({ user }) => {
 
   // Parse schedule using the course sessions data structure
   const parseScheduleFromCourse = (course) => {
-    if (course.sessions && Array.isArray(course.sessions)) {
-      // Use the sessions data from the backend
-      const days = course.sessions.map(session => getDayNumber(session.day));
+    console.log('Parsing schedule for course:', course.name, 'Session data:', course.sessions);
 
-      // Parse startTime (e.g., "08:00" -> hour: 8, minute: 0)
-      if (course.sessions.length > 0) {
-        const [startHour, startMinute] = course.sessions[0].startTime.split(':').map(Number);
-
-        if (startHour !== undefined && startMinute !== undefined) {
-          return {
-            days,
-            hour: startHour,
-            minute: startMinute
-          };
+    if (course.sessions && Array.isArray(course.sessions) && course.sessions.length > 0) {
+      // Return all sessions as an array of session objects
+      const sessions = course.sessions.map(session => {
+        // Validate session data
+        if (!session.day || !session.startTime || !session.endTime) {
+          console.warn('Invalid session data:', session);
+          return null;
         }
+
+        // Parse time strings (format: "HH:MM")
+        const startTimeMatch = session.startTime.match(/^(\d{1,2}):(\d{2})$/);
+        const endTimeMatch = session.endTime.match(/^(\d{1,2}):(\d{2})$/);
+
+        if (!startTimeMatch || !endTimeMatch) {
+          console.warn('Invalid time format:', session.startTime, session.endTime);
+          return null;
+        }
+
+        const startHour = parseInt(startTimeMatch[1], 10);
+        const startMinute = parseInt(startTimeMatch[2], 10);
+        const endHour = parseInt(endTimeMatch[1], 10);
+        const endMinute = parseInt(endTimeMatch[2], 10);
+
+        // Validate time values
+        if (startHour < 0 || startHour > 23 || startMinute < 0 || startMinute > 59 ||
+            endHour < 0 || endHour > 23 || endMinute < 0 || endMinute > 59) {
+          console.warn('Invalid time values:', { startHour, startMinute, endHour, endMinute });
+          return null;
+        }
+
+        // Validate that end time is after start time
+        const startTimeMinutes = startHour * 60 + startMinute;
+        const endTimeMinutes = endHour * 60 + endMinute;
+        if (endTimeMinutes <= startTimeMinutes) {
+          console.warn('End time must be after start time:', session.startTime, session.endTime);
+          return null;
+        }
+        
+        return {
+          day: getDayNumber(session.day),
+          dayName: session.day,
+          startHour,
+          startMinute,
+          endHour,
+          endMinute,
+          startTime: session.startTime,
+          endTime: session.endTime
+        };
+      }).filter(session => session !== null); // Remove invalid sessions
+
+      if (sessions.length === 0) {
+        console.warn('No valid sessions found for course:', course.name);
+        return null;
       }
+
+      console.log('Parsed sessions:', sessions);
+
+      // For backward compatibility, also return the first session's data
+      const firstSession = sessions[0];
+      return {
+        sessions, // New: array of all sessions
+        days: sessions.map(s => s.day), // Legacy: array of day numbers
+        hour: firstSession.startHour, // Legacy: first session hour
+        minute: firstSession.startMinute, // Legacy: first session minute
+        endTime: firstSession.endTime // Legacy: first session end time
+      };
     }
 
+    console.log('Failed to parse schedule for course:', course.name);
     return null;
   };
 
@@ -275,6 +333,16 @@ const TeacherSchedule = ({ user }) => {
     return rooms[classId % rooms.length];
   };
 
+  // Function to get a user-friendly schedule display
+  const getScheduleDisplay = (course) => {
+    if (course.sessions && Array.isArray(course.sessions)) {
+      return course.sessions.map(session =>
+        `${session.day} ${session.startTime}-${session.endTime}`
+      ).join(', ');
+    }
+    return 'No schedule available';
+  };
+
   // Generate events for a specific date range (for navigation)
   const generateEventsForDateRange = (startDate, endDate) => {
     if (courses.length === 0) return [];
@@ -285,7 +353,7 @@ const TeacherSchedule = ({ user }) => {
     const events = [];
     courses.forEach((course) => {
       const scheduleInfo = parseScheduleFromCourse(course);
-      if (scheduleInfo) {
+      if (scheduleInfo && scheduleInfo.sessions) {
         console.log('Parsed schedule for', course.name, ':', scheduleInfo);
 
         // Get class start and end dates
@@ -297,29 +365,29 @@ const TeacherSchedule = ({ user }) => {
         const rangeEnd = isBefore(endDate, classEndDate) ? endDate : classEndDate;
 
         if (isBefore(rangeStart, rangeEnd) || isSameDay(rangeStart, rangeEnd)) {
-          // Find the first occurrence of each scheduled day in the range
-          scheduleInfo.days.forEach(dayOfWeek => {
+          // Generate events for each session
+          scheduleInfo.sessions.forEach(session => {
             let currentDate = new Date(rangeStart);
 
-            // Find the first occurrence of this day in the range
-            while (currentDate.getDay() !== dayOfWeek && isBefore(currentDate, rangeEnd)) {
+            // Find the first occurrence of this session's day in the range
+            while (currentDate.getDay() !== session.day && isBefore(currentDate, rangeEnd)) {
               currentDate = addDays(currentDate, 1);
             }
 
-            // Generate events for this day and subsequent weeks within the range
+            // Generate events for this session and subsequent weeks within the range
             while (isBefore(currentDate, rangeEnd) || isSameDay(currentDate, rangeEnd)) {
               const eventDate = new Date(currentDate);
-              eventDate.setHours(scheduleInfo.hour, scheduleInfo.minute, 0, 0);
+              eventDate.setHours(session.startHour, session.startMinute, 0, 0);
 
-              // Calculate end time based on session duration (60 minutes)
+              // Calculate end time using the session's end time
               const eventEndDate = new Date(eventDate);
-              eventEndDate.setMinutes(eventEndDate.getMinutes() + 60);
+              eventEndDate.setHours(session.endHour, session.endMinute, 0, 0);
 
               // Only add the event if it's within the class period
               if ((isAfter(eventDate, classStartDate) || isSameDay(eventDate, classStartDate)) && 
                   (isBefore(eventDate, classEndDate) || isSameDay(eventDate, classEndDate))) {
                 events.push({
-                  id: `course-${course.id}-${eventDate.getTime()}`,
+                  id: `course-${course.id}-${session.dayName}-${eventDate.getTime()}`,
                   title: course.name,
                   type: 'lecture',
                   start_time: eventDate.toISOString(),
@@ -331,7 +399,9 @@ const TeacherSchedule = ({ user }) => {
                   classId: course.classInfo.id,
                   courseId: course.id,
                   isRecurring: true,
-                  weekNumber: Math.floor((eventDate.getTime() - classStartDate.getTime()) / (7 * 24 * 60 * 60 * 1000)) + 1
+                  weekNumber: Math.floor((eventDate.getTime() - classStartDate.getTime()) / (7 * 24 * 60 * 60 * 1000)) + 1,
+                  sessionDay: session.dayName,
+                  sessionTime: `${session.startTime}-${session.endTime}`
                 });
               }
 

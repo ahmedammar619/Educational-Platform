@@ -1,11 +1,13 @@
 import { useState, useEffect, useRef } from 'react';
-import { Calendar, Clock, MapPin, User, Filter, ChevronLeft, ChevronRight, Users, BookOpen, GraduationCap } from 'lucide-react';
+import { Calendar, Clock, User, Filter, ChevronLeft, ChevronRight, Users, BookOpen, GraduationCap } from 'lucide-react';
 import { format, startOfWeek, endOfWeek, eachDayOfInterval, isSameDay, addWeeks, subWeeks, parseISO, addDays, isAfter, isBefore, startOfDay, endOfDay } from 'date-fns';
 import { mockUsers, mockCourses } from '../../data/mockData';
 import FullCalendar from '@fullcalendar/react';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import interactionPlugin from '@fullcalendar/interaction';
+import { parentsService } from '../../services';
+import { showErrorToast } from '../../utils/errorHandler';
 
 
 const ParentSchedule = ({ user }) => {
@@ -28,27 +30,16 @@ const ParentSchedule = ({ user }) => {
   // Auto-select child when childrenSummary changes
   useEffect(() => {
     if (childrenSummary.length > 0 && !selectedChildFilter) {
-      setSelectedChildFilter(childrenSummary[0].id.toString());
+      console.log('Auto-selecting first child:', childrenSummary[0]);
+      setSelectedChildFilter(childrenSummary[0].id);
     }
   }, [childrenSummary, selectedChildFilter]);
 
-  // Regenerate events when currentWeek changes (for navigation)
+  // Navigate calendar when currentWeek changes (without regenerating events)
   useEffect(() => {
-    if (courses.length > 0 && currentWeek) {
+    if (currentWeek) {
       const weekStart = startOfWeek(currentWeek, { weekStartsOn: 1 });
-      const weekEnd = endOfWeek(currentWeek, { weekStartsOn: 1 });
-
-      // Generate events for the current week
-      const weekEvents = generateEventsForDateRange(weekStart, weekEnd);
-
-      // Update schedule with new week events
-      setSchedule(prevSchedule => {
-        // Remove old recurring events and add new ones
-        const nonRecurringEvents = prevSchedule.filter(event => !event.isRecurring);
-        const allEvents = [...nonRecurringEvents, ...weekEvents];
-        return allEvents.sort((a, b) => new Date(a.start_time) - new Date(b.start_time));
-      });
-
+      
       // Update selectedDate to match the first day of the new week
       setSelectedDate(weekStart);
 
@@ -58,168 +49,109 @@ const ParentSchedule = ({ user }) => {
         calendarApi.gotoDate(weekStart);
       }
     }
-  }, [currentWeek, courses]);
+  }, [currentWeek]);
 
-  const loadParentSchedule = () => {
+  // Generate events for all children when courses change
+  useEffect(() => {
+    if (courses.length > 0) {
+      console.log('=== EVENT GENERATION DEBUG ===');
+      console.log('Generating events for all courses:', courses.length);
+      console.log('Courses data:', courses.map(c => ({ 
+        name: c.name, 
+        childId: c.childId, 
+        childName: c.childName, 
+        schedule: c.schedule 
+      })));
+      
+      // Generate events for a broader date range to ensure we have events for navigation
+      // Include past events (30 days back) and future events (90 days forward)
+      const startDate = addDays(new Date(), -30); // 30 days ago
+      const endDate = addDays(new Date(), 90);   // 90 days from now
+      
+      const allEvents = generateEventsForDateRange(startDate, endDate);
+      console.log('Generated events for all children:', allEvents.length);
+      console.log('Date range:', format(startDate, 'yyyy-MM-dd'), 'to', format(endDate, 'yyyy-MM-dd'));
+      
+      // Debug: Show events by child
+      const eventsByChild = allEvents.reduce((acc, event) => {
+        if (!acc[event.childId]) {
+          acc[event.childId] = [];
+        }
+        acc[event.childId].push({
+          title: event.title,
+          start_time: event.start_time,
+          childName: event.childName
+        });
+        return acc;
+      }, {});
+      console.log('Generated events by child:', eventsByChild);
+      
+      setSchedule(allEvents.sort((a, b) => new Date(a.start_time) - new Date(b.start_time)));
+      console.log('=== END EVENT GENERATION DEBUG ===');
+    }
+  }, [courses]);
+
+  const loadParentSchedule = async () => {
+    if (!user?.id) {
+      console.error('No user ID available');
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
 
     try {
-      // Mock children schedule data for demonstration
-      const mockChildrenSchedule = [
-        {
-          id: 1,
-          name: "Ahmad Al-Nour",
-          age: 12,
-          classesCount: 3,
-          classes: [
-            {
-              id: 1,
-              name: "Quran Memorization - Juz 1",
-              teacher: "Sheikh Abdullah Al-Mahmoud",
-              schedule: [
-                { day: "Monday", startTime: "16:00", endTime: "18:00" },
-                { day: "Wednesday", startTime: "16:00", endTime: "18:00" }
-              ]
-            },
-            {
-              id: 2,
-              name: "Islamic Studies - Level 1",
-              teacher: "Ustadha Fatima Al-Rashid",
-              schedule: [
-                { day: "Tuesday", startTime: "14:00", endTime: "16:00" },
-                { day: "Thursday", startTime: "14:00", endTime: "16:00" }
-              ]
-            },
-            {
-              id: 3,
-              name: "Arabic Language - Beginner",
-              teacher: "Ustadh Omar Al-Zahra",
-              schedule: [
-                { day: "Saturday", startTime: "10:00", endTime: "12:00" }
-              ]
-            }
-          ]
-        },
-        {
-          id: 2,
-          name: "Aisha Al-Nour",
-          age: 10,
-          classesCount: 2,
-          classes: [
-            {
-              id: 4,
-              name: "Quran Recitation - Tajweed",
-              teacher: "Ustadha Zainab Al-Khalil",
-              schedule: [
-                { day: "Monday", startTime: "14:00", endTime: "16:00" },
-                { day: "Wednesday", startTime: "14:00", endTime: "16:00" }
-              ]
-            },
-            {
-              id: 5,
-              name: "Islamic History - Stories of Prophets",
-              teacher: "Ustadh Khalid Al-Sabah",
-              schedule: [
-                { day: "Friday", startTime: "15:00", endTime: "17:00" }
-              ]
-            }
-          ]
-        }
-      ];
+      console.log('Loading parent schedule for user:', user.id);
+      
+      // Call the real API
+      const response = await parentsService.getParentSchedule(user.id);
+      console.log('API Response:', response);
 
-      // Mock enrolled classes with proper schedule structure
-      const mockEnrolledClasses = [
-        {
-          id: 1,
-          name: "Quran Memorization - Juz 1",
-          description: "Learn to memorize the first Juz of the Holy Quran with proper tajweed rules",
-          teacherId: "teacher-1",
-          startDate: "2025-01-01",
-          endDate: "2025-12-31",
-          schedule: [
-            { day: "Monday", startTime: "16:00", endTime: "18:00" },
-            { day: "Wednesday", startTime: "16:00", endTime: "18:00" }
-          ],
-          childId: 1,
-          childName: "Ahmad Al-Nour"
-        },
-        {
-          id: 2,
-          name: "Islamic Studies - Level 1",
-          description: "Comprehensive Islamic education covering basic principles and practices",
-          teacherId: "teacher-2",
-          startDate: "2025-01-01",
-          endDate: "2025-12-31",
-          schedule: [
-            { day: "Tuesday", startTime: "14:00", endTime: "16:00" },
-            { day: "Thursday", startTime: "14:00", endTime: "16:00" }
-          ],
-          childId: 1,
-          childName: "Ahmad Al-Nour"
-        },
-        {
-          id: 3,
-          name: "Arabic Language - Beginner",
-          description: "Learn basic Arabic reading, writing, and conversation skills",
-          teacherId: "teacher-3",
-          startDate: "2025-01-01",
-          endDate: "2025-12-31",
-          schedule: [
-            { day: "Saturday", startTime: "10:00", endTime: "12:00" }
-          ],
-          childId: 1,
-          childName: "Ahmad Al-Nour"
-        },
-        {
-          id: 4,
-          name: "Quran Recitation - Tajweed",
-          description: "Master the rules of tajweed for beautiful Quran recitation",
-          teacherId: "teacher-4",
-          startDate: "2025-01-01",
-          endDate: "2025-12-31",
-          schedule: [
-            { day: "Monday", startTime: "14:00", endTime: "16:00" },
-            { day: "Wednesday", startTime: "14:00", endTime: "16:00" }
-          ],
-          childId: 2,
-          childName: "Aisha Al-Nour"
-        },
-        {
-          id: 5,
-          name: "Islamic History - Stories of Prophets",
-          description: "Learn about the lives and teachings of the prophets in Islamic tradition",
-          teacherId: "teacher-5",
-          startDate: "2025-01-01",
-          endDate: "2025-12-31",
-          schedule: [
-            { day: "Friday", startTime: "15:00", endTime: "17:00" }
-          ],
-          childId: 2,
-          childName: "Aisha Al-Nour"
-        }
-      ];
+      const { children, schedule: scheduleEvents } = response;
+      console.log('Children from API:', children);
+      console.log('Children details:', children.map(child => ({ 
+        id: child.id, 
+        name: child.name, 
+        classesCount: child.classesCount,
+        classes: child.classes.map(c => ({ name: c.name, schedule: c.schedule }))
+      })));
 
-      console.log('Using mock children schedule data');
-      console.log('Mock children:', mockChildrenSchedule);
-      console.log('Mock enrolled classes:', mockEnrolledClasses);
+      // Transform the API response to match our component's expected format
+      const transformedCourses = [];
+      children.forEach(child => {
+        child.classes.forEach(classItem => {
+          transformedCourses.push({
+            id: classItem.id,
+            name: classItem.name,
+            description: classItem.description,
+            teacherId: classItem.teacherId,
+            teacherName: classItem.teacher, // Include teacher name from API (backend returns 'teacher' field)
+            startDate: classItem.startDate || new Date().toISOString().split('T')[0], // Use actual start date
+            endDate: classItem.endDate || new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // Use actual end date
+            schedule: classItem.schedule,
+            childId: child.id,
+            childName: child.name
+          });
+        });
+      });
 
-      // Convert class schedules to calendar events
-      const classEvents = convertClassesToEvents(mockEnrolledClasses);
-      console.log('Class events:', classEvents);
+      // Set courses and children data - events will be generated by useEffect
+      setCourses(transformedCourses);
+      setChildrenSummary(children);
+      
+      console.log('Courses and children set, events will be generated by useEffect');
 
-      // Sort events by start time
-      const sortedEvents = classEvents.sort((a, b) => new Date(a.start_time) - new Date(b.start_time));
-
-      setSchedule(sortedEvents);
-      setCourses(mockEnrolledClasses);
-      setChildrenSummary(mockChildrenSchedule);
+      console.log('Children from API:', children);
+      console.log('Current selectedChildFilter:', selectedChildFilter);
 
       // Auto-select the first child if only one child or no child is selected
-      if (mockChildrenSchedule.length === 1 && !selectedChildFilter) {
-        setSelectedChildFilter(mockChildrenSchedule[0].id.toString());
+      if (children.length === 1 && !selectedChildFilter) {
+        console.log('Auto-selecting first child:', children[0].id);
+        setSelectedChildFilter(children[0].id);
       }
     } catch (error) {
       console.error('Error loading parent schedule:', error);
+      showErrorToast('Failed to load schedule. Please try again.');
       setSchedule([]);
       setCourses([]);
       setChildrenSummary([]);
@@ -230,18 +162,15 @@ const ParentSchedule = ({ user }) => {
 
   const convertClassesToEvents = (enrolledClasses) => {
     const events = [];
-    const today = new Date();
 
     enrolledClasses.forEach((classItem) => {
       // Use the course's actual start and end dates
       const courseStartDate = new Date(classItem.startDate);
       const courseEndDate = new Date(classItem.endDate);
 
-      // Only generate events if the course is active (end date is in the future)
-      if (courseEndDate > today) {
+      // Generate events for the entire course duration (from start date to end date)
         const classEvents = generateClassEvents(classItem, courseStartDate, courseEndDate);
         events.push(...classEvents);
-      }
     });
 
     return events;
@@ -253,42 +182,46 @@ const ParentSchedule = ({ user }) => {
     // Parse schedule using the new data structure
     const scheduleInfo = parseScheduleFromCourse(classItem);
 
-    if (!scheduleInfo) return events;
+    if (!scheduleInfo || !scheduleInfo.sessions) {
+      console.log('No schedule info for class:', classItem.name, classItem.schedule);
+      return events;
+    }
 
-    // Get teacher name from mockUsers
-    const teacher = mockUsers.find(t => t.id === classItem.teacherId && t.role === 'teacher');
-    const teacherName = teacher ? `${teacher.firstName} ${teacher.lastName}` : 'Teacher TBD';
+    // Get teacher name from course data (preferred) or fallback to mockUsers
+    const teacherName = classItem.teacherName || (() => {
+      const teacher = mockUsers.find(t => t.id === classItem.teacherId && t.role === 'teacher');
+      return teacher ? `${teacher.firstName} ${teacher.lastName}` : 'Teacher TBD';
+    })();
 
-    // Find the first occurrence of each scheduled day
-    const firstOccurrences = scheduleInfo.days.map(dayOfWeek => {
-      let date = new Date(startDate);
-      while (date.getDay() !== dayOfWeek) {
-        date = addDays(date, 1);
+    // Generate events for each session
+    scheduleInfo.sessions.forEach(session => {
+      // Find the first occurrence of this session's day
+      let firstOccurrence = new Date(startDate);
+      while (firstOccurrence.getDay() !== session.day) {
+        firstOccurrence = addDays(firstOccurrence, 1);
       }
-      return date;
-    });
 
-    // Generate events for each scheduled day, repeating weekly
-    firstOccurrences.forEach(firstDate => {
-      let currentOccurrence = new Date(firstDate);
+      console.log(`First occurrence for ${session.dayName}:`, format(firstOccurrence, 'EEEE yyyy-MM-dd'));
+
+      // Generate events for this session, repeating weekly
+      let currentOccurrence = new Date(firstOccurrence);
 
       while (isBefore(currentOccurrence, endDate)) {
-        // Set the time for this occurrence
+        // Set the time for this occurrence using the session's specific time
         const eventDate = new Date(currentOccurrence);
-        eventDate.setHours(scheduleInfo.hour, scheduleInfo.minute, 0, 0);
+        eventDate.setHours(session.startHour, session.startMinute, 0, 0);
 
-        // Calculate end time based on session duration (120 minutes)
-        const eventEndDate = new Date(eventDate);
-        eventEndDate.setMinutes(eventEndDate.getMinutes() + 120);
+        // Calculate end time using the session's end time
+        const eventEndDate = new Date(currentOccurrence);
+        eventEndDate.setHours(session.endHour, session.endMinute, 0, 0);
 
         // Add all events within the course period (including past events for display purposes)
         events.push({
-          id: `class-${classItem.id}-${eventDate.getTime()}-${classItem.childId}`,
+          id: `class-${classItem.id}-${session.dayName}-${eventDate.getTime()}-${classItem.childId}`,
           title: classItem.name,
           type: 'lecture',
           start_time: eventDate.toISOString(),
           end_time: eventEndDate.toISOString(),
-          location: `Room ${getRoomForClass(classItem.id)}`,
           instructor_name: teacherName,
           course_title: classItem.name,
           description: classItem.description,
@@ -296,7 +229,9 @@ const ParentSchedule = ({ user }) => {
           childId: classItem.childId,
           childName: classItem.childName,
           isRecurring: true,
-          weekNumber: Math.floor((eventDate.getTime() - startDate.getTime()) / (7 * 24 * 60 * 60 * 1000)) + 1
+          weekNumber: Math.floor((eventDate.getTime() - startDate.getTime()) / (7 * 24 * 60 * 60 * 1000)) + 1,
+          sessionDay: session.dayName,
+          sessionTime: `${session.startTime}-${session.endTime}`
         });
 
         // Move to next week (7 days later)
@@ -309,24 +244,80 @@ const ParentSchedule = ({ user }) => {
 
   // Parse schedule using the new data structure
   const parseScheduleFromCourse = (course) => {
-    if (course.schedule && Array.isArray(course.schedule)) {
-      // Use the new structured schedule data
-      const days = course.schedule.map(item => getDayNumber(item.day));
+    console.log('Parsing schedule for course:', course.name, 'Schedule data:', course.schedule);
 
-      // Parse startTime (e.g., "16:00" -> hour: 16, minute: 0)
-      if (course.schedule.length > 0) {
-        const [startHour, startMinute] = course.schedule[0].startTime.split(':').map(Number);
-
-        if (startHour !== undefined && startMinute !== undefined) {
-          return {
-            days,
-            hour: startHour,
-            minute: startMinute
-          };
+    if (course.schedule && Array.isArray(course.schedule) && course.schedule.length > 0) {
+      // Return all sessions as an array of session objects
+      const sessions = course.schedule.map(session => {
+        // Validate session data
+        if (!session.day || !session.startTime || !session.endTime) {
+          console.warn('Invalid session data:', session);
+          return null;
         }
+
+        // Parse time strings (format: "HH:MM")
+        const startTimeMatch = session.startTime.match(/^(\d{1,2}):(\d{2})$/);
+        const endTimeMatch = session.endTime.match(/^(\d{1,2}):(\d{2})$/);
+
+        if (!startTimeMatch || !endTimeMatch) {
+          console.warn('Invalid time format:', session.startTime, session.endTime);
+          return null;
+        }
+
+        const startHour = parseInt(startTimeMatch[1], 10);
+        const startMinute = parseInt(startTimeMatch[2], 10);
+        const endHour = parseInt(endTimeMatch[1], 10);
+        const endMinute = parseInt(endTimeMatch[2], 10);
+
+        // Validate time values
+        if (startHour < 0 || startHour > 23 || startMinute < 0 || startMinute > 59 ||
+            endHour < 0 || endHour > 23 || endMinute < 0 || endMinute > 59) {
+          console.warn('Invalid time values:', { startHour, startMinute, endHour, endMinute });
+          return null;
+        }
+
+        // Validate that end time is after start time
+        const startTimeMinutes = startHour * 60 + startMinute;
+        const endTimeMinutes = endHour * 60 + endMinute;
+        if (endTimeMinutes <= startTimeMinutes) {
+          console.warn('End time must be after start time:', session.startTime, session.endTime);
+          return null;
+        }
+        
+        return {
+          day: getDayNumber(session.day),
+          dayName: session.day,
+          startHour,
+          startMinute,
+          endHour,
+          endMinute,
+          startTime: session.startTime,
+          endTime: session.endTime,
+          duration: endTimeMinutes - startTimeMinutes // duration in minutes
+        };
+      }).filter(session => session !== null); // Remove invalid sessions
+
+      if (sessions.length === 0) {
+        console.warn('No valid sessions found for course:', course.name);
+        return null;
       }
+
+      console.log('Parsed sessions:', sessions);
+
+      // For backward compatibility, also return the first session's data
+      const firstSession = sessions[0];
+      return {
+        sessions, // New: array of all sessions
+        days: sessions.map(s => s.day), // Legacy: array of day numbers
+        startHour: firstSession.startHour, // Legacy: first session hour
+        startMinute: firstSession.startMinute, // Legacy: first session minute
+        endHour: firstSession.endHour, // Legacy: first session end hour
+        endMinute: firstSession.endMinute, // Legacy: first session end minute
+        duration: firstSession.duration // Legacy: first session duration
+      };
     }
 
+    console.log('Failed to parse schedule for course:', course.name);
     return null;
   };
 
@@ -354,11 +345,6 @@ const ParentSchedule = ({ user }) => {
     return 'Schedule TBD';
   };
 
-  const getRoomForClass = (classId) => {
-    // Simple room assignment based on class ID
-    const rooms = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2', 'D1', 'D2'];
-    return rooms[classId % rooms.length];
-  };
 
   const getUpcomingClasses = () => {
     if (courses.length === 0) return [];
@@ -369,24 +355,29 @@ const ParentSchedule = ({ user }) => {
 
     courses.forEach(course => {
       const scheduleInfo = parseScheduleFromCourse(course);
-      if (scheduleInfo) {
-        // Find next occurrence of this class
-        scheduleInfo.days.forEach(dayOfWeek => {
+      if (scheduleInfo && scheduleInfo.sessions) {
+        // Find next occurrence of each session
+        scheduleInfo.sessions.forEach(session => {
           let nextDate = new Date(today);
-          while (nextDate.getDay() !== dayOfWeek) {
+          while (nextDate.getDay() !== session.day) {
             nextDate = addDays(nextDate, 1);
           }
 
           if (isAfter(nextDate, today)) {
-            const teacher = mockUsers.find(t => t.id === course.teacherId && t.role === 'teacher');
-            const teacherName = teacher ? `${teacher.firstName} ${teacher.lastName}` : 'Teacher TBD';
+            // Get teacher name from course data (preferred) or fallback to mockUsers
+            const teacherName = course.teacherName || (() => {
+              const teacher = mockUsers.find(t => t.id === course.teacherId && t.role === 'teacher');
+              return teacher ? `${teacher.firstName} ${teacher.lastName}` : 'Teacher TBD';
+            })();
 
             upcoming.push({
               course: course.name,
               child: course.childName,
-              day: format(nextDate, 'EEEE'),
-              time: `${scheduleInfo.hour}:${scheduleInfo.minute.toString().padStart(2, '0')}`,
-              teacher: teacherName
+              day: session.dayName,
+              time: `${session.startTime}-${session.endTime}`,
+              teacher: teacherName,
+              sessionDay: session.dayName,
+              sessionTime: `${session.startTime}-${session.endTime}`
             });
           }
         });
@@ -403,64 +394,99 @@ const ParentSchedule = ({ user }) => {
   const generateEventsForDateRange = (startDate, endDate) => {
     if (courses.length === 0) return [];
 
+    console.log('=== generateEventsForDateRange DEBUG ===');
     console.log('Generating events for date range:', format(startDate, 'yyyy-MM-dd'), 'to', format(endDate, 'yyyy-MM-dd'));
-    console.log('Available courses:', courses.map(c => ({ name: c.name, schedule: c.schedule, child: c.childName })));
+    console.log('Available courses:', courses.map(c => ({ 
+      name: c.name, 
+      childId: c.childId, 
+      childName: c.childName,
+      schedule: c.schedule, 
+      startDate: c.startDate, 
+      endDate: c.endDate 
+    })));
 
     const events = [];
     courses.forEach((classItem) => {
+      console.log(`Processing course: ${classItem.name} for child: ${classItem.childName} (${classItem.childId})`);
+      
       const scheduleInfo = parseScheduleFromCourse(classItem);
-      if (scheduleInfo) {
+      if (scheduleInfo && scheduleInfo.sessions) {
         console.log('Parsed schedule for', classItem.name, ':', scheduleInfo);
 
-        // Get teacher name
-        const teacher = mockUsers.find(t => t.id === classItem.teacherId && t.role === 'teacher');
-        const teacherName = teacher ? `${teacher.firstName} ${teacher.lastName}` : 'Teacher TBD';
+        // Get teacher name from course data (preferred) or fallback to mockUsers
+        const teacherName = classItem.teacherName || (() => {
+          const teacher = mockUsers.find(t => t.id === classItem.teacherId && t.role === 'teacher');
+          return teacher ? `${teacher.firstName} ${teacher.lastName}` : 'Teacher TBD';
+        })();
 
-        // Find the first occurrence of each scheduled day in the range
-        scheduleInfo.days.forEach(dayOfWeek => {
-          let currentDate = new Date(startDate);
+        // Get course start and end dates
+        const courseStartDate = new Date(classItem.startDate);
+        const courseEndDate = new Date(classItem.endDate);
+        
+        console.log(`Course ${classItem.name} date range: ${format(courseStartDate, 'yyyy-MM-dd')} to ${format(courseEndDate, 'yyyy-MM-dd')}`);
 
-          // Find the first occurrence of this day in the range
-          while (currentDate.getDay() !== dayOfWeek && isBefore(currentDate, endDate)) {
-            currentDate = addDays(currentDate, 1);
-          }
+        // Only generate events if the course period overlaps with the requested date range
+        const effectiveStartDate = isAfter(startDate, courseStartDate) ? startDate : courseStartDate;
+        const effectiveEndDate = isBefore(endDate, courseEndDate) ? endDate : courseEndDate;
 
-          // Generate events for this day and subsequent weeks within the range
-          while (isBefore(currentDate, endDate)) {
-            const eventDate = new Date(currentDate);
-            eventDate.setHours(scheduleInfo.hour, scheduleInfo.minute, 0, 0);
+        console.log(`Effective date range for ${classItem.name}: ${format(effectiveStartDate, 'yyyy-MM-dd')} to ${format(effectiveEndDate, 'yyyy-MM-dd')}`);
 
-            // Calculate end time based on session duration (120 minutes)
-            const eventEndDate = new Date(eventDate);
-            eventEndDate.setMinutes(eventEndDate.getMinutes() + 120);
+        if (isBefore(effectiveStartDate, effectiveEndDate)) {
+          console.log(`Generating events for ${classItem.name} (${classItem.childName})`);
+          
+          // Generate events for each session
+          scheduleInfo.sessions.forEach(session => {
+            let currentDate = new Date(effectiveStartDate);
 
-            events.push({
-              id: `class-${classItem.id}-${eventDate.getTime()}-${classItem.childId}`,
-              title: classItem.name,
-              type: 'lecture',
-              start_time: eventDate.toISOString(),
-              end_time: eventEndDate.toISOString(),
-              location: `Room ${getRoomForClass(classItem.id)}`,
-              instructor_name: teacherName,
-              course_title: classItem.name,
-              description: classItem.description,
-              classId: classItem.id,
-              childId: classItem.childId,
-              childName: classItem.childName,
-              isRecurring: true,
-              weekNumber: Math.floor((eventDate.getTime() - startDate.getTime()) / (7 * 24 * 60 * 60 * 1000)) + 1
-            });
+            // Find the first occurrence of this session's day in the range
+            while (currentDate.getDay() !== session.day && isBefore(currentDate, effectiveEndDate)) {
+              currentDate = addDays(currentDate, 1);
+            }
 
-            // Move to next week
-            currentDate = addDays(currentDate, 7);
-          }
-        });
+            // Generate events for this session and subsequent weeks within the range
+            while (isBefore(currentDate, effectiveEndDate)) {
+              const eventDate = new Date(currentDate);
+              eventDate.setHours(session.startHour, session.startMinute, 0, 0);
+
+              // Calculate end time using the session's end time
+              const eventEndDate = new Date(currentDate);
+              eventEndDate.setHours(session.endHour, session.endMinute, 0, 0);
+
+              events.push({
+                id: `class-${classItem.id}-${session.dayName}-${eventDate.getTime()}-${classItem.childId}`,
+                title: classItem.name,
+                type: 'lecture',
+                start_time: eventDate.toISOString(),
+                end_time: eventEndDate.toISOString(),
+                instructor_name: teacherName,
+                course_title: classItem.name,
+                description: classItem.description,
+                classId: classItem.id,
+                childId: classItem.childId,
+                childName: classItem.childName,
+                isRecurring: true,
+                weekNumber: Math.floor((eventDate.getTime() - courseStartDate.getTime()) / (7 * 24 * 60 * 60 * 1000)) + 1,
+                sessionDay: session.dayName,
+                sessionTime: `${session.startTime}-${session.endTime}`
+              });
+
+              // Move to next week
+              currentDate = addDays(currentDate, 7);
+            }
+          });
+        } else {
+          console.log(`Skipping ${classItem.name} - no overlap with date range`);
+        }
       } else {
         console.warn('Could not parse schedule for class:', classItem.name, classItem.schedule);
       }
     });
 
     console.log('Generated events:', events.length);
+    console.log('Events by child:', events.reduce((acc, event) => {
+      acc[event.childId] = (acc[event.childId] || 0) + 1;
+      return acc;
+    }, {}));
 
     // Remove duplicate events before returning
     const uniqueEvents = events.filter((event, index, self) =>
@@ -471,14 +497,34 @@ const ParentSchedule = ({ user }) => {
     );
 
     console.log('Unique events after deduplication:', uniqueEvents.length);
+    console.log('=== END generateEventsForDateRange DEBUG ===');
     return uniqueEvents;
   };
 
   // Convert our events to FullCalendar format
   const getFullCalendarEvents = () => {
-    console.log('getFullCalendarEvents called with selectedChildFilter:', selectedChildFilter);
+    console.log('=== getFullCalendarEvents DEBUG ===');
+    console.log('selectedChildFilter:', selectedChildFilter);
     console.log('Current schedule length:', schedule.length);
     console.log('Schedule sample:', schedule.slice(0, 3));
+    
+    // Debug: Show all unique childIds in schedule
+    const uniqueChildIds = [...new Set(schedule.map(event => event.childId))];
+    console.log('Unique childIds in schedule:', uniqueChildIds);
+    
+    // Debug: Show events by child
+    const eventsByChild = schedule.reduce((acc, event) => {
+      if (!acc[event.childId]) {
+        acc[event.childId] = [];
+      }
+      acc[event.childId].push({
+        title: event.title,
+        start_time: event.start_time,
+        childName: event.childName
+      });
+      return acc;
+    }, {});
+    console.log('Events by child:', eventsByChild);
 
     if (!selectedChildFilter) {
       console.log('No child selected, returning empty array');
@@ -486,12 +532,14 @@ const ParentSchedule = ({ user }) => {
     }
 
     const filteredEvents = schedule.filter(event => {
-      const matches = event.childId === parseInt(selectedChildFilter);
-      console.log(`Event ${event.title} (childId: ${event.childId}) matches ${selectedChildFilter}: ${matches}`);
+      // Fix: Compare strings directly instead of converting to int
+      const matches = event.childId === selectedChildFilter;
+      console.log(`Checking event: ${event.title} (childId: "${event.childId}", type: ${typeof event.childId}) vs selectedChildFilter: "${selectedChildFilter}" (type: ${typeof selectedChildFilter}) - Match: ${matches}`);
       return matches;
     });
 
-    console.log('Filtered events for child:', selectedChildFilter, filteredEvents);
+    console.log('Filtered events for child:', selectedChildFilter, filteredEvents.length, 'events');
+    console.log('Filtered events details:', filteredEvents.map(e => ({ title: e.title, childId: e.childId, childName: e.childName, start_time: e.start_time })));
 
     const fullCalendarEvents = filteredEvents.map(event => ({
       id: event.id,
@@ -499,7 +547,6 @@ const ParentSchedule = ({ user }) => {
       start: event.start_time,
       end: event.end_time,
       extendedProps: {
-        location: event.location,
         instructor: event.instructor_name,
         childName: event.childName,
         description: event.description,
@@ -508,7 +555,8 @@ const ParentSchedule = ({ user }) => {
       }
     }));
 
-    console.log('FullCalendar events:', fullCalendarEvents);
+    console.log('FullCalendar events:', fullCalendarEvents.length, 'events');
+    console.log('=== END DEBUG ===');
     return fullCalendarEvents;
   };
 
@@ -577,10 +625,9 @@ const ParentSchedule = ({ user }) => {
     // Parents cannot delete events - just show event info
     const event = clickInfo.event;
     const childName = event.extendedProps.childName || 'Child';
-    const location = event.extendedProps.location || 'TBD';
     const instructor = event.extendedProps.instructor || 'TBD';
 
-    alert(`Class: ${event.title}\nChild: ${childName}\nTime: ${event.start.toLocaleString()}\nLocation: ${location}\nInstructor: ${instructor}`);
+    alert(`Class: ${event.title}\nTime: ${event.start.toLocaleString()}\nInstructor: ${instructor}`);
   };
 
   const createEventId = () => {
@@ -676,7 +723,7 @@ const ParentSchedule = ({ user }) => {
             </p>
             {selectedChildFilter && (
               <p className="text-xs text-purple-600 mt-1">
-                Showing classes for: {childrenSummary.find(c => c.id === parseInt(selectedChildFilter))?.name}
+                Showing classes for: {childrenSummary.find(c => c.id === selectedChildFilter)?.name}
               </p>
             )}
           </div>
@@ -704,7 +751,7 @@ const ParentSchedule = ({ user }) => {
             <p className="text-gray-600">Please select a child from the dropdown above to view their schedule.</p>
             {childrenSummary.length > 0 && (
               <button
-                onClick={() => setSelectedChildFilter(childrenSummary[0].id.toString())}
+                onClick={() => setSelectedChildFilter(childrenSummary[0].id)}
                 className="mt-4 px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 text-sm font-medium"
               >
                 View {childrenSummary[0].name}'s Schedule
@@ -726,7 +773,7 @@ const ParentSchedule = ({ user }) => {
                   const day = addDays(weekStart, i);
                   const dayEvents = schedule.filter(event =>
                     isSameDay(parseISO(event.start_time), day) &&
-                    event.childId === parseInt(selectedChildFilter)
+                    event.childId === selectedChildFilter
                   );
                   const isSelected = isSameDay(day, selectedDate);
 
@@ -762,7 +809,7 @@ const ParentSchedule = ({ user }) => {
               <p className="text-gray-600">
                 {schedule.filter(event =>
                   isSameDay(parseISO(event.start_time), selectedDate) &&
-                  event.childId === parseInt(selectedChildFilter)
+                event.childId === selectedChildFilter
                 ).length} events scheduled
               </p>
             </div>
@@ -771,7 +818,7 @@ const ParentSchedule = ({ user }) => {
               {(() => {
                 const dayEvents = schedule.filter(event =>
                   isSameDay(parseISO(event.start_time), selectedDate) &&
-                  event.childId === parseInt(selectedChildFilter)
+                  event.childId === selectedChildFilter
                 ).sort((a, b) => new Date(a.start_time) - new Date(b.start_time));
 
                 if (dayEvents.length === 0) {
@@ -809,16 +856,8 @@ const ParentSchedule = ({ user }) => {
                             </span>
                           </div>
                           <div className="flex items-center space-x-2">
-                            <MapPin className="h-4 w-4 text-gray-500" />
-                            <span className="text-gray-700">{event.location}</span>
-                          </div>
-                          <div className="flex items-center space-x-2">
                             <User className="h-4 w-4 text-gray-500" />
                             <span className="text-gray-700">{event.instructor_name}</span>
-                          </div>
-                          <div className="flex items-center space-x-2">
-                            <Users className="h-4 w-4 text-gray-500" />
-                            <span className="text-purple-700 font-bold">{event.childName}</span>
                           </div>
                         </div>
                       </div>
@@ -833,7 +872,7 @@ const ParentSchedule = ({ user }) => {
         // Week View with FullCalendar
         <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
           {/* Custom Tailwind styles for FullCalendar */}
-          <style jsx>{`
+          <style>{`
              .fc {
                font-family: inherit;
                background: white;
@@ -963,7 +1002,6 @@ const ParentSchedule = ({ user }) => {
             }}
             eventContent={(arg) => {
               const event = arg.event;
-              const location = event.extendedProps.location || 'TBD';
               const instructor = event.extendedProps.instructor || 'TBD';
               const childName = event.extendedProps.childName || 'Child';
 
@@ -972,7 +1010,7 @@ const ParentSchedule = ({ user }) => {
                    <div class="p-1">
                      <div class="font-semibold text-xs mb-0.5 text-purple-700">${event.title}</div>
                      <div class="text-xs opacity-75 mb-0.5 text-purple-700">${arg.timeText}</div>
-                     <div class="text-xs opacity-60 text-purple-600">${childName} • ${location} • ${instructor}</div>
+                     <div class="text-xs opacity-60 text-purple-600">${instructor}</div>
                    </div>
                  `
               };

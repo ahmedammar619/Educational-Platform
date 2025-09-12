@@ -291,6 +291,30 @@ export class ParentsController {
     return this.parentsService.getChildrenTeachers(id);
   }
 
+  @Get(':id/schedule')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @ApiOperation({ summary: 'Get parent schedule with children classes (Protected)' })
+  @ApiResponse({
+    status: 200,
+    description: 'Schedule retrieved successfully',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Parent not found',
+  })
+  async getParentSchedule(@Param('id') id: string, @CurrentUser() currentUser: any) {
+    // Allow parents to get schedule for their own children only
+    if (currentUser.sub !== id) {
+      throw new ForbiddenException('You can only get schedule for your own children');
+    }
+    
+    return this.parentsService.getParentSchedule(id);
+  }
+
   @Delete(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.Admin)

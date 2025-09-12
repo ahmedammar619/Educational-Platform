@@ -5,4 +5,5 @@
 5) Fix student courses. (done)
 6) profile displaying data (done)
 7) announcement page
-8) 
+8) fix schedule
+9) 
