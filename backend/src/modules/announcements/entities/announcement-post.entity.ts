@@ -1,0 +1,41 @@
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  UpdateDateColumn,
+  ManyToOne,
+  OneToMany,
+  JoinColumn,
+} from 'typeorm';
+import { User } from '../../users/entities/user.entity';
+import { AnnouncementPostAttachment } from './announcement-post-attachment.entity';
+
+@Entity('announcement_posts')
+export class AnnouncementPost {
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
+
+  @Column('uuid')
+  authorId: string;
+
+  @Column({ length: 255 })
+  subject: string;
+
+  @Column('text')
+  description: string;
+
+  @CreateDateColumn()
+  createdAt: Date;
+
+  @UpdateDateColumn()
+  updatedAt: Date;
+
+  // Relationships
+  @ManyToOne(() => User)
+  @JoinColumn({ name: 'authorId' })
+  author: User;
+
+  @OneToMany(() => AnnouncementPostAttachment, 'post')
+  attachments: AnnouncementPostAttachment[];
+}

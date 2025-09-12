@@ -21,6 +21,8 @@ const ParentPayments = lazy(() => import('../pages/parent/ParentPayments'));
 const TeacherClasses = lazy(() => import('../pages/teacher/TeacherClasses'));
 const TeacherSchedule = lazy(() => import('../pages/teacher/TeacherSchedule'));
 
+const AnnouncementsPage = lazy(() => import('../pages/announcements/AnnouncementsPage'));
+
 const HomePage = lazy(() => import('../pages/home/HomePage'));
 
 // Loading component for Suspense fallback
@@ -109,6 +111,7 @@ const AppRouter = React.memo(({ user, onLogin, onLogout }) => {
                 { path: "/classes", element: <ClassManagement user={user} onOpenMaterials={handleOpenMaterials} /> },
                 { path: "/payments", element: <AdminPayments user={user} /> },
                 { path: "/form", element: <AdminForm user={user} /> },
+                { path: "/announcements", element: <AnnouncementsPage currentUser={user} theme={{ primary: 'green', primaryLight: 'green-50' }} /> },
                 { path: "/materials", element: showMaterialPage && materialPageData ? (
                   <MaterialPages 
                     courseData={materialPageData} 
@@ -132,6 +135,7 @@ const AppRouter = React.memo(({ user, onLogin, onLogout }) => {
                 { path: "/", element: <Navigate to="/student/classes" replace /> },
                 { path: "/classes", element: <StudentClasses user={user} onOpenMaterials={handleOpenMaterials} /> },
                 { path: "/schedule", element: <StudentSchedule user={user} /> },
+                { path: "/announcements", element: <AnnouncementsPage currentUser={user} theme={{ primary: 'red', primaryLight: 'red-50' }} /> },
                 { path: "/materials", element: showMaterialPage && materialPageData ? (
                   <MaterialPages 
                     courseData={materialPageData} 
@@ -156,6 +160,7 @@ const AppRouter = React.memo(({ user, onLogin, onLogout }) => {
                 { path: "/children", element: <ChildrenManagement user={user} /> },
                 { path: "/schedule", element: <ParentSchedule user={user} /> },
                 { path: "/payments", element: <ParentPayments user={user} /> },
+                { path: "/announcements", element: <AnnouncementsPage currentUser={user} theme={{ primary: 'purple', primaryLight: 'purple-50' }} /> },
               ]} />
             ) : (
               <Navigate to={roleRoute} replace />
@@ -172,6 +177,7 @@ const AppRouter = React.memo(({ user, onLogin, onLogout }) => {
                 { path: "/", element: <Navigate to="/teacher/classes" replace /> },
                 { path: "/classes", element: <TeacherClasses user={user} /> },
                 { path: "/schedule", element: <TeacherSchedule user={user} /> },
+                { path: "/announcements", element: <AnnouncementsPage currentUser={user} theme={{ primary: 'blue', primaryLight: 'blue-50' }} /> },
               ]} />
             ) : (
               <Navigate to={roleRoute} replace />

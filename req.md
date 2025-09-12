@@ -4,6 +4,6 @@
 4) quiz form (done)
 5) Fix student courses. (done)
 6) profile displaying data (done)
-7) announcement page
+7) announcement page (done)
 8) fix schedule (done)
 9) 
