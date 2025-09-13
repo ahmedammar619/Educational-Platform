@@ -992,6 +992,7 @@ const UserModal = ({ title, user, onClose, onSubmit }) => {
     courses: user?.courses || '',  // Courses for teachers
     studentIds: user?.studentIds || '',  // Student IDs for parents
     parentId: user?.parentId || '',  // Parent ID for students
+    hasParent: user?.parentId ? 'yes' : 'no',  // Radio button for parent selection
   });
 
   // Reset form when user prop changes
@@ -1007,6 +1008,7 @@ const UserModal = ({ title, user, onClose, onSubmit }) => {
       courses: user?.courses || '',  // Courses for teachers
       studentIds: user?.studentIds || '',  // Student IDs for parents
       parentId: user?.parentId || '',  // Parent ID for students
+      hasParent: user?.parentId ? 'yes' : 'no',  // Radio button for parent selection
     });
   }, [user]);
 
@@ -1035,21 +1037,33 @@ const UserModal = ({ title, user, onClose, onSubmit }) => {
 
     // Clean up the data based on role
     if (submitData.role === 'student') {
-      // For students: keep birthDate, phone is optional, handle parentId
-      if (!submitData.phone) {
-        delete submitData.phone; // Don't send empty phone for students
-      }
+      // For students: keep birthDate, handle parentId based on hasParent selection
       delete submitData.courses; // Remove courses for students
       delete submitData.studentIds; // Remove studentIds for students
-      // Handle parentId for students
-      if (!submitData.parentId) {
-        delete submitData.parentId; // Don't send empty parentId
+      
+      // Handle parent/phone based on hasParent selection
+      if (submitData.hasParent === 'yes') {
+        // Student has parent - keep parentId, remove phone
+        delete submitData.phone;
+        if (!submitData.parentId) {
+          delete submitData.parentId; // Don't send empty parentId
+        }
+      } else {
+        // Student has no parent - keep phone, remove parentId
+        delete submitData.parentId;
+        if (!submitData.phone) {
+          delete submitData.phone; // Don't send empty phone
+        }
       }
+      
+      // Remove hasParent from final data as it's only for UI logic
+      delete submitData.hasParent;
     } else if (submitData.role === 'teacher') {
       // For teachers: remove birthDate, phone is optional, handle courses
       delete submitData.birthDate;
       delete submitData.studentIds; // Remove studentIds for teachers
       delete submitData.parentId; // Remove parentId for teachers
+      delete submitData.hasParent; // Remove hasParent for teachers
       if (!submitData.phone) {
         delete submitData.phone; // Don't send empty phone
       }
@@ -1064,6 +1078,7 @@ const UserModal = ({ title, user, onClose, onSubmit }) => {
       delete submitData.birthDate;
       delete submitData.courses; // Remove courses for parents
       delete submitData.parentId; // Remove parentId for parents
+      delete submitData.hasParent; // Remove hasParent for parents
       if (!submitData.phone) {
         delete submitData.phone; // Don't send empty phone
       }
@@ -1079,6 +1094,7 @@ const UserModal = ({ title, user, onClose, onSubmit }) => {
       delete submitData.courses;
       delete submitData.studentIds;
       delete submitData.parentId;
+      delete submitData.hasParent; // Remove hasParent for other roles
       if (!submitData.phone) {
         delete submitData.phone; // Don't send empty phone
       }
@@ -1095,7 +1111,7 @@ const UserModal = ({ title, user, onClose, onSubmit }) => {
 
   return (
     <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 flex items-center" style={{ margin: 0 }}>
-      <div className="relative mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+      <div className="relative mx-auto p-5 border w-96 shadow-lg rounded-md bg-white max-h-[90vh] overflow-y-auto">
         <div className="mt-1">
           <h3 className="text-lg font-medium text-gray-900 mb-4">{title}</h3>
           <form onSubmit={handleSubmit} className="space-y-3">
@@ -1170,13 +1186,13 @@ const UserModal = ({ title, user, onClose, onSubmit }) => {
                   const newRole = e.target.value;
                   // Clear fields when switching roles
                   if (newRole === 'student') {
-                    setFormData({ ...formData, role: newRole, birthDate: '', courses: '', studentIds: '', parentId: '' });
+                    setFormData({ ...formData, role: newRole, birthDate: '', courses: '', studentIds: '', parentId: '', hasParent: 'no' });
                   } else if (newRole === 'teacher') {
-                    setFormData({ ...formData, role: newRole, birthDate: '', courses: '', studentIds: '', parentId: '' });
+                    setFormData({ ...formData, role: newRole, birthDate: '', courses: '', studentIds: '', parentId: '', hasParent: 'no' });
                   } else if (newRole === 'parent') {
-                    setFormData({ ...formData, role: newRole, birthDate: '', courses: '', studentIds: '', parentId: '' });
+                    setFormData({ ...formData, role: newRole, birthDate: '', courses: '', studentIds: '', parentId: '', hasParent: 'no' });
                   } else {
-                    setFormData({ ...formData, role: newRole, birthDate: '', courses: '', studentIds: '', parentId: '' });
+                    setFormData({ ...formData, role: newRole, birthDate: '', courses: '', studentIds: '', parentId: '', hasParent: 'no' });
                   }
                 }}
               >
@@ -1188,7 +1204,7 @@ const UserModal = ({ title, user, onClose, onSubmit }) => {
               </select>
               {formData.role === 'student' && (
                 <p className="mt-1 text-xs text-gray-500">
-                  Students: Birth date is required, phone number and parent ID are optional
+                  Students: Birth date is required. Choose if student has parent or not.
                 </p>
               )}
               {formData.role === 'teacher' && (
@@ -1208,8 +1224,8 @@ const UserModal = ({ title, user, onClose, onSubmit }) => {
               )}
             </div>
 
-            {/* Phone number - optional for all users */}
-            {formData.role && (
+            {/* Phone number - conditional based on role and parent selection */}
+            {formData.role && formData.role !== 'student' && (
               <div>
                 <label className="block text-sm font-medium text-gray-700">Phone (Optional)</label>
                 <PhoneInput
@@ -1233,6 +1249,67 @@ const UserModal = ({ title, user, onClose, onSubmit }) => {
                   onChange={(e) => setFormData({ ...formData, birthDate: e.target.value })}
                 />
                 <p className="mt-1 text-xs text-gray-500">Required for student accounts</p>
+              </div>
+            )}
+
+            {/* Parent Selection - for students only */}
+            {formData.role === 'student' && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Does this student have a parent?</label>
+                <div className="flex space-x-4">
+                  <label className="flex items-center">
+                    <input
+                      type="radio"
+                      name="hasParent"
+                      value="yes"
+                      checked={formData.hasParent === 'yes'}
+                      onChange={(e) => setFormData({ ...formData, hasParent: e.target.value, phone: '', parentId: '' })}
+                      className="mr-2"
+                    />
+                    <span className="text-sm text-gray-700">Yes, has parent</span>
+                  </label>
+                  <label className="flex items-center">
+                    <input
+                      type="radio"
+                      name="hasParent"
+                      value="no"
+                      checked={formData.hasParent === 'no'}
+                      onChange={(e) => setFormData({ ...formData, hasParent: e.target.value, phone: '', parentId: '' })}
+                      className="mr-2"
+                    />
+                    <span className="text-sm text-gray-700">No parent</span>
+                  </label>
+                </div>
+              </div>
+            )}
+
+            {/* Parent ID - for students with parent */}
+            {formData.role === 'student' && formData.hasParent === 'yes' && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Parent ID *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Enter parent user ID"
+                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  value={formData.parentId || ''}
+                  onChange={(e) => setFormData({ ...formData, parentId: e.target.value })}
+                />
+                <p className="mt-1 text-xs text-gray-500">Enter the UUID of the parent user</p>
+              </div>
+            )}
+
+            {/* Phone number - for students without parent */}
+            {formData.role === 'student' && formData.hasParent === 'no' && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Phone Number *</label>
+                <PhoneInput
+                  value={formData.phone}
+                  onChange={handlePhoneChange}
+                  placeholder="Enter phone number"
+                  required={true}
+                />
+                <p className="mt-1 text-xs text-gray-500">Required for students without parents</p>
               </div>
             )}
 
@@ -1266,20 +1343,6 @@ const UserModal = ({ title, user, onClose, onSubmit }) => {
               </div>
             )}
 
-            {/* Parent ID - for students */}
-            {formData.role === 'student' && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Parent ID (Optional)</label>
-                <input
-                  type="text"
-                  placeholder="Enter parent user ID"
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  value={formData.parentId || ''}
-                  onChange={(e) => setFormData({ ...formData, parentId: e.target.value })}
-                />
-                <p className="mt-1 text-xs text-gray-500">Enter the UUID of the parent user (leave empty for individual students)</p>
-              </div>
-            )}
 
             <div className="flex justify-end space-x-3 pt-4">
               <button
