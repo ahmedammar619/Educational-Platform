@@ -23,11 +23,26 @@ const UserManagement = ({ user }) => {
   });
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showLimitDropdown, setShowLimitDropdown] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
 
   useEffect(() => {
     fetchUsers();
   }, []);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (showLimitDropdown && !event.target.closest('.relative')) {
+        setShowLimitDropdown(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showLimitDropdown]);
 
   useEffect(() => {
     filterUsers();
@@ -37,16 +52,16 @@ const UserManagement = ({ user }) => {
   const fetchUsers = async () => {
     try {
       setLoading(true);
-      
+
       // Fetch both users and students to build the complete relationship structure
       const [usersResponse, studentsResponse] = await Promise.all([
         usersService.getAllUsers(),
         studentsService.getAllStudents()
       ]);
-      
+
       const users = usersResponse.users || [];
       const students = studentsResponse.students || [];
-      
+
       // Create a map of students by their user ID for quick lookup
       const studentsMap = new Map();
       students.forEach(student => {
@@ -57,7 +72,7 @@ const UserManagement = ({ user }) => {
           isStudent: true
         });
       });
-      
+
       // Transform users and build parent-child relationships
       const transformedUsers = users.map(u => {
         const baseUser = {
@@ -65,7 +80,7 @@ const UserManagement = ({ user }) => {
           created_at: u.createdAt ? new Date(u.createdAt).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
           name: u.firstName && u.lastName ? `${u.firstName} ${u.lastName}` : u.email,
         };
-        
+
         if (u.role === 'parent') {
           // For parents, find their children from the students data
           const children = students.filter(s => s.parentId === u.id).map(s => ({
@@ -74,9 +89,9 @@ const UserManagement = ({ user }) => {
             parentId: s.parentId,
             isStudent: true
           }));
-          
+
           console.log(`Parent ${u.firstName} ${u.lastName} has children:`, children);
-          
+
           return {
             ...baseUser,
             children: children,
@@ -91,9 +106,9 @@ const UserManagement = ({ user }) => {
               // Find parent user details
               ...users.find(p => p.id === studentData.parentId)
             } : null;
-            
+
             console.log(`Student ${u.firstName} ${u.lastName} has parent:`, parentInfo);
-            
+
             return {
               ...baseUser,
               ...studentData,
@@ -101,17 +116,17 @@ const UserManagement = ({ user }) => {
             };
           }
         }
-        
+
         return baseUser;
       });
-      
+
       console.log('Transformed users:', transformedUsers);
       setAllUsers(transformedUsers);
     } catch (err) {
       console.error('Error fetching users:', err);
       // Fallback to empty array if API fails
       setAllUsers([]);
-      
+
       // Show error toast
       showErrorToast('Failed to load users. Please try again.');
     } finally {
@@ -164,14 +179,14 @@ const UserManagement = ({ user }) => {
         // For student filter, include both students and their parents
         const students = filtered.filter(user => user.role === 'student');
         const parentIds = new Set();
-        
+
         // Collect parent IDs of students
         students.forEach(student => {
           if (student.parent && student.parent.id) {
             parentIds.add(student.parent.id);
           }
         });
-        
+
         // Add parents to the filtered results
         const parents = allUsers.filter(user => user.role === 'parent' && parentIds.has(user.id));
         filtered = [...students, ...parents];
@@ -188,7 +203,7 @@ const UserManagement = ({ user }) => {
     if (filters.role === 'student') {
       // For student filter, count parents and individual students (not children under parents)
       const parents = filtered.filter(user => user.role === 'parent');
-      const individualStudents = filtered.filter(user => 
+      const individualStudents = filtered.filter(user =>
         user.role === 'student' && (!user.parent || !user.parent.id)
       );
       paginationUsers = [...parents, ...individualStudents];
@@ -196,7 +211,7 @@ const UserManagement = ({ user }) => {
       // For other filters, exclude students from pagination count
       paginationUsers = filtered.filter(user => user.role !== 'student');
     }
-    
+
     const total = paginationUsers.length;
     const pages = Math.ceil(total / filters.limit);
 
@@ -210,15 +225,15 @@ const UserManagement = ({ user }) => {
 
   const handleCreateUser = async (userData) => {
     const loadingToast = showLoadingToast('Creating user...');
-    
+
     try {
       console.log('Creating user with data:', userData); // Debug log
-      
+
       // Call the backend API to create user
       const response = await usersService.createUser(userData);
       console.log('Backend response:', response); // Debug log
-      
-      // Add the new user to the local state
+
+      // Create the new user object
       const newUser = {
         ...response,
         created_at: response.createdAt ? new Date(response.createdAt).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
@@ -226,16 +241,49 @@ const UserManagement = ({ user }) => {
         children: []
       };
 
-      setAllUsers(prev => [...prev, newUser]);
+      // If this is a student with a parent, ONLY update the parent's children array (don't add to main list)
+      if (userData.role === 'student' && userData.parentId) {
+        console.log('Student created with parentId:', userData.parentId);
+        
+        // Create the student object with parent info
+        const studentWithParent = {
+          ...newUser,
+          birthDate: userData.birthDate,
+          parentId: userData.parentId,
+          isStudent: true
+        };
+        
+        setAllUsers(prev => {
+          // Only update the parent's children array (don't add student to main users array)
+          return prev.map(user => {
+            if (user.id === userData.parentId) {
+              const updatedChildren = [...(user.children || []), studentWithParent];
+              
+              console.log(`Updated parent ${user.name} with new child:`, newUser.name);
+              
+              return {
+                ...user,
+                children: updatedChildren,
+                studentIds: updatedChildren.map(c => c.id)
+              };
+            }
+            return user;
+          });
+        });
+      } else {
+        // For non-student users or students without parents, add to the main list
+        setAllUsers(prev => [...prev, newUser]);
+      }
+
       setShowCreateModal(false);
-      
+
       // Dismiss loading toast and show success toast
       dismissToast(loadingToast);
       showSuccessToast(`User ${response.firstName} ${response.lastName} created successfully!`);
     } catch (error) {
       console.error('Error creating user:', error);
       const errorMessage = error.message || error.response?.data?.message || 'Unknown error occurred';
-      
+
       // Dismiss loading toast and show error toast
       dismissToast(loadingToast);
       showErrorToast(`Error creating user: ${errorMessage}`);
@@ -244,33 +292,87 @@ const UserManagement = ({ user }) => {
 
   const handleUpdateUser = async (userId, userData) => {
     const loadingToast = showLoadingToast('Updating user...');
-    
+
     try {
       console.log('Updating user with data:', userData); // Debug log
-      
+
+      // Get the current user to check for changes
+      const currentUser = allUsers.find(u => u.id === userId);
+      const wasStudent = currentUser?.role === 'student';
+      const oldParentId = currentUser?.parentId;
+      const newParentId = userData.parentId;
+
       // Call the backend API to update user
       const response = await usersService.updateUser(userId, userData);
       console.log('Backend response:', response); // Debug log
-      
+
       // Update the user in local state
       const updatedUser = {
         ...response,
         name: `${response.firstName} ${response.lastName}`
       };
 
-      setAllUsers(prev => prev.map(user =>
-        user.id === userId ? { ...user, ...updatedUser } : user
-      ));
+      setAllUsers(prev => {
+        let newUsers = prev.map(user => {
+          if (user.id === userId) {
+            return { ...user, ...updatedUser };
+          }
+          return user;
+        });
+
+        // Handle parent-child relationship changes for students
+        if (userData.role === 'student' && (oldParentId !== newParentId)) {
+          console.log(`Student ${updatedUser.name} parent changed from ${oldParentId} to ${newParentId}`);
+          
+          // Remove from old parent's children if exists
+          if (oldParentId) {
+            newUsers = newUsers.map(user => {
+              if (user.id === oldParentId) {
+                const updatedChildren = (user.children || []).filter(child => child.id !== userId);
+                return {
+                  ...user,
+                  children: updatedChildren,
+                  studentIds: updatedChildren.map(c => c.id)
+                };
+              }
+              return user;
+            });
+          }
+
+          // Add to new parent's children if exists
+          if (newParentId) {
+            newUsers = newUsers.map(user => {
+              if (user.id === newParentId) {
+                const updatedChildren = [...(user.children || []), {
+                  ...updatedUser,
+                  birthDate: userData.birthDate,
+                  parentId: newParentId,
+                  isStudent: true
+                }];
+                return {
+                  ...user,
+                  children: updatedChildren,
+                  studentIds: updatedChildren.map(c => c.id)
+                };
+              }
+              return user;
+            });
+          }
+        }
+
+        return newUsers;
+      });
+
       setShowEditModal(false);
       setSelectedUser(null);
-      
+
       // Dismiss loading toast and show success toast
       dismissToast(loadingToast);
       showSuccessToast(`User ${response.firstName} ${response.lastName} updated successfully!`);
     } catch (error) {
       console.error('Error updating user:', error);
       const errorMessage = error.message || error.response?.data?.message || 'Unknown error occurred';
-      
+
       // Dismiss loading toast and show error toast
       dismissToast(loadingToast);
       showErrorToast(`Error updating user: ${errorMessage}`);
@@ -280,7 +382,7 @@ const UserManagement = ({ user }) => {
   // Test token function
   const testToken = async () => {
     const loadingToast = showLoadingToast('Testing token...');
-    
+
     try {
       const token = localStorage.getItem('token');
       console.log('🔐 Testing token:', {
@@ -307,21 +409,21 @@ const UserManagement = ({ user }) => {
       if (response.ok) {
         const data = await response.json();
         console.log('✅ Token test successful:', data);
-        
+
         // Dismiss loading toast and show success toast
         dismissToast(loadingToast);
         showSuccessToast('Token is working! You can now try to delete a user.');
       } else {
         const errorData = await response.text();
         console.log('❌ Token test failed:', errorData);
-        
+
         // Dismiss loading toast and show error toast
         dismissToast(loadingToast);
         showErrorToast(`Token test failed: ${response.status} ${response.statusText}`);
       }
     } catch (error) {
       console.error('❌ Token test error:', error);
-      
+
       // Dismiss loading toast and show error toast
       dismissToast(loadingToast);
       showErrorToast(`Token test error: ${error.message}`);
@@ -332,17 +434,17 @@ const UserManagement = ({ user }) => {
     // Find the user to get their name for the confirmation message
     const userToDelete = allUsers.find(u => u.id === userId);
     const userName = userToDelete?.name || 'this user';
-    
+
     // Show beautiful confirmation toast
     showConfirmToast(
       `Are you sure you want to delete ${userName}? This action cannot be undone.`,
       async () => {
         // User confirmed deletion
         const loadingToast = showLoadingToast('Deleting user...');
-        
+
         try {
           console.log('🗑️ Attempting to delete user:', userId);
-          
+
           // Check if we have a token
           const token = localStorage.getItem('token');
           console.log('🔐 Token check:', {
@@ -350,16 +452,47 @@ const UserManagement = ({ user }) => {
             tokenLength: token ? token.length : 0,
             tokenPreview: token ? `${token.substring(0, 20)}...` : 'none'
           });
-          
+
           // Call the backend API to delete user
           console.log('📡 Calling usersService.deleteUser...');
           await usersService.deleteUser(userId);
-          
+
           console.log('✅ User deleted successfully from backend');
-          
+
           // Remove the user from local state after successful deletion
-          setAllUsers(prev => prev.filter(user => user.id !== userId));
-          
+          setAllUsers(prev => {
+            // If deleting a parent, remove the parent AND all their children
+            if (userToDelete?.role === 'parent') {
+              console.log(`🗑️ Deleting parent ${userToDelete.name} and all children`);
+              const childrenIds = userToDelete.children?.map(child => child.id) || [];
+              console.log(`👶 Children to remove: ${childrenIds.join(', ')}`);
+              
+              // Remove the parent and all their children
+              return prev.filter(user => 
+                user.id !== userId && // Remove the parent
+                !childrenIds.includes(user.id) // Remove all children
+              );
+            }
+            // If deleting a student, also remove them from their parent's children array
+            else if (userToDelete?.role === 'student' && userToDelete?.parentId) {
+              return prev.map(user => {
+                if (user.id === userToDelete.parentId) {
+                  // Remove the student from parent's children array
+                  const updatedChildren = (user.children || []).filter(child => child.id !== userId);
+                  return {
+                    ...user,
+                    children: updatedChildren,
+                    studentIds: updatedChildren.map(c => c.id)
+                  };
+                }
+                return user;
+              }).filter(user => user.id !== userId); // Remove the deleted user
+            } else {
+              // For other roles, just remove the user
+              return prev.filter(user => user.id !== userId);
+            }
+          });
+
           // Dismiss loading toast and show success toast
           dismissToast(loadingToast);
           showSuccessToast(`${userName} deleted successfully!`);
@@ -371,10 +504,10 @@ const UserManagement = ({ user }) => {
             status: error.response?.status,
             statusText: error.response?.statusText
           });
-          
+
           // Dismiss loading toast and show error toast
           dismissToast(loadingToast);
-          
+
           // Handle specific error cases
           if (error.message && error.message.includes('related data')) {
             showErrorToast(
@@ -629,11 +762,10 @@ const UserManagement = ({ user }) => {
               {console.log('Parent row delete button - userItem.id:', userItem.id, 'user?.id:', user?.id, 'canUserBeDeleted:', canUserBeDeleted(userItem))}
               <button
                 onClick={() => handleDeleteUser(userItem.id)}
-                className={`${
-                  canUserBeDeleted(userItem) 
-                    ? 'text-red-600 hover:text-red-900' 
+                className={`${canUserBeDeleted(userItem)
+                    ? 'text-red-600 hover:text-red-900'
                     : 'text-gray-400 cursor-not-allowed'
-                } transition-colors duration-200`}
+                  } transition-colors duration-200`}
                 title={getDeleteTooltip(userItem)}
                 disabled={userItem.id === user?.id || !canUserBeDeleted(userItem)}
               >
@@ -684,11 +816,10 @@ const UserManagement = ({ user }) => {
               </button>
               <button
                 onClick={() => handleDeleteUser(userItem.id)}
-                className={`${
-                  canUserBeDeleted(userItem) 
-                    ? 'text-red-600 hover:text-red-900' 
+                className={`${canUserBeDeleted(userItem)
+                    ? 'text-red-600 hover:text-red-900'
                     : 'text-gray-400 cursor-not-allowed'
-                } transition-colors duration-200`}
+                  } transition-colors duration-200`}
                 title={getDeleteTooltip(userItem)}
                 disabled={userItem.id === user?.id || !canUserBeDeleted(userItem)}
               >
@@ -706,10 +837,12 @@ const UserManagement = ({ user }) => {
             <div className="flex items-center">
               <div className="flex-shrink-0 h-10 w-10">
                 <div className={`h-10 w-10 rounded-full flex items-center justify-center ${
-                  userItem.role === 'student' && !userItem.parent 
-                    ? 'bg-red-500' 
-                    : 'bg-green-500'
-                }`}>
+                    userItem.role === 'teacher' 
+                      ? 'bg-blue-500'
+                      : userItem.role === 'student' && !userItem.parent
+                        ? 'bg-red-500'
+                        : 'bg-green-500'
+                  }`}>
                   <span className="text-white text-sm font-medium">
                     {userItem.name.charAt(0)}
                   </span>
@@ -743,11 +876,10 @@ const UserManagement = ({ user }) => {
               </button>
               <button
                 onClick={() => handleDeleteUser(userItem.id)}
-                className={`${
-                  canUserBeDeleted(userItem) 
-                    ? 'text-red-600 hover:text-red-900' 
+                className={`${canUserBeDeleted(userItem)
+                    ? 'text-red-600 hover:text-red-900'
                     : 'text-gray-400 cursor-not-allowed'
-                } transition-colors duration-200`}
+                  } transition-colors duration-200`}
                 title={getDeleteTooltip(userItem)}
                 disabled={userItem.id === user?.id || !canUserBeDeleted(userItem)}
               >
@@ -856,15 +988,53 @@ const UserManagement = ({ user }) => {
             <option value="admin">Admins</option>
           </select>
 
-          <select
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-            value={filters.limit}
-            onChange={(e) => setFilters({ ...filters, limit: e.target.value, page: 1 })}
-          >
-            <option value="10">10 per page</option>
-            <option value="25">25 per page</option>
-            <option value="50">50 per page</option>
-          </select>
+          <div className="relative">
+            <button
+              type="button"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm text-left flex justify-between items-center"
+              onClick={() => setShowLimitDropdown(!showLimitDropdown)}
+            >
+              <span>{filters.limit} per page</span>
+              <svg className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${showLimitDropdown ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+            
+            {showLimitDropdown && (
+              <div className="absolute bottom-full left-0 right-0 mb-1 bg-white border border-gray-300 rounded-md shadow-lg z-50">
+                <button
+                  type="button"
+                  className={`w-full px-3 py-2 text-sm text-left hover:bg-gray-50 ${filters.limit === '10' ? 'bg-blue-50 text-blue-600' : ''}`}
+                  onClick={() => {
+                    setFilters({ ...filters, limit: '10', page: 1 });
+                    setShowLimitDropdown(false);
+                  }}
+                >
+                  10 per page
+                </button>
+                <button
+                  type="button"
+                  className={`w-full px-3 py-2 text-sm text-left hover:bg-gray-50 ${filters.limit === '25' ? 'bg-blue-50 text-blue-600' : ''}`}
+                  onClick={() => {
+                    setFilters({ ...filters, limit: '25', page: 1 });
+                    setShowLimitDropdown(false);
+                  }}
+                >
+                  25 per page
+                </button>
+                <button
+                  type="button"
+                  className={`w-full px-3 py-2 text-sm text-left hover:bg-gray-50 ${filters.limit === '50' ? 'bg-blue-50 text-blue-600' : ''}`}
+                  onClick={() => {
+                    setFilters({ ...filters, limit: '50', page: 1 });
+                    setShowLimitDropdown(false);
+                  }}
+                >
+                  50 per page
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -1019,7 +1189,7 @@ const UserModal = ({ title, user, onClose, onSubmit }) => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    
+
     // Validate required fields based on role
     if (formData.role === 'student') {
       if (!formData.birthDate) {
@@ -1040,7 +1210,7 @@ const UserModal = ({ title, user, onClose, onSubmit }) => {
       // For students: keep birthDate, handle parentId based on hasParent selection
       delete submitData.courses; // Remove courses for students
       delete submitData.studentIds; // Remove studentIds for students
-      
+
       // Handle parent/phone based on hasParent selection
       if (submitData.hasParent === 'yes') {
         // Student has parent - keep parentId, remove phone
@@ -1055,7 +1225,7 @@ const UserModal = ({ title, user, onClose, onSubmit }) => {
           delete submitData.phone; // Don't send empty phone
         }
       }
-      
+
       // Remove hasParent from final data as it's only for UI logic
       delete submitData.hasParent;
     } else if (submitData.role === 'teacher') {
@@ -1082,9 +1252,15 @@ const UserModal = ({ title, user, onClose, onSubmit }) => {
       if (!submitData.phone) {
         delete submitData.phone; // Don't send empty phone
       }
-      // Convert studentIds string to array if provided
+      // Handle studentIds - it should already be an array, but ensure it's properly formatted
       if (submitData.studentIds) {
-        submitData.studentIds = submitData.studentIds.split(',').map(id => id.trim()).filter(id => id);
+        // If it's a string, convert to array; if it's already an array, keep it as is
+        if (typeof submitData.studentIds === 'string') {
+          submitData.studentIds = submitData.studentIds.split(',').map(id => id.trim()).filter(id => id);
+        } else if (Array.isArray(submitData.studentIds)) {
+          // Already an array, just ensure it's clean
+          submitData.studentIds = submitData.studentIds.filter(id => id && id.trim());
+        }
       } else {
         delete submitData.studentIds; // Don't send empty studentIds
       }
@@ -1312,37 +1488,6 @@ const UserModal = ({ title, user, onClose, onSubmit }) => {
                 <p className="mt-1 text-xs text-gray-500">Required for students without parents</p>
               </div>
             )}
-
-            {/* Courses - for teachers */}
-            {formData.role === 'teacher' && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Courses (Optional)</label>
-                <input
-                  type="text"
-                  placeholder="Enter courses separated by commas"
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  value={formData.courses || ''}
-                  onChange={(e) => setFormData({ ...formData, courses: e.target.value })}
-                />
-                <p className="mt-1 text-xs text-gray-500">Enter course names separated by commas (e.g., Math, Science)</p>
-              </div>
-            )}
-
-            {/* Student IDs - for parents */}
-            {formData.role === 'parent' && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Student IDs (Optional)</label>
-                <input
-                  type="text"
-                  placeholder="Enter student IDs separated by commas"
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  value={formData.studentIds || ''}
-                  onChange={(e) => setFormData({ ...formData, studentIds: e.target.value })}
-                />
-                <p className="mt-1 text-xs text-gray-500">Enter student IDs separated by commas (e.g., uuid1, uuid2)</p>
-              </div>
-            )}
-
 
             <div className="flex justify-end space-x-3 pt-4">
               <button

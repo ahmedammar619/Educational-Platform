@@ -7,6 +7,8 @@ import { UpdateUserDto } from './dto/update-user.dto';
 import { Role } from '../../common/enums/role.enum';
 import * as bcrypt from 'bcryptjs';
 import { TeachersService } from '../teachers/teachers.service';
+import { StudentsService } from '../students/students.service';
+import { ParentsService } from '../parents/parents.service';
 
 @Injectable()
 export class UsersService {
@@ -14,6 +16,8 @@ export class UsersService {
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
     private readonly teachersService: TeachersService,
+    private readonly studentsService: StudentsService,
+    private readonly parentsService: ParentsService,
   ) {}
 
   async findAll(): Promise<User[]> {
@@ -77,6 +81,16 @@ export class UsersService {
     try {
       if (savedUser.role === Role.Teacher) {
         await this.teachersService.createTeacherFromUser(savedUser.id);
+      } else if (savedUser.role === Role.Student) {
+        // Extract student-specific data from the DTO
+        const { birthDate, parentId } = createUserDto;
+        if (!birthDate) {
+          throw new Error('Birth date is required for students');
+        }
+        await this.studentsService.createStudentFromUser(savedUser.id, birthDate, savedUser.phone, parentId);
+      } else if (savedUser.role === Role.Parent) {
+        // Create parent record for users with Parent role
+        await this.parentsService.createParentFromUser(savedUser.id);
       }
     } catch (error) {
       // If creating in separate table fails, we should clean up the user
@@ -122,6 +136,39 @@ export class UsersService {
     Object.assign(user, updateData);
     const updatedUser = await this.userRepository.save(user);
     
+    // Handle student-specific updates
+    if (updatedUser.role === Role.Student && (updateUserDto.birthDate || updateUserDto.parentId !== undefined)) {
+      try {
+        await this.studentsService.updateStudentFromUser(id, {
+          birthDate: updateUserDto.birthDate,
+          parentId: updateUserDto.parentId
+        });
+      } catch (error) {
+        console.error('Failed to update student record:', error);
+        // Note: The user account is still updated
+      }
+    }
+
+    // Handle role-specific record creation if role was changed
+    if (updateUserDto.role && updateUserDto.role !== user.role) {
+      try {
+        if (updateUserDto.role === Role.Teacher) {
+          await this.teachersService.createTeacherFromUser(id);
+        } else if (updateUserDto.role === Role.Student) {
+          // For role change to student, we need birthDate
+          if (!updateUserDto.birthDate) {
+            throw new Error('Birth date is required when changing role to student');
+          }
+          await this.studentsService.createStudentFromUser(id, updateUserDto.birthDate, updatedUser.phone);
+        } else if (updateUserDto.role === Role.Parent) {
+          await this.parentsService.createParentFromUser(id);
+        }
+      } catch (error) {
+        console.error('Failed to create role-specific record:', error);
+        // Note: The user account is still updated
+      }
+    }
+    
     // Return user without password hash
     const { passwordHash: _, ...userWithoutPassword } = updatedUser;
     return userWithoutPassword as User;
@@ -129,6 +176,15 @@ export class UsersService {
 
   async deleteUser(id: string): Promise<{ message: string }> {
     const user = await this.findOne(id);
+    
+    // If the user is a parent, use the parent-specific deletion logic
+    if (user.role === Role.Parent) {
+      console.log(`🔄 User ${user.firstName} ${user.lastName} is a parent, using parent deletion logic`);
+      await this.parentsService.deleteParent(id);
+      return { message: 'Parent and all children deleted successfully' };
+    }
+    
+    // For other roles, just delete the user
     await this.userRepository.delete(id);
     return { message: 'User deleted successfully' };
   }

@@ -205,6 +205,21 @@ const PhoneInput = ({ value, onChange, placeholder = "Enter phone number", requi
   // Remove the problematic useEffect that was causing infinite loops
   // Instead, we'll call onChange directly in the event handlers
 
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (isOpen && !event.target.closest('.relative')) {
+        setIsOpen(false);
+        setSearchQuery('');
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isOpen]);
+
   const filteredCountries = COUNTRY_CODES.filter(country =>
     country.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     country.code.includes(searchQuery)
@@ -241,12 +256,12 @@ const PhoneInput = ({ value, onChange, placeholder = "Enter phone number", requi
           >
             <span className="text-lg">{selectedCountry.flag}</span>
             <span className="text-sm font-medium text-gray-700">{selectedCountry.code}</span>
-            <ChevronDown className="h-4 w-4 text-gray-400" />
+            <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
           </button>
 
           {/* Dropdown Menu */}
           {isOpen && (
-            <div className="absolute z-50 mt-1 w-80 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto">
+            <div className="absolute z-50 bottom-full mb-1 w-80 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto">
               {/* Search Input */}
               <div className="sticky top-0 bg-white border-b border-gray-200 p-2">
                 <div className="relative">
@@ -291,13 +306,6 @@ const PhoneInput = ({ value, onChange, placeholder = "Enter phone number", requi
         />
       </div>
 
-      {/* Click outside to close dropdown */}
-      {isOpen && (
-        <div
-          className="fixed inset-0 z-40"
-          onClick={() => setIsOpen(false)}
-        />
-      )}
     </div>
   );
 };

@@ -173,8 +173,11 @@ export class StudentsService {
       }
     }
     
-    // Delete student record first (this will cascade to user due to the relationship)
+    // Delete student record first
     await this.studentRepository.delete(id);
+    
+    // Delete the corresponding user record
+    await this.userRepository.delete(id);
   }
 
   // Method to safely remove a student from all parent relationships
@@ -232,7 +235,7 @@ export class StudentsService {
   }
 
   // Method to create a student record from an existing user
-  async createStudentFromUser(userId: string, birthDate: string, phone?: string): Promise<Student> {
+  async createStudentFromUser(userId: string, birthDate: string, phone?: string, parentId?: string): Promise<Student> {
     // Check if student record already exists
     const existingStudent = await this.studentRepository.findOne({
       where: { id: userId }
@@ -246,9 +249,63 @@ export class StudentsService {
     const student = this.studentRepository.create({
       id: userId,
       birthDate: new Date(birthDate),
-      parentId: null, // Students created from signup have no parent initially
+      parentId: parentId || null, // Use provided parentId or null
     });
 
+    const savedStudent = await this.studentRepository.save(student);
+
+    // If parentId is provided, add the student to the parent's studentIds array
+    if (parentId) {
+      const parent = await this.parentRepository.findOne({
+        where: { id: parentId }
+      });
+      
+      if (parent) {
+        parent.studentIds = [...(parent.studentIds || []), userId];
+        await this.parentRepository.save(parent);
+      }
+    }
+
+    return savedStudent;
+  }
+
+  async updateStudentFromUser(userId: string, updateData: { birthDate?: string; parentId?: string }): Promise<Student> {
+    const student = await this.findOne(userId);
+    
+    // Update student-specific fields
+    if (updateData.birthDate) {
+      student.birthDate = new Date(updateData.birthDate);
+    }
+    
+    if (updateData.parentId !== undefined) {
+      // Handle parent relationship change
+      const oldParentId = student.parentId;
+      student.parentId = updateData.parentId || null;
+      
+      // Update parent relationships
+      if (oldParentId && oldParentId !== updateData.parentId) {
+        // Remove from old parent's studentIds array
+        const oldParent = await this.parentRepository.findOne({
+          where: { id: oldParentId }
+        });
+        if (oldParent && oldParent.studentIds) {
+          oldParent.studentIds = oldParent.studentIds.filter(studentId => studentId !== userId);
+          await this.parentRepository.save(oldParent);
+        }
+      }
+      
+      if (updateData.parentId) {
+        // Add to new parent's studentIds array
+        const newParent = await this.parentRepository.findOne({
+          where: { id: updateData.parentId }
+        });
+        if (newParent) {
+          newParent.studentIds = [...(newParent.studentIds || []), userId];
+          await this.parentRepository.save(newParent);
+        }
+      }
+    }
+    
     return this.studentRepository.save(student);
   }
 

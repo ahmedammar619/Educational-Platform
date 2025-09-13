@@ -1,7 +1,8 @@
-import { IsEmail, IsString, IsEnum, IsOptional, MinLength, ValidateIf } from 'class-validator';
+import { IsEmail, IsString, IsEnum, IsOptional, MinLength, ValidateIf, IsDateString } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { Role } from '../../../common/enums/role.enum';
 import { IsEmailUnique } from '../../../common/validators/unique-email.validator';
+import { IsStudentField } from '../../../common/validators/student-field.validator';
 
 export class UpdateUserDto {
   @ApiProperty({ description: 'User first name', required: false })
@@ -35,4 +36,17 @@ export class UpdateUserDto {
   @ValidateIf((o) => o.role === Role.Teacher)
   @IsString()
   phone?: string;
+
+  @ApiProperty({ description: 'Student birth date (required for students)', required: false })
+  @IsStudentField()
+  @ValidateIf((o) => o.role === Role.Student)
+  @IsDateString()
+  birthDate?: string;
+
+  @ApiProperty({ description: 'Parent ID (optional for students)', required: false })
+  @IsStudentField()
+  @ValidateIf((o) => o.role === Role.Student)
+  @IsOptional()
+  @IsString()
+  parentId?: string;
 }

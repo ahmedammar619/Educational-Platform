@@ -32,7 +32,7 @@ export class Student {
   user: User;
 
   // Many-to-one relationship with Parent (User with role Parent)
-  @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
+  @ManyToOne(() => User, { nullable: true, onDelete: 'CASCADE' })
   @JoinColumn({ name: 'parentId' })
   parent: User;
 

@@ -177,18 +177,70 @@ export class ParentsService {
   }
 
   async deleteParent(id: string): Promise<void> {
-    const parent = await this.findOne(id);
+    console.log(`🗑️ Starting deletion of parent: ${id}`);
     
-    // Clean up all students that have this parent
+    const parent = await this.findOne(id);
+    console.log(`📋 Parent found: ${parent.user.firstName} ${parent.user.lastName}`);
+    console.log(`👶 Children to delete: ${JSON.stringify(parent.studentIds)}`);
+    
+    // Delete all students that have this parent (cascade delete)
     if (parent.studentIds && parent.studentIds.length > 0) {
-      // Update all students to remove the parentId reference
+      console.log(`🔄 Processing ${parent.studentIds.length} children...`);
+      
+      // Delete all students that belong to this parent
       for (const studentId of parent.studentIds) {
-        await this.studentsService.unlinkFromParent(studentId);
+        try {
+          console.log(`🔍 Checking student ${studentId} before deletion...`);
+          
+          // Check if student exists in students table
+          const studentExists = await this.studentRepository.findOne({ where: { id: studentId } });
+          console.log(`📊 Student exists in students table: ${!!studentExists}`);
+          
+          // Check if user exists in users table
+          const userExists = await this.userRepository.findOne({ where: { id: studentId } });
+          console.log(`👤 User exists in users table: ${!!userExists}`);
+          
+          if (studentExists) {
+            console.log(`🗑️ Deleting student record: ${studentId}`);
+            await this.studentRepository.delete(studentId);
+            console.log(`✅ Student record deleted: ${studentId}`);
+          } else {
+            console.log(`⚠️ Student record not found: ${studentId}`);
+          }
+          
+          if (userExists) {
+            console.log(`🗑️ Deleting user record: ${studentId}`);
+            await this.userRepository.delete(studentId);
+            console.log(`✅ User record deleted: ${studentId}`);
+          } else {
+            console.log(`⚠️ User record not found: ${studentId}`);
+          }
+          
+          console.log(`✅ Successfully processed student: ${studentId}`);
+        } catch (error) {
+          console.error(`❌ Error deleting student ${studentId}:`, error);
+          console.error(`❌ Error details:`, {
+            message: error.message,
+            stack: error.stack
+          });
+          // Continue with other students even if one fails
+        }
       }
+    } else {
+      console.log(`ℹ️ No children to delete for parent: ${id}`);
     }
     
-    // Delete parent record first (this will cascade to user due to the relationship)
+    // Delete parent record first
+    console.log(`🗑️ Deleting parent record: ${id}`);
     await this.parentRepository.delete(id);
+    console.log(`✅ Parent record deleted: ${id}`);
+    
+    // Delete the corresponding user record manually (since cascade doesn't work in this direction)
+    console.log(`🗑️ Deleting user record: ${id}`);
+    await this.userRepository.delete(id);
+    console.log(`✅ User record deleted: ${id}`);
+    
+    console.log(`🎉 Parent deletion completed: ${id}`);
   }
 
   async addChild(parentId: string, addChildDto: AddChildDto): Promise<Parent> {
