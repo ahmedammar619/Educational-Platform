@@ -149,6 +149,11 @@ export class ClassesService {
       await this.studentRepository.update(student.id, { classId });
     }
 
+    // Update the class's students array
+    const existingStudents = classEntity.students || [];
+    const newStudents = [...new Set([...existingStudents, ...enrollDto.studentIds])];
+    await this.classRepository.update(classId, { students: newStudents });
+
     // Students are now automatically enrolled in all courses within the class
     // No need for individual course enrollment - class enrollment gives access to all courses
   }
@@ -166,6 +171,11 @@ export class ClassesService {
 
     // Update student record to remove classId
     await this.studentRepository.update(studentId, { classId: null });
+
+    // Update the class's students array to remove the student
+    const existingStudents = classEntity.students || [];
+    const updatedStudents = existingStudents.filter(id => id !== studentId);
+    await this.classRepository.update(classId, { students: updatedStudents });
   }
 
   async getClassStudents(classId: string): Promise<Student[]> {

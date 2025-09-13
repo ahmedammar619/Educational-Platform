@@ -1,9 +1,10 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { MulterModule } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import { MaterialsService } from './materials.service';
 import { MaterialsController } from './materials.controller';
+import { NotificationsModule } from '../notifications/notifications.module';
 
 
 import { Post } from './entities/post.entity';
@@ -38,6 +39,7 @@ import { ZoomMeeting } from '../zoom/entities/zoom-meeting.entity';
         files: 10, // Maximum 10 files per request
       },
     }),
+    forwardRef(() => NotificationsModule),
   ],
   controllers: [MaterialsController],
   providers: [MaterialsService],

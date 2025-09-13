@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Inject, forwardRef } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, IsNull, In, Not } from 'typeorm';
 import { Role } from '../../common/enums/role.enum';
@@ -6,6 +6,7 @@ import { unlink, mkdir, writeFile } from 'fs/promises';
 import * as fs from 'fs';
 import * as path from 'path';
 import { R2FileService } from '../../common/services/r2-file.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { Post } from './entities/post.entity';
 import { PostAttachment } from './entities/post-attachment.entity';
 import { Folder } from './entities/folder.entity';
@@ -49,6 +50,8 @@ export class MaterialsService {
     @InjectRepository(ZoomMeeting)
     private readonly zoomMeetingRepository: Repository<ZoomMeeting>,
     private readonly r2FileService: R2FileService,
+    @Inject(forwardRef(() => NotificationsService))
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   // Posts
@@ -857,10 +860,35 @@ export class MaterialsService {
 
   // Assignments
   async createAssignment(courseId: string, createAssignmentDto: CreateAssignmentDto, userId: string): Promise<Assignment> {
-    const course = await this.courseRepository.findOne({ where: { id: courseId } });
+    // Load course with class relation
+    const course = await this.courseRepository.findOne({ 
+      where: { id: courseId },
+      relations: ['class']
+    });
     if (!course) {
       throw new NotFoundException(`Course with ID ${courseId} not found`);
     }
+
+    // Get student list directly from database by joining with class_students table
+    const classData = await this.courseRepository.manager.query(`
+      SELECT c.id, c.name, cs.student_id 
+      FROM classes c
+      LEFT JOIN class_students cs ON cs.class_id = c.id
+      WHERE c.id = $1
+    `, [course.classId]);
+
+    // Enhanced debugging for class data
+    console.log('Raw class data:', classData);
+
+    // Get student IDs from the class_students table
+    const studentIds = classData
+      .filter(row => row.student_id)  // Filter out null student_ids
+      .map(row => row.student_id);    // Extract just the student_ids
+
+    console.log('Found student IDs from class_students table:', studentIds);
+
+    console.log('Course found:', { courseId, courseName: course.name, classId: course.class?.id });
+    console.log('Parsed student IDs:', studentIds);
 
     const assignment = this.assignmentRepository.create({
       ...createAssignmentDto,
@@ -868,7 +896,35 @@ export class MaterialsService {
       createdBy: userId
     });
 
-    return await this.assignmentRepository.save(assignment);
+    const savedAssignment = await this.assignmentRepository.save(assignment);
+
+    // Send notifications to all students in the class
+    if (studentIds && studentIds.length > 0) {
+      console.log('Found', studentIds.length, 'students to notify');;
+      try {
+        await this.notificationsService.createAssignmentPublishedNotification(
+          studentIds,
+          savedAssignment.name, // Use 'name' instead of 'title'
+          course.name,
+          {
+            assignmentId: savedAssignment.id,
+            courseId: course.id,
+            dueDate: savedAssignment.dueDate
+          }
+        );
+        console.log('✅ Assignment published notifications sent successfully');
+      } catch (error) {
+        console.error('❌ Failed to send assignment published notifications:', error);
+      }
+    } else {
+      console.log('⚠️ No students found in class or class not found:', {
+        hasClass: !!course.class,
+        hasStudents: !!course.class?.students,
+        studentsCount: course.class?.students?.length || 0
+      });
+    }
+
+    return savedAssignment;
   }
 
   async getCourseAssignments(courseId: string): Promise<Assignment[]> {
@@ -896,10 +952,42 @@ export class MaterialsService {
     return await this.assignmentRepository.save(assignment);
   }
 
+  async deleteAssignment(assignmentId: string, userId: string): Promise<void> {
+    const assignment = await this.assignmentRepository.findOne({ 
+      where: { id: assignmentId },
+      relations: ['creator', 'submissions']
+    });
+    
+    if (!assignment) {
+      throw new NotFoundException(`Assignment with ID ${assignmentId} not found`);
+    }
+
+    console.log('🗑️ Deleting assignment:', { assignmentId, assignmentName: assignment.name });
+
+    // Delete associated submission files first
+    if (assignment.submissions && assignment.submissions.length > 0) {
+      for (const submission of assignment.submissions) {
+        if (submission.filePath) {
+          try {
+            await this.r2FileService.deleteFile(submission.filePath);
+            console.log('✅ Deleted submission file:', submission.filePath);
+          } catch (error) {
+            console.error('❌ Failed to delete submission file:', submission.filePath, error);
+          }
+        }
+      }
+    }
+
+    // Delete the assignment (this will cascade delete submissions due to foreign key constraints)
+    await this.assignmentRepository.remove(assignment);
+    
+    console.log('✅ Assignment deleted successfully');
+  }
+
   async submitAssignment(assignmentId: string, file: Express.Multer.File, studentId: string): Promise<AssignmentSubmission> {
     const assignment = await this.assignmentRepository.findOne({ 
       where: { id: assignmentId },
-      relations: ['course', 'course.class']
+      relations: ['course', 'course.class', 'creator']
     });
     if (!assignment) {
       throw new NotFoundException(`Assignment with ID ${assignmentId} not found`);
@@ -983,13 +1071,37 @@ export class MaterialsService {
       });
     }
 
-    return await this.assignmentSubmissionRepository.save(submission);
+    const savedSubmission = await this.assignmentSubmissionRepository.save(submission);
+
+    // Send notification to teacher about assignment submission
+    if (assignment.creator && !isUpdate) { // Only notify for new submissions, not updates
+      try {
+        const student = await this.userRepository.findOne({ where: { id: studentId } });
+        if (student) {
+          await this.notificationsService.createAssignmentSubmittedNotification(
+            assignment.creator.id,
+            `${student.firstName} ${student.lastName}`,
+            assignment.name, // Use 'name' instead of 'title'
+            assignment.course.name,
+            {
+              assignmentId: assignment.id,
+              submissionId: savedSubmission.id,
+              studentId: studentId
+            }
+          );
+        }
+      } catch (error) {
+        console.error('Failed to send assignment submitted notification:', error);
+      }
+    }
+
+    return savedSubmission;
   }
 
   async gradeAssignment(submissionId: string, gradeDto: GradeAssignmentDto, graderId: string): Promise<AssignmentSubmission> {
     const submission = await this.assignmentSubmissionRepository.findOne({
       where: { id: submissionId },
-      relations: ['assignment']
+      relations: ['assignment', 'assignment.course', 'student']
     });
 
     if (!submission) {
@@ -1001,7 +1113,28 @@ export class MaterialsService {
     submission.gradedBy = graderId;
     submission.gradedAt = new Date();
 
-    return await this.assignmentSubmissionRepository.save(submission);
+    const savedSubmission = await this.assignmentSubmissionRepository.save(submission);
+
+    // Send notification to student about graded assignment
+    if (submission.student) {
+      try {
+        await this.notificationsService.createAssignmentGradedNotification(
+          submission.student.id,
+          submission.assignment.name, // Use 'name' instead of 'title'
+          submission.grade,
+          submission.assignment.course.name,
+          {
+            assignmentId: submission.assignment.id,
+            submissionId: submission.id,
+            feedback: submission.feedback
+          }
+        );
+      } catch (error) {
+        console.error('Failed to send assignment graded notification:', error);
+      }
+    }
+
+    return savedSubmission;
   }
 
   async getAssignmentSubmission(submissionId: string): Promise<AssignmentSubmission> {

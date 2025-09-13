@@ -4,6 +4,7 @@ import { Toaster } from 'react-hot-toast';
 import { LoginForm } from './pages/auth';
 import { AppRouter } from './routers';
 import { authService } from './services';
+import { NotificationProvider } from './contexts/NotificationContext';
 import './App.css';
 
 // Error Boundary Component
@@ -156,18 +157,20 @@ function App() {
   return (
     <HelmetProvider>
       <ErrorBoundary>
-        <div className="App">
-          {showLogin ? (
-            <LoginForm onLogin={handleLogin} onRegister={() => setShowLogin(false)} />
-          ) : (
-            <AppRouter 
-              user={user} 
-              onLogin={handleLoginClick}
-              onLogout={handleLogout}
-            />
-          )}
-          <Toaster />
-        </div>
+        <NotificationProvider>
+          <div className="App">
+            {showLogin ? (
+              <LoginForm onLogin={handleLogin} onRegister={() => setShowLogin(false)} />
+            ) : (
+              <AppRouter 
+                user={user} 
+                onLogin={handleLoginClick}
+                onLogout={handleLogout}
+              />
+            )}
+            <Toaster />
+          </div>
+        </NotificationProvider>
       </ErrorBoundary>
     </HelmetProvider>
   );

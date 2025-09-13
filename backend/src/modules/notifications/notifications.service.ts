@@ -1,0 +1,312 @@
+import { Injectable, Logger } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository, FindManyOptions, Between } from 'typeorm';
+import { Notification, NotificationType, NotificationPriority } from './entities/notification.entity';
+import { CreateNotificationDto } from './dto/create-notification.dto';
+import { UpdateNotificationDto } from './dto/update-notification.dto';
+import { MarkAllReadDto } from './dto/mark-all-read.dto';
+
+@Injectable()
+export class NotificationsService {
+  private readonly logger = new Logger(NotificationsService.name);
+
+  constructor(
+    @InjectRepository(Notification)
+    private readonly notificationRepository: Repository<Notification>,
+  ) {}
+
+  async create(createNotificationDto: CreateNotificationDto): Promise<Notification> {
+    const notification = this.notificationRepository.create(createNotificationDto);
+    const savedNotification = await this.notificationRepository.save(notification);
+    
+    this.logger.log(`Created notification ${savedNotification.id} for user ${savedNotification.userId}`);
+    return savedNotification;
+  }
+
+  async findAll(
+    userId: string,
+    options?: {
+      limit?: number;
+      offset?: number;
+      unreadOnly?: boolean;
+      type?: NotificationType;
+      archived?: boolean;
+    }
+  ): Promise<{ notifications: Notification[]; total: number }> {
+    const {
+      limit = 20,
+      offset = 0,
+      unreadOnly = false,
+      type,
+      archived = false,
+    } = options || {};
+
+    const queryBuilder = this.notificationRepository
+      .createQueryBuilder('notification')
+      .where('notification.userId = :userId', { userId })
+      .andWhere('notification.isArchived = :archived', { archived });
+
+    if (unreadOnly) {
+      queryBuilder.andWhere('notification.isRead = :isRead', { isRead: false });
+    }
+
+    if (type) {
+      queryBuilder.andWhere('notification.type = :type', { type });
+    }
+
+    queryBuilder
+      .orderBy('notification.createdAt', 'DESC')
+      .limit(limit)
+      .offset(offset);
+
+    const [notifications, total] = await queryBuilder.getManyAndCount();
+
+    return { notifications, total };
+  }
+
+  async findOne(id: string, userId: string): Promise<Notification> {
+    return this.notificationRepository.findOne({
+      where: { id, userId },
+    });
+  }
+
+  async update(id: string, userId: string, updateNotificationDto: UpdateNotificationDto): Promise<Notification> {
+    const notification = await this.findOne(id, userId);
+    if (!notification) {
+      throw new Error('Notification not found');
+    }
+
+    // Update readAt timestamp when marking as read
+    if (updateNotificationDto.isRead && !notification.isRead) {
+      updateNotificationDto['readAt'] = new Date();
+    }
+
+    Object.assign(notification, updateNotificationDto);
+    return this.notificationRepository.save(notification);
+  }
+
+  async markAllAsRead(userId: string, markAllReadDto?: MarkAllReadDto): Promise<{ count: number }> {
+    const queryBuilder = this.notificationRepository
+      .createQueryBuilder()
+      .update(Notification)
+      .set({ isRead: true, readAt: new Date() })
+      .where('userId = :userId', { userId })
+      .andWhere('isRead = :isRead', { isRead: false });
+
+    if (markAllReadDto?.type) {
+      queryBuilder.andWhere('type = :type', { type: markAllReadDto.type });
+    }
+
+    const result = await queryBuilder.execute();
+    
+    this.logger.log(`Marked ${result.affected} notifications as read for user ${userId}`);
+    return { count: result.affected || 0 };
+  }
+
+  async getUnreadCount(userId: string): Promise<number> {
+    return this.notificationRepository.count({
+      where: { userId, isRead: false, isArchived: false },
+    });
+  }
+
+  async delete(id: string, userId: string): Promise<void> {
+    const result = await this.notificationRepository.delete({ id, userId });
+    if (result.affected === 0) {
+      throw new Error('Notification not found');
+    }
+  }
+
+  async archive(id: string, userId: string): Promise<Notification> {
+    return this.update(id, userId, { isArchived: true });
+  }
+
+  // Business logic methods for creating specific notification types
+  async createAssignmentPublishedNotification(
+    studentIds: string[],
+    assignmentTitle: string,
+    courseName: string,
+    metadata?: Record<string, any>
+  ): Promise<void> {
+    console.log('🔔 Creating assignment published notifications:', {
+      studentIds,
+      assignmentTitle,
+      courseName,
+      metadata
+    });
+
+    const notifications = studentIds.map(studentId => ({
+      userId: studentId,
+      type: NotificationType.ASSIGNMENT_PUBLISHED,
+      priority: NotificationPriority.MEDIUM,
+      title: 'New Assignment Published',
+      message: `A new assignment "${assignmentTitle}" has been published in ${courseName}`,
+      metadata: { assignmentTitle, courseName, ...metadata },
+    }));
+
+    console.log('📝 Notifications to create:', notifications);
+
+    try {
+      const savedNotifications = await this.notificationRepository.save(notifications);
+      console.log('✅ Successfully created notifications:', savedNotifications.length);
+      this.logger.log(`Created assignment published notifications for ${studentIds.length} students`);
+    } catch (error) {
+      console.error('❌ Failed to save notifications:', error);
+      throw error;
+    }
+  }
+
+  async createAssignmentGradedNotification(
+    studentId: string,
+    assignmentTitle: string,
+    grade: number,
+    courseName: string,
+    metadata?: Record<string, any>
+  ): Promise<void> {
+    await this.create({
+      userId: studentId,
+      type: NotificationType.ASSIGNMENT_GRADED,
+      priority: NotificationPriority.MEDIUM,
+      title: 'Assignment Graded',
+      message: `Your assignment "${assignmentTitle}" in ${courseName} has been graded: ${grade}`,
+      metadata: { assignmentTitle, grade, courseName, ...metadata },
+    });
+  }
+
+  async createZoomSessionNotification(
+    userIds: string[],
+    sessionTitle: string,
+    sessionType: 'published' | 'started',
+    startTime?: Date,
+    metadata?: Record<string, any>
+  ): Promise<void> {
+    const type = sessionType === 'published' 
+      ? NotificationType.ZOOM_SESSION_PUBLISHED 
+      : NotificationType.ZOOM_SESSION_STARTED;
+
+    const notifications = userIds.map(userId => ({
+      userId,
+      type,
+      priority: sessionType === 'started' ? NotificationPriority.HIGH : NotificationPriority.MEDIUM,
+      title: sessionType === 'published' ? 'New Zoom Session' : 'Zoom Session Started',
+      message: sessionType === 'published' 
+        ? `A new zoom session "${sessionTitle}" has been scheduled`
+        : `The zoom session "${sessionTitle}" has started`,
+      metadata: { sessionTitle, startTime, ...metadata },
+    }));
+
+    await this.notificationRepository.save(notifications);
+    this.logger.log(`Created zoom session ${sessionType} notifications for ${userIds.length} users`);
+  }
+
+  async createNewPostNotification(
+    userIds: string[],
+    postTitle: string,
+    authorName: string,
+    courseName?: string,
+    metadata?: Record<string, any>
+  ): Promise<void> {
+    const notifications = userIds.map(userId => ({
+      userId,
+      type: NotificationType.NEW_POST,
+      priority: NotificationPriority.LOW,
+      title: 'New Post',
+      message: courseName 
+        ? `${authorName} posted "${postTitle}" in ${courseName}`
+        : `${authorName} posted "${postTitle}"`,
+      metadata: { postTitle, authorName, courseName, ...metadata },
+    }));
+
+    await this.notificationRepository.save(notifications);
+    this.logger.log(`Created new post notifications for ${userIds.length} users`);
+  }
+
+  async createAddedToClassNotification(
+    userId: string,
+    className: string,
+    metadata?: Record<string, any>
+  ): Promise<void> {
+    await this.create({
+      userId,
+      type: NotificationType.ADDED_TO_CLASS,
+      priority: NotificationPriority.MEDIUM,
+      title: 'Added to Class',
+      message: `You have been added to the class "${className}"`,
+      metadata: { className, ...metadata },
+    });
+  }
+
+  async createAbsentNotification(
+    userId: string,
+    sessionTitle: string,
+    isParent: boolean = false,
+    childName?: string,
+    metadata?: Record<string, any>
+  ): Promise<void> {
+    const type = isParent ? NotificationType.CHILD_ABSENT : NotificationType.MARKED_ABSENT;
+    const title = isParent ? 'Child Absent' : 'Marked Absent';
+    const message = isParent 
+      ? `Your child ${childName} was marked absent for the session "${sessionTitle}"`
+      : `You were marked absent for the session "${sessionTitle}"`;
+
+    await this.create({
+      userId,
+      type,
+      priority: NotificationPriority.HIGH,
+      title,
+      message,
+      metadata: { sessionTitle, childName, ...metadata },
+    });
+  }
+
+  async createAssignmentSubmittedNotification(
+    teacherId: string,
+    studentName: string,
+    assignmentTitle: string,
+    courseName: string,
+    metadata?: Record<string, any>
+  ): Promise<void> {
+    await this.create({
+      userId: teacherId,
+      type: NotificationType.ASSIGNMENT_SUBMITTED,
+      priority: NotificationPriority.MEDIUM,
+      title: 'Assignment Submitted',
+      message: `${studentName} submitted the assignment "${assignmentTitle}" in ${courseName}`,
+      metadata: { studentName, assignmentTitle, courseName, ...metadata },
+    });
+  }
+
+  async createNewUserJoinedNotification(
+    adminIds: string[],
+    userName: string,
+    userRole: string,
+    metadata?: Record<string, any>
+  ): Promise<void> {
+    const notifications = adminIds.map(adminId => ({
+      userId: adminId,
+      type: NotificationType.NEW_USER_JOINED,
+      priority: NotificationPriority.LOW,
+      title: 'New User Joined',
+      message: `A new ${userRole} "${userName}" has joined the platform`,
+      metadata: { userName, userRole, ...metadata },
+    }));
+
+    await this.notificationRepository.save(notifications);
+    this.logger.log(`Created new user joined notifications for ${adminIds.length} admins`);
+  }
+
+  // Cleanup method for old notifications
+  async cleanupOldNotifications(daysOld: number = 30): Promise<{ count: number }> {
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - daysOld);
+
+    const result = await this.notificationRepository
+      .createQueryBuilder()
+      .delete()
+      .where('createdAt < :cutoffDate', { cutoffDate })
+      .andWhere('isArchived = :archived', { archived: true })
+      .execute();
+
+    this.logger.log(`Cleaned up ${result.affected} old notifications`);
+    return { count: result.affected || 0 };
+  }
+}

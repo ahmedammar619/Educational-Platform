@@ -545,6 +545,19 @@ export class MaterialsController {
     return plainToClass(AssignmentResponseDto, assignment, { excludeExtraneousValues: true });
   }
 
+  @Delete('courses/assignments/:assignmentId')
+  @Roles(Role.Admin, Role.Teacher)
+  @ApiOperation({ summary: 'Delete an assignment' })
+  @ApiResponse({ status: 200, description: 'Assignment deleted successfully' })
+  @ApiResponse({ status: 404, description: 'Assignment not found' })
+  async deleteAssignment(
+    @Param('assignmentId') assignmentId: string,
+    @Req() req,
+  ): Promise<{ message: string }> {
+    await this.materialsService.deleteAssignment(assignmentId, req.user.sub);
+    return { message: 'Assignment deleted successfully' };
+  }
+
   @Post('assignments/:assignmentId/submit')
   @UseInterceptors(FileInterceptor('file'))
   @Roles(Role.Student)

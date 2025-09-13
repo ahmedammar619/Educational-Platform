@@ -23,6 +23,12 @@ export const rateLimitConfig = [
     ttl: 60000,        // 1 minute
     limit: 100,        // 100 file uploads per minute
   },
+  // Notifications rate limit (more lenient for real-time features)
+  {
+    name: 'notifications',
+    ttl: 60000,        // 1 minute
+    limit: 200,        // 200 notification requests per minute
+  },
 ];
 
 // Helper functions for getting limits
@@ -39,6 +45,7 @@ export const getCurrentEnvironmentLimits = () => {
       { name: 'auth', ttl: 300000, limit: 10 },
       { name: 'api', ttl: 60000, limit: 2000 },
       { name: 'upload', ttl: 60000, limit: 20 },
+      { name: 'notifications', ttl: 60000, limit: 100 },
     ];
   }
   return rateLimitConfig;

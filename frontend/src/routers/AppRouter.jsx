@@ -106,7 +106,7 @@ const AppRouter = React.memo(({ user, onLogin, onLogout }) => {
           element={
             user.role === 'admin' ? (
               <MainLayout user={user} onLogout={onLogout} routes={[
-                { path: "/", element: <Navigate to="/admin/users" replace /> },
+                { path: "/", element: <Navigate to="/admin/announcements" replace /> },
                 { path: "/users", element: <UserManagement user={user} /> },
                 { path: "/classes", element: <ClassManagement user={user} onOpenMaterials={handleOpenMaterials} /> },
                 { path: "/payments", element: <AdminPayments user={user} /> },
@@ -132,7 +132,7 @@ const AppRouter = React.memo(({ user, onLogin, onLogout }) => {
           element={
             user.role === 'student' ? (
               <MainLayout user={user} onLogout={onLogout} routes={[
-                { path: "/", element: <Navigate to="/student/classes" replace /> },
+                { path: "/", element: <Navigate to="/student/announcements" replace /> },
                 { path: "/classes", element: <StudentClasses user={user} onOpenMaterials={handleOpenMaterials} /> },
                 { path: "/schedule", element: <StudentSchedule user={user} /> },
                 { path: "/announcements", element: <AnnouncementsPage currentUser={user} theme={{ primary: 'red', primaryLight: 'red-50' }} /> },
@@ -156,7 +156,7 @@ const AppRouter = React.memo(({ user, onLogin, onLogout }) => {
           element={
             user.role === 'parent' ? (
               <MainLayout user={user} onLogout={onLogout} routes={[
-                { path: "/", element: <Navigate to="/parent/children" replace /> },
+                { path: "/", element: <Navigate to="/parent/announcements" replace /> },
                 { path: "/children", element: <ChildrenManagement user={user} /> },
                 { path: "/schedule", element: <ParentSchedule user={user} /> },
                 { path: "/payments", element: <ParentPayments user={user} /> },
@@ -174,7 +174,7 @@ const AppRouter = React.memo(({ user, onLogin, onLogout }) => {
           element={
             user.role === 'teacher' ? (
               <MainLayout user={user} onLogout={onLogout} routes={[
-                { path: "/", element: <Navigate to="/teacher/classes" replace /> },
+                { path: "/", element: <Navigate to="/teacher/announcements" replace /> },
                 { path: "/classes", element: <TeacherClasses user={user} /> },
                 { path: "/schedule", element: <TeacherSchedule user={user} /> },
                 { path: "/announcements", element: <AnnouncementsPage currentUser={user} theme={{ primary: 'blue', primaryLight: 'blue-50' }} /> },

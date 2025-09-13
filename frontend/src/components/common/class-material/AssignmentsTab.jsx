@@ -227,6 +227,22 @@ const AssignmentsTab = ({ currentUser, theme, courseId }) => {
     }
   };
 
+  const handleDeleteAssignment = async (assignment) => {
+    if (window.confirm(`Are you sure you want to delete the assignment "${assignment.name}"? This action cannot be undone and will also delete all submissions.`)) {
+      try {
+        await materialsService.deleteAssignment(assignment.id);
+        
+        // Reload assignments to get the updated list
+        await loadAssignments();
+        
+        showSuccessToast('Assignment deleted successfully!');
+      } catch (error) {
+        console.error('Error deleting assignment:', error);
+        showErrorToast(error, 'Failed to delete assignment. Please try again.');
+      }
+    }
+  };
+
   // Helper function to clean filename by removing timestamp and random number
   const getCleanFileName = (fileName) => {
     if (!fileName) return 'submission.pdf';
@@ -389,6 +405,13 @@ const AssignmentsTab = ({ currentUser, theme, courseId }) => {
                           title="Edit assignment"
                         >
                           <Edit className="h-4 w-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteAssignment(assignment)}
+                          className="p-2 text-red-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                          title="Delete assignment"
+                        >
+                          <Trash2 className="h-4 w-4" />
                         </button>
                       </>
                     )}

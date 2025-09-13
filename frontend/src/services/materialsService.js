@@ -196,6 +196,16 @@ class MaterialsService {
     }
   }
 
+  async deleteAssignment(assignmentId) {
+    try {
+      const response = await api.delete(`/api/materials/courses/assignments/${assignmentId}`);
+      return response.data;
+    } catch (error) {
+      // Error is already handled by the API interceptor
+      throw error;
+    }
+  }
+
   async getCourseAssignments(courseId) {
     try {
       const response = await api.get(`/api/materials/courses/${courseId}/assignments`);

@@ -27,6 +27,7 @@ import { PaymentsModule } from './modules/payments/payments.module';
 import { ZoomModule } from './modules/zoom/zoom.module';
 import { PublicModule } from './modules/public/public.module';
 import { AnnouncementsModule } from './modules/announcements/announcements.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
 
 // Guards and Interceptors
 import { CustomThrottlerGuard } from './common/guards/custom-throttler.guard';
@@ -57,6 +58,7 @@ import { ZoomMeeting } from './modules/zoom/entities/zoom-meeting.entity';
 import { AppConfig } from './modules/admin/entities/app-config.entity';
 import { AnnouncementPost } from './modules/announcements/entities/announcement-post.entity';
 import { AnnouncementPostAttachment } from './modules/announcements/entities/announcement-post-attachment.entity';
+import { Notification } from './modules/notifications/entities/notification.entity';
 
 @Module({
   imports: [
@@ -96,7 +98,8 @@ import { AnnouncementPostAttachment } from './modules/announcements/entities/ann
           ZoomMeeting,
           AppConfig,
           AnnouncementPost,
-          AnnouncementPostAttachment
+          AnnouncementPostAttachment,
+          Notification
         ],
         synchronize: process.env.NODE_ENV !== 'production' || process.env.DB_SYNC === 'true',
         migrationsRun: process.env.NODE_ENV === 'production' && process.env.DB_SYNC !== 'true',
@@ -131,6 +134,7 @@ import { AnnouncementPostAttachment } from './modules/announcements/entities/ann
     ZoomModule,
     PublicModule,
     AnnouncementsModule,
+    NotificationsModule,
   ],
   controllers: [AppController],
   providers: [
