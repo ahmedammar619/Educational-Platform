@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Inject, forwardRef } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, FindManyOptions, Between } from 'typeorm';
 import { Notification, NotificationType, NotificationPriority } from './entities/notification.entity';
@@ -10,16 +10,34 @@ import { MarkAllReadDto } from './dto/mark-all-read.dto';
 export class NotificationsService {
   private readonly logger = new Logger(NotificationsService.name);
 
+  private gateway: any;
+
   constructor(
     @InjectRepository(Notification)
     private readonly notificationRepository: Repository<Notification>,
   ) {}
+
+  // Set gateway reference (called by the gateway itself)
+  setGateway(gateway: any) {
+    this.gateway = gateway;
+  }
 
   async create(createNotificationDto: CreateNotificationDto): Promise<Notification> {
     const notification = this.notificationRepository.create(createNotificationDto);
     const savedNotification = await this.notificationRepository.save(notification);
     
     this.logger.log(`Created notification ${savedNotification.id} for user ${savedNotification.userId}`);
+    
+    // Send real-time notification if gateway is available
+    try {
+      if (this.gateway) {
+        await this.gateway.sendNotificationToUser(savedNotification.userId, savedNotification);
+        this.logger.log(`Sent real-time notification to user ${savedNotification.userId}`);
+      }
+    } catch (error) {
+      this.logger.warn(`Failed to send real-time notification: ${error.message}`);
+    }
+    
     return savedNotification;
   }
 
@@ -41,25 +59,33 @@ export class NotificationsService {
       archived = false,
     } = options || {};
 
-    const queryBuilder = this.notificationRepository
-      .createQueryBuilder('notification')
-      .where('notification.userId = :userId', { userId })
-      .andWhere('notification.isArchived = :archived', { archived });
+    console.log('🔍 findAll called with:', { userId, options });
+
+    // Build where conditions
+    const whereConditions: any = {
+      userId: userId,
+      isArchived: archived
+    };
 
     if (unreadOnly) {
-      queryBuilder.andWhere('notification.isRead = :isRead', { isRead: false });
+      whereConditions.isRead = false;
     }
 
     if (type) {
-      queryBuilder.andWhere('notification.type = :type', { type });
+      whereConditions.type = type;
     }
 
-    queryBuilder
-      .orderBy('notification.createdAt', 'DESC')
-      .limit(limit)
-      .offset(offset);
+    console.log('🔍 Where conditions:', whereConditions);
 
-    const [notifications, total] = await queryBuilder.getManyAndCount();
+    // Use simple repository query instead of query builder
+    const [notifications, total] = await this.notificationRepository.findAndCount({
+      where: whereConditions,
+      order: { createdAt: 'DESC' },
+      take: limit,
+      skip: offset
+    });
+
+    console.log('🔍 Query result:', { notificationsCount: notifications.length, total });
 
     return { notifications, total };
   }

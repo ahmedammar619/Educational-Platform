@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, BadRequestException, Inject, forwardRef } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Not, IsNull, In } from 'typeorm';
 import { ZoomMeeting } from './entities/zoom-meeting.entity';
@@ -8,6 +8,7 @@ import { User } from '../users/entities/user.entity';
 import { Attendance } from '../materials/entities/attendance.entity';
 import { Course } from '../courses/entities/course.entity';
 import { Role } from '../../common/enums/role.enum';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class ZoomService {
@@ -20,6 +21,8 @@ export class ZoomService {
     private readonly attendanceRepository: Repository<Attendance>,
     @InjectRepository(Course)
     private readonly courseRepository: Repository<Course>,
+    @Inject(forwardRef(() => NotificationsService))
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   async createMeeting(createZoomMeetingDto: CreateZoomMeetingDto, userId: string): Promise<ZoomMeeting> {
@@ -45,8 +48,62 @@ export class ZoomService {
     // Create attendance records for all students when meeting is created
     await this.createAttendanceRecordsForMeeting(savedMeeting, createZoomMeetingDto.courseId);
 
+    // Send notifications to students about the new zoom session
+    try {
+      const students = await this.getStudentsInCourse(createZoomMeetingDto.courseId);
+      if (students.length > 0) {
+        const studentIds = students.map(student => student.id);
+        await this.notificationsService.createZoomSessionNotification(
+          studentIds,
+          savedMeeting.title,
+          'published',
+          savedMeeting.date ? new Date(savedMeeting.date + ' ' + (savedMeeting.time || '00:00')) : undefined,
+          {
+            meetingId: savedMeeting.id,
+            courseId: createZoomMeetingDto.courseId,
+            meetingUrl: savedMeeting.invitationLink
+          }
+        );
+        console.log('✅ Zoom session published notifications sent to', students.length, 'students');
+      }
+    } catch (error) {
+      console.error('❌ Failed to send zoom session notifications:', error);
+    }
+
     // Return the meeting with the createdBy relationship loaded
     return await this.findMeetingById(savedMeeting.id);
+  }
+
+  // Helper method to get students in a course
+  private async getStudentsInCourse(courseId: string): Promise<User[]> {
+    const course = await this.courseRepository.findOne({
+      where: { id: courseId },
+      relations: ['class']
+    });
+
+    if (!course?.classId) {
+      return [];
+    }
+
+    // Get students from the class_students table
+    const classData = await this.courseRepository.manager.query(`
+      SELECT cs.student_id 
+      FROM class_students cs
+      WHERE cs.class_id = $1
+    `, [course.classId]);
+
+    const studentIds = classData
+      .filter(row => row.student_id)
+      .map(row => row.student_id);
+
+    if (studentIds.length === 0) {
+      return [];
+    }
+
+    return await this.userRepository.find({
+      where: { id: In(studentIds) },
+      select: ['id', 'firstName', 'lastName', 'email']
+    });
   }
 
   async findAllMeetings(): Promise<ZoomMeeting[]> {

@@ -34,6 +34,11 @@ class NotificationService {
       transports: ['websocket', 'polling'],
       autoConnect: true,
       forceNew: true,
+      timeout: 10000,
+      reconnection: true,
+      reconnectionDelay: 1000,
+      reconnectionAttempts: 5,
+      maxReconnectionAttempts: 5,
     });
 
     this.setupEventListeners();
@@ -125,8 +130,10 @@ class NotificationService {
     if (options.offset) params.append('offset', options.offset);
     if (options.unreadOnly) params.append('unreadOnly', options.unreadOnly);
     if (options.type) params.append('type', options.type);
-    // Always include archived parameter to ensure consistency with backend default
-    params.append('archived', options.archived === true);
+    // Include archived parameter only if explicitly set
+    if (options.archived !== undefined) {
+      params.append('archived', options.archived);
+    }
 
     console.log(`Making API request to /api/notifications with params: ${params.toString()}`);
 

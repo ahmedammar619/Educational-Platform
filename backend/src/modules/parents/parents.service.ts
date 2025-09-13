@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException, Inject, forwardRef } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Parent } from './entities/parent.entity';
@@ -12,6 +12,7 @@ import { AddChildDto } from './dto/add-child.dto';
 import { CreateChildAccountDto } from './dto/create-child-account.dto';
 import { Role } from '../../common/enums/role.enum';
 import { StudentsService } from '../students/students.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import * as bcrypt from 'bcryptjs';
 
 @Injectable()
@@ -28,6 +29,8 @@ export class ParentsService {
     @InjectRepository(Student)
     private readonly studentRepository: Repository<Student>,
     private readonly studentsService: StudentsService,
+    @Inject(forwardRef(() => NotificationsService))
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   async createParent(createParentDto: CreateParentDto): Promise<Parent> {
@@ -204,7 +207,25 @@ export class ParentsService {
     // Add student ID to parent's studentIds array
     if (!parent.studentIds.includes(studentId)) {
       parent.studentIds.push(studentId);
-      return this.parentRepository.save(parent);
+      const savedParent = await this.parentRepository.save(parent);
+      
+      // Send notification to parent about child being added
+      try {
+        await this.notificationsService.createAddedToClassNotification(
+          parentId,
+          'Your child has been added to your account',
+          {
+            childId: studentId,
+            childName: `${student.firstName} ${student.lastName}`,
+            parentId: parentId
+          }
+        );
+        console.log('✅ Child added notification sent to parent:', parentId);
+      } catch (error) {
+        console.error('❌ Failed to send child added notification:', error);
+      }
+      
+      return savedParent;
     }
 
     return parent;

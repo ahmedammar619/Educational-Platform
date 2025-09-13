@@ -1,4 +1,4 @@
-import { Injectable, ConflictException, BadRequestException, NotFoundException } from '@nestjs/common';
+import { Injectable, ConflictException, BadRequestException, NotFoundException, Inject, forwardRef } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from '../users/entities/user.entity';
@@ -8,6 +8,7 @@ import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UpdateConfigDto, UpdateGoogleFormUrlDto } from './dto/update-config.dto';
 import { ConfigService } from './config.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import * as bcrypt from 'bcryptjs';
 
 @Injectable()
@@ -18,6 +19,8 @@ export class AdminService {
     @InjectRepository(AppConfig)
     private readonly configRepository: Repository<AppConfig>,
     private readonly configService: ConfigService,
+    @Inject(forwardRef(() => NotificationsService))
+    private readonly notificationsService: NotificationsService,
   ) {}
 
 
@@ -60,6 +63,29 @@ export class AdminService {
     });
 
     const savedUser = await this.userRepository.save(user);
+
+    // Notify all admins about the new user
+    try {
+      const adminUsers = await this.userRepository.find({
+        where: { role: Role.Admin }
+      });
+      
+      if (adminUsers.length > 0) {
+        const adminIds = adminUsers.map(admin => admin.id);
+        await this.notificationsService.createNewUserJoinedNotification(
+          adminIds,
+          `${savedUser.firstName} ${savedUser.lastName}`,
+          savedUser.role,
+          {
+            userId: savedUser.id,
+            email: savedUser.email
+          }
+        );
+        console.log('✅ New user notification sent to admins');
+      }
+    } catch (error) {
+      console.error('❌ Failed to send new user notification:', error);
+    }
 
     // Remove password hash from response
     const { passwordHash: _, ...userWithoutPassword } = savedUser;

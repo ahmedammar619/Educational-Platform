@@ -194,7 +194,7 @@ export const NotificationProvider = ({ children }) => {
     }
 
     // Check if we already have notifications and this is not a force refresh
-    if (!forceRefresh && state.notifications.length >= 0 && state.lastFetchTime) {
+    if (!forceRefresh && state.notifications.length > 0 && state.lastFetchTime) {
       const timeSinceLastFetch = now - state.lastFetchTime;
       if (timeSinceLastFetch < state.cacheExpiry) {
         console.log(`Using cached notifications (${Math.round(timeSinceLastFetch / 1000)}s ago)`);

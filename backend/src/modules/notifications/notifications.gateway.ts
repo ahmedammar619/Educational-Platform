@@ -21,7 +21,16 @@ interface AuthenticatedSocket extends Socket {
 
 @WebSocketGateway({
   cors: {
-    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+    origin: process.env.FRONTEND_URL 
+      ? process.env.FRONTEND_URL.split(',').map(url => url.trim())
+      : [
+          'http://localhost:3000',
+          'http://localhost:5173',
+          'http://localhost:3001',
+          'http://127.0.0.1:3000',
+          'http://127.0.0.1:5173',
+          'https://frontend-production-3cbc.up.railway.app'
+        ],
     credentials: true,
   },
   namespace: '/notifications',
@@ -37,25 +46,15 @@ export class NotificationsGateway implements OnGatewayConnection, OnGatewayDisco
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
     private readonly notificationsService: NotificationsService,
-  ) {}
+  ) {
+    // Set gateway reference in service for real-time notifications
+    this.notificationsService.setGateway(this);
+  }
 
   async handleConnection(client: AuthenticatedSocket) {
     try {
-      // Extract token from handshake
-      let token = client.handshake.auth?.token;
-      
-      // If no token in auth, try headers
-      if (!token) {
-        const authHeader = client.handshake.headers?.authorization;
-        if (authHeader && authHeader.startsWith('Bearer ')) {
-          token = authHeader.replace('Bearer ', '');
-        }
-      }
-      
-      // If still no token, try query parameters
-      if (!token) {
-        token = client.handshake.query?.token as string;
-      }
+      // Extract token from handshake auth
+      const token = client.handshake.auth?.token;
       
       if (!token) {
         this.logger.warn('Client connected without token');

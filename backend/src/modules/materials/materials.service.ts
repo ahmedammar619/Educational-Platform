@@ -77,6 +77,31 @@ export class MaterialsService {
       const savedPost = await this.postRepository.save(post);
       console.log('Post saved successfully:', savedPost.id);
       
+      // Get author information for notifications
+      const author = await this.userRepository.findOne({ where: { id: authorId } });
+      
+      // Send notifications to students about the new post
+      try {
+        const students = await this.getStudentsInCourse(courseId);
+        if (students.length > 0 && author) {
+          const studentIds = students.map(student => student.id);
+          await this.notificationsService.createNewPostNotification(
+            studentIds,
+            savedPost.subject,
+            `${author.firstName} ${author.lastName}`,
+            course.name,
+            {
+              postId: savedPost.id,
+              courseId: courseId,
+              authorId: authorId
+            }
+          );
+          console.log('✅ New post notifications sent to', students.length, 'students');
+        }
+      } catch (error) {
+        console.error('❌ Failed to send new post notifications:', error);
+      }
+      
       // Handle file attachment if provided
       if (file) {
         console.log('Creating post attachment for file:', file.originalname);
@@ -1172,7 +1197,14 @@ export class MaterialsService {
       existingAttendance.notes = attendanceDto.notes;
       existingAttendance.markedBy = markerId;
       existingAttendance.markedAt = new Date();
-      return await this.attendanceRepository.save(existingAttendance);
+      const savedAttendance = await this.attendanceRepository.save(existingAttendance);
+      
+      // Send notification if student is marked absent
+      if (attendanceDto.status === 'absent') {
+        await this.sendAbsentNotification(savedAttendance, course);
+      }
+      
+      return savedAttendance;
     }
 
     const attendance = this.attendanceRepository.create({
@@ -1182,7 +1214,14 @@ export class MaterialsService {
       date: new Date(attendanceDto.date)
     });
 
-    return await this.attendanceRepository.save(attendance);
+    const savedAttendance = await this.attendanceRepository.save(attendance);
+    
+    // Send notification if student is marked absent
+    if (attendanceDto.status === 'absent') {
+      await this.sendAbsentNotification(savedAttendance, course);
+    }
+    
+    return savedAttendance;
   }
 
   // Bulk Attendance - New method for handling multiple students at once
@@ -1637,6 +1676,117 @@ export class MaterialsService {
       
     } catch (error) {
       console.error('Error testing PostAttachment table:', error);
+    }
+  }
+
+  // Helper method to get students in a course
+  private async getStudentsInCourse(courseId: string): Promise<User[]> {
+    const course = await this.courseRepository.findOne({
+      where: { id: courseId },
+      relations: ['class']
+    });
+
+    if (!course?.classId) {
+      return [];
+    }
+
+    // Get students from the class_students table
+    const classData = await this.courseRepository.manager.query(`
+      SELECT cs.student_id 
+      FROM class_students cs
+      WHERE cs.class_id = $1
+    `, [course.classId]);
+
+    const studentIds = classData
+      .filter(row => row.student_id)
+      .map(row => row.student_id);
+
+    if (studentIds.length === 0) {
+      return [];
+    }
+
+    return await this.userRepository.find({
+      where: { id: In(studentIds) },
+      select: ['id', 'firstName', 'lastName', 'email']
+    });
+  }
+
+  // Helper method to send absent notifications
+  private async sendAbsentNotification(attendance: Attendance, course: Course): Promise<void> {
+    try {
+      // Get student information
+      const student = await this.userRepository.findOne({ 
+        where: { id: attendance.studentId },
+        select: ['id', 'firstName', 'lastName', 'role']
+      });
+
+      if (!student) {
+        console.warn('Student not found for attendance notification:', attendance.studentId);
+        return;
+      }
+
+      // Send notification to student
+      await this.notificationsService.createAbsentNotification(
+        student.id,
+        course.name,
+        false, // isParent = false
+        undefined, // childName not needed for student
+        {
+          courseId: course.id,
+          date: attendance.date,
+          attendanceId: attendance.id
+        }
+      );
+
+      // Send notification to parents if student has parents
+      const parents = await this.getParentsOfStudent(student.id);
+      if (parents.length > 0) {
+        for (const parent of parents) {
+          await this.notificationsService.createAbsentNotification(
+            parent.id,
+            course.name,
+            true, // isParent = true
+            `${student.firstName} ${student.lastName}`, // childName
+            {
+              courseId: course.id,
+              date: attendance.date,
+              attendanceId: attendance.id,
+              studentId: student.id
+            }
+          );
+        }
+        console.log('✅ Absent notifications sent to', parents.length, 'parents');
+      }
+
+      console.log('✅ Absent notification sent to student:', student.firstName, student.lastName);
+    } catch (error) {
+      console.error('❌ Failed to send absent notification:', error);
+    }
+  }
+
+  // Helper method to get parents of a student
+  private async getParentsOfStudent(studentId: string): Promise<User[]> {
+    try {
+      // Get parent IDs from the parents table
+      const parentData = await this.userRepository.manager.query(`
+        SELECT p.id 
+        FROM parents p
+        WHERE $1 = ANY(p."studentIds")
+      `, [studentId]);
+
+      const parentIds = parentData.map(row => row.id);
+
+      if (parentIds.length === 0) {
+        return [];
+      }
+
+      return await this.userRepository.find({
+        where: { id: In(parentIds) },
+        select: ['id', 'firstName', 'lastName', 'email']
+      });
+    } catch (error) {
+      console.error('Error getting parents of student:', error);
+      return [];
     }
   }
 }
