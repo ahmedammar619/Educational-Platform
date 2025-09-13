@@ -25,7 +25,6 @@ import { CoursesModule } from './modules/courses/courses.module';
 import { MaterialsModule } from './modules/materials/materials.module';
 import { PaymentsModule } from './modules/payments/payments.module';
 import { ZoomModule } from './modules/zoom/zoom.module';
-import { PublicModule } from './modules/public/public.module';
 import { AnnouncementsModule } from './modules/announcements/announcements.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 
@@ -132,7 +131,6 @@ import { Notification } from './modules/notifications/entities/notification.enti
     MaterialsModule,
     PaymentsModule,
     ZoomModule,
-    PublicModule,
     AnnouncementsModule,
     NotificationsModule,
   ],
