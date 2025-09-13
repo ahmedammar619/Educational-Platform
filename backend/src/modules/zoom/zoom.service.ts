@@ -9,6 +9,7 @@ import { Attendance } from '../materials/entities/attendance.entity';
 import { Course } from '../courses/entities/course.entity';
 import { Role } from '../../common/enums/role.enum';
 import { NotificationsService } from '../notifications/notifications.service';
+import { ZoomApiService } from './services/zoom-api.service';
 
 @Injectable()
 export class ZoomService {
@@ -23,6 +24,7 @@ export class ZoomService {
     private readonly courseRepository: Repository<Course>,
     @Inject(forwardRef(() => NotificationsService))
     private readonly notificationsService: NotificationsService,
+    private readonly zoomApiService: ZoomApiService,
   ) {}
 
   async createMeeting(createZoomMeetingDto: CreateZoomMeetingDto, userId: string): Promise<ZoomMeeting> {
@@ -37,41 +39,65 @@ export class ZoomService {
       throw new NotFoundException('Course not found');
     }
 
-    const meeting = this.zoomMeetingRepository.create({
-      ...createZoomMeetingDto,
-      createdById: userId,
-      status: this.calculateMeetingStatus(createZoomMeetingDto),
-    });
-
-    const savedMeeting = await this.zoomMeetingRepository.save(meeting);
-
-    // Create attendance records for all students when meeting is created
-    await this.createAttendanceRecordsForMeeting(savedMeeting, createZoomMeetingDto.courseId);
-
-    // Send notifications to students about the new zoom session
     try {
-      const students = await this.getStudentsInCourse(createZoomMeetingDto.courseId);
-      if (students.length > 0) {
-        const studentIds = students.map(student => student.id);
-        await this.notificationsService.createZoomSessionNotification(
-          studentIds,
-          savedMeeting.title,
-          'published',
-          savedMeeting.date ? new Date(savedMeeting.date + ' ' + (savedMeeting.time || '00:00')) : undefined,
-          {
-            meetingId: savedMeeting.id,
-            courseId: createZoomMeetingDto.courseId,
-            meetingUrl: savedMeeting.invitationLink
-          }
-        );
-        console.log('✅ Zoom session published notifications sent to', students.length, 'students');
-      }
-    } catch (error) {
-      console.error('❌ Failed to send zoom session notifications:', error);
-    }
+      // Create Zoom meeting via API
+      const zoomMeetingData = {
+        topic: createZoomMeetingDto.title,
+        agenda: createZoomMeetingDto.description || `Meeting for ${createZoomMeetingDto.title}`,
+        startTime: createZoomMeetingDto.date && createZoomMeetingDto.time 
+          ? new Date(`${createZoomMeetingDto.date}T${createZoomMeetingDto.time}:00`).toISOString()
+          : undefined,
+        duration: 120, // 120 minutes as requested
+        password: undefined, // Let Zoom generate password
+      };
 
-    // Return the meeting with the createdBy relationship loaded
-    return await this.findMeetingById(savedMeeting.id);
+      const zoomMeeting = await this.zoomApiService.createZoomMeeting(zoomMeetingData);
+
+      // Create meeting record in database
+      const meeting = this.zoomMeetingRepository.create({
+        ...createZoomMeetingDto,
+        invitationLink: zoomMeeting.join_url,
+        zoomMeetingId: zoomMeeting.id,
+        zoomPassword: zoomMeeting.password,
+        zoomStartUrl: zoomMeeting.start_url,
+        createdById: userId,
+        status: this.calculateMeetingStatus(createZoomMeetingDto),
+      });
+
+      const savedMeeting = await this.zoomMeetingRepository.save(meeting);
+
+      // Create attendance records for all students when meeting is created
+      await this.createAttendanceRecordsForMeeting(savedMeeting, createZoomMeetingDto.courseId);
+
+      // Send notifications to students about the new zoom session
+      try {
+        const students = await this.getStudentsInCourse(createZoomMeetingDto.courseId);
+        if (students.length > 0) {
+          const studentIds = students.map(student => student.id);
+          await this.notificationsService.createZoomSessionNotification(
+            studentIds,
+            savedMeeting.title,
+            'published',
+            savedMeeting.date ? new Date(savedMeeting.date + ' ' + (savedMeeting.time || '00:00')) : undefined,
+            {
+              meetingId: savedMeeting.id,
+              courseId: createZoomMeetingDto.courseId,
+              meetingUrl: savedMeeting.invitationLink,
+              zoomPassword: savedMeeting.zoomPassword
+            }
+          );
+          console.log('✅ Zoom session published notifications sent to', students.length, 'students');
+        }
+      } catch (error) {
+        console.error('❌ Failed to send zoom session notifications:', error);
+      }
+
+      // Return the meeting with the createdBy relationship loaded
+      return await this.findMeetingById(savedMeeting.id);
+    } catch (error) {
+      console.error('❌ Failed to create Zoom meeting:', error);
+      throw new BadRequestException('Failed to create Zoom meeting: ' + error.message);
+    }
   }
 
   // Helper method to get students in a course
@@ -171,7 +197,18 @@ export class ZoomService {
       try {
         console.log('Deleting meeting:', meeting.title, 'ID:', id);
         
-        // First, delete all associated attendance records
+        // First, delete the Zoom meeting from Zoom's servers if it exists
+        if (meeting.zoomMeetingId) {
+          try {
+            await this.zoomApiService.deleteMeeting(meeting.zoomMeetingId);
+            console.log('✅ Deleted Zoom meeting from Zoom servers');
+          } catch (error) {
+            console.error('⚠️ Failed to delete Zoom meeting from servers:', error);
+            // Continue with database deletion even if Zoom deletion fails
+          }
+        }
+        
+        // Delete all associated attendance records
         const attendanceRecords = await transactionalEntityManager.find('Attendance', {
           where: { meetingId: id }
         });
@@ -183,7 +220,7 @@ export class ZoomService {
           console.log('✅ Deleted', attendanceRecords.length, 'attendance records');
         }
         
-        // Then delete the meeting
+        // Then delete the meeting from database
         await transactionalEntityManager.remove('ZoomMeeting', meeting);
         console.log('✅ Successfully deleted meeting:', meeting.title);
         
@@ -194,35 +231,35 @@ export class ZoomService {
     });
   }
 
-  async incrementJoinCount(id: string, studentId?: string, courseId?: string): Promise<ZoomMeeting> {
+  async incrementJoinCount(id: string, userId?: string, courseId?: string): Promise<ZoomMeeting> {
     const meeting = await this.findMeetingById(id);
     
-    // Only increment join count if this is a new student joining
-    if (studentId) {
-      // Check if this student has already joined this meeting
+    // Only increment join count if this is a new user joining
+    if (userId) {
+      // Check if this user has already joined this meeting
       const existingAttendance = await this.attendanceRepository.findOne({
         where: {
           meetingId: id,
-          studentId: studentId,
+          studentId: userId, // Using studentId field to store any user ID
           status: 'present'
         }
       });
       
-      // Only increment if this is the first time this student is joining
+      // Only increment if this is the first time this user is joining
       if (!existingAttendance) {
         meeting.joinCount += 1;
-        console.log(`✅ New student joined meeting ${meeting.title}. Join count: ${meeting.joinCount}`);
+        console.log(`✅ New user joined meeting ${meeting.title}. Join count: ${meeting.joinCount}`);
       } else {
-        console.log(`⚠️ Student ${studentId} already joined meeting ${meeting.title}. Join count remains: ${meeting.joinCount}`);
+        console.log(`⚠️ User ${userId} already joined meeting ${meeting.title}. Join count remains: ${meeting.joinCount}`);
       }
     } else {
-      // If no studentId provided, increment anyway (for backward compatibility)
+      // If no userId provided, increment anyway (for backward compatibility)
       meeting.joinCount += 1;
     }
     
-    // Auto-mark attendance if studentId and courseId are provided
-    if (studentId && courseId && meeting.date) {
-      await this.markAttendanceForStudent(meeting, studentId, courseId);
+    // Auto-mark attendance if userId and courseId are provided
+    if (userId && courseId && meeting.date) {
+      await this.markAttendanceForStudent(meeting, userId, courseId);
     }
     
     return await this.zoomMeetingRepository.save(meeting);
@@ -570,7 +607,8 @@ export class ZoomService {
     const meetingDateTime = new Date(meeting.date);
     meetingDateTime.setHours(hour24, minutes, 0, 0);
     
-    // Only check if meeting has started, don't auto-end it
+    // Only check if meeting has started, NEVER auto-end it
+    // Meetings only end when manually ended by the host/admin
     if (now < meetingDateTime) return 'upcoming';
     if (now >= meetingDateTime) return 'live';
     

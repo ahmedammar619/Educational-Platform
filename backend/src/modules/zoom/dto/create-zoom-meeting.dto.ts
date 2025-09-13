@@ -13,9 +13,10 @@ export class CreateZoomMeetingDto {
   @IsString()
   description?: string;
 
-  @ApiProperty({ description: 'Zoom invitation link', example: 'https://zoom.us/j/123456789' })
+  @ApiPropertyOptional({ description: 'Zoom invitation link (auto-generated if not provided)', example: 'https://zoom.us/j/123456789' })
+  @IsOptional()
   @IsUrl()
-  invitationLink: string;
+  invitationLink?: string;
 
   @ApiPropertyOptional({ description: 'Meeting date (YYYY-MM-DD)', example: '2025-01-15' })
   @IsOptional()

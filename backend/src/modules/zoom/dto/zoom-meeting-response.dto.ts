@@ -58,6 +58,18 @@ export class ZoomMeetingResponseDto {
 
   @ApiPropertyOptional()
   @Expose()
+  zoomMeetingId?: string;
+
+  @ApiPropertyOptional()
+  @Expose()
+  zoomPassword?: string;
+
+  @ApiPropertyOptional()
+  @Expose()
+  zoomStartUrl?: string;
+
+  @ApiPropertyOptional()
+  @Expose()
   date?: string;
 
   @ApiPropertyOptional()

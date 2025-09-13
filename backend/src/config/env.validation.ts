@@ -172,6 +172,19 @@ class EnvironmentVariables {
   @IsOptional()
   @IsString()
   FRONTEND_URL?: string;
+
+  // Zoom Configuration
+  @IsOptional()
+  @IsString()
+  ZOOM_ACCOUNT_ID?: string;
+
+  @IsOptional()
+  @IsString()
+  ZOOM_CLIENT_ID?: string;
+
+  @IsOptional()
+  @IsString()
+  ZOOM_CLIENT_SECRET?: string;
 }
 
 export function validate(config: Record<string, unknown>) {

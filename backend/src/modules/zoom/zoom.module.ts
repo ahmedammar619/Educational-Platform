@@ -2,6 +2,7 @@ import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ZoomController } from './zoom.controller';
 import { ZoomService } from './zoom.service';
+import { ZoomApiService } from './services/zoom-api.service';
 import { ZoomMeeting } from './entities/zoom-meeting.entity';
 import { User } from '../users/entities/user.entity';
 import { Attendance } from '../materials/entities/attendance.entity';
@@ -15,7 +16,7 @@ import { NotificationsModule } from '../notifications/notifications.module';
     forwardRef(() => NotificationsModule)
   ],
   controllers: [ZoomController],
-  providers: [ZoomService],
+  providers: [ZoomService, ZoomApiService],
   exports: [ZoomService],
 })
 export class ZoomModule {}

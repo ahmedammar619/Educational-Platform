@@ -137,10 +137,11 @@ export class ZoomController {
     @Request() req: any,
     @Body() body?: { courseId?: string }
   ): Promise<ZoomMeetingResponseDto> {
-    const studentId = req.user?.role === 'student' ? req.user.sub : undefined;
+    // Pass user ID for all roles to prevent duplicate join counts
+    const userId = req.user?.sub;
     const courseId = body?.courseId;
     
-    const meeting = await this.zoomService.incrementJoinCount(id, studentId, courseId);
+    const meeting = await this.zoomService.incrementJoinCount(id, userId, courseId);
     return plainToClass(ZoomMeetingResponseDto, meeting, { excludeExtraneousValues: true });
   }
 

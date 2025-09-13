@@ -16,6 +16,15 @@ export class ZoomMeeting {
   @Column({ type: 'text' })
   invitationLink: string;
 
+  @Column({ type: 'varchar', length: 50, nullable: true })
+  zoomMeetingId: string;
+
+  @Column({ type: 'varchar', length: 10, nullable: true })
+  zoomPassword: string;
+
+  @Column({ type: 'text', nullable: true })
+  zoomStartUrl: string;
+
   @Column({ type: 'date', nullable: true })
   date: string;
 
