@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { Users, X, Clock, Edit } from 'lucide-react';
+import { Users, X, Clock, Edit, Video } from 'lucide-react';
 import { materialsService } from '../../../services';
+import zoomService from '../../../services/zoomService';
 import { showErrorToast, showSuccessToast } from '../../../utils/errorHandler';
 
 const AttendanceTab = ({ currentUser, theme, courseId }) => {
@@ -18,16 +19,252 @@ const AttendanceTab = ({ currentUser, theme, courseId }) => {
     }
   }, [courseId]);
 
+  // Auto-refresh attendance data more frequently to catch real-time updates
+  // useEffect(() => {
+  //   const interval = setInterval(() => {
+  //     if (courseId) {
+  //       console.log('🔄 Auto-refreshing attendance data...');
+  //       loadAttendanceData();
+  //     }
+  //   }, 15000); // Refresh every 15 seconds (more frequent for real-time updates)
+
+  //   return () => clearInterval(interval);
+  // }, [courseId]);
+
+  // Listen for attendance updates from other components (like ZoomTab)
+  useEffect(() => {
+    const handleAttendanceUpdate = (event) => {
+      const { courseId: eventCourseId, meetingId, studentId, action } = event.detail;
+      
+      // Only refresh if the update is for the current course
+      if (eventCourseId === courseId) {
+        console.log('📢 Received attendance update event:', { courseId, meetingId, studentId, action });
+        console.log('🔄 Refreshing attendance data immediately...');
+        
+        // Refresh attendance data immediately
+        setTimeout(() => {
+          loadAttendanceData();
+        }, 1000); // Small delay to ensure backend has processed the update
+      }
+    };
+
+    // Add event listener
+    window.addEventListener('attendanceUpdated', handleAttendanceUpdate);
+
+    // Cleanup event listener on unmount
+    return () => {
+      window.removeEventListener('attendanceUpdated', handleAttendanceUpdate);
+    };
+  }, [courseId]);
+
+  // Get students from the class that contains this course
+  const getCourseStudents = async () => {
+    try {
+      // Get course details to find which class it belongs to
+      const courseDetails = await materialsService.getCourseDetails(courseId);
+      if (!courseDetails || !courseDetails.classId) {
+        console.warn('Course has no associated class');
+        return [];
+      }
+      
+      console.log('📚 Course details:', courseDetails);
+      console.log('🏫 Class ID:', courseDetails.classId);
+      
+      // Get students from that class
+      const classStudents = await materialsService.getClassStudents(courseDetails.classId);
+      console.log('👥 Class students:', classStudents);
+      
+      return classStudents || [];
+    } catch (error) {
+      console.error('Error getting course students:', error);
+      return [];
+    }
+  };
+
+  // Save attendance record
+  const saveAttendanceRecord = async (attendanceData) => {
+    try {
+      await materialsService.markAttendance(courseId, attendanceData);
+    } catch (error) {
+      console.error('Error saving attendance record:', error);
+    }
+  };
+
   const loadAttendanceData = async () => {
     try {
       setLoading(true);
+      
+      // Get Zoom meetings for this course
+      const meetings = await zoomService.getMeetings({ courseId });
+      
+      // Get students from the class that contains this course
+      const courseStudents = await getCourseStudents();
+      
+      // Get attendance records for this course
       const attendanceRecords = await materialsService.getCourseAttendance(courseId);
-      const records = Array.isArray(attendanceRecords) ? attendanceRecords : [];
-      setAttendanceData(records);
+      console.log('📊 Retrieved attendance records:', attendanceRecords);
+      console.log('📊 Attendance records count:', attendanceRecords.length);
+      
+      // Log each record in detail
+      attendanceRecords.forEach((record, index) => {
+        console.log(`📋 Record ${index + 1}:`, {
+          meetingId: record.meetingId,
+          date: record.date,
+          day: record.day,
+          time: record.time,
+          studentsCount: record.students?.length || 0,
+          students: record.students?.map(s => ({ id: s.id, name: s.name, status: s.status })) || []
+        });
+      });
+      
+      // Combine Zoom meetings with their attendance records
+      const meetingAttendanceData = meetings.map(meeting => {
+        // Find attendance record for this meeting
+        const attendanceRecord = attendanceRecords.find(record => 
+          record.meetingId === meeting.id
+        );
+        
+        console.log('🔍 Meeting:', meeting.title, 'ID:', meeting.id);
+        console.log('📊 Existing attendance record:', attendanceRecord);
+        console.log('👥 Course students count:', courseStudents.length);
+        
+        // Debug: Check if we found the attendance record
+        if (attendanceRecord) {
+          console.log('✅ Found attendance record for meeting:', meeting.title);
+          console.log('📋 Record details:', {
+            meetingId: attendanceRecord.meetingId,
+            studentsCount: attendanceRecord.students?.length || 0,
+            students: attendanceRecord.students?.map(s => `${s.name}: ${s.status}`) || []
+          });
+        } else {
+          console.log('❌ No attendance record found for meeting:', meeting.title, 'ID:', meeting.id);
+          console.log('🔍 Available records:', attendanceRecords.map(r => ({ 
+            meetingId: r.meetingId, 
+            title: r.meetingName || 'Unknown' 
+          })));
+        }
+        
+        // If no attendance record exists, create one with all students marked as absent
+        let attendanceData = attendanceRecord;
+        if (!attendanceData && courseStudents.length > 0) {
+          console.log('📝 Creating attendance record for meeting:', meeting.title);
+          console.log('👥 Course students to mark absent:', courseStudents);
+          
+          attendanceData = {
+            meetingId: meeting.id,
+            students: courseStudents.map(student => {
+              // Handle different student data formats
+              const studentName = student.user ? 
+                `${student.user.firstName} ${student.user.lastName}` :
+                `${student.firstName} ${student.lastName}`;
+              
+              const studentId = student.user ? student.user.id : student.id;
+              
+              console.log('👤 Creating attendance for student:', {
+                studentId: studentId,
+                studentName: studentName,
+                studentEntityId: student.id,
+                userEntityId: student.user?.id,
+                studentData: student
+              });
+              
+              return {
+                id: studentId,
+                name: studentName,
+                status: 'absent' // Initially mark all students as absent
+              };
+            }),
+            date: meeting.date,
+            time: meeting.time,
+            day: new Date(meeting.date).toLocaleDateString('en-US', { weekday: 'long' })
+          };
+          
+          console.log('📋 Attendance data to save:', attendanceData);
+          
+          // Save the initial attendance record
+          saveAttendanceRecord(attendanceData);
+        } else if (attendanceData && (!attendanceData.students || attendanceData.students.length === 0) && courseStudents.length > 0) {
+          // Attendance record exists but has no students - populate with course students
+          // but mark them as absent initially (preserving any saved data)
+          console.log('⚠️ Attendance record exists but has no students - populating with course students');
+          console.log('📊 Attendance record:', attendanceData);
+          console.log('👥 Course students available:', courseStudents.length);
+          
+          // Create students array with all course students marked as absent
+          // This ensures students appear in the UI
+          attendanceData.students = courseStudents.map(student => {
+            const studentName = student.user ? 
+              `${student.user.firstName} ${student.user.lastName}` :
+              `${student.firstName} ${student.lastName}`;
+            
+            const studentId = student.user ? student.user.id : student.id;
+            
+            return {
+              id: studentId,
+              name: studentName,
+              status: 'absent' // Default to absent - will be updated by backend data
+            };
+          });
+          
+          console.log('📋 Populated students for display:', attendanceData.students);
+        } else if (attendanceData && attendanceData.students && attendanceData.students.length > 0) {
+          console.log('✅ Attendance record already exists for meeting:', meeting.title);
+          console.log('📋 Existing attendance data:', attendanceData);
+          
+          // Check if all course students are present in the attendance record
+          const existingStudentIds = attendanceData.students.map(s => s.id);
+          const missingStudents = courseStudents.filter(student => {
+            const studentId = student.user ? student.user.id : student.id;
+            return !existingStudentIds.includes(studentId);
+          });
+          
+          if (missingStudents.length > 0) {
+            console.log('👥 Adding missing students to attendance record:', missingStudents.length);
+            
+            // Add missing students to the attendance record
+            const missingStudentsData = missingStudents.map(student => {
+              const studentName = student.user ? 
+                `${student.user.firstName} ${student.user.lastName}` :
+                `${student.firstName} ${student.lastName}`;
+              
+              const studentId = student.user ? student.user.id : student.id;
+              
+              return {
+                id: studentId,
+                name: studentName,
+                status: 'absent' // Default to absent for new students
+              };
+            });
+            
+            attendanceData.students = [...attendanceData.students, ...missingStudentsData];
+            console.log('📋 Updated attendance data with missing students:', attendanceData.students);
+          }
+        }
+        
+        return {
+          id: meeting.id,
+          meetingName: meeting.title,
+          date: meeting.date,
+          time: meeting.time,
+          period: meeting.period,
+          day: meeting.date ? new Date(meeting.date).toLocaleDateString('en-US', { weekday: 'long' }) : 'Unknown',
+          status: meeting.status,
+          students: attendanceData ? attendanceData.students : [],
+          meetingId: meeting.id,
+          createdBy: meeting.createdBy
+        };
+      });
+      
+      // Sort by date (most recent first)
+      const sortedData = meetingAttendanceData.sort((a, b) => 
+        new Date(b.date) - new Date(a.date)
+      );
+      
+      setAttendanceData(sortedData);
 
       // Set the most recent record as selected by default
-      if (records.length > 0) {
-        setSelectedRecord(records[0]);
+      if (sortedData.length > 0) {
+        setSelectedRecord(sortedData[0]);
       }
     } catch (error) {
       console.error('Error loading attendance:', error);
@@ -40,6 +277,24 @@ const AttendanceTab = ({ currentUser, theme, courseId }) => {
 
   return (
     <div className="h-[700px] lg:h-[450px] flex flex-col">
+      {/* Header with refresh button */}
+      <div className="flex items-center justify-between mb-4 px-2">
+        <h3 className="text-lg font-semibold text-gray-900">Attendance Records</h3>
+        <button
+          onClick={() => {
+            console.log('🔄 Manual refresh triggered');
+            loadAttendanceData();
+          }}
+          disabled={loading}
+          className="flex items-center gap-2 px-3 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+        >
+          <svg className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+          </svg>
+          {loading ? 'Refreshing...' : 'Refresh'}
+        </button>
+      </div>
+
       {/* Fixed height container with scroll */}
       <div className="flex-1 overflow-y-auto space-y-6 pr-2">
         {loading ? (
@@ -85,9 +340,9 @@ const AttendanceTab = ({ currentUser, theme, courseId }) => {
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th className="px-6 py-3 text-center text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                      <th className="px-6 py-3 text-center text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Day & Time</th>
-                      <th className="px-6 py-3 text-center text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Meeting Name</th>
+                      <th className="px-6 py-3 text-center text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date & Time</th>
+                      <th className="px-6 py-3 text-center text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Zoom Meeting</th>
+                      <th className="px-6 py-3 text-center text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                       <th className="px-6 py-3 text-center text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Present</th>
                       <th className="px-6 py-3 text-center text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Absent</th>
                       <th className="px-6 py-3 text-center text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
@@ -98,16 +353,66 @@ const AttendanceTab = ({ currentUser, theme, courseId }) => {
                       const presentCount = record.students ? record.students.filter(s => s.status === 'present').length : 0;
                       const absentCount = record.students ? record.students.filter(s => s.status === 'absent').length : 0;
 
+                      // Get meeting status
+                      const getMeetingStatus = (meeting) => {
+                        if (!meeting.date || !meeting.time || !meeting.period) return 'scheduled';
+                        if (meeting.status === 'ended') return 'ended';
+                        if (meeting.status === 'cancelled') return 'cancelled';
+                        
+                        const now = new Date();
+                        const [hours, minutes] = meeting.time.split(':').map(Number);
+                        let hour24 = hours;
+                        
+                        if (meeting.period === 'PM' && hours !== 12) {
+                          hour24 = hours + 12;
+                        } else if (meeting.period === 'AM' && hours === 12) {
+                          hour24 = 0;
+                        }
+                        
+                        const meetingDateTime = new Date(meeting.date);
+                        meetingDateTime.setHours(hour24, minutes, 0, 0);
+                        
+                        if (now < meetingDateTime) return 'upcoming';
+                        if (now >= meetingDateTime) return 'live';
+                        return 'ended';
+                      };
+
+                      const meetingStatus = getMeetingStatus(record);
+                      const statusColors = {
+                        upcoming: 'bg-blue-100 text-blue-800',
+                        live: 'bg-green-100 text-green-800',
+                        ended: 'bg-gray-100 text-gray-800',
+                        scheduled: 'bg-yellow-100 text-yellow-800',
+                        cancelled: 'bg-red-100 text-red-800'
+                      };
+
                       return (
                         <tr key={record.id} className="hover:bg-gray-50">
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                            {new Date(record.date).toLocaleDateString()}
+                            <div className="flex items-center justify-center gap-2">
+                              <div>
+                                <div>{record.date ? new Date(record.date).toLocaleDateString() : 'N/A'}</div>
+                                {record.time && record.period && (
+                                  <div className="text-xs text-gray-500">{record.time} {record.period}</div>
+                                )}
+                              </div>
+                            </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                            {record.day} - {record.time}
+                            <div className="font-medium">{record.meetingName || 'N/A'}</div>
+                            {record.createdBy && (
+                              <div className="text-xs text-gray-500">
+                                by {record.createdBy.firstName} {record.createdBy.lastName}
+                              </div>
+                            )}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                            {record.meetingName || 'N/A'}
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusColors[meetingStatus]}`}>
+                              {meetingStatus === 'upcoming' ? 'Upcoming' : 
+                               meetingStatus === 'live' ? 'Live Now' : 
+                               meetingStatus === 'ended' ? 'Ended' : 
+                               meetingStatus === 'cancelled' ? 'Cancelled' : 'Scheduled'}
+                            </span>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                             <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
@@ -126,6 +431,7 @@ const AttendanceTab = ({ currentUser, theme, courseId }) => {
                                 setShowAttendanceModal(true);
                               }}
                               className="text-blue-600 hover:text-blue-900 mr-3"
+                              title="Edit Attendance"
                             >
                               <Edit className="h-4 w-4" />
                             </button>
@@ -159,15 +465,24 @@ const AttendanceTab = ({ currentUser, theme, courseId }) => {
 
                   {/* Meeting Info Display */}
                   <div className="mb-6">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Meeting Information</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Zoom Meeting Information</label>
                     <div className="px-3 py-2 bg-gray-50 border border-gray-300 rounded-md text-sm text-gray-900">
-                      <div className="font-semibold">{editingAttendance?.meetingName || 'Meeting'}</div>
-                      <div className="text-gray-600">
-                        {editingAttendance?.day} - {editingAttendance?.time} ({new Date(editingAttendance?.date).toLocaleDateString()})
+                      <div className="flex items-center gap-2 mb-1">
+                        <Video className="w-4 h-4 text-blue-600" />
+                        <div className="font-semibold">{editingAttendance?.meetingName || 'Zoom Meeting'}</div>
                       </div>
+                      <div className="text-gray-600">
+                        {editingAttendance?.date && new Date(editingAttendance.date).toLocaleDateString()} 
+                        {editingAttendance?.time && editingAttendance?.period && ` at ${editingAttendance.time} ${editingAttendance.period}`}
+                      </div>
+                      {editingAttendance?.createdBy && (
+                        <div className="text-xs text-gray-500 mt-1">
+                          Created by: {editingAttendance.createdBy.firstName} {editingAttendance.createdBy.lastName}
+                        </div>
+                      )}
                     </div>
                     <p className="text-xs text-gray-500 mt-1">
-                      Attendance is automatically marked when students join Zoom meetings
+                      Students are automatically marked as present when they join the Zoom meeting
                     </p>
                   </div>
 
@@ -238,7 +553,8 @@ const AttendanceTab = ({ currentUser, theme, courseId }) => {
 
                           // Validate and format the data
                           const dateValue = editingAttendance.date;
-                          const formattedDate = dateValue ? new Date(dateValue).toISOString() : new Date().toISOString();
+                          // Keep the date in the same format as it was received (YYYY-MM-DD)
+                          const formattedDate = dateValue || new Date().toISOString().split('T')[0];
                           
                           const attendanceDataToSave = {
                             date: formattedDate,
@@ -248,21 +564,27 @@ const AttendanceTab = ({ currentUser, theme, courseId }) => {
                             students: students
                           };
 
-                          console.log('Sending attendance data:', attendanceDataToSave);
-                          console.log('Data types:', {
+                          console.log('📤 Sending attendance data:', attendanceDataToSave);
+                          console.log('📊 Data types:', {
                             date: typeof attendanceDataToSave.date,
                             day: typeof attendanceDataToSave.day,
                             time: typeof attendanceDataToSave.time,
                             students: typeof attendanceDataToSave.students,
                             studentsIsArray: Array.isArray(attendanceDataToSave.students)
                           });
-                          console.log('Raw values:', {
+                          console.log('📋 Raw values:', {
                             date: attendanceDataToSave.date,
                             day: attendanceDataToSave.day,
                             time: attendanceDataToSave.time,
+                            meetingId: attendanceDataToSave.meetingId,
                             students: attendanceDataToSave.students,
                             studentsLength: attendanceDataToSave.students?.length
                           });
+                          console.log('👥 Student details:', attendanceDataToSave.students?.map(s => ({
+                            id: s.id,
+                            name: s.name,
+                            status: s.status
+                          })));
                           
                           // Validate data before sending
                           if (!attendanceDataToSave.date || !attendanceDataToSave.day || !attendanceDataToSave.time || !Array.isArray(attendanceDataToSave.students)) {
@@ -271,17 +593,39 @@ const AttendanceTab = ({ currentUser, theme, courseId }) => {
                             return;
                           }
                           
-                          await materialsService.markAttendance(courseId, attendanceDataToSave);
+                          console.log('💾 Saving attendance data...');
+                          const saveResult = await materialsService.markAttendance(courseId, attendanceDataToSave);
+                          console.log('✅ Save result:', saveResult);
+
+                          // Wait a moment for the backend to process the data
+                          console.log('⏳ Waiting for backend to process...');
+                          await new Promise(resolve => setTimeout(resolve, 1000));
 
                           // Reload attendance data to get the updated list
+                          console.log('🔄 Reloading attendance data...');
                           await loadAttendanceData();
+                          console.log('✅ Attendance data reloaded');
 
                           setShowAttendanceModal(false);
                           setEditingAttendance(null);
                           showSuccessToast('Attendance updated successfully!');
                         } catch (error) {
-                          console.error('Error updating attendance:', error);
-                          showErrorToast(error, 'Failed to update attendance. Please try again.');
+                          console.error('❌ Error updating attendance:', error);
+                          console.error('❌ Error details:', {
+                            message: error.message,
+                            response: error.response?.data,
+                            status: error.response?.status,
+                            statusText: error.response?.statusText
+                          });
+                          
+                          let errorMessage = 'Failed to update attendance. Please try again.';
+                          if (error.response?.data?.message) {
+                            errorMessage = error.response.data.message;
+                          } else if (error.message) {
+                            errorMessage = error.message;
+                          }
+                          
+                          showErrorToast(errorMessage);
                         }
                       }}
                       className={`px-6 py-2 border-2 border-${theme.primary}-600 text-${theme.primary}-600 rounded-lg hover:bg-${theme.primaryLight} transition-colors`}

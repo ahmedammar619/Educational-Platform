@@ -1,6 +1,7 @@
 import { Injectable, Logger, Inject, forwardRef } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, FindManyOptions, Between } from 'typeorm';
+import { ConfigService } from '@nestjs/config';
 import { Notification, NotificationType, NotificationPriority } from './entities/notification.entity';
 import { CreateNotificationDto } from './dto/create-notification.dto';
 import { UpdateNotificationDto } from './dto/update-notification.dto';
@@ -15,6 +16,7 @@ export class NotificationsService {
   constructor(
     @InjectRepository(Notification)
     private readonly notificationRepository: Repository<Notification>,
+    private readonly configService: ConfigService,
   ) {}
 
   // Set gateway reference (called by the gateway itself)
@@ -23,6 +25,13 @@ export class NotificationsService {
   }
 
   async create(createNotificationDto: CreateNotificationDto): Promise<Notification> {
+    // Check if notifications are disabled
+    const notificationsDisabled = this.configService.get<boolean>('DISABLE_NOTIFICATIONS', false);
+    if (notificationsDisabled) {
+      this.logger.log('Notifications are disabled - skipping notification creation');
+      return null;
+    }
+
     const notification = this.notificationRepository.create(createNotificationDto);
     const savedNotification = await this.notificationRepository.save(notification);
     
@@ -153,6 +162,13 @@ export class NotificationsService {
     courseName: string,
     metadata?: Record<string, any>
   ): Promise<void> {
+    // Check if notifications are disabled
+    const notificationsDisabled = this.configService.get<boolean>('DISABLE_NOTIFICATIONS', false);
+    if (notificationsDisabled) {
+      this.logger.log('Notifications are disabled - skipping assignment published notifications');
+      return;
+    }
+
     console.log('🔔 Creating assignment published notifications:', {
       studentIds,
       assignmentTitle,
@@ -188,6 +204,13 @@ export class NotificationsService {
     courseName: string,
     metadata?: Record<string, any>
   ): Promise<void> {
+    // Check if notifications are disabled
+    const notificationsDisabled = this.configService.get<boolean>('DISABLE_NOTIFICATIONS', false);
+    if (notificationsDisabled) {
+      this.logger.log('Notifications are disabled - skipping assignment graded notification');
+      return;
+    }
+
     await this.create({
       userId: studentId,
       type: NotificationType.ASSIGNMENT_GRADED,
@@ -205,6 +228,13 @@ export class NotificationsService {
     startTime?: Date,
     metadata?: Record<string, any>
   ): Promise<void> {
+    // Check if notifications are disabled
+    const notificationsDisabled = this.configService.get<boolean>('DISABLE_NOTIFICATIONS', false);
+    if (notificationsDisabled) {
+      this.logger.log('Notifications are disabled - skipping zoom session notification');
+      return;
+    }
+
     const type = sessionType === 'published' 
       ? NotificationType.ZOOM_SESSION_PUBLISHED 
       : NotificationType.ZOOM_SESSION_STARTED;
@@ -231,6 +261,13 @@ export class NotificationsService {
     courseName?: string,
     metadata?: Record<string, any>
   ): Promise<void> {
+    // Check if notifications are disabled
+    const notificationsDisabled = this.configService.get<boolean>('DISABLE_NOTIFICATIONS', false);
+    if (notificationsDisabled) {
+      this.logger.log('Notifications are disabled - skipping new post notification');
+      return;
+    }
+
     const notifications = userIds.map(userId => ({
       userId,
       type: NotificationType.NEW_POST,
@@ -251,6 +288,13 @@ export class NotificationsService {
     className: string,
     metadata?: Record<string, any>
   ): Promise<void> {
+    // Check if notifications are disabled
+    const notificationsDisabled = this.configService.get<boolean>('DISABLE_NOTIFICATIONS', false);
+    if (notificationsDisabled) {
+      this.logger.log('Notifications are disabled - skipping added to class notification');
+      return;
+    }
+
     await this.create({
       userId,
       type: NotificationType.ADDED_TO_CLASS,
@@ -268,6 +312,13 @@ export class NotificationsService {
     childName?: string,
     metadata?: Record<string, any>
   ): Promise<void> {
+    // Check if notifications are disabled
+    const notificationsDisabled = this.configService.get<boolean>('DISABLE_NOTIFICATIONS', false);
+    if (notificationsDisabled) {
+      this.logger.log('Notifications are disabled - skipping absent notification');
+      return;
+    }
+
     const type = isParent ? NotificationType.CHILD_ABSENT : NotificationType.MARKED_ABSENT;
     const title = isParent ? 'Child Absent' : 'Marked Absent';
     const message = isParent 
@@ -291,6 +342,13 @@ export class NotificationsService {
     courseName: string,
     metadata?: Record<string, any>
   ): Promise<void> {
+    // Check if notifications are disabled
+    const notificationsDisabled = this.configService.get<boolean>('DISABLE_NOTIFICATIONS', false);
+    if (notificationsDisabled) {
+      this.logger.log('Notifications are disabled - skipping assignment submitted notification');
+      return;
+    }
+
     await this.create({
       userId: teacherId,
       type: NotificationType.ASSIGNMENT_SUBMITTED,
@@ -307,6 +365,13 @@ export class NotificationsService {
     userRole: string,
     metadata?: Record<string, any>
   ): Promise<void> {
+    // Check if notifications are disabled
+    const notificationsDisabled = this.configService.get<boolean>('DISABLE_NOTIFICATIONS', false);
+    if (notificationsDisabled) {
+      this.logger.log('Notifications are disabled - skipping new user joined notification');
+      return;
+    }
+
     const notifications = adminIds.map(adminId => ({
       userId: adminId,
       type: NotificationType.NEW_USER_JOINED,

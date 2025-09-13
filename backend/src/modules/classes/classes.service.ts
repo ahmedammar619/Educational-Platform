@@ -179,11 +179,41 @@ export class ClassesService {
   }
 
   async getClassStudents(classId: string): Promise<Student[]> {
-    // Get students from the Student entity where classId matches
-    const students = await this.studentRepository.find({
+    console.log('🔍 Getting students for class:', classId);
+    
+    // First, try to get students from the Student entity where classId matches
+    const studentsFromStudentEntity = await this.studentRepository.find({
       where: { classId },
       relations: ['user']
     });
+    
+    console.log('👥 Students from Student entity:', studentsFromStudentEntity.length);
+    
+    if (studentsFromStudentEntity.length > 0) {
+      return studentsFromStudentEntity.filter(student => student.user !== null);
+    }
+    
+    // Fallback: Get student IDs from the Class entity's students array
+    const classEntity = await this.classRepository.findOne({
+      where: { id: classId }
+    });
+    
+    if (!classEntity || !classEntity.students || classEntity.students.length === 0) {
+      console.log('❌ No students found in class:', classId);
+      return [];
+    }
+    
+    console.log('👥 Students in class (raw):', classEntity.students);
+    console.log('👥 Students type:', typeof classEntity.students);
+    
+    // Get full student data for each ID
+    const studentIds = Array.isArray(classEntity.students) ? classEntity.students : [classEntity.students];
+    const students = await this.studentRepository.find({
+      where: { id: In(studentIds) },
+      relations: ['user']
+    });
+    
+    console.log('👥 Found students:', students.length);
     
     // Return the full student data with user information
     return students.filter(student => student.user !== null);

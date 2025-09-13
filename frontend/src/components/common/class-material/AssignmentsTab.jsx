@@ -329,15 +329,6 @@ const AssignmentsTab = ({ currentUser, theme, courseId }) => {
                 ? 'Create your first assignment to get started.'
                 : 'No assignments have been posted yet.'}
             </p>
-            {canCreateAssignment() && (
-              <button
-                onClick={() => setShowCreateAssignment(true)}
-                className={`px-4 py-2 border-2 border-${theme.primary}-600 text-${theme.primary}-600 rounded-lg hover:bg-${theme.primaryLight} transition-colors flex items-center gap-2 mx-auto`}
-              >
-                <Plus className="h-5 w-5" />
-                Create Assignment
-              </button>
-            )}
           </div>
         ) : (
           <div className="space-y-4">

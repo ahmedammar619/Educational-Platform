@@ -351,10 +351,39 @@ class MaterialsService {
     }
   }
 
-  // Get students enrolled in a course
+  // Get course details including which class it belongs to
+  async getCourseDetails(courseId) {
+    try {
+      const response = await api.get(`/api/courses/${courseId}`);
+      return response.data;
+    } catch (error) {
+      console.error('Error getting course details:', error);
+      throw error;
+    }
+  }
+
+  // Get students from a specific class
+  async getClassStudents(classId) {
+    try {
+      const response = await api.get(`/api/classes/${classId}/students`);
+      return response.data;
+    } catch (error) {
+      console.error('Error getting class students:', error);
+      throw error;
+    }
+  }
+
+  // Get students enrolled in a course (updated version)
   async getCourseStudents(courseId) {
     try {
-      // Get attendance data to extract unique students
+      // First try to get students from the class that contains this course
+      const courseDetails = await this.getCourseDetails(courseId);
+      if (courseDetails && courseDetails.classId) {
+        const classStudents = await this.getClassStudents(courseDetails.classId);
+        return classStudents;
+      }
+
+      // Fallback: Get attendance data to extract unique students
       const attendanceData = await this.getCourseAttendance(courseId);
       
       // Extract all unique students from attendance records

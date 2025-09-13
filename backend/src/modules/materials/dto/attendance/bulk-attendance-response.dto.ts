@@ -11,6 +11,15 @@ export class StudentAttendanceResponseDto {
 
   @Expose()
   status: 'present' | 'absent';
+
+  @Expose()
+  markedAt?: Date;
+
+  @Expose()
+  markedBy?: string;
+
+  @Expose()
+  notes?: string;
 }
 
 export class BulkAttendanceResponseDto {
@@ -36,10 +45,10 @@ export class BulkAttendanceResponseDto {
   meetingName: string;
 
   @Expose()
-  markedBy: string;
+  markedBy?: string;
 
   @Expose()
-  markedAt: Date;
+  markedAt?: Date;
 
   @Expose()
   @Type(() => StudentAttendanceResponseDto)
