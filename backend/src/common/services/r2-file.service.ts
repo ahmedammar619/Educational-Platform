@@ -17,11 +17,11 @@ export class R2FileService {
   private readonly allowedExtensions: string[];
 
   constructor(private readonly configService: ConfigService) {
-    // R2 Configuration
+    // R2 Configuration - updated to match your environment variables
     this.bucketName = this.configService.get<string>('R2_BUCKET_NAME', 'baraem');
     this.region = this.configService.get<string>('R2_REGION', 'weur');
     this.endpoint = this.configService.get<string>('R2_ENDPOINT', 'https://9f7f3b84be13f9cfee5aa178acad1d08.r2.cloudflarestorage.com');
-    this.publicUrlBase = this.configService.get<string>('R2_PUBLIC_URL', `${this.endpoint}/${this.bucketName}`);
+    this.publicUrlBase = this.configService.get<string>('R2_PUBLIC_URL', 'https://9f7f3b84be13f9cfee5aa178acad1d08.r2.cloudflarestorage.com/baraem');
 
     // File restrictions
     this.maxFileSize = this.configService.get<number>('MAX_FILE_SIZE', 100 * 1024 * 1024); // 100MB default

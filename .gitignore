@@ -38,3 +38,5 @@ logs/
 # Database
 *.db
 *.sqlite
+
+Dockerfile.dev

@@ -4,6 +4,7 @@ import { createWriteStream, mkdirSync, existsSync } from 'fs';
 import { join, extname, basename } from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import * as crypto from 'crypto';
+import { R2FileService } from './r2-file.service';
 
 @Injectable()
 export class FileUploadService {
@@ -11,7 +12,10 @@ export class FileUploadService {
   private readonly maxFileSize: number;
   private readonly allowedExtensions: string[];
 
-  constructor(private readonly configService: ConfigService) {
+  constructor(
+    private readonly configService: ConfigService,
+    private readonly r2FileService: R2FileService
+  ) {
     this.uploadDir = this.configService.get<string>('UPLOAD_DIR', './uploads');
     this.maxFileSize = this.configService.get<number>('MAX_FILE_SIZE', 100 * 1024 * 1024); // 100MB default
     this.allowedExtensions = this.configService.get<string[]>('ALLOWED_EXTENSIONS', [
@@ -22,7 +26,7 @@ export class FileUploadService {
       '.zip', '.rar', '.7z', '.tar', '.gz'
     ]);
 
-    // Ensure upload directory exists
+    // Ensure upload directory exists (for legacy support)
     this.ensureUploadDirectory();
   }
 
@@ -39,37 +43,22 @@ export class FileUploadService {
       // Validate file
       this.validateFile(file);
 
-      // Generate secure filename
-      const secureFileName = this.generateSecureFileName(file.originalname);
-      
-      // Create course-specific directory
-      const courseDir = join(this.uploadDir, 'courses', courseId.toString());
-      this.ensureDirectoryExists(courseDir);
+      // Always use R2 for uploads - no fallback to local storage
+      if (!process.env.R2_ACCESS_KEY_ID || !process.env.R2_SECRET_ACCESS_KEY) {
+        throw new BadRequestException('R2 storage not configured. Please configure CloudFlare R2 credentials.');
+      }
 
-      // Create user-specific subdirectory
-      const userDir = join(courseDir, userId.toString());
-      this.ensureDirectoryExists(userDir);
-
-      // Generate file path
-      const filePath = join(userDir, secureFileName);
-      
-      // Calculate file hash for integrity
-      const fileHash = await this.calculateFileHash(file.buffer);
-
-      // Write file to disk
-      await this.writeFileToDisk(file.buffer, filePath);
-
-      // Scan file for viruses (in production, integrate with antivirus service)
-      await this.scanFileForViruses(filePath);
+      // Use R2 service for upload
+      const uploadResult = await this.r2FileService.uploadFile(file, courseId.toString(), userId);
 
       return {
-        fileName: secureFileName,
-        originalName: file.originalname,
-        filePath: filePath,
-        fileSize: file.size,
-        mimeType: file.mimetype,
-        hash: fileHash,
-        uploadedAt: new Date(),
+        fileName: uploadResult.fileName,
+        originalName: uploadResult.originalName,
+        filePath: uploadResult.fileUrl, // Return R2 URL
+        fileSize: uploadResult.fileSize,
+        mimeType: uploadResult.mimeType,
+        hash: uploadResult.hash,
+        uploadedAt: uploadResult.uploadedAt,
       };
     } catch (error) {
       throw new InternalServerErrorException(`File upload failed: ${error.message}`);
@@ -78,8 +67,15 @@ export class FileUploadService {
 
   async deleteFile(filePath: string): Promise<void> {
     try {
-      const fs = await import('fs/promises');
-      await fs.unlink(filePath);
+      // Check if this is an R2 URL (new format) or legacy local path
+      if (filePath.startsWith('http')) {
+        // This is an R2 URL, delete from R2
+        await this.r2FileService.deleteFile(filePath);
+      } else {
+        // Legacy local file deletion
+        const fs = await import('fs/promises');
+        await fs.unlink(filePath);
+      }
     } catch (error) {
       // Log error but don't throw to avoid exposing internal paths
       console.error('File deletion failed:', error);

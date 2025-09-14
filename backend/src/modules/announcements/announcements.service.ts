@@ -169,21 +169,11 @@ export class AnnouncementsService {
 
     // Check if this is an R2 URL (new format) or legacy local path
     if (attachment.filePath.startsWith('http')) {
-      // This is an R2 URL, generate a signed download URL for security
-      try {
-        const signedUrl = await this.r2FileService.getSignedDownloadUrl(attachment.filePath);
-        return {
-          filePath: signedUrl,
-          fileName: attachment.fileName,
-        };
-      } catch (error) {
-        console.error('Service - Failed to generate signed URL:', error);
-        // Fallback to direct URL for public files
-        return {
-          filePath: attachment.filePath,
-          fileName: attachment.fileName,
-        };
-      }
+      // This is an R2 URL, return it directly since it's already public
+      return {
+        filePath: attachment.filePath,
+        fileName: attachment.fileName,
+      };
     } else {
       // Legacy local file - for backward compatibility
       const fullPath = path.join(process.cwd(), 'uploads', attachment.filePath);

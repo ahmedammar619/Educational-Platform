@@ -468,14 +468,31 @@ export class MaterialsController {
 
     // Check if this is an R2 URL (new format) or legacy local path
     if (file.filePath.startsWith('http')) {
-      // This is an R2 URL, redirect to it (or serve via signed URL for private files)
-      if (view === 'true') {
-        // For view, redirect to the R2 URL
-        res.redirect(file.filePath);
-      } else {
-        // For download, we might want to use a signed URL with download headers
-        // For now, redirect to the R2 URL which should handle download
-        res.redirect(file.filePath);
+      // This is an R2 URL, fetch and stream it through our backend to avoid CORS issues
+      try {
+        const response = await fetch(file.filePath);
+        if (!response.ok) {
+          throw new Error(`Failed to fetch file from R2: ${response.statusText}`);
+        }
+        
+        // Set appropriate headers
+        res.setHeader('Content-Type', file.mimeType);
+        res.setHeader('Content-Length', file.fileSize);
+        res.setHeader('Cache-Control', 'public, max-age=3600'); // Cache for 1 hour
+        
+        // If view=true, open in browser; otherwise download
+        if (view === 'true') {
+          res.setHeader('Content-Disposition', `inline; filename="${file.fileName}"`);
+        } else {
+          res.setHeader('Content-Disposition', `attachment; filename="${file.fileName}"`);
+        }
+        
+        // Stream the file content
+        const buffer = await response.arrayBuffer();
+        res.send(Buffer.from(buffer));
+      } catch (fetchError) {
+        console.error('Controller - Error fetching from R2:', fetchError);
+        throw new Error('Failed to load file from storage');
       }
       return;
     } else {
@@ -605,22 +622,47 @@ export class MaterialsController {
       throw new NotFoundException('Submission not found');
     }
 
-    const filePath = path.join(process.cwd(), 'uploads', submission.filePath);
-    
-    // Check if file exists on disk
-    const fs = require('fs');
-    if (!fs.existsSync(filePath)) {
-      throw new NotFoundException('File not found on disk');
+    // Check if this is an R2 URL (new format) or legacy local path
+    if (submission.filePath.startsWith('http')) {
+      // This is an R2 URL, fetch and stream it through our backend to avoid CORS issues
+      try {
+        const response = await fetch(submission.filePath);
+        if (!response.ok) {
+          throw new Error(`Failed to fetch file from R2: ${response.statusText}`);
+        }
+        
+        // Set appropriate headers for download
+        res.setHeader('Content-Type', submission.mimeType);
+        res.setHeader('Content-Disposition', `attachment; filename="${submission.fileName}"`);
+        res.setHeader('Cache-Control', 'public, max-age=3600'); // Cache for 1 hour
+        
+        // Stream the file content
+        const buffer = await response.arrayBuffer();
+        res.send(Buffer.from(buffer));
+      } catch (fetchError) {
+        console.error('Controller - Error fetching from R2:', fetchError);
+        throw new Error('Failed to load file from storage');
+      }
+      return;
+    } else {
+      // Legacy local file handling
+      const filePath = path.join(process.cwd(), 'uploads', submission.filePath);
+      
+      // Check if file exists on disk
+      const fs = require('fs');
+      if (!fs.existsSync(filePath)) {
+        throw new NotFoundException('File not found on disk');
+      }
+
+      // Set appropriate headers for download
+      res.setHeader('Content-Type', submission.mimeType);
+      res.setHeader('Content-Length', submission.fileSize);
+      res.setHeader('Content-Disposition', `attachment; filename="${submission.fileName}"`);
+
+      // Stream the file to the response
+      const fileStream = fs.createReadStream(filePath);
+      fileStream.pipe(res);
     }
-
-    // Set appropriate headers for download
-    res.setHeader('Content-Type', submission.mimeType);
-    res.setHeader('Content-Length', submission.fileSize);
-    res.setHeader('Content-Disposition', `attachment; filename="${submission.fileName}"`);
-
-    // Stream the file to the response
-    const fileStream = fs.createReadStream(filePath);
-    fileStream.pipe(res);
   }
 
   // Bulk Attendance - Must come before single attendance route
@@ -772,8 +814,33 @@ export class MaterialsController {
       throw new NotFoundException('Attachment not found');
     }
 
-    const filePath = require('path').join(process.cwd(), 'uploads', attachment.filePath);
-    res.download(filePath, attachment.fileName);
+    // Check if this is an R2 URL (new format) or legacy local path
+    if (attachment.filePath.startsWith('http')) {
+      // This is an R2 URL, fetch and stream it through our backend to avoid CORS issues
+      try {
+        const response = await fetch(attachment.filePath);
+        if (!response.ok) {
+          throw new Error(`Failed to fetch file from R2: ${response.statusText}`);
+        }
+        
+        // Set appropriate headers for download
+        res.setHeader('Content-Type', attachment.mimeType);
+        res.setHeader('Content-Disposition', `attachment; filename="${attachment.fileName}"`);
+        res.setHeader('Cache-Control', 'public, max-age=3600'); // Cache for 1 hour
+        
+        // Stream the file content
+        const buffer = await response.arrayBuffer();
+        res.send(Buffer.from(buffer));
+      } catch (fetchError) {
+        console.error('Controller - Error fetching from R2:', fetchError);
+        throw new Error('Failed to load file from storage');
+      }
+      return;
+    } else {
+      // Legacy local file handling
+      const filePath = require('path').join(process.cwd(), 'uploads', attachment.filePath);
+      res.download(filePath, attachment.fileName);
+    }
   }
 
   // File preview endpoint
@@ -788,22 +855,47 @@ export class MaterialsController {
       throw new NotFoundException('Attachment not found');
     }
 
-    const filePath = path.join(process.cwd(), 'uploads', attachment.filePath);
-    
-    // Check if file exists on disk
-    const fs = require('fs');
-    if (!fs.existsSync(filePath)) {
-      throw new NotFoundException('File not found on disk');
+    // Check if this is an R2 URL (new format) or legacy local path
+    if (attachment.filePath.startsWith('http')) {
+      // This is an R2 URL, fetch and stream it through our backend to avoid CORS issues
+      try {
+        const response = await fetch(attachment.filePath);
+        if (!response.ok) {
+          throw new Error(`Failed to fetch file from R2: ${response.statusText}`);
+        }
+        
+        // Set appropriate headers for preview
+        res.setHeader('Content-Type', attachment.mimeType);
+        res.setHeader('Content-Disposition', `inline; filename="${attachment.fileName}"`);
+        res.setHeader('Cache-Control', 'public, max-age=3600'); // Cache for 1 hour
+        
+        // Stream the file content
+        const buffer = await response.arrayBuffer();
+        res.send(Buffer.from(buffer));
+      } catch (fetchError) {
+        console.error('Controller - Error fetching from R2:', fetchError);
+        throw new Error('Failed to load file from storage');
+      }
+      return;
+    } else {
+      // Legacy local file handling
+      const filePath = path.join(process.cwd(), 'uploads', attachment.filePath);
+      
+      // Check if file exists on disk
+      const fs = require('fs');
+      if (!fs.existsSync(filePath)) {
+        throw new NotFoundException('File not found on disk');
+      }
+
+      // Set appropriate headers for preview
+      res.setHeader('Content-Type', attachment.mimeType);
+      res.setHeader('Content-Length', attachment.fileSize);
+      res.setHeader('Content-Disposition', `inline; filename="${attachment.fileName}"`);
+
+      // Stream the file to the response
+      const fileStream = fs.createReadStream(filePath);
+      fileStream.pipe(res);
     }
-
-    // Set appropriate headers for preview
-    res.setHeader('Content-Type', attachment.mimeType);
-    res.setHeader('Content-Length', attachment.fileSize);
-    res.setHeader('Content-Disposition', `inline; filename="${attachment.fileName}"`);
-
-    // Stream the file to the response
-    const fileStream = fs.createReadStream(filePath);
-    fileStream.pipe(res);
   }
 
   // Debug endpoint to check post attachments

@@ -309,13 +309,21 @@ export class MaterialsService {
     if (post.attachments && post.attachments.length > 0) {
       console.log(`Deleting ${post.attachments.length} attachments for post ${postId}`);
       
-      // Delete physical files from filesystem
+      // Delete files from R2 or local filesystem
       for (const attachment of post.attachments) {
         try {
           if (attachment.filePath) {
-            const filePath = path.join(process.cwd(), 'uploads', attachment.filePath);
-            await unlink(filePath);
-            console.log(`Deleted file: ${filePath}`);
+            // Check if this is an R2 URL (new format) or legacy local path
+            if (attachment.filePath.startsWith('http')) {
+              // This is an R2 URL, delete from R2
+              await this.r2FileService.deleteFile(attachment.filePath);
+              console.log(`Deleted file from R2: ${attachment.filePath}`);
+            } else {
+              // Legacy local file deletion
+              const filePath = path.join(process.cwd(), 'uploads', attachment.filePath);
+              await unlink(filePath);
+              console.log(`Deleted file: ${filePath}`);
+            }
           }
         } catch (error) {
           console.warn(`Failed to delete file ${attachment.filePath}:`, error.message);
@@ -343,12 +351,20 @@ export class MaterialsService {
       throw new NotFoundException(`Attachment with ID ${attachmentId} not found`);
     }
 
-    // Delete physical file
+    // Delete file from R2 or local filesystem
     try {
       if (attachment.filePath) {
-        const filePath = path.join(process.cwd(), 'uploads', attachment.filePath);
-        await unlink(filePath);
-        console.log(`Deleted file: ${filePath}`);
+        // Check if this is an R2 URL (new format) or legacy local path
+        if (attachment.filePath.startsWith('http')) {
+          // This is an R2 URL, delete from R2
+          await this.r2FileService.deleteFile(attachment.filePath);
+          console.log(`Deleted file from R2: ${attachment.filePath}`);
+        } else {
+          // Legacy local file deletion
+          const filePath = path.join(process.cwd(), 'uploads', attachment.filePath);
+          await unlink(filePath);
+          console.log(`Deleted file: ${filePath}`);
+        }
       }
     } catch (error) {
       console.warn(`Failed to delete file ${attachment.filePath}:`, error.message);
@@ -712,19 +728,27 @@ export class MaterialsService {
     }
 
     try {
-      // Delete the physical file from the uploads folder
-      const fullFilePath = path.join(process.cwd(), 'uploads', file.filePath);
-      console.log('🗑️ Deleting physical file:', fullFilePath);
-      
-      // Check if file exists before trying to delete
-      if (fs.existsSync(fullFilePath)) {
-        await fs.promises.unlink(fullFilePath);
-        console.log('✅ Physical file deleted successfully:', fullFilePath);
+      // Check if this is an R2 URL (new format) or legacy local path
+      if (file.filePath.startsWith('http')) {
+        // This is an R2 URL, delete from R2
+        console.log('🗑️ Deleting file from R2:', file.filePath);
+        await this.r2FileService.deleteFile(file.filePath);
+        console.log('✅ File deleted successfully from R2:', file.filePath);
       } else {
-        console.warn('⚠️ Physical file not found, but continuing with database deletion:', fullFilePath);
+        // Legacy local file deletion
+        const fullFilePath = path.join(process.cwd(), 'uploads', file.filePath);
+        console.log('🗑️ Deleting physical file:', fullFilePath);
+        
+        // Check if file exists before trying to delete
+        if (fs.existsSync(fullFilePath)) {
+          await fs.promises.unlink(fullFilePath);
+          console.log('✅ Physical file deleted successfully:', fullFilePath);
+        } else {
+          console.warn('⚠️ Physical file not found, but continuing with database deletion:', fullFilePath);
+        }
       }
     } catch (fileError) {
-      console.error('❌ Error deleting physical file:', fileError);
+      console.error('❌ Error deleting file:', fileError);
       // Don't throw error here - we still want to delete from database
       // The file might have been manually deleted or moved
     }
@@ -745,24 +769,32 @@ export class MaterialsService {
 
     console.log('🗑️ Deleting folder:', folder.name, 'with', folder.files?.length || 0, 'files and', folder.subFolders?.length || 0, 'subfolders');
 
-    // Recursively delete all files in this folder (including physical files)
+    // Recursively delete all files in this folder
     if (folder.files && folder.files.length > 0) {
       console.log('🗑️ Deleting', folder.files.length, 'files from folder:', folder.name);
       for (const file of folder.files) {
         try {
-          // Delete the physical file from the uploads folder
-          const fullFilePath = path.join(process.cwd(), 'uploads', file.filePath);
-          console.log('🗑️ Deleting physical file:', fullFilePath);
-          
-          if (fs.existsSync(fullFilePath)) {
-            await fs.promises.unlink(fullFilePath);
-            console.log('✅ Physical file deleted successfully:', fullFilePath);
+          // Check if this is an R2 URL (new format) or legacy local path
+          if (file.filePath.startsWith('http')) {
+            // This is an R2 URL, delete from R2
+            console.log('🗑️ Deleting file from R2:', file.filePath);
+            await this.r2FileService.deleteFile(file.filePath);
+            console.log('✅ File deleted successfully from R2:', file.filePath);
           } else {
-            console.warn('⚠️ Physical file not found:', fullFilePath);
+            // Legacy local file deletion
+            const fullFilePath = path.join(process.cwd(), 'uploads', file.filePath);
+            console.log('🗑️ Deleting physical file:', fullFilePath);
+            
+            if (fs.existsSync(fullFilePath)) {
+              await fs.promises.unlink(fullFilePath);
+              console.log('✅ Physical file deleted successfully:', fullFilePath);
+            } else {
+              console.warn('⚠️ Physical file not found:', fullFilePath);
+            }
           }
         } catch (fileError) {
-          console.error('❌ Error deleting physical file:', fileError);
-          // Continue with database deletion even if physical file deletion fails
+          console.error('❌ Error deleting file:', fileError);
+          // Continue with database deletion even if file deletion fails
         }
         
         // Delete the file record from database
