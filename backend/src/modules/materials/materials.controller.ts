@@ -475,9 +475,12 @@ export class MaterialsController {
           throw new Error(`Failed to fetch file from R2: ${response.statusText}`);
         }
         
+        // Stream the file content first
+        const buffer = await response.arrayBuffer();
+        
         // Set appropriate headers
-        res.setHeader('Content-Type', file.mimeType);
-        res.setHeader('Content-Length', file.fileSize);
+        res.setHeader('Content-Type', response.headers.get('content-type') || file.mimeType);
+        res.setHeader('Content-Length', buffer.byteLength);
         res.setHeader('Cache-Control', 'public, max-age=3600'); // Cache for 1 hour
         
         // If view=true, open in browser; otherwise download
@@ -487,14 +490,12 @@ export class MaterialsController {
           res.setHeader('Content-Disposition', `attachment; filename="${file.fileName}"`);
         }
         
-        // Stream the file content
-        const buffer = await response.arrayBuffer();
+        // Send the file content
         res.send(Buffer.from(buffer));
       } catch (fetchError) {
         console.error('Controller - Error fetching from R2:', fetchError);
         throw new Error('Failed to load file from storage');
       }
-      return;
     } else {
       // Legacy local file handling
       const filePath = path.join(process.cwd(), 'uploads', file.filePath);
@@ -631,19 +632,21 @@ export class MaterialsController {
           throw new Error(`Failed to fetch file from R2: ${response.statusText}`);
         }
         
-        // Set appropriate headers for download
-        res.setHeader('Content-Type', submission.mimeType);
-        res.setHeader('Content-Disposition', `attachment; filename="${submission.fileName}"`);
-        res.setHeader('Cache-Control', 'public, max-age=3600'); // Cache for 1 hour
-        
-        // Stream the file content
+        // Stream the file content first
         const buffer = await response.arrayBuffer();
+        
+        // Set appropriate headers for download
+        res.setHeader('Content-Type', response.headers.get('content-type') || submission.mimeType);
+        res.setHeader('Content-Length', buffer.byteLength);
+        res.setHeader('Cache-Control', 'public, max-age=3600'); // Cache for 1 hour
+        res.setHeader('Content-Disposition', `attachment; filename="${submission.fileName}"`);
+
+        // Send the file content
         res.send(Buffer.from(buffer));
       } catch (fetchError) {
         console.error('Controller - Error fetching from R2:', fetchError);
         throw new Error('Failed to load file from storage');
       }
-      return;
     } else {
       // Legacy local file handling
       const filePath = path.join(process.cwd(), 'uploads', submission.filePath);
@@ -823,19 +826,21 @@ export class MaterialsController {
           throw new Error(`Failed to fetch file from R2: ${response.statusText}`);
         }
         
-        // Set appropriate headers for download
-        res.setHeader('Content-Type', attachment.mimeType);
-        res.setHeader('Content-Disposition', `attachment; filename="${attachment.fileName}"`);
-        res.setHeader('Cache-Control', 'public, max-age=3600'); // Cache for 1 hour
-        
-        // Stream the file content
+        // Stream the file content first
         const buffer = await response.arrayBuffer();
+        
+        // Set appropriate headers for download
+        res.setHeader('Content-Type', response.headers.get('content-type') || attachment.mimeType);
+        res.setHeader('Content-Length', buffer.byteLength);
+        res.setHeader('Cache-Control', 'public, max-age=3600'); // Cache for 1 hour
+        res.setHeader('Content-Disposition', `attachment; filename="${attachment.fileName}"`);
+
+        // Send the file content
         res.send(Buffer.from(buffer));
       } catch (fetchError) {
         console.error('Controller - Error fetching from R2:', fetchError);
         throw new Error('Failed to load file from storage');
       }
-      return;
     } else {
       // Legacy local file handling
       const filePath = require('path').join(process.cwd(), 'uploads', attachment.filePath);
@@ -864,19 +869,21 @@ export class MaterialsController {
           throw new Error(`Failed to fetch file from R2: ${response.statusText}`);
         }
         
-        // Set appropriate headers for preview
-        res.setHeader('Content-Type', attachment.mimeType);
-        res.setHeader('Content-Disposition', `inline; filename="${attachment.fileName}"`);
-        res.setHeader('Cache-Control', 'public, max-age=3600'); // Cache for 1 hour
-        
-        // Stream the file content
+        // Stream the file content first
         const buffer = await response.arrayBuffer();
+        
+        // Set appropriate headers for preview
+        res.setHeader('Content-Type', response.headers.get('content-type') || attachment.mimeType);
+        res.setHeader('Content-Length', buffer.byteLength);
+        res.setHeader('Cache-Control', 'public, max-age=3600'); // Cache for 1 hour
+        res.setHeader('Content-Disposition', `inline; filename="${attachment.fileName}"`);
+
+        // Send the file content
         res.send(Buffer.from(buffer));
       } catch (fetchError) {
         console.error('Controller - Error fetching from R2:', fetchError);
         throw new Error('Failed to load file from storage');
       }
-      return;
     } else {
       // Legacy local file handling
       const filePath = path.join(process.cwd(), 'uploads', attachment.filePath);

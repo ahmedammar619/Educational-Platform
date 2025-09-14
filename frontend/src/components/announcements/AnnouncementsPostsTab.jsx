@@ -365,17 +365,10 @@ const AnnouncementsPostsTab = ({ currentUser, theme }) => {
   };
 
   // Function to get authenticated URL for images and videos
-  const getAuthenticatedUrl = async (attachment) => {
+  const getAuthenticatedUrl = async (attachmentId) => {
     try {
-      // Check if this is already an R2 URL (starts with http)
-      if (attachment.filePath && attachment.filePath.startsWith('http')) {
-        // This is an R2 URL, use it directly
-        return attachment.filePath;
-      } else {
-        // This is a legacy local file, use the preview endpoint
-        const blob = await announcementsService.previewAnnouncementAttachment(attachment.id);
-        return window.URL.createObjectURL(blob);
-      }
+      const blob = await announcementsService.previewAnnouncementAttachment(attachmentId);
+      return window.URL.createObjectURL(blob);
     } catch (error) {
       console.error('Error getting authenticated URL:', error);
       return null;
@@ -408,7 +401,7 @@ const AnnouncementsPostsTab = ({ currentUser, theme }) => {
       const loadImage = async () => {
         try {
           setLoading(true);
-          const url = await getAuthenticatedUrl(attachment);
+          const url = await getAuthenticatedUrl(attachment.id);
           if (url) {
             setImageUrl(url);
           } else {
@@ -424,9 +417,9 @@ const AnnouncementsPostsTab = ({ currentUser, theme }) => {
 
       loadImage();
 
-      // Cleanup function to revoke object URL (only for blob URLs, not R2 URLs)
+      // Cleanup function to revoke object URL
       return () => {
-        if (imageUrl && imageUrl.startsWith('blob:')) {
+        if (imageUrl) {
           window.URL.revokeObjectURL(imageUrl);
         }
       };
@@ -487,7 +480,7 @@ const AnnouncementsPostsTab = ({ currentUser, theme }) => {
       const loadVideo = async () => {
         try {
           setLoading(true);
-          const url = await getAuthenticatedUrl(attachment);
+          const url = await getAuthenticatedUrl(attachment.id);
           if (url) {
             setVideoUrl(url);
           } else {
@@ -503,9 +496,9 @@ const AnnouncementsPostsTab = ({ currentUser, theme }) => {
 
       loadVideo();
 
-      // Cleanup function to revoke object URL (only for blob URLs, not R2 URLs)
+      // Cleanup function to revoke object URL
       return () => {
-        if (videoUrl && videoUrl.startsWith('blob:')) {
+        if (videoUrl) {
           window.URL.revokeObjectURL(videoUrl);
         }
       };

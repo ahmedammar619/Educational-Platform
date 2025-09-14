@@ -206,8 +206,33 @@ export class AnnouncementsController {
     try {
       const { filePath, fileName } = await this.announcementsService.downloadAttachment(attachmentId);
       
-      res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
-      res.sendFile(path.resolve(filePath));
+      // Check if this is an R2 URL (new format) or legacy local path
+      if (filePath.startsWith('http')) {
+        // This is an R2 URL, fetch and stream it through our backend to avoid CORS issues
+        try {
+          const response = await fetch(filePath);
+          if (!response.ok) {
+            throw new Error(`Failed to fetch file from R2: ${response.statusText}`);
+          }
+          
+          // Set appropriate headers for download
+          res.setHeader('Content-Type', response.headers.get('content-type') || 'application/octet-stream');
+          res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+          res.setHeader('Cache-Control', 'public, max-age=3600'); // Cache for 1 hour
+          
+          // Stream the file content
+          const buffer = await response.arrayBuffer();
+          res.send(Buffer.from(buffer));
+        } catch (fetchError) {
+          console.error('Controller - Error fetching from R2:', fetchError);
+          throw new Error('Failed to load file from storage');
+        }
+        return;
+      } else {
+        // Legacy local file handling
+        res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+        res.sendFile(path.resolve(filePath));
+      }
     } catch (error) {
       console.error('Controller - Error downloading attachment:', error);
       throw error;
@@ -223,8 +248,33 @@ export class AnnouncementsController {
     try {
       const { filePath, fileName } = await this.announcementsService.previewAttachment(attachmentId);
       
-      res.setHeader('Content-Disposition', `inline; filename="${fileName}"`);
-      res.sendFile(path.resolve(filePath));
+      // Check if this is an R2 URL (new format) or legacy local path
+      if (filePath.startsWith('http')) {
+        // This is an R2 URL, fetch and stream it through our backend to avoid CORS issues
+        try {
+          const response = await fetch(filePath);
+          if (!response.ok) {
+            throw new Error(`Failed to fetch file from R2: ${response.statusText}`);
+          }
+          
+          // Set appropriate headers for preview
+          res.setHeader('Content-Type', response.headers.get('content-type') || 'application/octet-stream');
+          res.setHeader('Content-Disposition', `inline; filename="${fileName}"`);
+          res.setHeader('Cache-Control', 'public, max-age=3600'); // Cache for 1 hour
+          
+          // Stream the file content
+          const buffer = await response.arrayBuffer();
+          res.send(Buffer.from(buffer));
+        } catch (fetchError) {
+          console.error('Controller - Error fetching from R2:', fetchError);
+          throw new Error('Failed to load file from storage');
+        }
+        return;
+      } else {
+        // Legacy local file handling
+        res.setHeader('Content-Disposition', `inline; filename="${fileName}"`);
+        res.sendFile(path.resolve(filePath));
+      }
     } catch (error) {
       console.error('Controller - Error previewing attachment:', error);
       throw error;
@@ -325,5 +375,36 @@ export class AnnouncementsController {
     
     // For now, return success message since we haven't implemented meetings yet
     return { message: 'Meeting cancellation not implemented yet' };
+  }
+
+  // Test endpoint for R2
+  @Get('test-r2')
+  @Roles(Role.Admin)
+  @ApiOperation({ summary: 'Test R2 connection' })
+  async testR2(): Promise<{ status: string; message: string; config: any }> {
+    console.log('Controller - Testing R2 connection');
+    
+    try {
+      const r2Service = this.announcementsService['r2FileService'];
+      const isHealthy = await r2Service.healthCheck();
+      
+      return {
+        status: isHealthy ? 'success' : 'error',
+        message: isHealthy ? 'R2 connection is working' : 'R2 connection failed',
+        config: {
+          bucketName: r2Service['bucketName'],
+          region: r2Service['region'],
+          endpoint: r2Service['endpoint'],
+          publicUrlBase: r2Service['publicUrlBase']
+        }
+      };
+    } catch (error) {
+      console.error('Controller - R2 test error:', error);
+      return {
+        status: 'error',
+        message: `R2 test failed: ${error.message}`,
+        config: {}
+      };
+    }
   }
 }
