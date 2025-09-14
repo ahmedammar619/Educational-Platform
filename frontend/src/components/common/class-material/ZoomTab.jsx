@@ -66,11 +66,12 @@ const ZoomTab = ({ currentUser, theme, courseId }) => {
     const meetingDateTime = new Date(meeting.date);
     meetingDateTime.setHours(hour24, minutes, 0, 0);
     
-    const endDateTime = new Date(meetingDateTime.getTime() + 60 * 60000); // Default 60 minutes
-    
+    // Only check if meeting has started, not when it should end
+    // Meeting continues until manually ended
     if (now < meetingDateTime) return 'upcoming';
-    if (now >= meetingDateTime && now <= endDateTime) return 'live';
-    return 'ended';
+    if (now >= meetingDateTime) return 'live';
+    
+    return 'scheduled';
   };
 
   // Check if students can join a meeting (10 minutes before start time)
@@ -213,6 +214,13 @@ const ZoomTab = ({ currentUser, theme, courseId }) => {
     }
     
     try {
+      console.log('🎯 Joining meeting:', {
+        meetingId: meeting.id,
+        courseId: courseId,
+        currentUserId: currentUser?.id,
+        currentUserRole: currentUser?.role
+      });
+      
       // Track join count in backend and pass courseId for attendance marking
       // The backend should handle unique student counting
       const updatedMeeting = await zoomService.joinMeeting(meeting.id, courseId);
@@ -221,6 +229,23 @@ const ZoomTab = ({ currentUser, theme, courseId }) => {
       setMeetings(meetings.map(m => 
         m.id === meeting.id ? updatedMeeting : m
       ));
+      
+      // If this is a student joining, show a success message about attendance
+      if (currentUser?.role === 'student') {
+        console.log('✅ Student joined meeting - attendance should be marked as present');
+        // Show success message
+        alert('✅ Successfully joined the meeting! Your attendance has been marked as present.');
+        
+        // Dispatch a custom event to notify other components that attendance was updated
+        window.dispatchEvent(new CustomEvent('attendanceUpdated', {
+          detail: { 
+            meetingId: meeting.id, 
+            courseId: courseId,
+            studentId: currentUser.id,
+            action: 'joined'
+          }
+        }));
+      }
       
       // Determine which URL to use based on user role
       const isCreator = meeting.createdBy?.id === currentUser?.id || canManageZoom();
@@ -504,65 +529,106 @@ const ZoomTab = ({ currentUser, theme, courseId }) => {
 
         {/* Create/Edit Meeting Form */}
         {showCreateForm && canManageZoom() && (
-          <div className="bg-white border border-gray-200 rounded-lg p-4 mb-4">
-            <h4 className="font-semibold text-gray-900 mb-3">
-              {editingMeeting ? 'Edit Zoom Meeting' : 'Create New Zoom Meeting'}
-            </h4>
-            <p className="text-sm text-gray-600 mb-3">
-              {editingMeeting 
-                ? 'Update the meeting details below. The Zoom meeting link and password will remain the same.'
-                : 'A Zoom meeting will be automatically created with a join link and password. Students will receive notifications about the meeting.'
-              }
-            </p>
-            <div className="space-y-3">
+          <div className="bg-white border border-gray-200 rounded-xl shadow-lg p-6 mb-6">
+            {/* Header */}
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-full">
+                <h4 className="text-xl text-center font-semibold text-gray-900">
+                  {editingMeeting ? 'Edit Zoom Meeting' : 'Create New Zoom Meeting'}
+                </h4>
+              </div>
+            </div>
+
+            {/* Form Fields */}
+            <div className="space-y-4">
+              {/* Meeting Title */}
               <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Meeting Title *
+                </label>
                 <input
                   type="text"
-                  placeholder="Meeting Title *"
+                  placeholder="Enter meeting title (e.g., Math Class - Chapter 5)"
                   value={newMeeting.title}
                   onChange={(e) => setNewMeeting({ ...newMeeting, title: e.target.value })}
-                  className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.title ? 'border-red-500' : 'border-gray-300'
+                  className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors ${
+                    errors.title ? 'border-red-300 focus:ring-red-500' : 'border-gray-300'
                   }`}
+                  maxLength={100}
                 />
-                {errors.title && <p className="text-red-500 text-xs mt-1">{errors.title}</p>}
+                {errors.title && (
+                  <div className="flex items-center gap-2 mt-2 text-red-600 text-sm">
+                    <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                    </svg>
+                    <span>{errors.title}</span>
+                  </div>
+                )}
               </div>
               
-              <input
-                type="text"
-                placeholder="Description (optional)"
-                value={newMeeting.description}
-                onChange={(e) => setNewMeeting({ ...newMeeting, description: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
+              {/* Description */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Description (Optional)
+                </label>
+                <textarea
+                  placeholder="Add meeting description, agenda, or special instructions..."
+                  value={newMeeting.description}
+                  onChange={(e) => setNewMeeting({ ...newMeeting, description: e.target.value })}
+                  rows={3}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors resize-none"
+                  maxLength={500}
+                />
+                <div className="flex justify-end mt-1">
+                  <span className="text-xs text-gray-500">
+                    {newMeeting.description.length}/500 characters
+                  </span>
+                </div>
+              </div>
               
-              <div className="flex gap-3">
+              {/* Date and Time Row */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {/* Date Input */}
-                <div className="flex-1 relative">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
-                  <div className="relative">
-                    <input
-                      type="date"
-                      value={newMeeting.date}
-                      onChange={(e) => setNewMeeting({ ...newMeeting, date: e.target.value })}
-                      className={`w-full px-3 py-2 pl-10 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.date ? 'border-red-500' : 'border-gray-300'
-                      }`}
-                    />
-                    <svg className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <svg className="w-4 h-4 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                     </svg>
-                  </div>
-                  {errors.date && <p className="text-red-500 text-xs mt-1">{errors.date}</p>}
+                    Meeting Date *
+                  </label>
+                  <input
+                    type="date"
+                    value={newMeeting.date}
+                    onChange={(e) => setNewMeeting({ ...newMeeting, date: e.target.value })}
+                    min={new Date().toISOString().split('T')[0]}
+                    className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors ${
+                      errors.date ? 'border-red-300 focus:ring-red-500' : 'border-gray-300'
+                    }`}
+                  />
+                  {errors.date && (
+                    <div className="flex items-center gap-2 mt-2 text-red-600 text-sm">
+                      <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                      </svg>
+                      <span>{errors.date}</span>
+                    </div>
+                  )}
                 </div>
                 
                 {/* Time Input */}
-                <div className="flex-1 relative">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Time</label>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <svg className="w-4 h-4 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    Meeting Time *
+                  </label>
                   <div className="flex gap-2">
                     <div className="flex-1 relative">
                       <select
                         value={newMeeting.time}
                         onChange={(e) => setNewMeeting({ ...newMeeting, time: e.target.value })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none bg-white"
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors appearance-none bg-white"
                       >
                         <option value="">Select time</option>
                         {generateTimeOptions().map((timeOption) => (
@@ -571,7 +637,7 @@ const ZoomTab = ({ currentUser, theme, courseId }) => {
                           </option>
                         ))}
                       </select>
-                      <svg className="absolute right-3 top-2.5 w-4 h-4 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className="absolute right-3 top-3.5 w-4 h-4 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                       </svg>
                     </div>
@@ -579,43 +645,91 @@ const ZoomTab = ({ currentUser, theme, courseId }) => {
                       <select
                         value={newMeeting.period || 'AM'}
                         onChange={(e) => setNewMeeting({ ...newMeeting, period: e.target.value })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none bg-white"
+                        className="w-full px-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors appearance-none bg-white text-center font-medium"
                       >
                         <option value="AM">AM</option>
                         <option value="PM">PM</option>
                       </select>
                     </div>
                   </div>
+                  {errors.time && (
+                    <div className="flex items-center gap-2 mt-2 text-red-600 text-sm">
+                      <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                      </svg>
+                      <span>{errors.time}</span>
+                    </div>
+                  )}
                 </div>
               </div>
-              
 
-              
-              {errors.general && (
-                <div className="text-red-500 text-sm text-center">{errors.general}</div>
+              {/* Meeting Preview */}
+              {newMeeting.title && newMeeting.date && newMeeting.time && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <div className="flex items-start gap-3">
+                    <svg className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <div className="flex-1">
+                      <h4 className="font-medium text-blue-900 mb-2">Meeting Preview</h4>
+                      <div className="text-sm text-blue-800 space-y-1">
+                        <p><strong>Title:</strong> {newMeeting.title}</p>
+                        <p><strong>Date:</strong> {new Date(newMeeting.date).toLocaleDateString('en-US', { 
+                          weekday: 'long', 
+                          year: 'numeric', 
+                          month: 'long', 
+                          day: 'numeric' 
+                        })}</p>
+                        <p><strong>Time:</strong> {newMeeting.time} {newMeeting.period} (Duration: Until manually ended)</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               )}
               
-              <div className="flex gap-2">
+              {/* General Error */}
+              {errors.general && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                  <div className="flex items-center gap-2 text-red-600 text-sm">
+                    <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                    </svg>
+                    <span>{errors.general}</span>
+                  </div>
+                </div>
+              )}
+              
+              {/* Action Buttons */}
+              <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t border-gray-200">
                 <button
                   onClick={() => {
                     setShowCreateForm(false);
-                    setEditingMeeting(null); // Reset editing state
+                    setEditingMeeting(null);
                     setErrors({});
                   }}
                   disabled={loading}
-                  className="flex-1 bg-gray-300 text-gray-700 py-2 px-4 rounded-md hover:bg-gray-400 transition-colors disabled:opacity-50"
+                  className="flex-1 px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleCreateMeeting}
                   disabled={loading}
-                  className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className={`flex-1 px-6 py-3 bg-${theme.primary}-600 text-white rounded-lg hover:bg-${theme.primary}-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium flex items-center justify-center gap-2`}
                 >
-                  {loading 
-                    ? (editingMeeting ? 'Updating Meeting...' : 'Creating Zoom Meeting...') 
-                    : (editingMeeting ? 'Update Meeting' : 'Create Zoom Meeting')
-                  }
+                  {loading ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                      {editingMeeting ? 'Updating...' : 'Creating...'}
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                      </svg>
+                      {editingMeeting ? 'Update Meeting' : 'Create Meeting'}
+                    </>
+                  )}
                 </button>
               </div>
             </div>
@@ -661,141 +775,137 @@ const ZoomTab = ({ currentUser, theme, courseId }) => {
               });
               
               return (
-                <div key={meeting.id} className="bg-white border border-gray-200 rounded-lg p-4">
-                  <div className="flex flex-col gap-3">
-                    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
-                      <div className="flex-1">
-                        <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-1">
-                          <h4 className="font-semibold text-gray-900">{meeting.title}</h4>
-                          <span className={`px-2 py-1 rounded-full text-xs font-medium w-fit ${statusColors[status]}`}>
-                            {status === 'upcoming' ? 'Upcoming' : 
-                             status === 'live' ? 'Live Now' : 
-                             status === 'ended' ? 'Ended' : 
-                             status === 'cancelled' ? 'Cancelled' : 'Scheduled'}
-                          </span>
-                        </div>
-                        
-                        {meeting.description && (
-                          <p className="text-gray-600 text-sm mb-2">{meeting.description}</p>
-                        )}
+                <div key={meeting.id} className="bg-white border border-gray-200 rounded-xl shadow-sm hover:shadow-md transition-shadow p-4 sm:p-6">
+                  {/* Header Section */}
+                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-4">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-2">
+                        <h4 className="font-semibold text-gray-900 text-lg truncate">{meeting.title}</h4>
+                        <span className={`px-3 py-1 rounded-full text-xs font-medium w-fit flex-shrink-0 ${statusColors[status]}`}>
+                          {status === 'upcoming' ? 'Upcoming' : 
+                           status === 'live' ? 'Live Now' : 
+                           status === 'ended' ? 'Ended' : 
+                           status === 'cancelled' ? 'Cancelled' : 'Scheduled'}
+                        </span>
                       </div>
                       
-                      <div className="flex flex-wrap items-center gap-2 sm:ml-4">
-                        {/* Management buttons - only visible to teachers and admins */}
-                        {canManageZoom() && (
-                          <>
-                            <button
-                              onClick={() => handleEditMeeting(meeting)}
-                              className="text-blue-600 px-2 py-1 rounded-md hover:bg-blue-50 transition-colors"
-                              title="Edit Meeting"
-                            >
-                              <Edit className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={() => handleDeleteMeeting(meeting.id)}
-                              className="text-red-600 px-2 py-1 rounded-md hover:bg-red-50 transition-colors"
-                              title="Delete Meeting"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </>
-                        )}
-                      </div>
+                      {meeting.description && (
+                        <p className="text-gray-600 text-sm mb-3 line-clamp-2">{meeting.description}</p>
+                      )}
                     </div>
                     
-                    {/* Single row with time/teacher at start and buttons at end - Full width */}
-                    <div className="flex items-center justify-between text-xs text-gray-500">
-                          <div className="flex items-center gap-4">
-                            {meeting.date && (
-                              <span className="flex items-center gap-1">
-                                <Calendar className="w-3 h-3 flex-shrink-0" />
-                                <span className="truncate">{meeting.date} {meeting.time} {meeting.period}</span>
-                              </span>
-                            )}
-                            <span className="flex items-center gap-1">
-                              <User className="w-3 h-3 flex-shrink-0" />
-                              <span className="truncate">{meeting.createdBy && meeting.createdBy.firstName && meeting.createdBy.lastName 
-                                ? `${meeting.createdBy.firstName} ${meeting.createdBy.lastName}` 
-                                : 'Host'}</span>
-                            </span>
-                            {meeting.joinCount > 0 && (
-                              <span className="flex items-center gap-1">
-                                <Users className="w-3 h-3 flex-shrink-0" />
-                                <span>{meeting.joinCount} joined</span>
-                              </span>
-                            )}
-                          </div>
-                          
-                          {/* Start/End Meeting buttons at the end */}
-                          <div className="flex items-center gap-2">
-                            {/* Main action button - Start Meeting (first time) or Join Meeting (subsequent) for creator, Join Now for others */}
-                            {(meeting.createdBy?.id === currentUser?.id || canManageZoom()) ? (
-                              // Meeting creator or admin sees Start Meeting (first time) or Join Meeting (subsequent)
-                              <button
-                                onClick={() => handleJoinMeeting(meeting)}
-                                disabled={status === 'ended' || status === 'cancelled'}
-                                className={`px-2 py-0.5 rounded-md transition-colors flex items-center gap-1 text-sm border-2 ${status === 'ended' || status === 'cancelled'
-                                    ? 'border-gray-300 text-gray-500 cursor-not-allowed bg-gray-50'
-                                    : 'border-blue-600 text-blue-600 hover:bg-blue-50'
-                                  }`}
-                              >
-                                <Play className="w-4 h-4" />
-                                {status === 'ended' ? 'Ended' :
-                                  status === 'cancelled' ? 'Cancelled' : 
-                                  startedMeetings.has(meeting.id) ? 'Join Meeting' : 'Start Meeting'}
-                              </button>
-                            ) : (
-                              // Other users see Join Now button
-                              <button
-                                onClick={() => handleJoinMeeting(meeting)}
-                                disabled={status === 'ended' || status === 'cancelled' || !canStudentJoin(meeting)}
-                                className={`px-2 py-0.5 rounded-md transition-colors flex items-center gap-1 text-sm border-2 ${status === 'ended' || status === 'cancelled' || !canStudentJoin(meeting)
-                                    ? 'border-gray-300 text-gray-500 cursor-not-allowed bg-gray-50'
-                                    : 'border-green-600 text-green-600 hover:bg-green-50'
-                                  }`}
-                              >
-                                <Play className="w-4 h-4" />
-                                {status === 'ended' ? 'Ended' :
-                                  status === 'cancelled' ? 'Cancelled' : 
-                                  !canStudentJoin(meeting) ? 'Join Soon' : 'Join Now'}
-                              </button>
-                            )}
-
-                            {/* Cancel/End Meeting button - only visible to meeting creator or admin */}
-                            {(meeting.createdBy?.id === currentUser?.id || canManageZoom()) && (
-                              <button
-                                onClick={() => {
-                                  if (status === 'upcoming' || status === 'scheduled') {
-                                    handleCancelMeeting(meeting.id);
-                                  } else if (status === 'live') {
-                                    handleEndMeeting(meeting.id);
-                                  }
-                                }}
-                                disabled={status === 'ended' || status === 'cancelled'}
-                                className={`px-2 py-0.5 rounded-md transition-colors flex items-center gap-1 text-sm border-2 ${status === 'ended' || status === 'cancelled'
-                                    ? 'border-gray-300 text-gray-500 cursor-not-allowed bg-gray-50'
-                                    : status === 'upcoming' || status === 'scheduled'
-                                      ? 'border-red-600 text-red-600 hover:bg-red-50'
-                                      : 'border-orange-600 text-orange-600 hover:bg-orange-50'
-                                  }`}
-                              >
-                                {status === 'ended' ? (
-                                  <Square className="w-4 h-4" />
-                                ) : status === 'cancelled' ? (
-                                  <X className="w-4 h-4" />
-                                ) : status === 'upcoming' || status === 'scheduled' ? (
-                                  <X className="w-4 h-4" />
-                                ) : (
-                                  <Square className="w-4 h-4" />
-                                )}
-                                {status === 'ended' ? 'Ended' :
-                                  status === 'cancelled' ? 'Cancelled' :
-                                    status === 'upcoming' || status === 'scheduled' ? 'Cancel Meeting' :
-                                      'End Meeting'}
-                              </button>
-                            )}
-                          </div>
+                    {/* Management buttons - only visible to teachers and admins */}
+                    {canManageZoom() && (
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <button
+                          onClick={() => handleEditMeeting(meeting)}
+                          className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                          title="Edit Meeting"
+                        >
+                          <Edit className="w-5 h-5" />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteMeeting(meeting.id)}
+                          className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                          title="Delete Meeting"
+                        >
+                          <Trash2 className="w-5 h-5" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Meeting Details */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-4">
+                    {meeting.date && (
+                      <div className="flex items-center gap-2 text-sm text-gray-600">
+                        <Calendar className="w-4 h-4 flex-shrink-0 text-gray-400" />
+                        <span className="truncate">{meeting.date} {meeting.time} {meeting.period}</span>
+                      </div>
+                    )}
+                    <div className="flex items-center gap-2 text-sm text-gray-600">
+                      <User className="w-4 h-4 flex-shrink-0 text-gray-400" />
+                      <span className="truncate">{meeting.createdBy && meeting.createdBy.firstName && meeting.createdBy.lastName 
+                        ? `${meeting.createdBy.firstName} ${meeting.createdBy.lastName}` 
+                        : 'Host'}</span>
                     </div>
+                    {meeting.joinCount > 0 && (
+                      <div className="flex items-center gap-2 text-sm text-gray-600">
+                        <Users className="w-4 h-4 flex-shrink-0 text-gray-400" />
+                        <span>{meeting.joinCount} joined</span>
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Action Buttons */}
+                  <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+                    {/* Main action button */}
+                    {(meeting.createdBy?.id === currentUser?.id || canManageZoom()) ? (
+                      <button
+                        onClick={() => handleJoinMeeting(meeting)}
+                        disabled={status === 'ended' || status === 'cancelled'}
+                        className={`flex-1 px-4 py-2 rounded-lg transition-colors flex items-center justify-center gap-2 font-medium ${
+                          status === 'ended' || status === 'cancelled'
+                            ? 'bg-gray-100 text-gray-500 cursor-not-allowed'
+                            : 'bg-blue-600 text-white hover:bg-blue-700'
+                        }`}
+                      >
+                        <Play className="w-4 h-4" />
+                        {status === 'ended' ? 'Ended' :
+                          status === 'cancelled' ? 'Cancelled' : 
+                          startedMeetings.has(meeting.id) ? 'Join Meeting' : 'Start Meeting'}
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => handleJoinMeeting(meeting)}
+                        disabled={status === 'ended' || status === 'cancelled' || !canStudentJoin(meeting)}
+                        className={`flex-1 px-4 py-2 rounded-lg transition-colors flex items-center justify-center gap-2 font-medium ${
+                          status === 'ended' || status === 'cancelled' || !canStudentJoin(meeting)
+                            ? 'bg-gray-100 text-gray-500 cursor-not-allowed'
+                            : 'bg-green-600 text-white hover:bg-green-700'
+                        }`}
+                      >
+                        <Play className="w-4 h-4" />
+                        {status === 'ended' ? 'Ended' :
+                          status === 'cancelled' ? 'Cancelled' : 
+                          !canStudentJoin(meeting) ? 'Join Soon' : 'Join Now'}
+                      </button>
+                    )}
+
+                    {/* Cancel/End Meeting button - only visible to meeting creator or admin */}
+                    {(meeting.createdBy?.id === currentUser?.id || canManageZoom()) && (
+                      <button
+                        onClick={() => {
+                          if (status === 'upcoming' || status === 'scheduled') {
+                            handleCancelMeeting(meeting.id);
+                          } else if (status === 'live') {
+                            handleEndMeeting(meeting.id);
+                          }
+                        }}
+                        disabled={status === 'ended' || status === 'cancelled'}
+                        className={`px-4 py-2 rounded-lg transition-colors flex items-center justify-center gap-2 font-medium ${
+                          status === 'ended' || status === 'cancelled'
+                            ? 'bg-gray-100 text-gray-500 cursor-not-allowed'
+                            : status === 'upcoming' || status === 'scheduled'
+                              ? 'bg-red-600 text-white hover:bg-red-700'
+                              : 'bg-orange-600 text-white hover:bg-orange-700'
+                        }`}
+                      >
+                        {status === 'ended' ? (
+                          <Square className="w-4 h-4" />
+                        ) : status === 'cancelled' ? (
+                          <X className="w-4 h-4" />
+                        ) : status === 'upcoming' || status === 'scheduled' ? (
+                          <X className="w-4 h-4" />
+                        ) : (
+                          <Square className="w-4 h-4" />
+                        )}
+                        {status === 'ended' ? 'Ended' :
+                          status === 'cancelled' ? 'Cancelled' :
+                            status === 'upcoming' || status === 'scheduled' ? 'Cancel' :
+                              'End'}
+                      </button>
+                    )}
                   </div>
                 </div>
               );

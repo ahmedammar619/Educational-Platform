@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <script type="module">import { injectIntoGlobalHook } from "/@react-refresh";
+injectIntoGlobalHook(window);
+window.$RefreshReg$ = () => {};
+window.$RefreshSig$ = () => (type) => type;</script>
+
+  <script type="module" src="/@vite/client"></script>
+
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link href="/src/index.css" rel="stylesheet">
+  <title>Baraem Al-Noor - Islamic Educational Platform</title>
+  <meta name="description"
+    content="Baraem Al-Noor offers comprehensive Islamic education including Quran memorization, Arabic language learning, and Islamic studies for children of all ages." />
+  <meta name="keywords"
+    content="Islamic education, Quran memorization, Arabic learning, Islamic studies, children education" />
+</head>
+
+<body>
+  <div id="root"></div>
+  <script type="module" src="/src/main.jsx?t=1756486354713"></script>
+</body>
+
+</html>

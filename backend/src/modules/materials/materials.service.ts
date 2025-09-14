@@ -1232,43 +1232,95 @@ export class MaterialsService {
     }
 
     const attendanceRecords: Attendance[] = [];
+    // Ensure proper date handling - convert string to Date object
     const attendanceDate = new Date(bulkAttendanceDto.date);
+    console.log('📅 Date conversion:', {
+      originalDate: bulkAttendanceDto.date,
+      convertedDate: attendanceDate,
+      isValid: !isNaN(attendanceDate.getTime())
+    });
+
+    // Validate date
+    if (isNaN(attendanceDate.getTime())) {
+      throw new BadRequestException(`Invalid date format: ${bulkAttendanceDto.date}`);
+    }
+
+    console.log('💾 markBulkAttendance called with:', {
+      courseId,
+      date: bulkAttendanceDto.date,
+      attendanceDate: attendanceDate.toISOString(),
+      meetingId: bulkAttendanceDto.meetingId,
+      studentsCount: bulkAttendanceDto.students.length,
+      markerId
+    });
 
     // Process each student's attendance
     for (const studentAttendance of bulkAttendanceDto.students) {
-      // Check if attendance already exists for this student on this date and meeting
-      const existingAttendance = await this.attendanceRepository.findOne({
-        where: {
-          courseId,
-          studentId: studentAttendance.id,
-          date: attendanceDate,
-          meetingId: bulkAttendanceDto.meetingId
+      try {
+        // Validate student data
+        if (!studentAttendance.id || !studentAttendance.name || !studentAttendance.status) {
+          console.error(`❌ Invalid student data:`, studentAttendance);
+          throw new BadRequestException(`Invalid student data for student: ${JSON.stringify(studentAttendance)}`);
         }
-      });
 
-      if (existingAttendance) {
-        // Update existing attendance
-        existingAttendance.status = studentAttendance.status;
-        existingAttendance.day = bulkAttendanceDto.day;
-        existingAttendance.time = bulkAttendanceDto.time;
-        existingAttendance.meetingId = bulkAttendanceDto.meetingId;
-        existingAttendance.markedBy = markerId;
-        existingAttendance.markedAt = new Date();
-        attendanceRecords.push(await this.attendanceRepository.save(existingAttendance));
-      } else {
-        // Create new attendance record
-        const attendance = this.attendanceRepository.create({
-          courseId,
-          studentId: studentAttendance.id,
-          date: attendanceDate,
-          day: bulkAttendanceDto.day,
-          time: bulkAttendanceDto.time,
-          meetingId: bulkAttendanceDto.meetingId,
-          status: studentAttendance.status,
-          markedBy: markerId,
-          markedAt: new Date()
+        // Check if attendance already exists for this student and meeting
+        // Note: We don't include date in the query since the unique constraint is on courseId, studentId, meetingId
+        const existingAttendance = await this.attendanceRepository.findOne({
+          where: {
+            courseId,
+            studentId: studentAttendance.id,
+            meetingId: bulkAttendanceDto.meetingId
+          }
         });
-        attendanceRecords.push(await this.attendanceRepository.save(attendance));
+
+        console.log(`👤 Processing student ${studentAttendance.id} (${studentAttendance.name}): ${studentAttendance.status}`);
+        console.log(`🔍 Existing attendance found:`, !!existingAttendance);
+
+        if (existingAttendance) {
+          console.log(`🔄 Updating existing attendance for student ${studentAttendance.id}`);
+          // Update existing attendance
+          existingAttendance.status = studentAttendance.status;
+          existingAttendance.day = bulkAttendanceDto.day;
+          existingAttendance.time = bulkAttendanceDto.time;
+          existingAttendance.markedBy = markerId;
+          existingAttendance.markedAt = new Date();
+          const savedRecord = await this.attendanceRepository.save(existingAttendance);
+          attendanceRecords.push(savedRecord);
+          console.log(`✅ Updated attendance record:`, {
+            id: savedRecord.id,
+            studentId: savedRecord.studentId,
+            status: savedRecord.status,
+            date: savedRecord.date,
+            meetingId: savedRecord.meetingId
+          });
+        } else {
+          console.log(`➕ Creating new attendance record for student ${studentAttendance.id}`);
+          // Create new attendance record
+          const attendance = this.attendanceRepository.create({
+            courseId,
+            studentId: studentAttendance.id,
+            date: attendanceDate,
+            day: bulkAttendanceDto.day,
+            time: bulkAttendanceDto.time,
+            meetingId: bulkAttendanceDto.meetingId,
+            status: studentAttendance.status,
+            markedBy: markerId,
+            markedAt: new Date()
+          });
+          const savedRecord = await this.attendanceRepository.save(attendance);
+          attendanceRecords.push(savedRecord);
+          console.log(`✅ Created attendance record:`, {
+            id: savedRecord.id,
+            studentId: savedRecord.studentId,
+            status: savedRecord.status,
+            date: savedRecord.date,
+            meetingId: savedRecord.meetingId
+          });
+        }
+      } catch (error) {
+        console.error(`❌ Error processing student ${studentAttendance.id}:`, error);
+        // Continue with other students even if one fails
+        throw new BadRequestException(`Failed to process attendance for student ${studentAttendance.name}: ${error.message}`);
       }
     }
 
@@ -1313,6 +1365,23 @@ export class MaterialsService {
           });
           
           console.log(`📊 Found ${attendanceRecords.length} attendance records for meeting ${meeting.id}`);
+          console.log(`🔍 Query details:`, {
+            courseId,
+            meetingId: meeting.id,
+            meetingTitle: meeting.title
+          });
+          
+          // Log each found record
+          attendanceRecords.forEach((record, index) => {
+            console.log(`📋 Record ${index + 1}:`, {
+              id: record.id,
+              studentId: record.studentId,
+              status: record.status,
+              date: record.date,
+              meetingId: record.meetingId,
+              markedAt: record.markedAt
+            });
+          });
           
           // Get all students for this course
           const students = await this.getCourseStudents(courseId);
@@ -1536,25 +1605,39 @@ export class MaterialsService {
       let students: any[] = [];
       
       // Check if students field has data
-      if (classStudents && classStudents !== '' && Array.isArray(classStudents) && classStudents.length > 0) {
-        console.log('✅ Found students array in class:', classStudents);
+      if (classStudents && classStudents !== '') {
+        let studentIds: string[] = [];
         
-        // Get students by their IDs
-        students = await this.userRepository.find({
-          where: { 
-            id: In(classStudents),
-            role: Role.Student 
-          }
-        });
+        // Handle both array and comma-separated string formats
+        if (Array.isArray(classStudents)) {
+          studentIds = classStudents;
+          console.log('✅ Found students array in class:', studentIds);
+        } else if (typeof classStudents === 'string') {
+          // Parse comma-separated string
+          studentIds = classStudents.split(',').map(id => id.trim()).filter(id => id.length > 0);
+          console.log('✅ Found students string in class, parsed to array:', studentIds);
+        }
         
-        console.log('✅ Found students by IDs:', students.length);
-        students.forEach(student => {
-          console.log(`  - Student: ${student.fullName || `${student.firstName} ${student.lastName}`} (ID: ${student.id})`);
-        });
+        if (studentIds.length > 0) {
+          // Get students by their IDs
+          students = await this.userRepository.find({
+            where: { 
+              id: In(studentIds),
+              role: Role.Student 
+            }
+          });
+          
+          console.log('✅ Found students by IDs:', students.length);
+          students.forEach(student => {
+            console.log(`  - Student: ${student.fullName || `${student.firstName} ${student.lastName}`} (ID: ${student.id})`);
+          });
+        } else {
+          console.log('❌ No valid student IDs found in class database field');
+        }
       } else {
-        console.log('❌ No students found in class database field, using hardcoded student IDs for this class');
+        console.log('❌ No students found in class database field');
         
-        // For the specific class "level 1", use the hardcoded student IDs
+        // For the specific class "level 1", use the hardcoded student IDs as fallback
         if (course.classId === 'c2e8935d-1a07-481d-834d-7581ce96ca74') {
           const hardcodedStudentIds = [
             '505cced4-1943-48e4-9e0c-f6ad77e3f3b3',

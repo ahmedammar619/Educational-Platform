@@ -185,6 +185,11 @@ class EnvironmentVariables {
   @IsOptional()
   @IsString()
   ZOOM_CLIENT_SECRET?: string;
+
+  // Notifications Configuration
+  @IsOptional()
+  @IsBoolean()
+  DISABLE_NOTIFICATIONS?: boolean;
 }
 
 export function validate(config: Record<string, unknown>) {

@@ -56,6 +56,14 @@ export class ClassesController {
     }, { excludeExtraneousValues: true });
   }
 
+  @Get(':id/students')
+  @Roles(Role.Admin, Role.Teacher)
+  @ApiOperation({ summary: 'Get all students in a class' })
+  @ApiResponse({ status: 200, description: 'List of students in the class' })
+  async getClassStudents(@Param('id') id: string) {
+    return await this.classesService.getClassStudents(id);
+  }
+
   @Patch(':id')
   @Roles(Role.Admin)
   async updateClass(

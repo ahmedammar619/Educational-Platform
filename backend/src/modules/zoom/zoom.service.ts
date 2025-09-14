@@ -234,6 +234,8 @@ export class ZoomService {
   async incrementJoinCount(id: string, userId?: string, courseId?: string): Promise<ZoomMeeting> {
     const meeting = await this.findMeetingById(id);
     
+    console.log('🚀 incrementJoinCount called:', { id, userId, courseId, meetingTitle: meeting.title });
+    
     // Only increment join count if this is a new user joining
     if (userId) {
       // Check if this user has already joined this meeting
@@ -259,7 +261,14 @@ export class ZoomService {
     
     // Auto-mark attendance if userId and courseId are provided
     if (userId && courseId && meeting.date) {
+      console.log('🎯 Calling markAttendanceForStudent with:', { userId, courseId, meetingId: meeting.id });
       await this.markAttendanceForStudent(meeting, userId, courseId);
+    } else {
+      console.log('❌ Not calling markAttendanceForStudent because:', { 
+        hasUserId: !!userId, 
+        hasCourseId: !!courseId, 
+        hasMeetingDate: !!meeting.date 
+      });
     }
     
     return await this.zoomMeetingRepository.save(meeting);
@@ -422,7 +431,22 @@ export class ZoomService {
   // Auto-mark attendance when student joins meeting
   private async markAttendanceForStudent(meeting: ZoomMeeting, studentId: string, courseId: string): Promise<void> {
     try {
-      console.log('Marking attendance for student:', { studentId, courseId, meetingId: meeting.id });
+      console.log('🎯 Marking attendance for student:', { studentId, courseId, meetingId: meeting.id });
+      
+      // First, let's see what attendance records exist for this meeting
+      const allAttendanceRecords = await this.attendanceRepository.find({
+        where: {
+          courseId,
+          meetingId: meeting.id
+        }
+      });
+      
+      console.log('📊 All attendance records for this meeting:', allAttendanceRecords.map(r => ({
+        id: r.id,
+        studentId: r.studentId,
+        status: r.status,
+        date: r.date
+      })));
       
       // Find the attendance record for this specific meeting and student
       const attendanceRecord = await this.attendanceRepository.findOne({
@@ -433,7 +457,7 @@ export class ZoomService {
         }
       });
 
-      console.log('Found attendance record:', attendanceRecord);
+      console.log('🔍 Found specific attendance record:', attendanceRecord);
 
       if (attendanceRecord) {
         // Update the attendance status to present
