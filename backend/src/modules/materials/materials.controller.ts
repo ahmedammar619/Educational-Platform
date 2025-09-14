@@ -466,28 +466,43 @@ export class MaterialsController {
       throw new NotFoundException('File not found');
     }
 
-    const filePath = path.join(process.cwd(), 'uploads', file.filePath);
-    
-    // Check if file exists on disk
-    const fs = require('fs');
-    if (!fs.existsSync(filePath)) {
-      throw new NotFoundException('File not found on disk');
-    }
-
-    // Set appropriate headers
-    res.setHeader('Content-Type', file.mimeType);
-    res.setHeader('Content-Length', file.fileSize);
-    
-    // If view=true, open in browser; otherwise download
-    if (view === 'true') {
-      res.setHeader('Content-Disposition', `inline; filename="${file.fileName}"`);
+    // Check if this is an R2 URL (new format) or legacy local path
+    if (file.filePath.startsWith('http')) {
+      // This is an R2 URL, redirect to it (or serve via signed URL for private files)
+      if (view === 'true') {
+        // For view, redirect to the R2 URL
+        res.redirect(file.filePath);
+      } else {
+        // For download, we might want to use a signed URL with download headers
+        // For now, redirect to the R2 URL which should handle download
+        res.redirect(file.filePath);
+      }
+      return;
     } else {
-      res.setHeader('Content-Disposition', `attachment; filename="${file.fileName}"`);
-    }
+      // Legacy local file handling
+      const filePath = path.join(process.cwd(), 'uploads', file.filePath);
+      
+      // Check if file exists on disk
+      const fs = require('fs');
+      if (!fs.existsSync(filePath)) {
+        throw new NotFoundException('File not found on disk');
+      }
 
-    // Stream the file to the response
-    const fileStream = fs.createReadStream(filePath);
-    fileStream.pipe(res);
+      // Set appropriate headers
+      res.setHeader('Content-Type', file.mimeType);
+      res.setHeader('Content-Length', file.fileSize);
+      
+      // If view=true, open in browser; otherwise download
+      if (view === 'true') {
+        res.setHeader('Content-Disposition', `inline; filename="${file.fileName}"`);
+      } else {
+        res.setHeader('Content-Disposition', `attachment; filename="${file.fileName}"`);
+      }
+
+      // Stream the file to the response
+      const fileStream = fs.createReadStream(filePath);
+      fileStream.pipe(res);
+    }
   }
 
   @Delete('files/:fileId')
