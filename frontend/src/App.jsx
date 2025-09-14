@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { HelmetProvider } from 'react-helmet-async';
-import { Toaster } from 'react-hot-toast';
 import { LoginForm } from './pages/auth';
 import { AppRouter } from './routers';
 import { authService } from './services';
 import { NotificationProvider } from './contexts/NotificationContext';
+import ToastContainer from './components/ui/ToastContainer';
+import { showInfoToast } from './utils/toast.jsx';
 import './App.css';
 
 // Error Boundary Component
@@ -133,6 +134,9 @@ function App() {
     // Set logging out state to prevent error boundary issues
     setIsLoggingOut(true);
     
+    // Show logout confirmation
+    showInfoToast('Signing out...', 'You have been successfully logged out.');
+    
     // Clear user state and logout from authService
     authService.logout();
     setUser(null);
@@ -168,7 +172,7 @@ function App() {
                 onLogout={handleLogout}
               />
             )}
-            <Toaster />
+            <ToastContainer position="top-right" />
           </div>
         </NotificationProvider>
       </ErrorBoundary>

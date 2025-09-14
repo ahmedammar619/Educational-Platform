@@ -6,3 +6,5 @@ export { default as Button } from './Button';
 export { default as ComponentLoader } from './ComponentLoader';
 export { default as ConfirmationDialog } from './ConfirmationDialog';
 export { default as AlertDialog } from './AlertDialog';
+export { default as Toast } from './Toast';
+export { default as ToastContainer } from './ToastContainer';

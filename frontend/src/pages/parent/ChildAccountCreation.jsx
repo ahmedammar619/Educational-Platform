@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { User, Mail, Lock, Calendar, Eye, EyeOff } from 'lucide-react';
-import { showSuccessToast, showErrorToast, showLoadingToast, dismissToast } from '../../utils/toast.jsx';
+import { showSuccessToast, showErrorToast, showWarningToast, showLoadingToast, dismissToast } from '../../utils/toast.jsx';
 import parentsService from '../../services/parentsService';
 
 const ChildAccountCreation = ({ user, onSuccess, onCancel }) => {
@@ -97,10 +97,12 @@ const ChildAccountCreation = ({ user, onSuccess, onCancel }) => {
     // Prevent double-clicking
     if (isSubmitting) {
       console.warn('🚫 Form submission already in progress, ignoring duplicate click');
+      showWarningToast('Please wait', 'Form submission is already in progress.');
       return;
     }
 
     if (!validateForm()) {
+      showWarningToast('Please fix the errors', 'Please correct the highlighted fields before submitting.');
       return;
     }
 

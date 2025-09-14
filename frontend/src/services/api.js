@@ -62,7 +62,44 @@ api.interceptors.response.use(
       // Don't redirect if this is a login attempt
       const isLoginAttempt = error.config?.url?.includes('/auth/login');
       if (!isLoginAttempt) {
-        window.location.href = '/login';
+        // Show session expired toast before redirecting
+        if (window.toastManager) {
+          window.toastManager.addToast({
+            type: 'warning',
+            title: 'Session Expired',
+            description: 'Your session has expired. Please log in again.',
+            showLeftBar: true,
+            showDescription: true,
+            duration: 5000
+          });
+        }
+        setTimeout(() => {
+          window.location.href = '/login';
+        }, 2000);
+      }
+    } else if (error.response?.status === 403) {
+      // Show permission denied toast
+      if (window.toastManager) {
+        window.toastManager.addToast({
+          type: 'error',
+          title: 'Access Denied',
+          description: 'You do not have permission to perform this action.',
+          showLeftBar: true,
+          showDescription: true,
+          duration: 5000
+        });
+      }
+    } else if (error.response?.status >= 500) {
+      // Show server error toast
+      if (window.toastManager) {
+        window.toastManager.addToast({
+          type: 'error',
+          title: 'Server Error',
+          description: 'Something went wrong on our end. Please try again later.',
+          showLeftBar: true,
+          showDescription: true,
+          duration: 5000
+        });
       }
     }
     

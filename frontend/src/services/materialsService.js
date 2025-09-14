@@ -21,9 +21,11 @@ class MaterialsService {
           'Content-Type': 'multipart/form-data',
         },
       });
+      
+      showSuccessToast('Post created successfully!', 'Your post has been published to the course.');
       return response.data;
     } catch (error) {
-      // Error is already handled by the API interceptor
+      showErrorToast(error, 'Failed to create post. Please try again.');
       throw error;
     }
   }
@@ -56,9 +58,11 @@ class MaterialsService {
           'Content-Type': 'multipart/form-data',
         },
       });
+      
+      showSuccessToast('Post updated successfully!', 'Your changes have been saved.');
       return response.data;
     } catch (error) {
-      // Error is already handled by the API interceptor
+      showErrorToast(error, 'Failed to update post. Please try again.');
       throw error;
     }
   }
@@ -66,9 +70,10 @@ class MaterialsService {
   async deletePost(postId) {
     try {
       const response = await api.delete(`/api/materials/posts/${postId}`);
+      showSuccessToast('Post deleted successfully!', 'The post has been removed from the course.');
       return response.data;
     } catch (error) {
-      // Error is already handled by the API interceptor
+      showErrorToast(error, 'Failed to delete post. Please try again.');
       throw error;
     }
   }
@@ -77,9 +82,10 @@ class MaterialsService {
   async createFolder(courseId, folderData) {
     try {
       const response = await api.post(`/api/materials/courses/${courseId}/folders`, folderData);
+      showSuccessToast('Folder created successfully!', `Folder "${folderData.name}" has been created.`);
       return response.data;
     } catch (error) {
-      // Error is already handled by the API interceptor
+      showErrorToast(error, 'Failed to create folder. Please try again.');
       throw error;
     }
   }
@@ -107,10 +113,11 @@ class MaterialsService {
       });
       
       console.log('📥 Upload response:', response);
+      showSuccessToast('File uploaded successfully!', `"${file.name}" has been uploaded to the course.`);
       return response.data;
     } catch (error) {
       console.error('❌ Upload error:', error);
-      // Error is already handled by the API interceptor
+      showErrorToast(error, `Failed to upload "${file.name}". Please try again.`);
       throw error;
     }
   }
@@ -130,9 +137,10 @@ class MaterialsService {
   async deleteFile(fileId) {
     try {
       const response = await api.delete(`/api/materials/files/${fileId}`);
+      showSuccessToast('File deleted successfully!', 'The file has been removed from the course.');
       return response.data;
     } catch (error) {
-      // Error is already handled by the API interceptor
+      showErrorToast(error, 'Failed to delete file. Please try again.');
       throw error;
     }
   }
@@ -140,9 +148,10 @@ class MaterialsService {
   async updateFolder(folderId, updateData) {
     try {
       const response = await api.patch(`/api/materials/folders/${folderId}`, updateData);
+      showSuccessToast('Folder updated successfully!', `Folder "${updateData.name}" has been updated.`);
       return response.data;
     } catch (error) {
-      // Error is already handled by the API interceptor
+      showErrorToast(error, 'Failed to update folder. Please try again.');
       throw error;
     }
   }
@@ -150,9 +159,10 @@ class MaterialsService {
   async deleteFolder(folderId) {
     try {
       const response = await api.delete(`/api/materials/folders/${folderId}`);
+      showSuccessToast('Folder deleted successfully!', 'The folder and its contents have been removed.');
       return response.data;
     } catch (error) {
-      // Error is already handled by the API interceptor
+      showErrorToast(error, 'Failed to delete folder. Please try again.');
       throw error;
     }
   }
@@ -170,9 +180,10 @@ class MaterialsService {
       };
       
       const response = await api.post(`/api/materials/courses/${courseId}/assignments`, backendData);
+      showSuccessToast('Assignment created successfully!', `"${assignmentData.title}" has been published to the course.`);
       return response.data;
     } catch (error) {
-      // Error is already handled by the API interceptor
+      showErrorToast(error, 'Failed to create assignment. Please try again.');
       throw error;
     }
   }
@@ -189,9 +200,10 @@ class MaterialsService {
       };
       
       const response = await api.patch(`/api/materials/courses/assignments/${assignmentId}`, backendData);
+      showSuccessToast('Assignment updated successfully!', `"${assignmentData.title}" has been updated.`);
       return response.data;
     } catch (error) {
-      // Error is already handled by the API interceptor
+      showErrorToast(error, 'Failed to update assignment. Please try again.');
       throw error;
     }
   }
@@ -199,9 +211,10 @@ class MaterialsService {
   async deleteAssignment(assignmentId) {
     try {
       const response = await api.delete(`/api/materials/courses/assignments/${assignmentId}`);
+      showSuccessToast('Assignment deleted successfully!', 'The assignment has been removed from the course.');
       return response.data;
     } catch (error) {
-      // Error is already handled by the API interceptor
+      showErrorToast(error, 'Failed to delete assignment. Please try again.');
       throw error;
     }
   }

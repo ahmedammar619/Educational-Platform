@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { Eye, EyeOff, User, Lock } from 'lucide-react';
-import { showSuccessToast, showErrorToast, showLoadingToast, dismissToast } from '../../utils/toast.jsx';
+import { showSuccessToast, showErrorToast, showWarningToast, showLoadingToast, dismissToast } from '../../utils/toast.jsx';
 import { authService } from '../../services';
 import PhoneInput from '../../components/ui/PhoneInput';
 import ProfileCompletionModal from '../../pages/auth/ProfileCompletionModal';
@@ -43,6 +43,7 @@ const LoginForm = React.memo(({ onLogin, onRegister }) => {
     // Prevent double-clicking
     if (loading) {
       console.warn('🚫 Form submission already in progress, ignoring duplicate click');
+      showWarningToast('Please wait', 'Form submission is already in progress.');
       return;
     }
     

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Plus, Edit, Trash2, Users, Calendar, DollarSign, BookOpen, Search, Filter, User, X, ChevronDown, ChevronRight, UserMinus, ArrowUp } from 'lucide-react';
 import { classesService, usersService, coursesService } from '../../services';
 import { showErrorToast, showSuccessToast, getErrorMessage } from '../../utils/errorHandler';
+import { showWarningToast } from '../../utils/toast.jsx';
 import { ConfirmationDialog, AlertDialog } from '../../components/ui';
 import useConfirmation from '../../hooks/useConfirmation';
 import useAlert from '../../hooks/useAlert';
@@ -162,6 +163,7 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
     // Prevent double-clicking
     if (isCreatingClass) {
       console.warn('🚫 Class creation already in progress, ignoring duplicate request');
+      showWarningToast('Please wait', 'Class creation is already in progress.');
       return;
     }
 

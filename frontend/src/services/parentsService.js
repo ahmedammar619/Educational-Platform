@@ -1,4 +1,5 @@
 import api from './api';
+import { showErrorToast, showSuccessToast } from '../utils/errorHandler';
 
 class ParentsService {
   // Get parent profile
@@ -15,8 +16,10 @@ class ParentsService {
   async updateParentProfile(profileData) {
     try {
       const response = await api.put('/api/parents/profile', profileData);
+      showSuccessToast('Profile updated successfully!', 'Your parent profile has been updated.');
       return response.data;
     } catch (error) {
+      showErrorToast(error, 'Failed to update profile. Please try again.');
       throw error.response?.data || error.message;
     }
   }
@@ -45,8 +48,10 @@ class ParentsService {
   async createChildAccount(childData, parentId) {
     try {
       const response = await api.post(`/api/parents/${parentId}/create-child-account`, childData);
+      showSuccessToast('Child account created successfully!', `Account for ${childData.firstName} ${childData.lastName} has been created.`);
       return response.data;
     } catch (error) {
+      showErrorToast(error, 'Failed to create child account. Please try again.');
       throw error.response?.data || error.message;
     }
   }
@@ -55,8 +60,10 @@ class ParentsService {
   async removeChild(childId, parentId) {
     try {
       const response = await api.delete(`/api/parents/children/${childId}?parentId=${parentId}`);
+      showSuccessToast('Child account removed successfully!', 'The child account has been removed from your profile.');
       return response.data;
     } catch (error) {
+      showErrorToast(error, 'Failed to remove child account. Please try again.');
       throw error.response?.data || error.message;
     }
   }

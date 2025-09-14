@@ -119,23 +119,18 @@ export const handleApiError = (error) => {
   );
 };
 
+import toastService from '../services/toastService';
+
 export const showErrorToast = (error, customMessage = null) => {
   const message = customMessage || (error instanceof ApiError ? error.message : error.message);
   
-  // You can integrate with a toast library here (like react-toastify, react-hot-toast, etc.)
-  // For now, we'll use alert as a fallback
-  alert(message);
-  
-  // Example with react-hot-toast:
-  // toast.error(message);
+  // Use our custom toast service
+  toastService.error(message);
 };
 
 export const showSuccessToast = (message) => {
-  // You can integrate with a toast library here
-  alert(message);
-  
-  // Example with react-hot-toast:
-  // toast.success(message);
+  // Use our custom toast service
+  toastService.success(message);
 };
 
 export const isRetryableError = (error) => {
