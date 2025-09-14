@@ -173,4 +173,26 @@ export class PaymentsController {
   async getAdminWebhookEvents(@Query() filters: any) {
     return this.paymentsService.getAdminWebhookEvents(filters);
   }
+
+  // New endpoints for real-time Stripe data
+  @Get('admin/stripe/subscriptions')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.Admin)
+  async getStripeSubscriptions(@Query() filters: any) {
+    return this.paymentsService.getStripeSubscriptions(filters);
+  }
+
+  @Get('admin/stripe/invoices')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.Admin)
+  async getStripeInvoices(@Query() filters: any) {
+    return this.paymentsService.getStripeInvoices(filters);
+  }
+
+  @Get('admin/stripe/stats')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.Admin)
+  async getStripeStats() {
+    return this.paymentsService.getStripeStats();
+  }
 }

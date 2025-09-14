@@ -218,6 +218,41 @@ class PaymentService {
       throw error;
     }
   }
+
+  // New methods for real-time Stripe data
+  async getStripeSubscriptions(filters = {}) {
+    try {
+      const response = await api.get('/api/payments/admin/stripe/subscriptions', {
+        params: filters
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error getting Stripe subscriptions:', error);
+      throw error;
+    }
+  }
+
+  async getStripeInvoices(filters = {}) {
+    try {
+      const response = await api.get('/api/payments/admin/stripe/invoices', {
+        params: filters
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error getting Stripe invoices:', error);
+      throw error;
+    }
+  }
+
+  async getStripeStats() {
+    try {
+      const response = await api.get('/api/payments/admin/stripe/stats');
+      return response.data;
+    } catch (error) {
+      console.error('Error getting Stripe stats:', error);
+      throw error;
+    }
+  }
 }
 
 export default new PaymentService();

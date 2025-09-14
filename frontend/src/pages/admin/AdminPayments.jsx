@@ -39,26 +39,27 @@ const AdminPayments = () => {
   const loadPaymentData = async () => {
     try {
       setLoading(true);
-      const [statsData, subscriptionsData, invoicesData, webhooksData] = await Promise.all([
-        paymentService.getAdminPaymentStats(),
-        paymentService.getAdminSubscriptions(filters),
-        paymentService.getAdminInvoices(filters),
-        paymentService.getAdminWebhookEvents(filters)
+      
+      // Fetch real-time data from Stripe API instead of local database
+      const [stripeStatsData, stripeSubscriptionsData, stripeInvoicesData, webhooksData] = await Promise.all([
+        paymentService.getStripeStats(),
+        paymentService.getStripeSubscriptions(filters),
+        paymentService.getStripeInvoices(filters),
+        paymentService.getAdminWebhookEvents(filters) // Keep webhook events from DB
       ]);
       
-      setPaymentStats(statsData);
-      setSubscriptions(subscriptionsData);
-      setInvoices(invoicesData);
+      console.log('📊 Stripe Stats:', stripeStatsData);
+      console.log('📋 Stripe Subscriptions:', stripeSubscriptionsData);
+      console.log('🧾 Stripe Invoices:', stripeInvoicesData);
+      
+      setPaymentStats(stripeStatsData);
+      setSubscriptions(stripeSubscriptionsData.subscriptions || []);
+      setInvoices(stripeInvoicesData.invoices || []);
       setWebhookEvents(webhooksData);
       
-      // Debug logging
-      console.log('📊 Payment stats:', statsData);
-      console.log('📋 Subscriptions data:', subscriptionsData);
-      console.log('💳 Invoices data:', invoicesData);
-      console.log('🔍 Webhook events data:', webhooksData);
     } catch (error) {
       console.error('Error loading payment data:', error);
-      showErrorToast('Failed to load payment data');
+      showErrorToast('Failed to load payment data from Stripe');
     } finally {
       setLoading(false);
     }
@@ -176,12 +177,16 @@ Webhook Event Details:
     });
   };
 
-  // Group subscriptions by parent
+  // Group subscriptions by parent (using customerId from Stripe)
   const groupedSubscriptions = subscriptions.reduce((acc, subscription) => {
-    const parentId = subscription.userId;
+    const parentId = subscription.customerId || 'unknown';
     if (!acc[parentId]) {
       acc[parentId] = {
-        parent: subscription.user || { firstName: 'Unknown', lastName: 'Parent', email: 'unknown@example.com' },
+        parent: { 
+          firstName: subscription.parentName?.split(' ')[0] || 'Unknown', 
+          lastName: subscription.parentName?.split(' ').slice(1).join(' ') || 'Parent', 
+          email: subscription.parentEmail || 'unknown@example.com' 
+        },
         subscriptions: []
       };
     }
@@ -204,7 +209,11 @@ Webhook Event Details:
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Payment Management</h1>
-          <p className="text-gray-600">Monitor subscriptions, invoices, and payment analytics</p>
+          <p className="text-gray-600">Real-time data from Stripe API - Monitor subscriptions, invoices, and data consistency</p>
+          <div className="mt-2 inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+            <RefreshCw className="w-3 h-3 mr-1" />
+            Live Stripe Data
+          </div>
         </div>
         <button
           onClick={handleRefresh}
@@ -227,7 +236,10 @@ Webhook Event Details:
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-600">Total Revenue</p>
                 <p className="text-2xl font-bold text-gray-900">
-                  {formatCurrency(paymentStats.totalRevenue)}
+                  {formatCurrency(paymentStats.revenue?.total || 0)}
+                </p>
+                <p className="text-xs text-gray-500 mt-1">
+                  Monthly: {formatCurrency(paymentStats.revenue?.monthly || 0)}
                 </p>
               </div>
             </div>
@@ -241,7 +253,10 @@ Webhook Event Details:
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-600">Active Subscriptions</p>
                 <p className="text-2xl font-bold text-gray-900">
-                  {paymentStats.activeSubscriptions}
+                  {paymentStats.subscriptions?.active || 0}
+                </p>
+                <p className="text-xs text-gray-500 mt-1">
+                  Total: {paymentStats.subscriptions?.total || 0} | Canceled: {paymentStats.subscriptions?.canceled || 0}
                 </p>
               </div>
             </div>
@@ -255,7 +270,10 @@ Webhook Event Details:
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-600">Total Invoices</p>
                 <p className="text-2xl font-bold text-gray-900">
-                  {paymentStats.totalInvoices}
+                  {paymentStats.invoices?.total || 0}
+                </p>
+                <p className="text-xs text-gray-500 mt-1">
+                  Paid: {paymentStats.invoices?.paid || 0} | Unpaid: {paymentStats.invoices?.unpaid || 0}
                 </p>
               </div>
             </div>
@@ -264,12 +282,15 @@ Webhook Event Details:
           <div className="bg-white p-6 rounded-lg shadow">
             <div className="flex items-center">
               <div className="p-2 bg-orange-100 rounded-lg">
-                <TrendingUp className="h-6 w-6 text-orange-600" />
+                <AlertCircle className="h-6 w-6 text-orange-600" />
               </div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Monthly Revenue</p>
+                <p className="text-sm font-medium text-gray-600">Data Mismatches</p>
                 <p className="text-2xl font-bold text-gray-900">
-                  {formatCurrency(paymentStats.monthlyRevenue)}
+                  {(paymentStats.dataMismatches?.totalSubscriptionMismatches || 0) + (paymentStats.dataMismatches?.totalInvoiceMismatches || 0)}
+                </p>
+                <p className="text-xs text-gray-500 mt-1">
+                  Subs: {paymentStats.dataMismatches?.totalSubscriptionMismatches || 0} | Invoices: {paymentStats.dataMismatches?.totalInvoiceMismatches || 0}
                 </p>
               </div>
             </div>
@@ -372,6 +393,9 @@ Webhook Event Details:
                       Students
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Data Status
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Status
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -410,11 +434,24 @@ Webhook Event Details:
                           )}
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="text-sm font-medium text-gray-900">
-                              {subscription.studentName || `${subscription.student?.user?.firstName || ''} ${subscription.student?.user?.lastName || ''}`.trim() || 'Unknown Student'}
+                              {subscription.studentName || 'Unknown Student'}
                             </div>
-                            {/* <div className="text-sm text-gray-500">
-                              {subscription.student?.user?.email || 'N/A'}
-                            </div> */}
+                            <div className="text-sm text-gray-500">
+                              {subscription.parentEmail || 'Unknown Email'}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            {subscription.hasDbMismatch ? (
+                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                                <AlertCircle className="w-3 h-3 mr-1" />
+                                No DB Match
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                <CheckCircle className="w-3 h-3 mr-1" />
+                                Synced
+                              </span>
+                            )}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="flex items-center">
@@ -470,6 +507,9 @@ Webhook Event Details:
                       Student
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Data Status
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Amount
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -487,18 +527,31 @@ Webhook Event Details:
                   {invoices.map((invoice) => (
                     <tr key={invoice.id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-900">
-                        {invoice.stripeInvoiceId}
+                        {invoice.id}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm font-medium text-gray-900">
-                          {invoice.studentName || `${invoice.student?.user?.firstName || ''} ${invoice.student?.user?.lastName || ''}`.trim() || 'Unknown Student'}
+                          {invoice.studentName || 'Unknown Student'}
                         </div>
-                        {/* <div className="text-sm text-gray-500">
-                          {invoice.student?.user?.email || 'N/A'}
-                        </div> */}
+                        <div className="text-sm text-gray-500">
+                          {invoice.parentEmail || 'Unknown Email'}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {invoice.hasDbMismatch ? (
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                            <AlertCircle className="w-3 h-3 mr-1" />
+                            No DB Match
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                            <CheckCircle className="w-3 h-3 mr-1" />
+                            Synced
+                          </span>
+                        )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {formatCurrency(invoice.amountPaid, invoice.currency)}
+                        {formatCurrency(invoice.amount, invoice.currency)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(invoice.status)}`}>

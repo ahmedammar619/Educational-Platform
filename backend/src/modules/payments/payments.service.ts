@@ -982,4 +982,223 @@ export class PaymentsService {
       throw error; // Re-throw to ensure webhook processing fails if storage fails
     }
   }
+
+  // New methods for real-time Stripe data
+  async getStripeSubscriptions(filters: any = {}) {
+    try {
+      console.log('🔍 Fetching all subscriptions from Stripe API...');
+      
+      // Get all subscriptions from Stripe
+      const stripeSubscriptions = await this.stripeService.getAllSubscriptions(100);
+      console.log(`📊 Found ${stripeSubscriptions.length} subscriptions in Stripe`);
+
+      // Get all users from database for cross-reference
+      const users = await this.userRepository.find({
+        select: ['id', 'email', 'firstName', 'lastName', 'stripe_customer_id']
+      });
+
+      // Create a map of Stripe customer IDs to users
+      const customerToUserMap = new Map();
+      users.forEach(user => {
+        if (user.stripe_customer_id) {
+          customerToUserMap.set(user.stripe_customer_id, user);
+        }
+      });
+
+      // Process subscriptions and flag mismatches
+      const processedSubscriptions = stripeSubscriptions.map(stripeSub => {
+        const customerId = typeof stripeSub.customer === 'string' 
+          ? stripeSub.customer 
+          : stripeSub.customer?.id;
+        
+        const matchedUser = customerToUserMap.get(customerId);
+        
+        // Get student name from metadata or matched user
+        let studentName = stripeSub.metadata?.studentName;
+        if (!studentName && matchedUser) {
+          // Use parent name as fallback for student name
+          studentName = `${matchedUser.firstName} ${matchedUser.lastName}`;
+        }
+
+        // Cast to any to handle TypeScript strict typing
+        const stripeSubAny = stripeSub as any;
+        const customerAny = stripeSub.customer as any;
+
+        return {
+          id: stripeSub.id,
+          customerId,
+          studentName: studentName || 'Unknown Student',
+          parentEmail: typeof stripeSub.customer === 'object' 
+            ? customerAny?.email 
+            : matchedUser?.email || 'Unknown Email',
+          parentName: matchedUser 
+            ? `${matchedUser.firstName} ${matchedUser.lastName}` 
+            : 'Unknown Parent',
+          status: stripeSub.status,
+          amount: stripeSub.items.data[0]?.price?.unit_amount || 0,
+          currency: stripeSub.items.data[0]?.price?.currency || 'usd',
+          currentPeriodStart: stripeSubAny.current_period_start ? new Date(stripeSubAny.current_period_start * 1000) : null,
+          currentPeriodEnd: stripeSubAny.current_period_end ? new Date(stripeSubAny.current_period_end * 1000) : null,
+          cancelAt: stripeSubAny.cancel_at ? new Date(stripeSubAny.cancel_at * 1000) : null,
+          cancelAtPeriodEnd: stripeSubAny.cancel_at_period_end,
+          createdAt: new Date(stripeSub.created * 1000),
+          // Flag for mismatch
+          hasDbMismatch: !matchedUser,
+          dbMatchedUser: matchedUser,
+          stripeData: stripeSub
+        };
+      });
+
+      console.log(`✅ Processed ${processedSubscriptions.length} subscriptions with database cross-reference`);
+      
+      return {
+        total: processedSubscriptions.length,
+        mismatches: processedSubscriptions.filter(sub => sub.hasDbMismatch).length,
+        subscriptions: processedSubscriptions
+      };
+    } catch (error) {
+      console.error('❌ Failed to fetch Stripe subscriptions:', error);
+      throw new Error(`Failed to fetch Stripe subscriptions: ${error.message}`);
+    }
+  }
+
+  async getStripeInvoices(filters: any = {}) {
+    try {
+      console.log('🔍 Fetching all invoices from Stripe API...');
+      
+      // Get all invoices from Stripe
+      const stripeInvoices = await this.stripeService.getAllInvoices(100);
+      console.log(`📊 Found ${stripeInvoices.length} invoices in Stripe`);
+
+      // Get all users from database for cross-reference
+      const users = await this.userRepository.find({
+        select: ['id', 'email', 'firstName', 'lastName', 'stripe_customer_id']
+      });
+
+      // Create a map of Stripe customer IDs to users
+      const customerToUserMap = new Map();
+      users.forEach(user => {
+        if (user.stripe_customer_id) {
+          customerToUserMap.set(user.stripe_customer_id, user);
+        }
+      });
+
+      // Process invoices and flag mismatches
+      const processedInvoices = stripeInvoices.map(stripeInvoice => {
+        const customerId = typeof stripeInvoice.customer === 'string' 
+          ? stripeInvoice.customer 
+          : stripeInvoice.customer?.id;
+        
+        const matchedUser = customerToUserMap.get(customerId);
+        
+        // Cast to any to handle TypeScript strict typing
+        const invoiceAny = stripeInvoice as any;
+        const customerAny = stripeInvoice.customer as any;
+        
+        // Get student name from subscription metadata or matched user
+        let studentName = invoiceAny.subscription?.metadata?.studentName;
+        if (!studentName && matchedUser) {
+          studentName = `${matchedUser.firstName} ${matchedUser.lastName}`;
+        }
+
+        return {
+          id: stripeInvoice.id,
+          customerId,
+          studentName: studentName || 'Unknown Student',
+          parentEmail: typeof stripeInvoice.customer === 'object' 
+            ? customerAny?.email 
+            : matchedUser?.email || 'Unknown Email',
+          parentName: matchedUser 
+            ? `${matchedUser.firstName} ${matchedUser.lastName}` 
+            : 'Unknown Parent',
+          status: stripeInvoice.status,
+          amount: stripeInvoice.amount_paid || stripeInvoice.amount_due || 0,
+          currency: stripeInvoice.currency || 'usd',
+          paidAt: stripeInvoice.status_transitions?.paid_at 
+            ? new Date(stripeInvoice.status_transitions.paid_at * 1000) 
+            : null,
+          dueDate: stripeInvoice.due_date ? new Date(stripeInvoice.due_date * 1000) : null,
+          createdAt: new Date(stripeInvoice.created * 1000),
+          subscriptionId: typeof invoiceAny.subscription === 'string' 
+            ? invoiceAny.subscription 
+            : invoiceAny.subscription?.id,
+          // Flag for mismatch
+          hasDbMismatch: !matchedUser,
+          dbMatchedUser: matchedUser,
+          stripeData: stripeInvoice
+        };
+      });
+
+      console.log(`✅ Processed ${processedInvoices.length} invoices with database cross-reference`);
+      
+      return {
+        total: processedInvoices.length,
+        mismatches: processedInvoices.filter(invoice => invoice.hasDbMismatch).length,
+        invoices: processedInvoices
+      };
+    } catch (error) {
+      console.error('❌ Failed to fetch Stripe invoices:', error);
+      throw new Error(`Failed to fetch Stripe invoices: ${error.message}`);
+    }
+  }
+
+  async getStripeStats() {
+    try {
+      console.log('📊 Calculating Stripe statistics...');
+      
+      // Get data from both endpoints
+      const [subscriptionsData, invoicesData] = await Promise.all([
+        this.getStripeSubscriptions(),
+        this.getStripeInvoices()
+      ]);
+
+      const activeSubscriptions = subscriptionsData.subscriptions.filter(sub => sub.status === 'active').length;
+      const canceledSubscriptions = subscriptionsData.subscriptions.filter(sub => sub.status === 'canceled').length;
+      const incompleteSubscriptions = subscriptionsData.subscriptions.filter(sub => sub.status === 'incomplete').length;
+      
+      const paidInvoices = invoicesData.invoices.filter(inv => inv.status === 'paid').length;
+      const unpaidInvoices = invoicesData.invoices.filter(inv => inv.status === 'open').length;
+      
+      const totalRevenue = invoicesData.invoices
+        .filter(inv => inv.status === 'paid')
+        .reduce((sum, inv) => sum + inv.amount, 0);
+
+      const monthlyRevenue = invoicesData.invoices
+        .filter(inv => {
+          const oneMonthAgo = new Date();
+          oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
+          return inv.status === 'paid' && inv.paidAt && inv.paidAt >= oneMonthAgo;
+        })
+        .reduce((sum, inv) => sum + inv.amount, 0);
+
+      return {
+        subscriptions: {
+          total: subscriptionsData.total,
+          active: activeSubscriptions,
+          canceled: canceledSubscriptions,
+          incomplete: incompleteSubscriptions,
+          mismatches: subscriptionsData.mismatches
+        },
+        invoices: {
+          total: invoicesData.total,
+          paid: paidInvoices,
+          unpaid: unpaidInvoices,
+          mismatches: invoicesData.mismatches
+        },
+        revenue: {
+          total: totalRevenue,
+          monthly: monthlyRevenue,
+          currency: 'usd'
+        },
+        dataMismatches: {
+          totalSubscriptionMismatches: subscriptionsData.mismatches,
+          totalInvoiceMismatches: invoicesData.mismatches,
+          description: 'Records in Stripe that don\'t match any user in your database'
+        }
+      };
+    } catch (error) {
+      console.error('❌ Failed to calculate Stripe stats:', error);
+      throw new Error(`Failed to calculate Stripe stats: ${error.message}`);
+    }
+  }
 }

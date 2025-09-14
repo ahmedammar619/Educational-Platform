@@ -321,4 +321,49 @@ export class StripeService {
   isConfigured(): boolean {
     return !!this.stripe;
   }
+
+  // Admin methods to fetch bulk Stripe data
+  async getAllSubscriptions(limit = 100): Promise<Stripe.Subscription[]> {
+    this.validateStripeConfig();
+
+    try {
+      const subscriptions = await this.stripe.subscriptions.list({
+        limit,
+        expand: ['data.customer', 'data.latest_invoice'],
+      });
+      return subscriptions.data;
+    } catch (error) {
+      this.logger.error(`❌ Failed to get all subscriptions: ${error.message}`);
+      throw new BadRequestException(`Failed to get all subscriptions: ${error.message}`);
+    }
+  }
+
+  async getAllInvoices(limit = 100): Promise<Stripe.Invoice[]> {
+    this.validateStripeConfig();
+
+    try {
+      const invoices = await this.stripe.invoices.list({
+        limit,
+        expand: ['data.customer', 'data.subscription'],
+      });
+      return invoices.data;
+    } catch (error) {
+      this.logger.error(`❌ Failed to get all invoices: ${error.message}`);
+      throw new BadRequestException(`Failed to get all invoices: ${error.message}`);
+    }
+  }
+
+  async getAllCustomers(limit = 100): Promise<Stripe.Customer[]> {
+    this.validateStripeConfig();
+
+    try {
+      const customers = await this.stripe.customers.list({
+        limit,
+      });
+      return customers.data;
+    } catch (error) {
+      this.logger.error(`❌ Failed to get all customers: ${error.message}`);
+      throw new BadRequestException(`Failed to get all customers: ${error.message}`);
+    }
+  }
 }

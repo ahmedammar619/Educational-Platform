@@ -20,11 +20,11 @@ services:
   frontend:
     build:
       context: ./frontend
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.dev
     ports:
       - "3001:3001"
     environment:
-      # - NODE_ENV=development
+      - NODE_ENV=development
       - VITE_API_URL=http://localhost:3000
       - PORT=3001
     volumes:
