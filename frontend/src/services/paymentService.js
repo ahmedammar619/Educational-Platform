@@ -253,6 +253,18 @@ class PaymentService {
       throw error;
     }
   }
+
+  async syncStripeData(customerIds = null) {
+    try {
+      const response = await api.post('/api/payments/admin/stripe/sync', {
+        customerIds: customerIds
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error syncing Stripe data:', error);
+      throw error;
+    }
+  }
 }
 
 export default new PaymentService();

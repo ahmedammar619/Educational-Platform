@@ -21,6 +21,7 @@ import { showErrorToast, showSuccessToast } from '../../utils/toast';
 const AdminPayments = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [syncing, setSyncing] = useState(false);
   const [activeTab, setActiveTab] = useState('subscriptions');
   const [paymentStats, setPaymentStats] = useState(null);
   const [subscriptions, setSubscriptions] = useState([]);
@@ -70,6 +71,46 @@ const AdminPayments = () => {
     await loadPaymentData();
     setRefreshing(false);
     showSuccessToast('Payment data refreshed');
+  };
+
+  const handleSyncAll = async () => {
+    try {
+      setSyncing(true);
+      const result = await paymentService.syncStripeData();
+      
+      if (result.success) {
+        showSuccessToast(result.message);
+        // Refresh data to show updated sync status
+        await loadPaymentData();
+      } else {
+        showErrorToast('Sync failed: ' + result.message);
+      }
+    } catch (error) {
+      console.error('Error syncing data:', error);
+      showErrorToast('Failed to sync data');
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  const handleSyncCustomer = async (customerId) => {
+    try {
+      setSyncing(true);
+      const result = await paymentService.syncStripeData([customerId]);
+      
+      if (result.success) {
+        showSuccessToast(`Synced customer ${customerId}`);
+        // Refresh data to show updated sync status
+        await loadPaymentData();
+      } else {
+        showErrorToast('Sync failed: ' + result.message);
+      }
+    } catch (error) {
+      console.error('Error syncing customer:', error);
+      showErrorToast('Failed to sync customer');
+    } finally {
+      setSyncing(false);
+    }
   };
 
   const handleFilterChange = (key, value) => {
@@ -215,14 +256,24 @@ Webhook Event Details:
             Live Stripe Data
           </div>
         </div>
-        <button
-          onClick={handleRefresh}
-          disabled={refreshing}
-          className="flex items-center px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 disabled:opacity-50"
-        >
-          <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
-          Refresh
-        </button>
+        <div className="flex space-x-3">
+          <button
+            onClick={handleSyncAll}
+            disabled={syncing}
+            className="flex items-center px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50"
+          >
+            <RefreshCw className={`h-4 w-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
+            {syncing ? 'Syncing...' : 'Sync All Unmatched'}
+          </button>
+          <button
+            onClick={handleRefresh}
+            disabled={refreshing}
+            className="flex items-center px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 disabled:opacity-50"
+          >
+            <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
+            Refresh
+          </button>
+        </div>
       </div>
 
       {/* Stats Cards */}
@@ -410,6 +461,9 @@ Webhook Event Details:
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Actions
                     </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Sync
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
@@ -485,6 +539,22 @@ Webhook Event Details:
                               <Eye className="h-4 w-4 mr-1" />
                               View Details
                             </button>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                            {subscription.hasDbMismatch ? (
+                              <button 
+                                onClick={() => handleSyncCustomer(subscription.customerId)}
+                                disabled={syncing}
+                                className="flex items-center px-3 py-1 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50 text-xs"
+                              >
+                                <RefreshCw className={`h-3 w-3 mr-1 ${syncing ? 'animate-spin' : ''}`} />
+                                Sync
+                              </button>
+                            ) : (
+                              <span className="text-green-600 text-xs font-medium">
+                                ✓ Synced
+                              </span>
+                            )}
                           </td>
                         </tr>
                       ))}

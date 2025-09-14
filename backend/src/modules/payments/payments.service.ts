@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from '../users/entities/user.entity';
 import { Student } from '../students/entities/student.entity';
+import { Role } from '../../common/enums/role.enum';
 import { WebhookEvent } from './entities/webhook-event.entity';
 import { Subscription } from './entities/subscription.entity';
 import { Invoice } from './entities/invoice.entity';
@@ -1199,6 +1200,132 @@ export class PaymentsService {
     } catch (error) {
       console.error('❌ Failed to calculate Stripe stats:', error);
       throw new Error(`Failed to calculate Stripe stats: ${error.message}`);
+    }
+  }
+
+  async syncStripeDataToDatabase(customerIds?: string[]) {
+    try {
+      console.log('🔄 Starting sync of Stripe data to database...');
+      
+      // Get all Stripe customers
+      const stripeCustomers = await this.stripeService.getAllCustomers(100);
+      console.log(`📊 Found ${stripeCustomers.length} customers in Stripe`);
+
+      // Filter to only unmatched customers if specific IDs provided
+      let customersToSync = stripeCustomers;
+      if (customerIds && customerIds.length > 0) {
+        customersToSync = stripeCustomers.filter(customer => 
+          customerIds.includes(customer.id)
+        );
+        console.log(`🎯 Syncing ${customersToSync.length} specific customers`);
+      } else {
+        // Get all existing users to find unmatched customers
+        const existingUsers = await this.userRepository.find({
+          select: ['stripe_customer_id']
+        });
+        const existingStripeIds = existingUsers
+          .map(user => user.stripe_customer_id)
+          .filter(id => id);
+        
+        customersToSync = stripeCustomers.filter(customer => 
+          !existingStripeIds.includes(customer.id)
+        );
+        console.log(`🔄 Found ${customersToSync.length} unmatched customers to sync`);
+      }
+
+      const syncResults = {
+        customersCreated: 0,
+        subscriptionsCreated: 0,
+        errors: []
+      };
+
+      // Process each customer
+      for (const stripeCustomer of customersToSync) {
+        try {
+          // Create user record
+          const newUser = this.userRepository.create({
+            firstName: stripeCustomer.name?.split(' ')[0] || 'Unknown',
+            lastName: stripeCustomer.name?.split(' ').slice(1).join(' ') || 'Customer',
+            email: stripeCustomer.email || `stripe_${stripeCustomer.id}@example.com`,
+            passwordHash: 'SYNCED_FROM_STRIPE', // Placeholder password
+            role: Role.Parent, // Default to parent role
+            stripe_customer_id: stripeCustomer.id,
+            createdAt: new Date()
+          });
+
+          const savedUser = await this.userRepository.save(newUser);
+          syncResults.customersCreated++;
+
+          console.log(`✅ Created user for Stripe customer: ${stripeCustomer.id}`);
+
+          // Get customer's subscriptions
+          const customerSubscriptions = await this.stripeService.getCustomerSubscriptions(stripeCustomer.id);
+          
+          for (const stripeSubscription of customerSubscriptions) {
+            try {
+              // Cast to any to handle TypeScript strict typing
+              const stripeSubAny = stripeSubscription as any;
+              
+              // Create subscription record
+              const newSubscription = this.subscriptionRepository.create({
+                userId: savedUser.id,
+                stripeSubscriptionId: stripeSubscription.id,
+                status: stripeSubscription.status,
+                amount: stripeSubscription.items.data[0]?.price?.unit_amount || 0,
+                currency: stripeSubscription.items.data[0]?.price?.currency || 'usd',
+                currentPeriodStart: stripeSubAny.current_period_start 
+                  ? new Date(stripeSubAny.current_period_start * 1000) 
+                  : null,
+                currentPeriodEnd: stripeSubAny.current_period_end 
+                  ? new Date(stripeSubAny.current_period_end * 1000) 
+                  : null,
+                cancelAt: stripeSubAny.cancel_at 
+                  ? new Date(stripeSubAny.cancel_at * 1000) 
+                  : null,
+                canceledAt: stripeSubAny.canceled_at 
+                  ? new Date(stripeSubAny.canceled_at * 1000) 
+                  : null,
+                stripeCustomerId: stripeCustomer.id,
+                studentName: stripeSubscription.metadata?.studentName || `${savedUser.firstName} ${savedUser.lastName}`,
+                createdAt: new Date(stripeSubscription.created * 1000),
+                updatedAt: new Date()
+              });
+
+              await this.subscriptionRepository.save(newSubscription);
+              syncResults.subscriptionsCreated++;
+
+              console.log(`✅ Created subscription: ${stripeSubscription.id}`);
+            } catch (subscriptionError) {
+              console.error(`❌ Failed to create subscription ${stripeSubscription.id}:`, subscriptionError);
+              syncResults.errors.push({
+                type: 'subscription',
+                id: stripeSubscription.id,
+                error: subscriptionError.message
+              });
+            }
+          }
+
+        } catch (customerError) {
+          console.error(`❌ Failed to create customer ${stripeCustomer.id}:`, customerError);
+          syncResults.errors.push({
+            type: 'customer',
+            id: stripeCustomer.id,
+            error: customerError.message
+          });
+        }
+      }
+
+      console.log(`✅ Sync completed: ${syncResults.customersCreated} customers, ${syncResults.subscriptionsCreated} subscriptions`);
+      
+      return {
+        success: true,
+        message: `Successfully synced ${syncResults.customersCreated} customers and ${syncResults.subscriptionsCreated} subscriptions`,
+        results: syncResults
+      };
+
+    } catch (error) {
+      console.error('❌ Failed to sync Stripe data:', error);
+      throw new Error(`Failed to sync Stripe data: ${error.message}`);
     }
   }
 }

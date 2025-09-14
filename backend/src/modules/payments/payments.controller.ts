@@ -195,4 +195,11 @@ export class PaymentsController {
   async getStripeStats() {
     return this.paymentsService.getStripeStats();
   }
+
+  @Post('admin/stripe/sync')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.Admin)
+  async syncStripeData(@Body() body: { customerIds?: string[] }) {
+    return this.paymentsService.syncStripeDataToDatabase(body.customerIds);
+  }
 }
