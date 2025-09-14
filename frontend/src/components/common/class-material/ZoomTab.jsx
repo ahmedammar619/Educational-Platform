@@ -268,9 +268,18 @@ const ZoomTab = ({ currentUser, theme, courseId }) => {
       const isCreator = meeting.createdBy?.id === currentUser?.id || canManageZoom();
       const meetingUrl = isCreator && meeting.zoomStartUrl ? meeting.zoomStartUrl : meeting.invitationLink;
       
-      // If this is the creator/admin and they haven't started this meeting before, mark it as started
+      // If this is the creator/admin and they haven't started this meeting before, call start meeting API
       if (isCreator && !startedMeetings.has(meeting.id)) {
-        setStartedMeetings(prev => new Set([...prev, meeting.id]));
+        try {
+          console.log('🚀 Starting meeting and notifying students:', meeting.id);
+          await zoomService.startMeeting(meeting.id);
+          setStartedMeetings(prev => new Set([...prev, meeting.id]));
+          console.log('✅ Meeting started successfully and students notified');
+        } catch (error) {
+          console.error('❌ Failed to start meeting:', error);
+          // Still mark as started locally even if API call fails
+          setStartedMeetings(prev => new Set([...prev, meeting.id]));
+        }
       }
       
       // Open meeting link
@@ -281,9 +290,18 @@ const ZoomTab = ({ currentUser, theme, courseId }) => {
       const isCreator = meeting.createdBy?.id === currentUser?.id || canManageZoom();
       const meetingUrl = isCreator && meeting.zoomStartUrl ? meeting.zoomStartUrl : meeting.invitationLink;
       
-      // If this is the creator/admin and they haven't started this meeting before, mark it as started
+      // If this is the creator/admin and they haven't started this meeting before, call start meeting API
       if (isCreator && !startedMeetings.has(meeting.id)) {
-        setStartedMeetings(prev => new Set([...prev, meeting.id]));
+        try {
+          console.log('🚀 Starting meeting and notifying students (error fallback):', meeting.id);
+          await zoomService.startMeeting(meeting.id);
+          setStartedMeetings(prev => new Set([...prev, meeting.id]));
+          console.log('✅ Meeting started successfully and students notified (error fallback)');
+        } catch (startError) {
+          console.error('❌ Failed to start meeting (error fallback):', startError);
+          // Still mark as started locally even if API call fails
+          setStartedMeetings(prev => new Set([...prev, meeting.id]));
+        }
       }
       
       window.open(meetingUrl, '_blank');

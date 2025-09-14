@@ -145,6 +145,17 @@ export class ZoomController {
     return plainToClass(ZoomMeetingResponseDto, meeting, { excludeExtraneousValues: true });
   }
 
+  @Post(':id/start')
+  @Roles(Role.Admin, Role.Teacher)
+  @ApiOperation({ summary: 'Start a Zoom meeting and notify students' })
+  @ApiResponse({ status: 200, description: 'Meeting started successfully', type: ZoomMeetingResponseDto })
+  @ApiResponse({ status: 404, description: 'Meeting not found' })
+  @ApiResponse({ status: 403, description: 'Forbidden - can only start your own meetings' })
+  async startMeeting(@Param('id') id: string, @Request() req: any): Promise<ZoomMeetingResponseDto> {
+    const meeting = await this.zoomService.startMeeting(id, req.user.sub);
+    return plainToClass(ZoomMeetingResponseDto, meeting, { excludeExtraneousValues: true });
+  }
+
   @Post(':id/end')
   @Roles(Role.Admin, Role.Teacher)
   @ApiOperation({ summary: 'Manually end a meeting' })

@@ -68,6 +68,14 @@ class ZoomService {
     return response.data;
   }
 
+  // Start a meeting and notify students (teacher/admin only)
+  async startMeeting(id) {
+    console.log('🚀 zoomService.startMeeting called with:', { id });
+    const response = await api.post(`/api/zoom/${id}/start`);
+    console.log('✅ zoomService.startMeeting response:', response.data);
+    return response.data;
+  }
+
   // End a meeting manually (teacher/admin only)
   async endMeeting(id) {
     const response = await api.post(`/api/zoom/${id}/end`);

@@ -337,16 +337,22 @@ export class NotificationsService {
     }
 
     // Check if user already has an absent notification for this session
-    const existingAbsentNotification = await this.notificationRepository.findOne({
-      where: {
-        userId,
-        type: isParent ? NotificationType.CHILD_ABSENT : NotificationType.MARKED_ABSENT,
-        metadata: {
-          sessionTitle: metadata?.sessionTitle || sessionTitle,
-          meetingId: metadata?.meetingId
-        }
-      }
-    });
+    // Use raw query to properly compare JSON metadata
+    const existingAbsentNotification = await this.notificationRepository
+      .createQueryBuilder('notification')
+      .where('notification.userId = :userId', { userId })
+      .andWhere('notification.type = :type', { 
+        type: isParent ? NotificationType.CHILD_ABSENT : NotificationType.MARKED_ABSENT 
+      })
+      .andWhere('notification.metadata->>:sessionTitleKey = :sessionTitle', { 
+        sessionTitleKey: 'sessionTitle',
+        sessionTitle: metadata?.sessionTitle || sessionTitle 
+      })
+      .andWhere('notification.metadata->>:meetingIdKey = :meetingId', { 
+        meetingIdKey: 'meetingId',
+        meetingId: metadata?.meetingId 
+      })
+      .getOne();
 
     if (existingAbsentNotification) {
       console.log(`⚠️ User ${userId} already has an absent notification for session "${sessionTitle}" - skipping duplicate notification`);

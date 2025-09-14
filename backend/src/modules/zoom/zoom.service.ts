@@ -111,28 +111,54 @@ export class ZoomService {
     });
 
     if (!course?.classId) {
+      console.log('❌ No classId found for course:', courseId);
       return [];
     }
 
-    // Get students from the class_students table
-    const classData = await this.courseRepository.manager.query(`
-      SELECT cs.student_id 
-      FROM class_students cs
-      WHERE cs.class_id = $1
+    // Get the class with students
+    const classEntity = await this.courseRepository.manager.query(`
+      SELECT students 
+      FROM classes 
+      WHERE id = $1
     `, [course.classId]);
 
-    const studentIds = classData
-      .filter(row => row.student_id)
-      .map(row => row.student_id);
-
-    if (studentIds.length === 0) {
+    if (!classEntity || classEntity.length === 0) {
+      console.log('❌ No class found with id:', course.classId);
       return [];
     }
 
-    return await this.userRepository.find({
+    const classStudents = classEntity[0].students;
+    console.log('👥 Students in class (raw):', classStudents);
+    console.log('👥 Students type:', typeof classStudents);
+    
+    let studentIds: string[] = [];
+    
+    // Check if students field has data
+    if (classStudents && classStudents !== '') {
+      // Handle both array and comma-separated string formats
+      if (Array.isArray(classStudents)) {
+        studentIds = classStudents;
+        console.log('✅ Found students array in class:', studentIds);
+      } else if (typeof classStudents === 'string') {
+        // Parse comma-separated string
+        studentIds = classStudents.split(',').map(id => id.trim()).filter(id => id.length > 0);
+        console.log('✅ Found students string in class, parsed to array:', studentIds);
+      }
+    }
+
+    if (studentIds.length === 0) {
+      console.log('❌ No students found in class:', course.classId);
+      return [];
+    }
+
+    console.log('🔍 Looking up students with IDs:', studentIds);
+    const students = await this.userRepository.find({
       where: { id: In(studentIds) },
       select: ['id', 'firstName', 'lastName', 'email']
     });
+
+    console.log('✅ Found students:', students.length, students.map(s => `${s.firstName} ${s.lastName}`));
+    return students;
   }
 
   async findAllMeetings(): Promise<ZoomMeeting[]> {
@@ -504,6 +530,49 @@ export class ZoomService {
     };
     
     return scheduleMap[dayOfWeek] || null;
+  }
+
+  async startMeeting(id: string, userId: string): Promise<ZoomMeeting> {
+    const meeting = await this.findMeetingById(id);
+    
+    // Check if user is the creator or admin
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+    if (meeting.createdById !== userId && user?.role !== 'admin') {
+      throw new ForbiddenException('You can only start your own meetings');
+    }
+
+    // Update meeting status to 'started' if it's not already ended or cancelled
+    if (meeting.status !== 'ended' && meeting.status !== 'cancelled') {
+      meeting.status = 'started';
+      const savedMeeting = await this.zoomMeetingRepository.save(meeting);
+
+      // Send notifications to students about the meeting starting
+      try {
+        const students = await this.getStudentsInCourse(meeting.courseId);
+        if (students.length > 0) {
+          const studentIds = students.map(student => student.id);
+          await this.notificationsService.createZoomSessionNotification(
+            studentIds,
+            savedMeeting.title,
+            'started',
+            savedMeeting.date ? new Date(savedMeeting.date + ' ' + (savedMeeting.time || '00:00')) : undefined,
+            {
+              meetingId: savedMeeting.id,
+              courseId: meeting.courseId,
+              meetingUrl: savedMeeting.invitationLink,
+              zoomPassword: savedMeeting.zoomPassword
+            }
+          );
+          console.log('✅ Zoom session started notifications sent to', students.length, 'students');
+        }
+      } catch (error) {
+        console.error('❌ Failed to send zoom session started notifications:', error);
+      }
+
+      return savedMeeting;
+    }
+
+    return meeting;
   }
 
   async endMeeting(id: string, userId: string): Promise<ZoomMeeting> {
@@ -926,34 +995,48 @@ export class ZoomService {
           }
         );
 
-        // Find parent(s) of this student
-        const parents = await this.parentRepository.find({
-          where: {
-            studentIds: In([student.id]) // Find parents who have this student in their studentIds array
-          },
-          relations: ['user']
-        });
+        // Find parent(s) of this student using reliable method
+        console.log(`🔍 Looking for parents of student: ${student.id} (${student.firstName} ${student.lastName})`);
+        
+        // Get all parents and filter manually to ensure reliability
+        const allParents = await this.parentRepository.find({ relations: ['user'] });
+        console.log(`🔍 All parents in database:`, allParents.map(p => ({
+          id: p.id,
+          user: p.user ? `${p.user.firstName} ${p.user.lastName}` : 'No user',
+          studentIds: p.studentIds
+        })));
+        
+        const parents = allParents.filter(parent => 
+          parent.studentIds && parent.studentIds.includes(student.id)
+        );
 
         console.log(`👨‍👩‍👧‍👦 Found ${parents.length} parent(s) for student ${student.firstName} ${student.lastName}`);
 
         // Send notification to each parent
         for (const parent of parents) {
           if (parent.user) {
-            console.log(`📤 Sending absent notification to parent: ${parent.user.firstName} ${parent.user.lastName}`);
+            console.log(`📤 Sending absent notification to parent: ${parent.user.firstName} ${parent.user.lastName} (ID: ${parent.user.id})`);
             
-            await this.notificationsService.createAbsentNotification(
-              parent.user.id,
-              meeting.title,
-              true, // isParent = true
-              `${student.firstName} ${student.lastName}`, // childName
-              {
-                meetingId: meeting.id,
-                courseId: meeting.courseId,
-                sessionTitle: meeting.title,
-                studentId: student.id,
-                parentId: parent.user.id
-              }
-            );
+            try {
+              await this.notificationsService.createAbsentNotification(
+                parent.user.id,
+                meeting.title,
+                true, // isParent = true
+                `${student.firstName} ${student.lastName}`, // childName
+                {
+                  meetingId: meeting.id,
+                  courseId: meeting.courseId,
+                  sessionTitle: meeting.title,
+                  studentId: student.id,
+                  parentId: parent.user.id
+                }
+              );
+              console.log(`✅ Successfully sent notification to parent: ${parent.user.firstName} ${parent.user.lastName}`);
+            } catch (error) {
+              console.error(`❌ Failed to send notification to parent ${parent.user.firstName} ${parent.user.lastName}:`, error);
+            }
+          } else {
+            console.log(`⚠️ Parent ${parent.id} has no associated user record`);
           }
         }
       }
