@@ -2,7 +2,7 @@ import React, { useMemo, useCallback, useState } from 'react';
 import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { Suspense, lazy } from 'react';
 import { authService } from '../services';
-import MainLayout from '../components/layout/MainLayout';
+import MainLayout from '../components/Layout/MainLayout';
 import MaterialPages from '../components/common/class-material/MaterialPages';
 
 // Lazy load individual page components
