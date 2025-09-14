@@ -569,15 +569,43 @@ const FilesTab = ({ currentUser, theme, courseId }) => {
       const blob = await materialsService.previewFile(file.id);
       const url = window.URL.createObjectURL(blob);
       
-      // Open file in new tab/window
-      window.open(url, '_blank');
+      // Create a new window and write the blob content to it
+      const newWindow = window.open('', '_blank');
+      if (newWindow) {
+        // Write the blob content to the new window
+        newWindow.document.write(`
+          <html>
+            <head>
+              <title>${file.fileName || file.name}</title>
+              <style>
+                body { margin: 0; padding: 20px; font-family: Arial, sans-serif; }
+                img { max-width: 100%; height: auto; }
+                iframe { width: 100%; height: 80vh; border: none; }
+              </style>
+            </head>
+            <body>
+              ${blob.type.startsWith('image/') ? 
+                `<img src="${url}" alt="${file.fileName || file.name}" />` :
+                blob.type.startsWith('text/') || blob.type === 'application/pdf' ?
+                `<iframe src="${url}" title="${file.fileName || file.name}"></iframe>` :
+                `<p>File type: ${blob.type}</p><p>File size: ${(blob.size / 1024).toFixed(2)} KB</p><a href="${url}" download="${file.fileName || file.name}">Download File</a>`
+              }
+            </body>
+          </html>
+        `);
+        newWindow.document.close();
+        
+        showSuccessToast('File opened in new tab');
+      } else {
+        // Fallback: try to open the blob URL directly
+        window.open(url, '_blank');
+        showSuccessToast('File opened in new tab');
+      }
       
-      showSuccessToast('File opened in new tab');
-      
-      // Clean up the URL after a short delay
+      // Clean up the URL after a longer delay to ensure the window loads
       setTimeout(() => {
         window.URL.revokeObjectURL(url);
-      }, 1000);
+      }, 5000);
       
     } catch (error) {
       console.error('Error opening file:', error);

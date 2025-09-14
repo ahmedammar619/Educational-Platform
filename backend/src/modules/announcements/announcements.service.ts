@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as path from 'path';
@@ -169,23 +169,32 @@ export class AnnouncementsService {
 
     // Check if this is an R2 URL (new format) or legacy local path
     if (attachment.filePath.startsWith('http')) {
-      // This is an R2 URL, return it directly since it's already public
+      // This is an R2 URL, return it directly
+      console.log('Service - R2 URL detected, returning:', attachment.filePath);
       return {
         filePath: attachment.filePath,
         fileName: attachment.fileName,
       };
     } else {
-      // Legacy local file - for backward compatibility
+      // Legacy local file handling
       const fullPath = path.join(process.cwd(), 'uploads', attachment.filePath);
       
+      console.log('Service - Constructed full path:', fullPath);
+      console.log('Service - File exists:', fs.existsSync(fullPath));
+      
       if (!fs.existsSync(fullPath)) {
+        // Try alternative path construction for backward compatibility
         const altPath = path.join(process.cwd(), attachment.filePath);
+        console.log('Service - Trying alternative path:', altPath);
+        console.log('Service - Alternative path exists:', fs.existsSync(altPath));
+        
         if (fs.existsSync(altPath)) {
           return {
             filePath: altPath,
             fileName: attachment.fileName,
           };
         }
+        
         throw new NotFoundException('File not found on disk');
       }
 
@@ -203,27 +212,32 @@ export class AnnouncementsService {
   private async handleFileAttachment(postId: string, file: Express.Multer.File): Promise<void> {
     console.log('Service - Handling file attachment:', { postId, fileName: file.originalname });
 
-    if (!process.env.R2_ACCESS_KEY_ID || !process.env.R2_SECRET_ACCESS_KEY) {
-      throw new BadRequestException('R2 storage not configured. Please configure CloudFlare R2 credentials.');
+    try {
+      // Upload to R2 using the announcements course ID
+      const uploadResult = await this.r2FileService.uploadFile(
+        file,
+        'announcements', // courseId for announcements
+        postId, // userId (using postId as userId for announcements)
+        undefined // folderId
+      );
+
+      console.log('Service - File uploaded to R2:', uploadResult.fileUrl);
+
+      // Save attachment record to database with R2 URL
+      const attachment = this.announcementPostAttachmentRepository.create({
+        postId,
+        fileName: file.originalname,
+        filePath: uploadResult.fileUrl, // Store R2 URL
+        fileSize: file.size,
+        mimeType: file.mimetype,
+      });
+
+      await this.announcementPostAttachmentRepository.save(attachment);
+      console.log('Service - File attachment saved:', attachment.id);
+    } catch (error) {
+      console.error('Service - Error uploading file to R2:', error);
+      throw error;
     }
-
-    // Upload to R2 using announcement as the courseId (announcements are global)
-    console.log('☁️ Service - Uploading announcement attachment to R2...');
-    const uploadResult = await this.r2FileService.uploadFile(file, 'announcements', postId);
-    
-    console.log('✅ Service - Announcement attachment uploaded to R2:', uploadResult.fileName);
-
-    // Save attachment record to database with R2 URL
-    const attachment = this.announcementPostAttachmentRepository.create({
-      postId,
-      fileName: uploadResult.fileName,
-      filePath: uploadResult.fileUrl, // Store R2 URL
-      fileSize: uploadResult.fileSize,
-      mimeType: uploadResult.mimeType,
-    });
-
-    await this.announcementPostAttachmentRepository.save(attachment);
-    console.log('Service - File attachment saved:', attachment.id);
   }
 
   private async deleteAttachmentFile(attachmentId: string): Promise<void> {
@@ -232,13 +246,30 @@ export class AnnouncementsService {
     });
 
     if (attachment) {
-      try {
-        // Delete from R2
-        await this.r2FileService.deleteFile(attachment.filePath);
-        console.log('Service - File deleted from R2:', attachment.filePath);
-      } catch (error) {
-        console.warn('Service - Failed to delete file from R2:', attachment.filePath, error);
-        // Continue with database deletion even if R2 deletion fails
+      // Check if this is an R2 URL (new format) or legacy local path
+      if (attachment.filePath.startsWith('http')) {
+        // This is an R2 URL, delete from R2
+        try {
+          await this.r2FileService.deleteFile(attachment.filePath);
+          console.log('Service - File deleted from R2:', attachment.filePath);
+        } catch (error) {
+          console.error('Service - Error deleting file from R2:', error);
+        }
+      } else {
+        // Legacy local file handling
+        const fullPath = path.join(process.cwd(), 'uploads', attachment.filePath);
+        
+        if (fs.existsSync(fullPath)) {
+          fs.unlinkSync(fullPath);
+          console.log('Service - File deleted from disk:', fullPath);
+        } else {
+          // Try alternative path construction for backward compatibility
+          const altPath = path.join(process.cwd(), attachment.filePath);
+          if (fs.existsSync(altPath)) {
+            fs.unlinkSync(altPath);
+            console.log('Service - File deleted from disk (alt path):', altPath);
+          }
+        }
       }
     }
   }

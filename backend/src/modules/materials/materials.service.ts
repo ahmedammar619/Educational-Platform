@@ -106,34 +106,85 @@ export class MaterialsService {
       if (file) {
         console.log('Creating post attachment for file:', file.originalname);
         
-        if (!process.env.R2_ACCESS_KEY_ID || !process.env.R2_SECRET_ACCESS_KEY) {
-          throw new BadRequestException('R2 storage not configured. Please configure CloudFlare R2 credentials.');
-        }
+        try {
+          // Check if R2 is available (has credentials)
+          const hasR2Credentials = process.env.R2_ACCESS_KEY_ID && process.env.R2_SECRET_ACCESS_KEY;
+          
+          if (hasR2Credentials) {
+            // Upload file to R2
+            console.log('☁️ Service - Uploading post attachment to R2...');
+            const uploadResult = await this.r2FileService.uploadFile(file, courseId, authorId, undefined);
+            
+            console.log('✅ Service - R2 upload successful:', {
+              fileName: uploadResult.fileName,
+              fileUrl: uploadResult.fileUrl,
+              fileSize: uploadResult.fileSize
+            });
 
-        // Upload to R2 using the same service
-        console.log('☁️ Service - Uploading post attachment to R2...');
-        const uploadResult = await this.r2FileService.uploadFile(file, courseId, authorId);
-        
-        console.log('✅ Service - Post attachment uploaded to R2:', uploadResult.fileName);
-        
-        // Create attachment record with R2 URL
-        const attachment = this.postAttachmentRepository.create({
-          postId: savedPost.id,
-          fileName: uploadResult.fileName,
-          filePath: uploadResult.fileUrl, // Store R2 URL
-          fileSize: uploadResult.fileSize,
-          mimeType: uploadResult.mimeType
-        });
-        
-        console.log('Creating attachment record:', attachment);
-        const savedAttachment = await this.postAttachmentRepository.save(attachment);
-        console.log('Post attachment created successfully:', savedAttachment);
-        
-        // Verify the attachment was saved by querying the database directly
-        const verifyAttachment = await this.postAttachmentRepository.findOne({
-          where: { id: savedAttachment.id }
-        });
-        console.log('Verification - attachment in database:', verifyAttachment);
+            // Create attachment record with R2 URL
+            const attachment = this.postAttachmentRepository.create({
+              postId: savedPost.id,
+              fileName: uploadResult.fileName,
+              filePath: uploadResult.fileUrl, // Store R2 URL instead of local path
+              fileSize: uploadResult.fileSize,
+              mimeType: uploadResult.mimeType
+            });
+            
+            console.log('Creating attachment record:', attachment);
+            const savedAttachment = await this.postAttachmentRepository.save(attachment);
+            console.log('Post attachment created successfully:', savedAttachment);
+          } else {
+            // Fall back to local storage
+            console.log('📁 Service - R2 not available, using local storage...');
+            
+            // Get course information for folder structure
+            const courseInfo = await this.courseRepository.findOne({ 
+              where: { id: courseId },
+              relations: ['class']
+            });
+            
+            // Generate unique filename using your old project pattern
+            const unique = Date.now() + "-" + Math.round(Math.random() * 1e9);
+            const ext = path.extname(file.originalname);
+            const baseName = path.basename(file.originalname, ext);
+            const fileName = `${baseName}-${unique}${ext}`;
+            
+            // Create organized folder structure: uploads/Grade/Course/posts/
+            const gradeName = courseInfo?.class?.name || 'Default-Grade';
+            const courseName = courseInfo?.name || 'Default-Course';
+            const uploadsDir = path.join(process.cwd(), 'uploads', gradeName, courseName, 'posts');
+            
+            // Ensure directory exists
+            const fs = require('fs');
+            if (!fs.existsSync(uploadsDir)) {
+              fs.mkdirSync(uploadsDir, { recursive: true });
+            }
+            
+            const filePath = path.join(uploadsDir, fileName);
+            
+            // Write file to disk
+            fs.writeFileSync(filePath, file.buffer);
+            
+            console.log('File saved to:', filePath);
+            
+            // Create attachment record - store relative path from uploads folder
+            const relativePath = path.join(gradeName, courseName, 'posts', fileName);
+            const attachment = this.postAttachmentRepository.create({
+              postId: savedPost.id,
+              fileName: fileName, // Store only filename
+              filePath: relativePath, // Store relative path from uploads folder
+              fileSize: file.size,
+              mimeType: file.mimetype
+            });
+            
+            console.log('Creating attachment record:', attachment);
+            const savedAttachment = await this.postAttachmentRepository.save(attachment);
+            console.log('Post attachment created successfully:', savedAttachment);
+          }
+        } catch (error) {
+          console.error('❌ Service - Post attachment upload failed:', error);
+          throw new BadRequestException(`Failed to upload post attachment: ${error.message}`);
+        }
       }
       
       return savedPost;
@@ -180,7 +231,7 @@ export class MaterialsService {
           console.log('Service - Attachment file names provided:', updatePostDto.attachmentFileNames);
         }
 
-        // Handle file upload if provided
+        // Handle file upload if provided (same logic as createPost)
         if (file) {
           try {
             console.log('Service - Processing file upload for post update:', {
@@ -195,39 +246,115 @@ export class MaterialsService {
               throw new Error('File buffer is empty or undefined');
             }
             
-            if (!process.env.R2_ACCESS_KEY_ID || !process.env.R2_SECRET_ACCESS_KEY) {
-              throw new BadRequestException('R2 storage not configured. Please configure CloudFlare R2 credentials.');
+            // Check if R2 is available (has credentials)
+            const hasR2Credentials = process.env.R2_ACCESS_KEY_ID && process.env.R2_SECRET_ACCESS_KEY;
+            
+            if (hasR2Credentials) {
+              // Upload file to R2
+              console.log('☁️ Service - Uploading post attachment to R2...');
+              const uploadResult = await this.r2FileService.uploadFile(file, post.courseId, post.authorId, undefined);
+              
+              console.log('✅ Service - R2 upload successful:', {
+                fileName: uploadResult.fileName,
+                fileUrl: uploadResult.fileUrl,
+                fileSize: uploadResult.fileSize
+              });
+
+              // Create attachment record with R2 URL
+              const attachmentData = {
+                postId: postId, // Use the postId parameter directly instead of post.id
+                fileName: uploadResult.fileName,
+                filePath: uploadResult.fileUrl, // Store R2 URL instead of local path
+                fileSize: uploadResult.fileSize,
+                mimeType: uploadResult.mimeType,
+                uploadedAt: new Date()
+              };
+              
+              console.log('Service - Attachment data prepared:', {
+                postId: attachmentData.postId,
+                fileName: attachmentData.fileName,
+                filePath: attachmentData.filePath
+              });
+
+              const savedAttachment = await transactionalEntityManager.save(PostAttachment, attachmentData);
+              console.log('Service - Attachment created for post update:', {
+                id: savedAttachment.id,
+                postId: savedAttachment.postId,
+                fileName: savedAttachment.fileName,
+                filePath: savedAttachment.filePath
+              });
+            } else {
+              // Fall back to local storage
+              console.log('📁 Service - R2 not available, using local storage...');
+              
+              // Get course information for folder structure
+              const course = await this.courseRepository.findOne({
+                where: { id: post.courseId },
+                relations: ['class']
+              });
+
+              if (!course) {
+                throw new NotFoundException(`Course with ID ${post.courseId} not found`);
+              }
+
+              // Create organized folder structure (same as createPost)
+              const className = course.class?.name || 'Unknown-Class';
+              const courseName = course.name || 'Unknown-Course';
+              const uploadDir = path.join(process.cwd(), 'uploads', className, courseName, 'posts');
+              
+              console.log('Service - Upload directory:', uploadDir);
+              
+              // Ensure directory exists
+              await mkdir(uploadDir, { recursive: true });
+
+              // Generate unique filename (same as createPost)
+              const timestamp = Date.now();
+              const randomString = Math.random().toString(36).substring(2, 8);
+              const fileExtension = path.extname(file.originalname);
+              const baseName = path.basename(file.originalname, fileExtension);
+              const uniqueFileName = `${baseName}-${timestamp}-${randomString}${fileExtension}`;
+              
+              const filePath = path.join(uploadDir, uniqueFileName);
+              
+              console.log('Service - Saving file to:', filePath);
+              
+              // Save file to disk
+              await writeFile(filePath, file.buffer);
+              console.log(`File saved to: ${filePath}`);
+
+              // Create attachment record (same as createPost)
+              console.log('Service - Creating attachment with postId:', {
+                postId: postId,
+                postIdType: typeof postId,
+                postIdLength: postId?.length,
+                postIdFromPost: post.id,
+                postIdFromPostType: typeof post.id
+              });
+              
+              // Create a new attachment object directly (not using repository.create)
+              const attachmentData = {
+                postId: postId, // Use the postId parameter directly instead of post.id
+                fileName: uniqueFileName,
+                filePath: path.join(className, courseName, 'posts', uniqueFileName), // Store relative path
+                fileSize: file.size,
+                mimeType: file.mimetype,
+                uploadedAt: new Date()
+              };
+              
+              console.log('Service - Attachment data prepared:', {
+                postId: attachmentData.postId,
+                fileName: attachmentData.fileName,
+                filePath: attachmentData.filePath
+              });
+
+              const savedAttachment = await transactionalEntityManager.save(PostAttachment, attachmentData);
+              console.log('Service - Attachment created for post update:', {
+                id: savedAttachment.id,
+                postId: savedAttachment.postId,
+                fileName: savedAttachment.fileName,
+                filePath: savedAttachment.filePath
+              });
             }
-
-            // Upload to R2
-            console.log('☁️ Service - Uploading post update attachment to R2...');
-            const uploadResult = await this.r2FileService.uploadFile(file, post.courseId, post.authorId);
-            
-            console.log('✅ Service - Post update attachment uploaded to R2:', uploadResult.fileName);
-
-            // Create attachment record with R2 URL
-            const attachmentData = {
-              postId: postId,
-              fileName: uploadResult.fileName,
-              filePath: uploadResult.fileUrl, // Store R2 URL
-              fileSize: uploadResult.fileSize,
-              mimeType: uploadResult.mimeType,
-              uploadedAt: new Date()
-            };
-            
-            console.log('Service - Attachment data prepared:', {
-              postId: attachmentData.postId,
-              fileName: attachmentData.fileName,
-              filePath: attachmentData.filePath
-            });
-
-            const savedAttachment = await transactionalEntityManager.save(PostAttachment, attachmentData);
-            console.log('Service - Attachment created for post update:', {
-              id: savedAttachment.id,
-              postId: savedAttachment.postId,
-              fileName: savedAttachment.fileName,
-              filePath: savedAttachment.filePath
-            });
           } catch (fileError) {
             console.error('Service - Error processing file upload:', fileError);
             throw new Error(`Failed to process file upload: ${fileError.message}`);
@@ -309,17 +436,18 @@ export class MaterialsService {
     if (post.attachments && post.attachments.length > 0) {
       console.log(`Deleting ${post.attachments.length} attachments for post ${postId}`);
       
-      // Delete files from R2 or local filesystem
+      // Delete physical files from filesystem or R2
       for (const attachment of post.attachments) {
         try {
           if (attachment.filePath) {
             // Check if this is an R2 URL (new format) or legacy local path
             if (attachment.filePath.startsWith('http')) {
               // This is an R2 URL, delete from R2
+              console.log('🗑️ Deleting attachment from R2:', attachment.filePath);
               await this.r2FileService.deleteFile(attachment.filePath);
-              console.log(`Deleted file from R2: ${attachment.filePath}`);
+              console.log('✅ R2 attachment deleted successfully:', attachment.filePath);
             } else {
-              // Legacy local file deletion
+              // Legacy local file handling
               const filePath = path.join(process.cwd(), 'uploads', attachment.filePath);
               await unlink(filePath);
               console.log(`Deleted file: ${filePath}`);
@@ -351,16 +479,17 @@ export class MaterialsService {
       throw new NotFoundException(`Attachment with ID ${attachmentId} not found`);
     }
 
-    // Delete file from R2 or local filesystem
+    // Delete physical file from R2 or local filesystem
     try {
       if (attachment.filePath) {
         // Check if this is an R2 URL (new format) or legacy local path
         if (attachment.filePath.startsWith('http')) {
           // This is an R2 URL, delete from R2
+          console.log('🗑️ Deleting attachment from R2:', attachment.filePath);
           await this.r2FileService.deleteFile(attachment.filePath);
-          console.log(`Deleted file from R2: ${attachment.filePath}`);
+          console.log('✅ R2 attachment deleted successfully:', attachment.filePath);
         } else {
-          // Legacy local file deletion
+          // Legacy local file handling
           const filePath = path.join(process.cwd(), 'uploads', attachment.filePath);
           await unlink(filePath);
           console.log(`Deleted file: ${filePath}`);
@@ -488,35 +617,79 @@ export class MaterialsService {
     }
 
     try {
-      // Always use R2 for file uploads - no fallback to local storage
-      console.log('☁️ Service - Uploading to R2 (CloudFlare)...');
+      // Check if R2 is available (has credentials)
+      const hasR2Credentials = process.env.R2_ACCESS_KEY_ID && process.env.R2_SECRET_ACCESS_KEY;
       
-      if (!process.env.R2_ACCESS_KEY_ID || !process.env.R2_SECRET_ACCESS_KEY) {
-        throw new BadRequestException('R2 storage not configured. Please configure CloudFlare R2 credentials.');
+      if (hasR2Credentials) {
+        // Upload file to R2
+        console.log('☁️ Service - Uploading to R2...');
+        const uploadResult = await this.r2FileService.uploadFile(file, courseId, userId, folderId);
+        
+        console.log('✅ Service - R2 upload successful:', {
+          fileName: uploadResult.fileName,
+          fileUrl: uploadResult.fileUrl,
+          fileSize: uploadResult.fileSize
+        });
+
+        // Create file entity with R2 URL
+        const fileEntity = this.fileRepository.create({
+          fileName: uploadResult.fileName,
+          filePath: uploadResult.fileUrl, // Store R2 URL instead of local path
+          fileSize: uploadResult.fileSize,
+          mimeType: uploadResult.mimeType,
+          courseId,
+          folderId,
+          uploadedBy: userId
+        });
+
+        const savedFile = await this.fileRepository.save(fileEntity);
+        console.log('✅ Service - File saved successfully:', savedFile.id);
+        return savedFile;
+      } else {
+        // Fall back to local storage
+        console.log('📁 Service - R2 not available, using local storage...');
+        
+        // Generate unique filename using the same pattern as before
+        const unique = Date.now() + "-" + Math.round(Math.random() * 1e9);
+        const ext = path.extname(file.originalname);
+        const baseName = path.basename(file.originalname, ext);
+        const fileName = `${baseName}-${unique}${ext}`;
+        
+        // Create organized folder structure: uploads/Grade/Course/files/
+        const gradeName = course?.class?.name || 'Default-Grade';
+        const courseName = course?.name || 'Default-Course';
+        const uploadsDir = path.join(process.cwd(), 'uploads', gradeName, courseName, 'files');
+        
+        // Ensure directory exists
+        const fs = require('fs');
+        if (!fs.existsSync(uploadsDir)) {
+          fs.mkdirSync(uploadsDir, { recursive: true });
+          console.log('📁 Service - Created directory:', uploadsDir);
+        }
+        
+        const filePath = path.join(uploadsDir, fileName);
+        
+        // Write file to disk
+        fs.writeFileSync(filePath, file.buffer);
+        console.log('📁 Service - File saved to:', filePath);
+        
+        // Create relative path from uploads folder
+        const relativePath = path.join(gradeName, courseName, 'files', fileName);
+
+        const fileEntity = this.fileRepository.create({
+          fileName: fileName,
+          filePath: relativePath,
+          fileSize: file.size,
+          mimeType: file.mimetype,
+          courseId,
+          folderId,
+          uploadedBy: userId
+        });
+
+        const savedFile = await this.fileRepository.save(fileEntity);
+        console.log('✅ Service - File saved successfully:', savedFile.id);
+        return savedFile;
       }
-
-      const uploadResult = await this.r2FileService.uploadFile(file, courseId, userId, folderId);
-      
-      console.log('✅ Service - R2 upload successful:', {
-        fileName: uploadResult.fileName,
-        fileUrl: uploadResult.fileUrl,
-        fileSize: uploadResult.fileSize
-      });
-
-      // Create file entity with R2 URL
-      const fileEntity = this.fileRepository.create({
-        fileName: uploadResult.fileName,
-        filePath: uploadResult.fileUrl, // Store R2 URL 
-        fileSize: uploadResult.fileSize,
-        mimeType: uploadResult.mimeType,
-        courseId,
-        folderId,
-        uploadedBy: userId
-      });
-
-      const savedFile = await this.fileRepository.save(fileEntity);
-      console.log('✅ Service - File saved successfully:', savedFile.id);
-      return savedFile;
     } catch (error) {
       console.error('❌ Service - File upload failed:', error);
       throw new BadRequestException(`File upload failed: ${error.message}`);
@@ -733,9 +906,9 @@ export class MaterialsService {
         // This is an R2 URL, delete from R2
         console.log('🗑️ Deleting file from R2:', file.filePath);
         await this.r2FileService.deleteFile(file.filePath);
-        console.log('✅ File deleted successfully from R2:', file.filePath);
+        console.log('✅ R2 file deleted successfully:', file.filePath);
       } else {
-        // Legacy local file deletion
+        // Legacy local file handling
         const fullFilePath = path.join(process.cwd(), 'uploads', file.filePath);
         console.log('🗑️ Deleting physical file:', fullFilePath);
         
@@ -769,7 +942,7 @@ export class MaterialsService {
 
     console.log('🗑️ Deleting folder:', folder.name, 'with', folder.files?.length || 0, 'files and', folder.subFolders?.length || 0, 'subfolders');
 
-    // Recursively delete all files in this folder
+    // Recursively delete all files in this folder (including physical files)
     if (folder.files && folder.files.length > 0) {
       console.log('🗑️ Deleting', folder.files.length, 'files from folder:', folder.name);
       for (const file of folder.files) {
@@ -779,9 +952,9 @@ export class MaterialsService {
             // This is an R2 URL, delete from R2
             console.log('🗑️ Deleting file from R2:', file.filePath);
             await this.r2FileService.deleteFile(file.filePath);
-            console.log('✅ File deleted successfully from R2:', file.filePath);
+            console.log('✅ R2 file deleted successfully:', file.filePath);
           } else {
-            // Legacy local file deletion
+            // Legacy local file handling
             const fullFilePath = path.join(process.cwd(), 'uploads', file.filePath);
             console.log('🗑️ Deleting physical file:', fullFilePath);
             
@@ -969,22 +1142,63 @@ export class MaterialsService {
       oldFilePath = existingSubmission.filePath;
     }
 
-    if (!process.env.R2_ACCESS_KEY_ID || !process.env.R2_SECRET_ACCESS_KEY) {
-      throw new BadRequestException('R2 storage not configured. Please configure CloudFlare R2 credentials.');
-    }
+    // Check if R2 is available (has credentials)
+    const hasR2Credentials = process.env.R2_ACCESS_KEY_ID && process.env.R2_SECRET_ACCESS_KEY;
+    
+    let fileName: string;
+    let filePath: string;
+    
+    if (hasR2Credentials) {
+      // Upload file to R2
+      console.log('☁️ Service - Uploading assignment submission to R2...');
+      const uploadResult = await this.r2FileService.uploadFile(file, assignment.courseId, studentId, undefined);
+      
+      console.log('✅ Service - R2 upload successful:', {
+        fileName: uploadResult.fileName,
+        fileUrl: uploadResult.fileUrl,
+        fileSize: uploadResult.fileSize
+      });
 
-    // Upload to R2
-    console.log('☁️ Service - Uploading assignment submission to R2...');
-    const uploadResult = await this.r2FileService.uploadFile(file, assignment.courseId, studentId);
+      fileName = uploadResult.fileName;
+      filePath = uploadResult.fileUrl; // Store R2 URL instead of local path
+    } else {
+      // Fall back to local storage
+      console.log('📁 Service - R2 not available, using local storage...');
+      
+      // Generate unique filename using your old project pattern
+      const unique = Date.now() + "-" + Math.round(Math.random() * 1e9);
+      const ext = path.extname(file.originalname);
+      const baseName = path.basename(file.originalname, ext);
+      fileName = `${baseName}-${unique}${ext}`;
+      
+      // Create organized folder structure: uploads/Grade/Course/assignments/
+      const gradeName = assignment.course?.class?.name || 'Default-Grade';
+      const courseName = assignment.course?.name || 'Default-Course';
+      const uploadsDir = path.join(process.cwd(), 'uploads', gradeName, courseName, 'assignments');
+      
+      // Ensure directory exists
+      const fs = require('fs');
+      if (!fs.existsSync(uploadsDir)) {
+        fs.mkdirSync(uploadsDir, { recursive: true });
+      }
+      
+      const localFilePath = path.join(uploadsDir, fileName);
+      
+      // Write file to disk
+      fs.writeFileSync(localFilePath, file.buffer);
+      
+      // Create relative path from uploads folder
+      filePath = path.join(gradeName, courseName, 'assignments', fileName);
+    }
 
     let submission;
     
     if (isUpdate && existingSubmission) {
       // Update existing submission
-      existingSubmission.fileName = uploadResult.fileName;
-      existingSubmission.filePath = uploadResult.fileUrl; // R2 URL
-      existingSubmission.fileSize = uploadResult.fileSize;
-      existingSubmission.mimeType = uploadResult.mimeType;
+      existingSubmission.fileName = fileName;
+      existingSubmission.filePath = filePath;
+      existingSubmission.fileSize = file.size;
+      existingSubmission.mimeType = file.mimetype;
       existingSubmission.submittedAt = new Date(); // Update submission time
       existingSubmission.grade = null; // Clear previous grade
       existingSubmission.feedback = null; // Clear previous feedback
@@ -993,13 +1207,24 @@ export class MaterialsService {
       
       submission = existingSubmission;
       
-      // Delete old file from R2 if it exists and is different
-      if (oldFilePath && oldFilePath !== uploadResult.fileUrl) {
+      // Delete old file if it exists and is different
+      if (oldFilePath && oldFilePath !== filePath) {
         try {
-          await this.r2FileService.deleteFile(oldFilePath);
-          console.log('✅ Deleted old assignment file from R2:', oldFilePath);
+          // Check if this is an R2 URL (new format) or legacy local path
+          if (oldFilePath.startsWith('http')) {
+            // This is an R2 URL, delete from R2
+            console.log('🗑️ Deleting old submission file from R2:', oldFilePath);
+            await this.r2FileService.deleteFile(oldFilePath);
+            console.log('✅ Old R2 submission file deleted successfully:', oldFilePath);
+          } else {
+            // Legacy local file handling
+            const oldFileAbsolutePath = path.join(process.cwd(), 'uploads', oldFilePath);
+            if (fs.existsSync(oldFileAbsolutePath)) {
+              fs.unlinkSync(oldFileAbsolutePath);
+            }
+          }
         } catch (error) {
-          console.warn(`Failed to delete old file from R2: ${oldFilePath}`, error);
+          console.warn(`Failed to delete old file: ${oldFilePath}`, error);
         }
       }
     } else {
@@ -1007,10 +1232,10 @@ export class MaterialsService {
       submission = this.assignmentSubmissionRepository.create({
         assignmentId,
         studentId,
-        fileName: uploadResult.fileName,
-        filePath: uploadResult.fileUrl, // R2 URL
-        fileSize: uploadResult.fileSize,
-        mimeType: uploadResult.mimeType
+        fileName: fileName,
+        filePath: filePath,
+        fileSize: file.size,
+        mimeType: file.mimetype
       });
     }
 
