@@ -36,6 +36,13 @@ const LoginForm = React.memo(({ onLogin, onRegister }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    // Prevent double-clicking
+    if (loading) {
+      console.warn('🚫 Form submission already in progress, ignoring duplicate click');
+      return;
+    }
+    
     console.log('Form submitted!', { isLogin, formData }); // Debug log
     setLoading(true);
     setError('');
@@ -437,12 +444,16 @@ const LoginForm = React.memo(({ onLogin, onRegister }) => {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-green-600 text-white py-2.5 sm:py-3 px-4 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm sm:text-base font-medium"
+            className="w-full bg-green-600 text-white py-2.5 sm:py-3 px-4 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm sm:text-base font-medium flex items-center justify-center"
           >
-                         {loading 
-               ? (isLogin ? 'Signing in...' : 'Creating account...') 
-               : (isLogin ? 'Sign In' : `Create ${formData.role === 'parent' ? 'Parent' : 'Student'} Account`)
-             }
+            {loading ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                {isLogin ? 'Signing in...' : 'Creating account...'}
+              </>
+            ) : (
+              isLogin ? 'Sign In' : `Create ${formData.role === 'parent' ? 'Parent' : 'Student'} Account`
+            )}
           </button>
         </form>
 

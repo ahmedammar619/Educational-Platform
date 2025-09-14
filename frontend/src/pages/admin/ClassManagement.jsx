@@ -151,7 +151,16 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
     setExpandedClasses(newExpanded);
   };
 
+  const [isCreatingClass, setIsCreatingClass] = useState(false);
+
   const handleCreateClass = async (classData) => {
+    // Prevent double-clicking
+    if (isCreatingClass) {
+      console.warn('🚫 Class creation already in progress, ignoring duplicate request');
+      return;
+    }
+
+    setIsCreatingClass(true);
     try {
       // Convert price to number and ensure it's valid
       const processedClassData = {
@@ -166,6 +175,8 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
     } catch (error) {
       console.error('Error creating class:', error);
       showErrorToast(error, 'Failed to create class. Please try again.');
+    } finally {
+      setIsCreatingClass(false);
     }
   };
 
@@ -249,9 +260,18 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
     }
   };
 
+  const [deletingClasses, setDeletingClasses] = useState(new Set());
+
   const handleDeleteClass = async (classId) => {
+    // Prevent double-clicking
+    if (deletingClasses.has(classId)) {
+      console.warn('🚫 Class deletion already in progress, ignoring duplicate request');
+      return;
+    }
+
     if (!confirm('Are you sure you want to delete this class? This will also delete all courses within it.')) return;
 
+    setDeletingClasses(prev => new Set(prev).add(classId));
     try {
       await classesService.deleteClass(classId);
       setClasses(prev => (Array.isArray(prev) ? prev : []).filter(classItem => classItem.id !== classId));
@@ -259,10 +279,24 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
     } catch (error) {
       console.error('Error deleting class:', error);
       showErrorToast(error, 'Failed to delete class. Please try again.');
+    } finally {
+      setDeletingClasses(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(classId);
+        return newSet;
+      });
     }
   };
 
+  const [deletingCourses, setDeletingCourses] = useState(new Set());
+
   const handleDeleteCourse = async (classId, courseId) => {
+    // Prevent double-clicking
+    if (deletingCourses.has(courseId)) {
+      console.warn('🚫 Course deletion already in progress, ignoring duplicate request');
+      return;
+    }
+
     if (!confirm('Are you sure you want to delete this course?')) return;
 
     // Debug logging
@@ -273,6 +307,7 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
       return;
     }
 
+    setDeletingCourses(prev => new Set(prev).add(courseId));
     try {
       await coursesService.deleteCourse(courseId);
       // Reload classes to get updated course data
@@ -281,6 +316,12 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
     } catch (error) {
       console.error('Error deleting course:', error);
       showErrorToast(error, 'Failed to delete course. Please try again.');
+    } finally {
+      setDeletingCourses(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(courseId);
+        return newSet;
+      });
     }
   };
 
@@ -344,10 +385,20 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
         <div className="flex items-center space-x-3">
           <button
             onClick={() => setShowCreateClassModal(true)}
-            className="flex items-center space-x-2 border-2 border-green-600 text-green-600 px-4 py-2 rounded-lg hover:bg-green-600 hover:text-white transition-all duration-200"
+            disabled={isCreatingClass}
+            className="flex items-center space-x-2 border-2 border-green-600 text-green-600 px-4 py-2 rounded-lg hover:bg-green-600 hover:text-white transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <Plus className="h-4 w-4" />
-            <span>Add Class</span>
+            {isCreatingClass ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-600"></div>
+                <span>Creating...</span>
+              </>
+            ) : (
+              <>
+                <Plus className="h-4 w-4" />
+                <span>Add Class</span>
+              </>
+            )}
           </button>
         </div>
       </div>
@@ -446,10 +497,15 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
                       </button>
                       <button
                         onClick={() => handleDeleteClass(classItem.id)}
-                        className="text-red-600 hover:text-red-800 p-2 rounded-lg hover:bg-red-50 transition-colors"
+                        disabled={deletingClasses.has(classItem.id)}
+                        className="text-red-600 hover:text-red-800 p-2 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         title="Delete Class"
                       >
-                        <Trash2 className="h-4 w-4" />
+                        {deletingClasses.has(classItem.id) ? (
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-600"></div>
+                        ) : (
+                          <Trash2 className="h-4 w-4" />
+                        )}
                       </button>
                     </div>
                   </div>
@@ -522,10 +578,15 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
                                 </button>
                                 <button
                                   onClick={() => handleDeleteCourse(classItem.id, course.id)}
-                                  className="text-red-600 hover:text-red-800 p-1 rounded hover:bg-red-50 transition-colors"
+                                  disabled={deletingCourses.has(course.id)}
+                                  className="text-red-600 hover:text-red-800 p-1 rounded hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                   title="Delete Course"
                                 >
-                                  <Trash2 className="h-4 w-4" />
+                                  {deletingCourses.has(course.id) ? (
+                                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-600"></div>
+                                  ) : (
+                                    <Trash2 className="h-4 w-4" />
+                                  )}
                                 </button>
                                 </div>
                               </div>
@@ -870,9 +931,17 @@ const ClassModal = ({ title, classData, onClose, onSubmit }) => {
               </button>
               <button
                 type="submit"
-                className="px-4 py-2 border-2 border-green-600 text-green-600 rounded-md hover:bg-green-500 hover:text-white transition-all duration-200 text-sm"
+                disabled={isCreatingClass}
+                className="px-4 py-2 border-2 border-green-600 text-green-600 rounded-md hover:bg-green-500 hover:text-white transition-all duration-200 text-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
               >
-                {classData ? 'Update' : 'Create'}
+                {isCreatingClass ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-600 mr-2"></div>
+                    {classData ? 'Updating...' : 'Creating...'}
+                  </>
+                ) : (
+                  classData ? 'Update' : 'Create'
+                )}
               </button>
             </div>
           </form>

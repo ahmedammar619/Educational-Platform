@@ -21,6 +21,8 @@ const ChildrenManagement = ({ user }) => {
   // Remove this useEffect as fetchTeachers() doesn't depend on selectedChild
   // The filtering happens in getTeachersForSelectedChild() which runs on every render
 
+  const [isAddingChild, setIsAddingChild] = useState(false);
+
   const fetchChildren = async () => {
     try {
       setLoading(true);
@@ -265,6 +267,13 @@ const ChildrenManagement = ({ user }) => {
           </div>
           <button
             onClick={() => {
+              // Prevent double-clicking
+              if (isAddingChild) {
+                console.warn('🚫 Add child already in progress, ignoring duplicate click');
+                return;
+              }
+              
+              setIsAddingChild(true);
               console.log('Add Children button clicked');
               console.log('Current showAddChildForm state:', showAddChildForm);
               setShowAddChildForm(prevState => {
@@ -276,11 +285,22 @@ const ChildrenManagement = ({ user }) => {
               // Force a re-render
               setForceRender(prev => prev + 1);
               console.log('State update function called, force render triggered');
+              setIsAddingChild(false);
             }}
-            className="flex items-center justify-center space-x-2 border-2 border-purple-600 text-purple-600 px-4 py-2 rounded-lg hover:bg-purple-600 hover:text-white transition-all duration-200 text-sm md:text-base"
+            disabled={isAddingChild}
+            className="flex items-center justify-center space-x-2 border-2 border-purple-600 text-purple-600 px-4 py-2 rounded-lg hover:bg-purple-600 hover:text-white transition-all duration-200 text-sm md:text-base disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <Plus className="h-4 w-4" />
-            <span>Add Children</span>
+            {isAddingChild ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-purple-600"></div>
+                <span>Adding...</span>
+              </>
+            ) : (
+              <>
+                <Plus className="h-4 w-4" />
+                <span>Add Children</span>
+              </>
+            )}
           </button>
         </div>
 
@@ -305,6 +325,13 @@ const ChildrenManagement = ({ user }) => {
         </div>
         <button
           onClick={() => {
+            // Prevent double-clicking
+            if (isAddingChild) {
+              console.warn('🚫 Add child already in progress, ignoring duplicate click');
+              return;
+            }
+            
+            setIsAddingChild(true);
             console.log('Add Children button clicked (main view)');
             console.log('Current showAddChildForm state:', showAddChildForm);
             setShowAddChildForm(prevState => {
@@ -316,11 +343,22 @@ const ChildrenManagement = ({ user }) => {
             // Force a re-render
             setForceRender(prev => prev + 1);
             console.log('State update function called, force render triggered');
+            setIsAddingChild(false);
           }}
-          className="flex items-center justify-center space-x-2 border-2 border-purple-600 text-purple-600 px-4 py-2 rounded-lg hover:bg-purple-600 hover:text-white transition-all duration-200 text-sm md:text-base"
+          disabled={isAddingChild}
+          className="flex items-center justify-center space-x-2 border-2 border-purple-600 text-purple-600 px-4 py-2 rounded-lg hover:bg-purple-600 hover:text-white transition-all duration-200 text-sm md:text-base disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          <Plus className="h-4 w-4" />
-          <span>Add Children</span>
+          {isAddingChild ? (
+            <>
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-purple-600"></div>
+              <span>Adding...</span>
+            </>
+          ) : (
+            <>
+              <Plus className="h-4 w-4" />
+              <span>Add Children</span>
+            </>
+          )}
         </button>
       </div>
 

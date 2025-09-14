@@ -94,6 +94,12 @@ const ChildAccountCreation = ({ user, onSuccess, onCancel }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    // Prevent double-clicking
+    if (isSubmitting) {
+      console.warn('🚫 Form submission already in progress, ignoring duplicate click');
+      return;
+    }
+
     if (!validateForm()) {
       return;
     }

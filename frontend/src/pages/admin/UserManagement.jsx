@@ -223,7 +223,16 @@ const UserManagement = ({ user }) => {
     });
   };
 
+  const [isCreatingUser, setIsCreatingUser] = useState(false);
+
   const handleCreateUser = async (userData) => {
+    // Prevent double-clicking
+    if (isCreatingUser) {
+      console.warn('🚫 User creation already in progress, ignoring duplicate request');
+      return;
+    }
+
+    setIsCreatingUser(true);
     const loadingToast = showLoadingToast('Creating user...');
 
     try {
@@ -287,6 +296,8 @@ const UserManagement = ({ user }) => {
       // Dismiss loading toast and show error toast
       dismissToast(loadingToast);
       showErrorToast(`Error creating user: ${errorMessage}`);
+    } finally {
+      setIsCreatingUser(false);
     }
   };
 
@@ -430,7 +441,15 @@ const UserManagement = ({ user }) => {
     }
   };
 
+  const [deletingUsers, setDeletingUsers] = useState(new Set());
+
   const handleDeleteUser = async (userId) => {
+    // Prevent double-clicking
+    if (deletingUsers.has(userId)) {
+      console.warn('🚫 User deletion already in progress, ignoring duplicate request');
+      return;
+    }
+
     // Find the user to get their name for the confirmation message
     const userToDelete = allUsers.find(u => u.id === userId);
     const userName = userToDelete?.name || 'this user';
@@ -440,6 +459,7 @@ const UserManagement = ({ user }) => {
       `Are you sure you want to delete ${userName}? This action cannot be undone.`,
       async () => {
         // User confirmed deletion
+        setDeletingUsers(prev => new Set(prev).add(userId));
         const loadingToast = showLoadingToast('Deleting user...');
 
         try {
@@ -518,6 +538,12 @@ const UserManagement = ({ user }) => {
             const errorMessage = error.message || error.response?.data?.message || 'Unknown error occurred';
             showErrorToast(`Error deleting user: ${errorMessage}`);
           }
+        } finally {
+          setDeletingUsers(prev => {
+            const newSet = new Set(prev);
+            newSet.delete(userId);
+            return newSet;
+          });
         }
       },
       () => {
@@ -767,9 +793,13 @@ const UserManagement = ({ user }) => {
                     : 'text-gray-400 cursor-not-allowed'
                   } transition-colors duration-200`}
                 title={getDeleteTooltip(userItem)}
-                disabled={userItem.id === user?.id || !canUserBeDeleted(userItem)}
+                disabled={userItem.id === user?.id || !canUserBeDeleted(userItem) || deletingUsers.has(userItem.id)}
               >
-                <Trash2 className={`h-4 w-4 ${!canUserBeDeleted(userItem) ? 'opacity-50' : ''}`} />
+                {deletingUsers.has(userItem.id) ? (
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-600"></div>
+                ) : (
+                  <Trash2 className={`h-4 w-4 ${!canUserBeDeleted(userItem) ? 'opacity-50' : ''}`} />
+                )}
               </button>
             </div>
           </td>
@@ -821,9 +851,13 @@ const UserManagement = ({ user }) => {
                     : 'text-gray-400 cursor-not-allowed'
                   } transition-colors duration-200`}
                 title={getDeleteTooltip(userItem)}
-                disabled={userItem.id === user?.id || !canUserBeDeleted(userItem)}
+                disabled={userItem.id === user?.id || !canUserBeDeleted(userItem) || deletingUsers.has(userItem.id)}
               >
-                <Trash2 className={`h-4 w-4 ${!canUserBeDeleted(userItem) ? 'opacity-50' : ''}`} />
+                {deletingUsers.has(userItem.id) ? (
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-600"></div>
+                ) : (
+                  <Trash2 className={`h-4 w-4 ${!canUserBeDeleted(userItem) ? 'opacity-50' : ''}`} />
+                )}
               </button>
             </div>
           </td>
@@ -881,9 +915,13 @@ const UserManagement = ({ user }) => {
                     : 'text-gray-400 cursor-not-allowed'
                   } transition-colors duration-200`}
                 title={getDeleteTooltip(userItem)}
-                disabled={userItem.id === user?.id || !canUserBeDeleted(userItem)}
+                disabled={userItem.id === user?.id || !canUserBeDeleted(userItem) || deletingUsers.has(userItem.id)}
               >
-                <Trash2 className={`h-4 w-4 ${!canUserBeDeleted(userItem) ? 'opacity-50' : ''}`} />
+                {deletingUsers.has(userItem.id) ? (
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-600"></div>
+                ) : (
+                  <Trash2 className={`h-4 w-4 ${!canUserBeDeleted(userItem) ? 'opacity-50' : ''}`} />
+                )}
               </button>
             </div>
           </td>
@@ -903,10 +941,20 @@ const UserManagement = ({ user }) => {
         <div className="flex items-center space-x-3">
           <button
             onClick={() => setShowCreateModal(true)}
-            className="flex items-center space-x-2 border-2 border-green-600 text-green-600 px-4 py-2 rounded-lg hover:bg-green-600 hover:text-white transition-all duration-200"
+            disabled={isCreatingUser}
+            className="flex items-center space-x-2 border-2 border-green-600 text-green-600 px-4 py-2 rounded-lg hover:bg-green-600 hover:text-white transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <Plus className="h-4 w-4" />
-            <span>Add User</span>
+            {isCreatingUser ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-600"></div>
+                <span>Creating...</span>
+              </>
+            ) : (
+              <>
+                <Plus className="h-4 w-4" />
+                <span>Add User</span>
+              </>
+            )}
           </button>
         </div>
       </div>
@@ -1499,9 +1547,17 @@ const UserModal = ({ title, user, onClose, onSubmit }) => {
               </button>
               <button
                 type="submit"
-                className="px-4 py-2 border-2 border-green-600 text-green-600 rounded-md hover:bg-green-600 hover:text-white transition-all duration-200"
+                disabled={isCreatingUser}
+                className="px-4 py-2 border-2 border-green-600 text-green-600 rounded-md hover:bg-green-600 hover:text-white transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
               >
-                {user ? 'Update' : 'Create'}
+                {isCreatingUser ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-600 mr-2"></div>
+                    {user ? 'Updating...' : 'Creating...'}
+                  </>
+                ) : (
+                  user ? 'Update' : 'Create'
+                )}
               </button>
             </div>
           </form>
