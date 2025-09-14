@@ -3,11 +3,14 @@ import { CreditCard, Calendar, Download, AlertCircle, CheckCircle, Clock, X, Rot
 import paymentService from '../../services/paymentService';
 import studentsService from '../../services/studentsService';
 import { showSuccessToast, showErrorToast, showWarningToast } from '../../utils/toast';
+import { ConfirmationDialog } from '../../components/ui';
+import useConfirmation from '../../hooks/useConfirmation';
 
 
 
 // Main Payments Component
 const ParentPayments = ({ user }) => {
+  const { confirmationState, showConfirmation, hideConfirmation, handleConfirm } = useConfirmation();
   const [children, setChildren] = useState([]);
   const [childrenStripeStatus, setChildrenStripeStatus] = useState({});
   const [invoices, setInvoices] = useState([]);
@@ -159,40 +162,51 @@ const ParentPayments = ({ user }) => {
       ? `Are you sure you want to resubscribe ${student.firstName} ${student.lastName}? This will start a new monthly subscription.`
       : `Are you sure you want to subscribe ${student.firstName} ${student.lastName}? This will start a monthly subscription.`;
     
-    if (!confirm(confirmMessage)) {
-      return;
-    }
+    showConfirmation({
+      title: isResubscribe ? 'Resubscribe Student' : 'Subscribe Student',
+      message: confirmMessage,
+      type: 'warning',
+      confirmText: isResubscribe ? 'Resubscribe' : 'Subscribe',
+      confirmButtonVariant: 'warning',
+      onConfirm: async () => {
     
-    try {
-      setLoading(true);
-      await paymentService.createSubscription(student.id);
-      // The payment service will redirect to Stripe, so we don't need to do anything else here
-    } catch (error) {
-      console.error('Subscription error:', error);
-      showErrorToast('Failed to start subscription process');
-    } finally {
-      setLoading(false);
-    }
+        try {
+          setLoading(true);
+          await paymentService.createSubscription(student.id);
+          // The payment service will redirect to Stripe, so we don't need to do anything else here
+        } catch (error) {
+          console.error('Subscription error:', error);
+          showErrorToast('Failed to start subscription process');
+        } finally {
+          setLoading(false);
+        }
+      }
+    });
   };
 
   const handleCancelSubscription = async (studentId) => {
-    if (!confirm('Are you sure you want to cancel this subscription? It will remain active until the end of the current billing period.')) {
-      return;
-    }
-
-    try {
-      setLoadingStatus(prev => ({ ...prev, [studentId]: true }));
-      await paymentService.cancelSubscription(studentId);
-      showSuccessToast('Subscription will be canceled at the end of the billing period');
-      
-      // Refresh just this student's status
-      await refreshStudentStripeStatus(studentId);
-    } catch (error) {
-      console.error('❌ Cancel subscription error:', error);
-      showErrorToast(error.message || 'Failed to cancel subscription');
-    } finally {
-      setLoadingStatus(prev => ({ ...prev, [studentId]: false }));
-    }
+    showConfirmation({
+      title: 'Cancel Subscription',
+      message: 'Are you sure you want to cancel this subscription? It will remain active until the end of the current billing period.',
+      type: 'warning',
+      confirmText: 'Cancel Subscription',
+      confirmButtonVariant: 'warning',
+      onConfirm: async () => {
+        try {
+          setLoadingStatus(prev => ({ ...prev, [studentId]: true }));
+          await paymentService.cancelSubscription(studentId);
+          showSuccessToast('Subscription will be canceled at the end of the billing period');
+          
+          // Refresh just this student's status
+          await refreshStudentStripeStatus(studentId);
+        } catch (error) {
+          console.error('❌ Cancel subscription error:', error);
+          showErrorToast(error.message || 'Failed to cancel subscription');
+        } finally {
+          setLoadingStatus(prev => ({ ...prev, [studentId]: false }));
+        }
+      }
+    });
   };
 
   const handleReactivateSubscription = async (studentId) => {
@@ -510,6 +524,20 @@ const ParentPayments = ({ user }) => {
           </div>
         </div>
       )}
+
+      {/* Confirmation Dialog */}
+      <ConfirmationDialog
+        isOpen={confirmationState.isOpen}
+        onClose={hideConfirmation}
+        onConfirm={handleConfirm}
+        title={confirmationState.title}
+        message={confirmationState.message}
+        type={confirmationState.type}
+        confirmText={confirmationState.confirmText}
+        cancelText={confirmationState.cancelText}
+        confirmButtonVariant={confirmationState.confirmButtonVariant}
+        isLoading={confirmationState.isLoading}
+      />
     </div>
   );
 };

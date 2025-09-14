@@ -17,8 +17,11 @@ import {
 } from 'lucide-react';
 import { materialsService } from '../../../services';
 import { showErrorToast, showSuccessToast } from '../../../utils/errorHandler';
+import { ConfirmationDialog } from '../../ui';
+import useConfirmation from '../../../hooks/useConfirmation';
 
 const AssignmentsTab = ({ currentUser, theme, courseId }) => {
+  const { confirmationState, showConfirmation, hideConfirmation, handleConfirm } = useConfirmation();
   const [assignments, setAssignments] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -228,19 +231,26 @@ const AssignmentsTab = ({ currentUser, theme, courseId }) => {
   };
 
   const handleDeleteAssignment = async (assignment) => {
-    if (window.confirm(`Are you sure you want to delete the assignment "${assignment.name}"? This action cannot be undone and will also delete all submissions.`)) {
-      try {
-        await materialsService.deleteAssignment(assignment.id);
-        
-        // Reload assignments to get the updated list
-        await loadAssignments();
-        
-        showSuccessToast('Assignment deleted successfully!');
-      } catch (error) {
-        console.error('Error deleting assignment:', error);
-        showErrorToast(error, 'Failed to delete assignment. Please try again.');
+    showConfirmation({
+      title: 'Delete Assignment',
+      message: `Are you sure you want to delete the assignment "${assignment.name}"? This action cannot be undone and will also delete all submissions.`,
+      type: 'danger',
+      confirmText: 'Delete Assignment',
+      confirmButtonVariant: 'danger',
+      onConfirm: async () => {
+        try {
+          await materialsService.deleteAssignment(assignment.id);
+          
+          // Reload assignments to get the updated list
+          await loadAssignments();
+          
+          showSuccessToast('Assignment deleted successfully!');
+        } catch (error) {
+          console.error('Error deleting assignment:', error);
+          showErrorToast(error, 'Failed to delete assignment. Please try again.');
+        }
       }
-    }
+    });
   };
 
   // Helper function to clean filename by removing timestamp and random number
@@ -962,6 +972,20 @@ const AssignmentsTab = ({ currentUser, theme, courseId }) => {
           </button>
         </div>
       )}
+
+      {/* Confirmation Dialog */}
+      <ConfirmationDialog
+        isOpen={confirmationState.isOpen}
+        onClose={hideConfirmation}
+        onConfirm={handleConfirm}
+        title={confirmationState.title}
+        message={confirmationState.message}
+        type={confirmationState.type}
+        confirmText={confirmationState.confirmText}
+        cancelText={confirmationState.cancelText}
+        confirmButtonVariant={confirmationState.confirmButtonVariant}
+        isLoading={confirmationState.isLoading}
+      />
     </div>
   );
 };

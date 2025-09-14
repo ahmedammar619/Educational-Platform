@@ -17,8 +17,11 @@ import {
 } from 'lucide-react';
 import paymentService from '../../services/paymentService';
 import { showErrorToast, showSuccessToast } from '../../utils/toast';
+import { AlertDialog } from '../../components/ui';
+import useAlert from '../../hooks/useAlert';
 
 const AdminPayments = () => {
+  const { alertState, showAlert, hideAlert } = useAlert();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [syncing, setSyncing] = useState(false);
@@ -168,7 +171,11 @@ Webhook Event Details:
     }
     
     // Show details in an alert (you can replace this with a modal later)
-    alert(details);
+    showAlert({
+      title: 'Payment Details',
+      message: details,
+      type: 'info'
+    });
   };
 
   const getStatusIcon = (status) => {
@@ -697,6 +704,16 @@ Webhook Event Details:
           )}
         </div>
       </div>
+
+      {/* Alert Dialog */}
+      <AlertDialog
+        isOpen={alertState.isOpen}
+        onClose={hideAlert}
+        title={alertState.title}
+        message={alertState.message}
+        type={alertState.type}
+        buttonText={alertState.buttonText}
+      />
     </div>
   );
 };

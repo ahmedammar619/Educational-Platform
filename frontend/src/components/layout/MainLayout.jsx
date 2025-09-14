@@ -20,6 +20,8 @@ import {
 } from 'lucide-react';
 import baraemLogo from '../../assets/baraem.svg';
 import UserProfilePopup from '../ui/UserProfilePopup';
+import { AlertDialog } from '../ui';
+import useAlert from '../../hooks/useAlert';
 // import NotificationDropdown from '../notifications/NotificationDropdown';
 // import { useNotifications } from '../../contexts/NotificationContext';
 
@@ -128,6 +130,7 @@ const getRoleColors = (role) => {
 };
 
 const MainLayout = ({ user, onLogout, children, routes }) => {
+  const { alertState, showAlert, hideAlert } = useAlert();
   const navigate = useNavigate();
   const location = useLocation();
   const [showProfilePopup, setShowProfilePopup] = useState(false);
@@ -199,7 +202,11 @@ const MainLayout = ({ user, onLogout, children, routes }) => {
   const handleEditProfile = () => {
     setShowProfilePopup(false);
     // TODO: Implement profile edit functionality
-    alert('Profile edit functionality will be implemented soon!');
+    showAlert({
+      title: 'Coming Soon',
+      message: 'Profile edit functionality will be implemented soon!',
+      type: 'info'
+    });
   };
 
   // Get user display name with fallback logic
@@ -417,6 +424,16 @@ const MainLayout = ({ user, onLogout, children, routes }) => {
         onClose={() => setShowProfilePopup(false)}
         onEdit={handleEditProfile}
         onLogout={onLogout}
+      />
+
+      {/* Alert Dialog */}
+      <AlertDialog
+        isOpen={alertState.isOpen}
+        onClose={hideAlert}
+        title={alertState.title}
+        message={alertState.message}
+        type={alertState.type}
+        buttonText={alertState.buttonText}
       />
     </div>
   );

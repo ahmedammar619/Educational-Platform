@@ -7,8 +7,11 @@ import FullCalendar from '@fullcalendar/react';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import interactionPlugin from '@fullcalendar/interaction';
+import { ConfirmationDialog } from '../../components/ui';
+import useConfirmation from '../../hooks/useConfirmation';
 
 const TeacherSchedule = ({ user }) => {
+  const { confirmationState, showConfirmation, hideConfirmation, handleConfirm } = useConfirmation();
   const [schedule, setSchedule] = useState([]);
   const [courses, setCourses] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -536,9 +539,16 @@ const TeacherSchedule = ({ user }) => {
   };
 
   const handleEventClick = (clickInfo) => {
-    if (confirm(`Are you sure you want to delete the event '${clickInfo.event.title}'`)) {
-      clickInfo.event.remove();
-    }
+    showConfirmation({
+      title: 'Delete Event',
+      message: `Are you sure you want to delete the event '${clickInfo.event.title}'?`,
+      type: 'danger',
+      confirmText: 'Delete Event',
+      confirmButtonVariant: 'danger',
+      onConfirm: () => {
+        clickInfo.event.remove();
+      }
+    });
   };
 
   const createEventId = () => {
@@ -1140,6 +1150,20 @@ const TeacherSchedule = ({ user }) => {
           </div>
         </div>
       )}
+
+      {/* Confirmation Dialog */}
+      <ConfirmationDialog
+        isOpen={confirmationState.isOpen}
+        onClose={hideConfirmation}
+        onConfirm={handleConfirm}
+        title={confirmationState.title}
+        message={confirmationState.message}
+        type={confirmationState.type}
+        confirmText={confirmationState.confirmText}
+        cancelText={confirmationState.cancelText}
+        confirmButtonVariant={confirmationState.confirmButtonVariant}
+        isLoading={confirmationState.isLoading}
+      />
     </div>
   );
 };

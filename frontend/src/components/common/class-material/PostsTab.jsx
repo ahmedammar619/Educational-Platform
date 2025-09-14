@@ -2,8 +2,11 @@ import { useState, useEffect, useRef } from 'react';
 import { Edit, Trash2, Download, FileText, X, Paperclip, FileImage, FileVideo, File, Archive, FileType, Mail, Phone, User, MessageCircle } from 'lucide-react';
 import { materialsService, usersService } from '../../../services';
 import { showErrorToast, showSuccessToast } from '../../../utils/errorHandler';
+import { ConfirmationDialog } from '../../ui';
+import useConfirmation from '../../../hooks/useConfirmation';
 
 const PostsTab = ({ currentUser, theme, courseId }) => {
+  const { confirmationState, showConfirmation, hideConfirmation, handleConfirm } = useConfirmation();
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -262,21 +265,30 @@ const PostsTab = ({ currentUser, theme, courseId }) => {
   };
 
   const handleDeletePost = async (postId) => {
-    if (window.confirm('Are you sure you want to delete this post? This action cannot be undone.') && !loadingStates.deletingPost) {
-      updateLoadingState('deletingPost', true);
-      try {
-        await materialsService.deletePost(postId);
-        
-        // Reload posts to get the updated list
-        await loadPosts();
-        
-        showSuccessToast('Post deleted successfully!');
-      } catch (error) {
-        console.error('Error deleting post:', error);
-        showErrorToast(error, 'Failed to delete post. Please try again.');
-      } finally {
-        updateLoadingState('deletingPost', false);
-      }
+    if (!loadingStates.deletingPost) {
+      showConfirmation({
+        title: 'Delete Post',
+        message: 'Are you sure you want to delete this post? This action cannot be undone.',
+        type: 'danger',
+        confirmText: 'Delete Post',
+        confirmButtonVariant: 'danger',
+        onConfirm: async () => {
+          updateLoadingState('deletingPost', true);
+          try {
+            await materialsService.deletePost(postId);
+            
+            // Reload posts to get the updated list
+            await loadPosts();
+            
+            showSuccessToast('Post deleted successfully!');
+          } catch (error) {
+            console.error('Error deleting post:', error);
+            showErrorToast(error, 'Failed to delete post. Please try again.');
+          } finally {
+            updateLoadingState('deletingPost', false);
+          }
+        }
+      });
     }
   };
 
@@ -1218,6 +1230,20 @@ const PostsTab = ({ currentUser, theme, courseId }) => {
           </div>
         </div>
       )}
+
+      {/* Confirmation Dialog */}
+      <ConfirmationDialog
+        isOpen={confirmationState.isOpen}
+        onClose={hideConfirmation}
+        onConfirm={handleConfirm}
+        title={confirmationState.title}
+        message={confirmationState.message}
+        type={confirmationState.type}
+        confirmText={confirmationState.confirmText}
+        cancelText={confirmationState.cancelText}
+        confirmButtonVariant={confirmationState.confirmButtonVariant}
+        isLoading={confirmationState.isLoading}
+      />
     </div>
   );
 };

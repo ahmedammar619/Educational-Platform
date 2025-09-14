@@ -8,9 +8,12 @@ import dayGridPlugin from '@fullcalendar/daygrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import { parentsService } from '../../services';
 import { showErrorToast } from '../../utils/errorHandler';
+import { AlertDialog } from '../../components/ui';
+import useAlert from '../../hooks/useAlert';
 
 
 const ParentSchedule = ({ user }) => {
+  const { alertState, showAlert, hideAlert } = useAlert();
   const [schedule, setSchedule] = useState([]);
   const [courses, setCourses] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -697,7 +700,11 @@ const ParentSchedule = ({ user }) => {
     const childName = event.extendedProps.childName || 'Child';
     const instructor = event.extendedProps.instructor || 'TBD';
 
-    alert(`Class: ${event.title}\nTime: ${event.start.toLocaleString()}\nInstructor: ${instructor}`);
+    showAlert({
+      title: 'Class Information',
+      message: `Class: ${event.title}\nTime: ${event.start.toLocaleString()}\nInstructor: ${instructor}`,
+      type: 'info'
+    });
   };
 
   // Function to scroll selected day to center of carousel
@@ -1374,6 +1381,16 @@ const ParentSchedule = ({ user }) => {
           </div>
         </div>
       )}
+
+      {/* Alert Dialog */}
+      <AlertDialog
+        isOpen={alertState.isOpen}
+        onClose={hideAlert}
+        title={alertState.title}
+        message={alertState.message}
+        type={alertState.type}
+        buttonText={alertState.buttonText}
+      />
     </div>
   );
 };

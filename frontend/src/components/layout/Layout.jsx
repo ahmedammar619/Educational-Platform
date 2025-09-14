@@ -4,8 +4,11 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { authService } from '../../services';
 import baraemLogo from '../../assets/baraem.svg';
 import UserProfilePopup from '../ui/UserProfilePopup';
+import { AlertDialog } from '../ui';
+import useAlert from '../../hooks/useAlert';
 
 const Layout = ({ children, user, onLogout }) => {
+  const { alertState, showAlert, hideAlert } = useAlert();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showProfilePopup, setShowProfilePopup] = useState(false);
   const navigate = useNavigate();
@@ -39,7 +42,11 @@ const Layout = ({ children, user, onLogout }) => {
   const handleEditProfile = () => {
     setShowProfilePopup(false);
     // TODO: Implement profile edit functionality
-    alert('Profile edit functionality will be implemented soon!');
+    showAlert({
+      title: 'Coming Soon',
+      message: 'Profile edit functionality will be implemented soon!',
+      type: 'info'
+    });
   };
 
   return (
@@ -240,6 +247,16 @@ const Layout = ({ children, user, onLogout }) => {
         onClose={() => setShowProfilePopup(false)}
         onEdit={handleEditProfile}
         onLogout={handleLogout}
+      />
+
+      {/* Alert Dialog */}
+      <AlertDialog
+        isOpen={alertState.isOpen}
+        onClose={hideAlert}
+        title={alertState.title}
+        message={alertState.message}
+        type={alertState.type}
+        buttonText={alertState.buttonText}
       />
     </div>
   );

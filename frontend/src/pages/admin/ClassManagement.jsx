@@ -2,8 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { Plus, Edit, Trash2, Users, Calendar, DollarSign, BookOpen, Search, Filter, User, X, ChevronDown, ChevronRight, UserMinus, ArrowUp } from 'lucide-react';
 import { classesService, usersService, coursesService } from '../../services';
 import { showErrorToast, showSuccessToast, getErrorMessage } from '../../utils/errorHandler';
+import { ConfirmationDialog, AlertDialog } from '../../components/ui';
+import useConfirmation from '../../hooks/useConfirmation';
+import useAlert from '../../hooks/useAlert';
 
 const ClassManagement = ({ user, onOpenMaterials }) => {
+  const { confirmationState, showConfirmation, hideConfirmation, handleConfirm } = useConfirmation();
+  const { alertState, showAlert, hideAlert } = useAlert();
   const [classes, setClasses] = useState([]);
   const [filteredClasses, setFilteredClasses] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -269,23 +274,30 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
       return;
     }
 
-    if (!confirm('Are you sure you want to delete this class? This will also delete all courses within it.')) return;
-
-    setDeletingClasses(prev => new Set(prev).add(classId));
-    try {
-      await classesService.deleteClass(classId);
-      setClasses(prev => (Array.isArray(prev) ? prev : []).filter(classItem => classItem.id !== classId));
-      showSuccessToast('Class deleted successfully!');
-    } catch (error) {
-      console.error('Error deleting class:', error);
-      showErrorToast(error, 'Failed to delete class. Please try again.');
-    } finally {
-      setDeletingClasses(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(classId);
-        return newSet;
-      });
-    }
+    showConfirmation({
+      title: 'Delete Class',
+      message: 'Are you sure you want to delete this class? This will also delete all courses within it.',
+      type: 'danger',
+      confirmText: 'Delete Class',
+      confirmButtonVariant: 'danger',
+      onConfirm: async () => {
+        setDeletingClasses(prev => new Set(prev).add(classId));
+        try {
+          await classesService.deleteClass(classId);
+          setClasses(prev => (Array.isArray(prev) ? prev : []).filter(classItem => classItem.id !== classId));
+          showSuccessToast('Class deleted successfully!');
+        } catch (error) {
+          console.error('Error deleting class:', error);
+          showErrorToast(error, 'Failed to delete class. Please try again.');
+        } finally {
+          setDeletingClasses(prev => {
+            const newSet = new Set(prev);
+            newSet.delete(classId);
+            return newSet;
+          });
+        }
+      }
+    });
   };
 
   const [deletingCourses, setDeletingCourses] = useState(new Set());
@@ -297,8 +309,6 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
       return;
     }
 
-    if (!confirm('Are you sure you want to delete this course?')) return;
-
     // Debug logging
     console.log('Deleting course:', { classId, courseId });
 
@@ -307,22 +317,31 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
       return;
     }
 
-    setDeletingCourses(prev => new Set(prev).add(courseId));
-    try {
-      await coursesService.deleteCourse(courseId);
-      // Reload classes to get updated course data
-      await loadClasses();
-      showSuccessToast('Course deleted successfully!');
-    } catch (error) {
-      console.error('Error deleting course:', error);
-      showErrorToast(error, 'Failed to delete course. Please try again.');
-    } finally {
-      setDeletingCourses(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(courseId);
-        return newSet;
-      });
-    }
+    showConfirmation({
+      title: 'Delete Course',
+      message: 'Are you sure you want to delete this course? This action cannot be undone.',
+      type: 'danger',
+      confirmText: 'Delete Course',
+      confirmButtonVariant: 'danger',
+      onConfirm: async () => {
+        setDeletingCourses(prev => new Set(prev).add(courseId));
+        try {
+          await coursesService.deleteCourse(courseId);
+          // Reload classes to get updated course data
+          await loadClasses();
+          showSuccessToast('Course deleted successfully!');
+        } catch (error) {
+          console.error('Error deleting course:', error);
+          showErrorToast(error, 'Failed to delete course. Please try again.');
+        } finally {
+          setDeletingCourses(prev => {
+            const newSet = new Set(prev);
+            newSet.delete(courseId);
+            return newSet;
+          });
+        }
+      }
+    });
   };
 
   const handleEnrollStudents = async (classId, studentIds) => {
@@ -833,19 +852,31 @@ const ClassModal = ({ title, classData, onClose, onSubmit }) => {
     const endDate = new Date(formData.endDate);
     
     if (startDate < today) {
-      alert('Start date cannot be before today');
+      showAlert({
+        title: 'Invalid Date',
+        message: 'Start date cannot be before today',
+        type: 'warning'
+      });
       return;
     }
     
     if (endDate < startDate) {
-      alert('End date cannot be before start date');
+      showAlert({
+        title: 'Invalid Date',
+        message: 'End date cannot be before start date',
+        type: 'warning'
+      });
       return;
     }
     
     // Validate price
     const price = parseFloat(formData.price);
     if (isNaN(price) || price < 0) {
-      alert('Please enter a valid price (must be a number greater than or equal to 0)');
+      showAlert({
+        title: 'Invalid Price',
+        message: 'Please enter a valid price (must be a number greater than or equal to 0)',
+        type: 'warning'
+      });
       return;
     }
     
@@ -1034,7 +1065,11 @@ const CourseModal = ({ title, courseData, onClose, onSubmit }) => {
 
   const addSession = () => {
     if (newSession.startTime >= newSession.endTime) {
-      alert('End time must be after start time');
+      showAlert({
+        title: 'Invalid Time',
+        message: 'End time must be after start time',
+        type: 'warning'
+      });
       return;
     }
 
@@ -1046,7 +1081,11 @@ const CourseModal = ({ title, courseData, onClose, onSubmit }) => {
     );
 
     if (sessionExists) {
-      alert('Session time conflicts with existing session on the same day');
+      showAlert({
+        title: 'Time Conflict',
+        message: 'Session time conflicts with existing session on the same day',
+        type: 'warning'
+      });
       return;
     }
 
@@ -1136,14 +1175,22 @@ const CourseModal = ({ title, courseData, onClose, onSubmit }) => {
     );
 
     if (validSessions.length === 0) {
-      alert('Please add at least one valid session');
+      showAlert({
+        title: 'Missing Sessions',
+        message: 'Please add at least one valid session',
+        type: 'warning'
+      });
       return;
     }
 
     // Validate session conflicts
     const conflictError = validateSessionConflicts(validSessions);
     if (conflictError) {
-      alert(conflictError);
+      showAlert({
+        title: 'Session Conflict',
+        message: conflictError,
+        type: 'warning'
+      });
       return;
     }
 
@@ -1381,7 +1428,11 @@ const EnrollModal = ({ classData, onClose, onSubmit }) => {
   const handleSubmit = (e) => {
     e.preventDefault();
     if (selectedStudents.length === 0) {
-      alert('Please select at least one student');
+      showAlert({
+        title: 'No Students Selected',
+        message: 'Please select at least one student',
+        type: 'warning'
+      });
       return;
     }
     onSubmit(selectedStudents);
@@ -1575,18 +1626,29 @@ const RemoveStudentModal = ({ classData, onClose, onRemove }) => {
   const handleSubmit = (e) => {
     e.preventDefault();
     if (selectedStudents.length === 0) {
-      alert('Please select at least one student to remove');
+      showAlert({
+        title: 'No Students Selected',
+        message: 'Please select at least one student to remove',
+        type: 'warning'
+      });
       return;
     }
     
     // Confirm removal
     const confirmMessage = `Are you sure you want to remove ${selectedStudents.length} student(s) from this class?`;
-    if (window.confirm(confirmMessage)) {
-      // Remove each selected student
-      selectedStudents.forEach(studentId => {
-        onRemove(studentId);
-      });
-    }
+    showConfirmation({
+      title: 'Remove Students',
+      message: confirmMessage,
+      type: 'warning',
+      confirmText: 'Remove Students',
+      confirmButtonVariant: 'warning',
+      onConfirm: () => {
+        // Remove each selected student
+        selectedStudents.forEach(studentId => {
+          onRemove(studentId);
+        });
+      }
+    });
   };
 
   return (
@@ -1787,19 +1849,34 @@ const LevelUpModal = ({ classData, onClose, onSubmit }) => {
   const handleSubmit = (e) => {
     e.preventDefault();
     if (selectedStudents.length === 0) {
-      alert('Please select at least one student to level up');
+      showAlert({
+        title: 'No Students Selected',
+        message: 'Please select at least one student to level up',
+        type: 'warning'
+      });
       return;
     }
     if (!selectedTargetClass) {
-      alert('Please select a target class');
+      showAlert({
+        title: 'No Target Class',
+        message: 'Please select a target class',
+        type: 'warning'
+      });
       return;
     }
     
     // Confirm level up
     const confirmMessage = `Are you sure you want to move ${selectedStudents.length} student(s) from "${classData.name}" to the selected class?`;
-    if (window.confirm(confirmMessage)) {
-      onSubmit(selectedStudents, selectedTargetClass);
-    }
+    showConfirmation({
+      title: 'Level Up Students',
+      message: confirmMessage,
+      type: 'warning',
+      confirmText: 'Level Up Students',
+      confirmButtonVariant: 'warning',
+      onConfirm: () => {
+        onSubmit(selectedStudents, selectedTargetClass);
+      }
+    });
   };
 
   return (
@@ -1931,6 +2008,30 @@ const LevelUpModal = ({ classData, onClose, onSubmit }) => {
           </form>
         </div>
       </div>
+
+      {/* Confirmation Dialog */}
+      <ConfirmationDialog
+        isOpen={confirmationState.isOpen}
+        onClose={hideConfirmation}
+        onConfirm={handleConfirm}
+        title={confirmationState.title}
+        message={confirmationState.message}
+        type={confirmationState.type}
+        confirmText={confirmationState.confirmText}
+        cancelText={confirmationState.cancelText}
+        confirmButtonVariant={confirmationState.confirmButtonVariant}
+        isLoading={confirmationState.isLoading}
+      />
+
+      {/* Alert Dialog */}
+      <AlertDialog
+        isOpen={alertState.isOpen}
+        onClose={hideAlert}
+        title={alertState.title}
+        message={alertState.message}
+        type={alertState.type}
+        buttonText={alertState.buttonText}
+      />
     </div>
   );
 };

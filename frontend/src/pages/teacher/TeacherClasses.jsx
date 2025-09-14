@@ -3,10 +3,13 @@ import { Users, Calendar, BookOpen, MessageSquare, User, X, ChevronDown, Chevron
 import { teachersService, coursesService, usersService } from '../../services';
 import { showErrorToast } from '../../utils/errorHandler';
 import MaterialPages from '../../components/common/class-material/MaterialPages';
+import { AlertDialog } from '../../components/ui';
+import useAlert from '../../hooks/useAlert';
 
 
 
 const TeacherClasses = ({ user }) => {
+  const { alertState, showAlert, hideAlert } = useAlert();
   const [classes, setClasses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showClassModal, setShowClassModal] = useState(false);
@@ -672,7 +675,11 @@ const StudentModal = ({ classData, onClose }) => {
                                 handleWhatsAppClick(phoneNumber, getStudentDisplayName(student));
                               } else {
                                 // If no phone number found, show alert
-                                alert('No phone number available for this student. Please contact them via email.');
+                                showAlert({
+                                  title: 'No Phone Number',
+                                  message: 'No phone number available for this student. Please contact them via email.',
+                                  type: 'warning'
+                                });
                               }
                             }}
                             className="text-green-600 hover:text-green-900 text-xs sm:text-sm font-medium px-3 py-2 rounded-lg hover:bg-green-50 transition-colors"
@@ -691,6 +698,16 @@ const StudentModal = ({ classData, onClose }) => {
           </div>
         </div>
       </div>
+
+      {/* Alert Dialog */}
+      <AlertDialog
+        isOpen={alertState.isOpen}
+        onClose={hideAlert}
+        title={alertState.title}
+        message={alertState.message}
+        type={alertState.type}
+        buttonText={alertState.buttonText}
+      />
     </div>
   );
 };

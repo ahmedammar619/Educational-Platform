@@ -2,8 +2,11 @@ import { useState, useEffect } from 'react';
 import { Folder, Plus, Upload, ArrowLeft, Edit, Trash2, Download, FileText, FileImage, FileVideo, FileAudio, File, FileSpreadsheet, FileCode, FileArchive } from 'lucide-react';
 import { materialsService } from '../../../services';
 import { showErrorToast, showSuccessToast } from '../../../utils/errorHandler';
+import { ConfirmationDialog } from '../../ui';
+import useConfirmation from '../../../hooks/useConfirmation';
 
 const FilesTab = ({ currentUser, theme, courseId }) => {
+  const { confirmationState, showConfirmation, hideConfirmation, handleConfirm } = useConfirmation();
   const [folders, setFolders] = useState([]);
   const [rootFiles, setRootFiles] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -390,35 +393,44 @@ const FilesTab = ({ currentUser, theme, courseId }) => {
   };
 
   const handleDeleteFolder = async (folderId) => {
-    if (window.confirm('Are you sure you want to delete this folder? This action cannot be undone.') && !loadingStates.deletingFolder) {
-      updateLoadingState('deletingFolder', true);
-      try {
-        await materialsService.deleteFolder(folderId);
-        
-        // Add a small delay before reloading to avoid rate limiting
-        setTimeout(async () => {
+    if (!loadingStates.deletingFolder) {
+      showConfirmation({
+        title: 'Delete Folder',
+        message: 'Are you sure you want to delete this folder? This action cannot be undone.',
+        type: 'danger',
+        confirmText: 'Delete Folder',
+        confirmButtonVariant: 'danger',
+        onConfirm: async () => {
+          updateLoadingState('deletingFolder', true);
           try {
-            // Reload the current folder contents (or root if not in a folder)
-            await loadFiles(selectedFolderForView?.id || null);
-          } catch (reloadError) {
-            console.warn('Error reloading files after folder deletion:', reloadError);
-            // Don't show error to user, just log it
+            await materialsService.deleteFolder(folderId);
+            
+            // Add a small delay before reloading to avoid rate limiting
+            setTimeout(async () => {
+              try {
+                // Reload the current folder contents (or root if not in a folder)
+                await loadFiles(selectedFolderForView?.id || null);
+              } catch (reloadError) {
+                console.warn('Error reloading files after folder deletion:', reloadError);
+                // Don't show error to user, just log it
+              }
+            }, 500);
+            
+            showSuccessToast('Folder deleted successfully!');
+          } catch (error) {
+            console.error('Error deleting folder:', error);
+            
+            // Check if error is related to rate limiting
+            if (error.message && error.message.toLowerCase().includes('rate limit')) {
+              showErrorToast(null, 'Request rate limited. Please wait a moment and try again.');
+            } else {
+              showErrorToast(error, 'Failed to delete folder. Please try again.');
+            }
+          } finally {
+            updateLoadingState('deletingFolder', false);
           }
-        }, 500);
-        
-        showSuccessToast('Folder deleted successfully!');
-      } catch (error) {
-        console.error('Error deleting folder:', error);
-        
-        // Check if error is related to rate limiting
-        if (error.message && error.message.toLowerCase().includes('rate limit')) {
-          showErrorToast(null, 'Request rate limited. Please wait a moment and try again.');
-        } else {
-          showErrorToast(error, 'Failed to delete folder. Please try again.');
         }
-      } finally {
-        updateLoadingState('deletingFolder', false);
-      }
+      });
     }
   };
 
@@ -473,35 +485,44 @@ const FilesTab = ({ currentUser, theme, courseId }) => {
   };
 
   const handleDeleteFile = async (fileId) => {
-    if (window.confirm('Are you sure you want to delete this file? This action cannot be undone.') && !loadingStates.deletingFile) {
-      updateLoadingState('deletingFile', true);
-      try {
-        await materialsService.deleteFile(fileId);
-        
-        // Add a small delay before reloading to avoid rate limiting
-        setTimeout(async () => {
+    if (!loadingStates.deletingFile) {
+      showConfirmation({
+        title: 'Delete File',
+        message: 'Are you sure you want to delete this file? This action cannot be undone.',
+        type: 'danger',
+        confirmText: 'Delete File',
+        confirmButtonVariant: 'danger',
+        onConfirm: async () => {
+          updateLoadingState('deletingFile', true);
           try {
-            // Reload the current folder contents (or root if not in a folder)
-            await loadFiles(selectedFolderForView?.id || null);
-          } catch (reloadError) {
-            console.warn('Error reloading files after file deletion:', reloadError);
-            // Don't show error to user, just log it
+            await materialsService.deleteFile(fileId);
+            
+            // Add a small delay before reloading to avoid rate limiting
+            setTimeout(async () => {
+              try {
+                // Reload the current folder contents (or root if not in a folder)
+                await loadFiles(selectedFolderForView?.id || null);
+              } catch (reloadError) {
+                console.warn('Error reloading files after file deletion:', reloadError);
+                // Don't show error to user, just log it
+              }
+            }, 500);
+            
+            showSuccessToast('File deleted successfully!');
+          } catch (error) {
+            console.error('Error deleting file:', error);
+            
+            // Check if error is related to rate limiting
+            if (error.message && error.message.toLowerCase().includes('rate limit')) {
+              showErrorToast(null, 'Request rate limited. Please wait a moment and try again.');
+            } else {
+              showErrorToast(error, 'Failed to delete file. Please try again.');
+            }
+          } finally {
+            updateLoadingState('deletingFile', false);
           }
-        }, 500);
-        
-        showSuccessToast('File deleted successfully!');
-      } catch (error) {
-        console.error('Error deleting file:', error);
-        
-        // Check if error is related to rate limiting
-        if (error.message && error.message.toLowerCase().includes('rate limit')) {
-          showErrorToast(null, 'Request rate limited. Please wait a moment and try again.');
-        } else {
-          showErrorToast(error, 'Failed to delete file. Please try again.');
         }
-      } finally {
-        updateLoadingState('deletingFile', false);
-      }
+      });
     }
   };
 
@@ -1108,6 +1129,20 @@ const FilesTab = ({ currentUser, theme, courseId }) => {
       )}
 
       </div>
+
+      {/* Confirmation Dialog */}
+      <ConfirmationDialog
+        isOpen={confirmationState.isOpen}
+        onClose={hideConfirmation}
+        onConfirm={handleConfirm}
+        title={confirmationState.title}
+        message={confirmationState.message}
+        type={confirmationState.type}
+        confirmText={confirmationState.confirmText}
+        cancelText={confirmationState.cancelText}
+        confirmButtonVariant={confirmationState.confirmButtonVariant}
+        isLoading={confirmationState.isLoading}
+      />
     </div>
   );
 };

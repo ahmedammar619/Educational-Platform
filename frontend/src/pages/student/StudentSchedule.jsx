@@ -7,8 +7,11 @@ import FullCalendar from '@fullcalendar/react';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import interactionPlugin from '@fullcalendar/interaction';
+import { AlertDialog } from '../../components/ui';
+import useAlert from '../../hooks/useAlert';
 
 const StudentSchedule = ({ user }) => {
+  const { alertState, showAlert, hideAlert } = useAlert();
   const [schedule, setSchedule] = useState([]);
   const [courses, setCourses] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -550,7 +553,11 @@ const StudentSchedule = ({ user }) => {
   const handleEventClick = (clickInfo) => {
     // Students cannot delete events - just show event info
     const event = clickInfo.event;
-    alert(`Class: ${event.title}\nTime: ${event.start.toLocaleString()}\nLocation: ${event.extendedProps.location || 'Not specified'}\nInstructor: ${event.extendedProps.instructor || 'Not assigned'}`);
+    showAlert({
+      title: 'Class Information',
+      message: `Class: ${event.title}\nTime: ${event.start.toLocaleString()}\nLocation: ${event.extendedProps.location || 'Not specified'}\nInstructor: ${event.extendedProps.instructor || 'Not assigned'}`,
+      type: 'info'
+    });
   };
 
   const createEventId = () => {
@@ -1136,6 +1143,16 @@ const StudentSchedule = ({ user }) => {
           </div>
         </div>
       )}
+
+      {/* Alert Dialog */}
+      <AlertDialog
+        isOpen={alertState.isOpen}
+        onClose={hideAlert}
+        title={alertState.title}
+        message={alertState.message}
+        type={alertState.type}
+        buttonText={alertState.buttonText}
+      />
     </div>
   );
 };

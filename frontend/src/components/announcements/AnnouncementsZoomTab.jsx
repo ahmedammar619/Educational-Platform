@@ -1,8 +1,13 @@
 import { useState, useEffect } from 'react';
 import zoomService from '../../services/zoomService';
 import { announcementsService } from '../../services';
+import { ConfirmationDialog, AlertDialog } from '../ui';
+import useConfirmation from '../../hooks/useConfirmation';
+import useAlert from '../../hooks/useAlert';
 
 const AnnouncementsZoomTab = ({ currentUser, theme }) => {
+  const { confirmationState, showConfirmation, hideConfirmation, handleConfirm } = useConfirmation();
+  const { alertState, showAlert, hideAlert } = useAlert();
   const [meetings, setMeetings] = useState([]);
   const [loading, setLoading] = useState(false);
   const [showCreateForm, setShowCreateForm] = useState(false);
@@ -147,7 +152,11 @@ const AnnouncementsZoomTab = ({ currentUser, theme }) => {
     const status = getMeetingStatus(meeting);
     
     if (status === 'ended') {
-      alert('This meeting has already ended.');
+      showAlert({
+        title: 'Meeting Ended',
+        message: 'This meeting has already ended.',
+        type: 'info'
+      });
       return;
     }
     
@@ -176,18 +185,29 @@ const AnnouncementsZoomTab = ({ currentUser, theme }) => {
 
   // Handle deleting a meeting
   const handleDeleteMeeting = async (meetingId) => {
-    if (window.confirm('Are you sure you want to delete this meeting?')) {
-      try {
-        setLoading(true);
-        await announcementsService.deleteAnnouncementMeeting(meetingId);
-        setMeetings(meetings.filter(m => m.id !== meetingId));
-      } catch (error) {
-        console.error('Error deleting meeting:', error);
-        alert('Failed to delete meeting. Please try again.');
-      } finally {
-        setLoading(false);
+    showConfirmation({
+      title: 'Delete Meeting',
+      message: 'Are you sure you want to delete this meeting?',
+      type: 'danger',
+      confirmText: 'Delete Meeting',
+      confirmButtonVariant: 'danger',
+      onConfirm: async () => {
+        try {
+          setLoading(true);
+          await announcementsService.deleteAnnouncementMeeting(meetingId);
+          setMeetings(meetings.filter(m => m.id !== meetingId));
+        } catch (error) {
+          console.error('Error deleting meeting:', error);
+          showAlert({
+            title: 'Error',
+            message: 'Failed to delete meeting. Please try again.',
+            type: 'error'
+          });
+        } finally {
+          setLoading(false);
+        }
       }
-    }
+    });
   };
 
   // Handle editing a meeting
@@ -205,38 +225,60 @@ const AnnouncementsZoomTab = ({ currentUser, theme }) => {
 
   // Handle ending a meeting
   const handleEndMeeting = async (meetingId) => {
-    if (window.confirm('Are you sure you want to end this meeting?')) {
-      try {
-        setLoading(true);
-        const updatedMeeting = await announcementsService.endAnnouncementMeeting(meetingId);
-        setMeetings(meetings.map(m => 
-          m.id === meetingId ? updatedMeeting : m
-        ));
-      } catch (error) {
-        console.error('Error ending meeting:', error);
-        alert('Failed to end meeting. Please try again.');
-      } finally {
-        setLoading(false);
+    showConfirmation({
+      title: 'End Meeting',
+      message: 'Are you sure you want to end this meeting?',
+      type: 'warning',
+      confirmText: 'End Meeting',
+      confirmButtonVariant: 'warning',
+      onConfirm: async () => {
+        try {
+          setLoading(true);
+          const updatedMeeting = await announcementsService.endAnnouncementMeeting(meetingId);
+          setMeetings(meetings.map(m => 
+            m.id === meetingId ? updatedMeeting : m
+          ));
+        } catch (error) {
+          console.error('Error ending meeting:', error);
+          showAlert({
+            title: 'Error',
+            message: 'Failed to end meeting. Please try again.',
+            type: 'error'
+          });
+        } finally {
+          setLoading(false);
+        }
       }
-    }
+    });
   };
 
   // Handle canceling a meeting
   const handleCancelMeeting = async (meetingId) => {
-    if (window.confirm('Are you sure you want to cancel this meeting?')) {
-      try {
-        setLoading(true);
-        const updatedMeeting = await announcementsService.cancelAnnouncementMeeting(meetingId);
-        setMeetings(meetings.map(m => 
-          m.id === meetingId ? updatedMeeting : m
-        ));
-      } catch (error) {
-        console.error('Error canceling meeting:', error);
-        alert('Failed to cancel meeting. Please try again.');
-      } finally {
-        setLoading(false);
+    showConfirmation({
+      title: 'Cancel Meeting',
+      message: 'Are you sure you want to cancel this meeting?',
+      type: 'warning',
+      confirmText: 'Cancel Meeting',
+      confirmButtonVariant: 'warning',
+      onConfirm: async () => {
+        try {
+          setLoading(true);
+          const updatedMeeting = await announcementsService.cancelAnnouncementMeeting(meetingId);
+          setMeetings(meetings.map(m => 
+            m.id === meetingId ? updatedMeeting : m
+          ));
+        } catch (error) {
+          console.error('Error canceling meeting:', error);
+          showAlert({
+            title: 'Error',
+            message: 'Failed to cancel meeting. Please try again.',
+            type: 'error'
+          });
+        } finally {
+          setLoading(false);
+        }
       }
-    }
+    });
   };
 
   // Load meetings from backend
@@ -588,6 +630,30 @@ const AnnouncementsZoomTab = ({ currentUser, theme }) => {
           </div>
         </div>
       )}
+
+      {/* Confirmation Dialog */}
+      <ConfirmationDialog
+        isOpen={confirmationState.isOpen}
+        onClose={hideConfirmation}
+        onConfirm={handleConfirm}
+        title={confirmationState.title}
+        message={confirmationState.message}
+        type={confirmationState.type}
+        confirmText={confirmationState.confirmText}
+        cancelText={confirmationState.cancelText}
+        confirmButtonVariant={confirmationState.confirmButtonVariant}
+        isLoading={confirmationState.isLoading}
+      />
+
+      {/* Alert Dialog */}
+      <AlertDialog
+        isOpen={alertState.isOpen}
+        onClose={hideAlert}
+        title={alertState.title}
+        message={alertState.message}
+        type={alertState.type}
+        buttonText={alertState.buttonText}
+      />
     </div>
   );
 };
