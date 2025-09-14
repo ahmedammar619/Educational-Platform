@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Search, Plus, Edit, Trash2, UserCheck, Eye, EyeOff, Key, Users, ChevronDown, ChevronUp } from 'lucide-react';
+import { Search, Plus, Trash2, UserCheck, Eye, EyeOff, Key, Users, ChevronDown, ChevronUp } from 'lucide-react';
 import { usersService, studentsService } from '../../services';
 import PhoneInput from '../../components/ui/PhoneInput';
 import { showSuccessToast, showErrorToast, showConfirmToast, showLoadingToast, dismissToast } from '../../utils/toast.jsx';
@@ -22,9 +22,7 @@ const UserManagement = ({ user }) => {
     pages: 0
   });
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [showEditModal, setShowEditModal] = useState(false);
   const [showLimitDropdown, setShowLimitDropdown] = useState(false);
-  const [selectedUser, setSelectedUser] = useState(null);
 
   useEffect(() => {
     fetchUsers();
@@ -253,7 +251,7 @@ const UserManagement = ({ user }) => {
       // If this is a student with a parent, ONLY update the parent's children array (don't add to main list)
       if (userData.role === 'student' && userData.parentId) {
         console.log('Student created with parentId:', userData.parentId);
-        
+
         // Create the student object with parent info
         const studentWithParent = {
           ...newUser,
@@ -261,15 +259,15 @@ const UserManagement = ({ user }) => {
           parentId: userData.parentId,
           isStudent: true
         };
-        
+
         setAllUsers(prev => {
           // Only update the parent's children array (don't add student to main users array)
           return prev.map(user => {
             if (user.id === userData.parentId) {
               const updatedChildren = [...(user.children || []), studentWithParent];
-              
+
               console.log(`Updated parent ${user.name} with new child:`, newUser.name);
-              
+
               return {
                 ...user,
                 children: updatedChildren,
@@ -288,7 +286,7 @@ const UserManagement = ({ user }) => {
 
       // Dismiss loading toast and show success toast
       dismissToast(loadingToast);
-      showSuccessToast(`User ${response.firstName} ${response.lastName} created successfully!`);
+      showSuccessToast(`User created successfully! They will receive a temporary password and must complete their profile on first login.`);
     } catch (error) {
       console.error('Error creating user:', error);
       const errorMessage = error.message || error.response?.data?.message || 'Unknown error occurred';
@@ -301,94 +299,6 @@ const UserManagement = ({ user }) => {
     }
   };
 
-  const handleUpdateUser = async (userId, userData) => {
-    const loadingToast = showLoadingToast('Updating user...');
-
-    try {
-      console.log('Updating user with data:', userData); // Debug log
-
-      // Get the current user to check for changes
-      const currentUser = allUsers.find(u => u.id === userId);
-      const wasStudent = currentUser?.role === 'student';
-      const oldParentId = currentUser?.parentId;
-      const newParentId = userData.parentId;
-
-      // Call the backend API to update user
-      const response = await usersService.updateUser(userId, userData);
-      console.log('Backend response:', response); // Debug log
-
-      // Update the user in local state
-      const updatedUser = {
-        ...response,
-        name: `${response.firstName} ${response.lastName}`
-      };
-
-      setAllUsers(prev => {
-        let newUsers = prev.map(user => {
-          if (user.id === userId) {
-            return { ...user, ...updatedUser };
-          }
-          return user;
-        });
-
-        // Handle parent-child relationship changes for students
-        if (userData.role === 'student' && (oldParentId !== newParentId)) {
-          console.log(`Student ${updatedUser.name} parent changed from ${oldParentId} to ${newParentId}`);
-          
-          // Remove from old parent's children if exists
-          if (oldParentId) {
-            newUsers = newUsers.map(user => {
-              if (user.id === oldParentId) {
-                const updatedChildren = (user.children || []).filter(child => child.id !== userId);
-                return {
-                  ...user,
-                  children: updatedChildren,
-                  studentIds: updatedChildren.map(c => c.id)
-                };
-              }
-              return user;
-            });
-          }
-
-          // Add to new parent's children if exists
-          if (newParentId) {
-            newUsers = newUsers.map(user => {
-              if (user.id === newParentId) {
-                const updatedChildren = [...(user.children || []), {
-                  ...updatedUser,
-                  birthDate: userData.birthDate,
-                  parentId: newParentId,
-                  isStudent: true
-                }];
-                return {
-                  ...user,
-                  children: updatedChildren,
-                  studentIds: updatedChildren.map(c => c.id)
-                };
-              }
-              return user;
-            });
-          }
-        }
-
-        return newUsers;
-      });
-
-      setShowEditModal(false);
-      setSelectedUser(null);
-
-      // Dismiss loading toast and show success toast
-      dismissToast(loadingToast);
-      showSuccessToast(`User ${response.firstName} ${response.lastName} updated successfully!`);
-    } catch (error) {
-      console.error('Error updating user:', error);
-      const errorMessage = error.message || error.response?.data?.message || 'Unknown error occurred';
-
-      // Dismiss loading toast and show error toast
-      dismissToast(loadingToast);
-      showErrorToast(`Error updating user: ${errorMessage}`);
-    }
-  };
 
   // Test token function
   const testToken = async () => {
@@ -486,9 +396,9 @@ const UserManagement = ({ user }) => {
               console.log(`🗑️ Deleting parent ${userToDelete.name} and all children`);
               const childrenIds = userToDelete.children?.map(child => child.id) || [];
               console.log(`👶 Children to remove: ${childrenIds.join(', ')}`);
-              
+
               // Remove the parent and all their children
-              return prev.filter(user => 
+              return prev.filter(user =>
                 user.id !== userId && // Remove the parent
                 !childrenIds.includes(user.id) // Remove all children
               );
@@ -774,23 +684,13 @@ const UserManagement = ({ user }) => {
           </td>
           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
             <div className="flex items-center justify-center space-x-2">
-              <button
-                onClick={() => {
-                  setSelectedUser(userItem);
-                  setShowEditModal(true);
-                }}
-                className="text-blue-600 hover:text-blue-900"
-                title="Edit User"
-              >
-                <Edit className="h-4 w-4" />
-              </button>
               {/* Debug info */}
               {console.log('Parent row delete button - userItem.id:', userItem.id, 'user?.id:', user?.id, 'canUserBeDeleted:', canUserBeDeleted(userItem))}
               <button
                 onClick={() => handleDeleteUser(userItem.id)}
                 className={`${canUserBeDeleted(userItem)
-                    ? 'text-red-600 hover:text-red-900'
-                    : 'text-gray-400 cursor-not-allowed'
+                  ? 'text-red-600 hover:text-red-900'
+                  : 'text-gray-400 cursor-not-allowed'
                   } transition-colors duration-200`}
                 title={getDeleteTooltip(userItem)}
                 disabled={userItem.id === user?.id || !canUserBeDeleted(userItem) || deletingUsers.has(userItem.id)}
@@ -835,20 +735,10 @@ const UserManagement = ({ user }) => {
           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
             <div className="flex items-center justify-center space-x-2">
               <button
-                onClick={() => {
-                  setSelectedUser(userItem);
-                  setShowEditModal(true);
-                }}
-                className="text-blue-600 hover:text-blue-900"
-                title="Edit User"
-              >
-                <Edit className="h-4 w-4" />
-              </button>
-              <button
                 onClick={() => handleDeleteUser(userItem.id)}
                 className={`${canUserBeDeleted(userItem)
-                    ? 'text-red-600 hover:text-red-900'
-                    : 'text-gray-400 cursor-not-allowed'
+                  ? 'text-red-600 hover:text-red-900'
+                  : 'text-gray-400 cursor-not-allowed'
                   } transition-colors duration-200`}
                 title={getDeleteTooltip(userItem)}
                 disabled={userItem.id === user?.id || !canUserBeDeleted(userItem) || deletingUsers.has(userItem.id)}
@@ -870,12 +760,11 @@ const UserManagement = ({ user }) => {
           <td className="px-6 py-4 whitespace-nowrap">
             <div className="flex items-center">
               <div className="flex-shrink-0 h-10 w-10">
-                <div className={`h-10 w-10 rounded-full flex items-center justify-center ${
-                    userItem.role === 'teacher' 
-                      ? 'bg-blue-500'
-                      : userItem.role === 'student' && !userItem.parent
-                        ? 'bg-red-500'
-                        : 'bg-green-500'
+                <div className={`h-10 w-10 rounded-full flex items-center justify-center ${userItem.role === 'teacher'
+                    ? 'bg-blue-500'
+                    : userItem.role === 'student' && !userItem.parent
+                      ? 'bg-red-500'
+                      : 'bg-green-500'
                   }`}>
                   <span className="text-white text-sm font-medium">
                     {userItem.name.charAt(0)}
@@ -899,20 +788,10 @@ const UserManagement = ({ user }) => {
           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
             <div className="flex items-center justify-center space-x-2">
               <button
-                onClick={() => {
-                  setSelectedUser(userItem);
-                  setShowEditModal(true);
-                }}
-                className="text-blue-600 hover:text-blue-900"
-                title="Edit User"
-              >
-                <Edit className="h-4 w-4" />
-              </button>
-              <button
                 onClick={() => handleDeleteUser(userItem.id)}
                 className={`${canUserBeDeleted(userItem)
-                    ? 'text-red-600 hover:text-red-900'
-                    : 'text-gray-400 cursor-not-allowed'
+                  ? 'text-red-600 hover:text-red-900'
+                  : 'text-gray-400 cursor-not-allowed'
                   } transition-colors duration-200`}
                 title={getDeleteTooltip(userItem)}
                 disabled={userItem.id === user?.id || !canUserBeDeleted(userItem) || deletingUsers.has(userItem.id)}
@@ -1047,7 +926,7 @@ const UserManagement = ({ user }) => {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
               </svg>
             </button>
-            
+
             {showLimitDropdown && (
               <div className="absolute bottom-full left-0 right-0 mb-1 bg-white border border-gray-300 rounded-md shadow-lg z-50">
                 <button
@@ -1180,189 +1059,58 @@ const UserManagement = ({ user }) => {
         />
       )}
 
-      {/* Edit User Modal */}
-      {showEditModal && selectedUser && (
-        <UserModal
-          title="Edit User"
-          user={selectedUser}
-          onClose={() => {
-            setShowEditModal(false);
-            setSelectedUser(null);
-          }}
-          onSubmit={(userData) => handleUpdateUser(selectedUser.id, userData)}
-        />
-      )}
     </div>
   );
 };
 
 // User Modal Component
 const UserModal = ({ title, user, onClose, onSubmit }) => {
-  const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
-    firstName: user?.firstName || '',
-    lastName: user?.lastName || '',
-    email: user?.email || '',
-    password: '',  // Always empty for edit mode
-    role: user?.role || '',  // Fill if editing existing user
-    phone: user?.phone || '',  // Phone is optional for all users
-    birthDate: user?.birthDate || '',  // Birth date for students
-    courses: user?.courses || '',  // Courses for teachers
-    studentIds: user?.studentIds || '',  // Student IDs for parents
-    parentId: user?.parentId || '',  // Parent ID for students
-    hasParent: user?.parentId ? 'yes' : 'no',  // Radio button for parent selection
+    email: '',
+    role: '',
   });
 
-  // Reset form when user prop changes
+  // Reset form when modal opens
   useEffect(() => {
     setFormData({
-      firstName: user?.firstName || '',
-      lastName: user?.lastName || '',
-      email: user?.email || '',
-      password: '',  // Always empty for edit mode
-      role: user?.role || '',  // Fill if editing existing user
-      phone: user?.phone || '',  // Phone is optional for all users
-      birthDate: user?.birthDate || '',  // Birth date for students
-      courses: user?.courses || '',  // Courses for teachers
-      studentIds: user?.studentIds || '',  // Student IDs for parents
-      parentId: user?.parentId || '',  // Parent ID for students
-      hasParent: user?.parentId ? 'yes' : 'no',  // Radio button for parent selection
+      email: '',
+      role: '',
     });
-  }, [user]);
-
-  // Memoize the phone onChange function to prevent infinite re-renders
-  const handlePhoneChange = useCallback((value) => {
-    setFormData(prev => ({ ...prev, phone: value }));
   }, []);
 
-  const handleSubmit = (e) => {
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // Validate required fields based on role
-    if (formData.role === 'student') {
-      if (!formData.birthDate) {
-        showErrorToast('Birth date is required for students');
-        return;
-      }
+    setLoading(true);
+
+    try {
+      // Only handle new user creation
+      const submitData = {
+        email: formData.email,
+        role: formData.role,
+        password: 'Password@123', // Default password for all new admin/teacher accounts
+        firstName: `New ${formData.role.charAt(0).toUpperCase() + formData.role.slice(1)}`, // Placeholder name
+        lastName: 'User', // Placeholder name
+        phone: '', // Empty - to be filled on first login
+      };
+
+      console.log('Creating new user data:', submitData);
+      await onSubmit(submitData);
+    } catch (error) {
+      console.error('Error in UserModal submit:', error);
+    } finally {
+      setLoading(false);
     }
-
-    const submitData = { ...formData };
-
-    // Don't send password if it's empty (for edit mode)
-    if (!submitData.password && user) {
-      delete submitData.password;
-    }
-
-    // Clean up the data based on role
-    if (submitData.role === 'student') {
-      // For students: keep birthDate, handle parentId based on hasParent selection
-      delete submitData.courses; // Remove courses for students
-      delete submitData.studentIds; // Remove studentIds for students
-
-      // Handle parent/phone based on hasParent selection
-      if (submitData.hasParent === 'yes') {
-        // Student has parent - keep parentId, remove phone
-        delete submitData.phone;
-        if (!submitData.parentId) {
-          delete submitData.parentId; // Don't send empty parentId
-        }
-      } else {
-        // Student has no parent - keep phone, remove parentId
-        delete submitData.parentId;
-        if (!submitData.phone) {
-          delete submitData.phone; // Don't send empty phone
-        }
-      }
-
-      // Remove hasParent from final data as it's only for UI logic
-      delete submitData.hasParent;
-    } else if (submitData.role === 'teacher') {
-      // For teachers: remove birthDate, phone is optional, handle courses
-      delete submitData.birthDate;
-      delete submitData.studentIds; // Remove studentIds for teachers
-      delete submitData.parentId; // Remove parentId for teachers
-      delete submitData.hasParent; // Remove hasParent for teachers
-      if (!submitData.phone) {
-        delete submitData.phone; // Don't send empty phone
-      }
-      // Convert courses string to array if provided
-      if (submitData.courses) {
-        submitData.courses = submitData.courses.split(',').map(course => course.trim()).filter(course => course);
-      } else {
-        delete submitData.courses; // Don't send empty courses
-      }
-    } else if (submitData.role === 'parent') {
-      // For parents: remove birthDate and courses, phone is optional, handle studentIds
-      delete submitData.birthDate;
-      delete submitData.courses; // Remove courses for parents
-      delete submitData.parentId; // Remove parentId for parents
-      delete submitData.hasParent; // Remove hasParent for parents
-      if (!submitData.phone) {
-        delete submitData.phone; // Don't send empty phone
-      }
-      // Handle studentIds - it should already be an array, but ensure it's properly formatted
-      if (submitData.studentIds) {
-        // If it's a string, convert to array; if it's already an array, keep it as is
-        if (typeof submitData.studentIds === 'string') {
-          submitData.studentIds = submitData.studentIds.split(',').map(id => id.trim()).filter(id => id);
-        } else if (Array.isArray(submitData.studentIds)) {
-          // Already an array, just ensure it's clean
-          submitData.studentIds = submitData.studentIds.filter(id => id && id.trim());
-        }
-      } else {
-        delete submitData.studentIds; // Don't send empty studentIds
-      }
-    } else {
-      // For other roles (admin): remove birthDate, courses, studentIds, and parentId, phone is optional
-      delete submitData.birthDate;
-      delete submitData.courses;
-      delete submitData.studentIds;
-      delete submitData.parentId;
-      delete submitData.hasParent; // Remove hasParent for other roles
-      if (!submitData.phone) {
-        delete submitData.phone; // Don't send empty phone
-      }
-    }
-
-    // Ensure birthDate is properly formatted for students
-    if (submitData.birthDate) {
-      submitData.birthDate = submitData.birthDate; // Keep as ISO string from date input
-    }
-
-    console.log('Submitting user data:', submitData); // Debug log
-    onSubmit(submitData);
   };
 
   return (
     <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 flex items-center" style={{ margin: 0 }}>
       <div className="relative mx-auto p-5 border w-96 shadow-lg rounded-md bg-white max-h-[90vh] overflow-y-auto">
         <div className="mt-1">
-          <h3 className="text-lg font-medium text-gray-900 mb-4">{title}</h3>
+          <h3 className="text-lg font-medium text-gray-900 mb-2">{title}</h3>
           <form onSubmit={handleSubmit} className="space-y-3">
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-sm font-medium text-gray-700">First Name</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="First name"
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  value={formData.firstName}
-                  onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Last Name</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="Last name"
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  value={formData.lastName}
-                  onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
-                />
-              </div>
-            </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700">Email</label>
@@ -1376,29 +1124,6 @@ const UserModal = ({ title, user, onClose, onSubmit }) => {
               />
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700">
-                Password {user ? '(leave empty to keep current)' : '(min 8 characters)'}
-              </label>
-              <div className="relative">
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  required={!user}
-                  minLength={8}
-                  placeholder="Enter password"
-                  className="mt-1 block w-full px-3 py-2 pr-10 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  value={formData.password}
-                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-3 text-gray-400 hover:text-gray-600"
-                >
-                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
-              </div>
-            </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700">Role</label>
@@ -1408,155 +1133,49 @@ const UserModal = ({ title, user, onClose, onSubmit }) => {
                 value={formData.role}
                 onChange={(e) => {
                   const newRole = e.target.value;
-                  // Clear fields when switching roles
-                  if (newRole === 'student') {
-                    setFormData({ ...formData, role: newRole, birthDate: '', courses: '', studentIds: '', parentId: '', hasParent: 'no' });
-                  } else if (newRole === 'teacher') {
-                    setFormData({ ...formData, role: newRole, birthDate: '', courses: '', studentIds: '', parentId: '', hasParent: 'no' });
-                  } else if (newRole === 'parent') {
-                    setFormData({ ...formData, role: newRole, birthDate: '', courses: '', studentIds: '', parentId: '', hasParent: 'no' });
+                  // Clear fields when switching roles - only admin and teacher allowed
+                  if (newRole === 'teacher') {
+                    setFormData({ ...formData, role: newRole, courses: '' });
+                  } else if (newRole === 'admin') {
+                    setFormData({ ...formData, role: newRole, courses: '' });
                   } else {
-                    setFormData({ ...formData, role: newRole, birthDate: '', courses: '', studentIds: '', parentId: '', hasParent: 'no' });
+                    setFormData({ ...formData, role: newRole, courses: '' });
                   }
                 }}
               >
                 <option value="">Select Role</option>
-                <option value="student">Student</option>
                 <option value="teacher">Teacher</option>
-                <option value="parent">Parent</option>
                 <option value="admin">Admin</option>
               </select>
-              {formData.role === 'student' && (
+              {formData.role && (
                 <p className="mt-1 text-xs text-gray-500">
-                  Students: Birth date is required. Choose if student has parent or not.
-                </p>
-              )}
-              {formData.role === 'teacher' && (
-                <p className="mt-1 text-xs text-gray-500">
-                  Teachers: Phone number and courses are optional
-                </p>
-              )}
-              {formData.role === 'parent' && (
-                <p className="mt-1 text-xs text-gray-500">
-                  Parents: Phone number and student IDs are optional
-                </p>
-              )}
-              {formData.role === 'admin' && (
-                <p className="mt-1 text-xs text-gray-500">
-                  Admins: Phone number is optional
+                  The temporary password is <strong className="text-blue-600 font-bold">Password@123</strong>
                 </p>
               )}
             </div>
 
-            {/* Phone number - conditional based on role and parent selection */}
-            {formData.role && formData.role !== 'student' && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Phone (Optional)</label>
-                <PhoneInput
-                  value={formData.phone}
-                  onChange={handlePhoneChange}
-                  placeholder="Enter phone number"
-                  required={false}
-                />
-              </div>
-            )}
-
-            {/* Date of Birth - required for students */}
-            {formData.role === 'student' && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Date of Birth *</label>
-                <input
-                  type="date"
-                  required
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  value={formData.birthDate}
-                  onChange={(e) => setFormData({ ...formData, birthDate: e.target.value })}
-                />
-                <p className="mt-1 text-xs text-gray-500">Required for student accounts</p>
-              </div>
-            )}
-
-            {/* Parent Selection - for students only */}
-            {formData.role === 'student' && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Does this student have a parent?</label>
-                <div className="flex space-x-4">
-                  <label className="flex items-center">
-                    <input
-                      type="radio"
-                      name="hasParent"
-                      value="yes"
-                      checked={formData.hasParent === 'yes'}
-                      onChange={(e) => setFormData({ ...formData, hasParent: e.target.value, phone: '', parentId: '' })}
-                      className="mr-2"
-                    />
-                    <span className="text-sm text-gray-700">Yes, has parent</span>
-                  </label>
-                  <label className="flex items-center">
-                    <input
-                      type="radio"
-                      name="hasParent"
-                      value="no"
-                      checked={formData.hasParent === 'no'}
-                      onChange={(e) => setFormData({ ...formData, hasParent: e.target.value, phone: '', parentId: '' })}
-                      className="mr-2"
-                    />
-                    <span className="text-sm text-gray-700">No parent</span>
-                  </label>
-                </div>
-              </div>
-            )}
-
-            {/* Parent ID - for students with parent */}
-            {formData.role === 'student' && formData.hasParent === 'yes' && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Parent ID *</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="Enter parent user ID"
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  value={formData.parentId || ''}
-                  onChange={(e) => setFormData({ ...formData, parentId: e.target.value })}
-                />
-                <p className="mt-1 text-xs text-gray-500">Enter the UUID of the parent user</p>
-              </div>
-            )}
-
-            {/* Phone number - for students without parent */}
-            {formData.role === 'student' && formData.hasParent === 'no' && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Phone Number *</label>
-                <PhoneInput
-                  value={formData.phone}
-                  onChange={handlePhoneChange}
-                  placeholder="Enter phone number"
-                  required={true}
-                />
-                <p className="mt-1 text-xs text-gray-500">Required for students without parents</p>
-              </div>
-            )}
 
             <div className="flex justify-end space-x-3 pt-4">
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-2 border-2 border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition-all duration-200"
+                disabled={loading}
+                className="px-4 py-2 border-2 border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                disabled={isCreatingUser}
+                disabled={loading}
                 className="px-4 py-2 border-2 border-green-600 text-green-600 rounded-md hover:bg-green-600 hover:text-white transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
               >
-                {isCreatingUser ? (
+                {loading ? (
                   <>
                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-600 mr-2"></div>
-                    {user ? 'Updating...' : 'Creating...'}
+                    Creating...
                   </>
                 ) : (
-                  user ? 'Update' : 'Create'
+                  'Create'
                 )}
               </button>
             </div>

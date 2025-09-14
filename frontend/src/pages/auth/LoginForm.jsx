@@ -3,6 +3,7 @@ import { Eye, EyeOff, User, Lock } from 'lucide-react';
 import { showSuccessToast, showErrorToast, showLoadingToast, dismissToast } from '../../utils/toast.jsx';
 import { authService } from '../../services';
 import PhoneInput from '../../components/ui/PhoneInput';
+import ProfileCompletionModal from '../../pages/auth/ProfileCompletionModal';
 
 const LoginForm = React.memo(({ onLogin, onRegister }) => {
   const [isLogin, setIsLogin] = useState(true);
@@ -19,6 +20,8 @@ const LoginForm = React.memo(({ onLogin, onRegister }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [showProfileCompletion, setShowProfileCompletion] = useState(false);
+  const [pendingUser, setPendingUser] = useState(null);
 
   // Real authentication function using authService
   const authenticateUser = async (email, password) => {
@@ -62,6 +65,17 @@ const LoginForm = React.memo(({ onLogin, onRegister }) => {
 
           if (authResult && authResult.user) {
             console.log('Authentication successful:', authResult);
+            
+            // Check if user needs to complete their profile (has placeholder names)
+            const hasPlaceholderName = authResult.user.firstName?.startsWith('New ') && authResult.user.lastName === 'User';
+            if (hasPlaceholderName) {
+              console.log('User requires profile completion - has placeholder name');
+              dismissToast(loadingToast);
+              setPendingUser(authResult.user);
+              setShowProfileCompletion(true);
+              return;
+            }
+            
             console.log('Calling onLogin...'); // Debug log
             
             // Dismiss loading toast and show success toast
@@ -198,6 +212,30 @@ const LoginForm = React.memo(({ onLogin, onRegister }) => {
       ...prev,
       role: role
     }));
+  };
+
+  const handleProfileCompletion = (updatedUser) => {
+    // Profile completed successfully, now proceed with login
+    console.log('Profile completion successful:', updatedUser);
+    setShowProfileCompletion(false);
+    setPendingUser(null);
+    
+    // Get the token from localStorage (it should be there from the initial login)
+    const token = localStorage.getItem('token');
+    if (token) {
+      onLogin(updatedUser, token);
+    } else {
+      showErrorToast('Session expired. Please login again.');
+    }
+  };
+
+  const handleProfileCompletionCancel = () => {
+    // User cancelled profile completion, clear everything
+    console.log('Profile completion cancelled');
+    setShowProfileCompletion(false);
+    setPendingUser(null);
+    authService.logout(); // Clear the temporary login
+    showErrorToast('Profile completion is required to access the platform.');
   };
 
   return (
@@ -492,6 +530,15 @@ const LoginForm = React.memo(({ onLogin, onRegister }) => {
                <div>• All data is securely stored and managed</div>
              </div>
            </div>
+        )}
+
+        {/* Profile Completion Modal */}
+        {showProfileCompletion && pendingUser && (
+          <ProfileCompletionModal
+            user={pendingUser}
+            onComplete={handleProfileCompletion}
+            onCancel={handleProfileCompletionCancel}
+          />
         )}
       </div>
     </div>
