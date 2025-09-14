@@ -59,7 +59,7 @@ export class NotificationsController {
     @Query('archived', new DefaultValuePipe(false)) archived: boolean,
     @Query('type') type?: NotificationType,
   ) {
-    const userId = req.user.id;
+    const userId = req.user.sub;
     return this.notificationsService.findAll(userId, {
       limit,
       offset,
@@ -73,7 +73,7 @@ export class NotificationsController {
   @ApiOperation({ summary: 'Get unread notification count' })
   @ApiResponse({ status: 200, description: 'Unread count retrieved successfully' })
   async getUnreadCount(@Request() req) {
-    const userId = req.user.id;
+    const userId = req.user.sub;
     const count = await this.notificationsService.getUnreadCount(userId);
     return { count };
   }
@@ -86,7 +86,7 @@ export class NotificationsController {
     @Param('id', ParseUUIDPipe) id: string,
     @Request() req,
   ): Promise<NotificationResponseDto> {
-    const userId = req.user.id;
+    const userId = req.user.sub;
     return this.notificationsService.findOne(id, userId);
   }
 
@@ -99,7 +99,7 @@ export class NotificationsController {
     @Body() updateNotificationDto: UpdateNotificationDto,
     @Request() req,
   ): Promise<NotificationResponseDto> {
-    const userId = req.user.id;
+    const userId = req.user.sub;
     return this.notificationsService.update(id, userId, updateNotificationDto);
   }
 
@@ -110,7 +110,7 @@ export class NotificationsController {
     @Body() markAllReadDto: MarkAllReadDto,
     @Request() req,
   ) {
-    const userId = req.user.id;
+    const userId = req.user.sub;
     return this.notificationsService.markAllAsRead(userId, markAllReadDto);
   }
 
@@ -122,7 +122,7 @@ export class NotificationsController {
     @Param('id', ParseUUIDPipe) id: string,
     @Request() req,
   ): Promise<{ message: string }> {
-    const userId = req.user.id;
+    const userId = req.user.sub; // Changed from req.user.id to req.user.sub
     await this.notificationsService.delete(id, userId);
     return { message: 'Notification deleted successfully' };
   }
@@ -135,7 +135,7 @@ export class NotificationsController {
     @Param('id', ParseUUIDPipe) id: string,
     @Request() req,
   ): Promise<NotificationResponseDto> {
-    const userId = req.user.id;
+    const userId = req.user.sub;
     return this.notificationsService.archive(id, userId);
   }
 
@@ -154,7 +154,7 @@ export class NotificationsController {
     @Body() testNotificationDto: TestNotificationDto,
     @Request() req,
   ): Promise<NotificationResponseDto> {
-    const userId = testNotificationDto.userId || req.user.id;
+    const userId = testNotificationDto.userId || req.user.sub;
     const message = testNotificationDto.message || 'This is a test notification';
     
     return this.notificationsService.create({

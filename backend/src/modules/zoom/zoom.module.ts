@@ -8,11 +8,12 @@ import { User } from '../users/entities/user.entity';
 import { Attendance } from '../materials/entities/attendance.entity';
 import { Course } from '../courses/entities/course.entity';
 import { Class } from '../classes/entities/class.entity';
+import { Parent } from '../parents/entities/parent.entity';
 import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([ZoomMeeting, User, Attendance, Course, Class]),
+    TypeOrmModule.forFeature([ZoomMeeting, User, Attendance, Course, Class, Parent]),
     forwardRef(() => NotificationsModule)
   ],
   controllers: [ZoomController],

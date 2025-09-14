@@ -20,6 +20,7 @@ import { ChangePasswordDto } from './dto/change-password.dto';
 import { Role } from '../../common/enums/role.enum';
 import { StudentsService } from '../students/students.service';
 import { ParentsService } from '../parents/parents.service';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class AuthService {
@@ -29,6 +30,7 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly studentsService: StudentsService,
     private readonly parentsService: ParentsService,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   async register(registerDto: RegisterDto) {
@@ -102,6 +104,29 @@ export class AuthService {
       // For now, just log the error - in production you might want to handle this differently
       console.error('Failed to create record in separate table:', error);
       // Note: The user account is still created in the users table
+    }
+
+    // Notify all admins about the new user registration
+    try {
+      const adminUsers = await this.userRepository.find({
+        where: { role: Role.Admin }
+      });
+      
+      if (adminUsers.length > 0) {
+        const adminIds = adminUsers.map(admin => admin.id);
+        await this.notificationsService.createNewUserJoinedNotification(
+          adminIds,
+          `${savedUser.firstName} ${savedUser.lastName}`,
+          savedUser.role,
+          {
+            userId: savedUser.id,
+            email: savedUser.email
+          }
+        );
+        console.log('✅ New user registration notification sent to admins');
+      }
+    } catch (error) {
+      console.error('❌ Failed to send new user registration notification:', error);
     }
 
     // Generate JWT token

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useReducer, useEffect } from 'react';
+import React, { createContext, useContext, useReducer, useEffect , useState} from 'react';
 import { notificationService } from '../services/notificationService';
 
 // Notification types
@@ -68,9 +68,14 @@ const notificationReducer = (state, action) => {
       return { ...state, lastFetchTime: action.payload };
     
     case ActionTypes.SET_NOTIFICATIONS:
+      // Remove duplicates by ID when setting notifications
+      const uniqueNotifications = action.payload.notifications.filter((notification, index, self) => 
+        index === self.findIndex(n => n.id === notification.id)
+      );
+      
       return { 
         ...state, 
-        notifications: action.payload.notifications,
+        notifications: uniqueNotifications,
         unreadCount: action.payload.total,
         isLoading: false,
         error: null,
@@ -79,6 +84,13 @@ const notificationReducer = (state, action) => {
       };
     
     case ActionTypes.ADD_NOTIFICATION:
+      // Check if notification already exists to prevent duplicates
+      const existingNotification = state.notifications.find(n => n.id === action.payload.id);
+      if (existingNotification) {
+        console.log('🔔 Notification already exists, skipping duplicate:', action.payload.id);
+        return state;
+      }
+      
       return {
         ...state,
         notifications: [action.payload, ...state.notifications],
@@ -136,24 +148,48 @@ let globalLoadingState = {
 };
 
 // Provider component
-export const NotificationProvider = ({ children }) => {
+export const NotificationProvider = ({ children, user }) => {
   const [state, dispatch] = useReducer(notificationReducer, initialState);
+  const [isInitialized, setIsInitialized] = useState(false);
 
-  // Load notifications on mount - only once
+  // Initialize notifications when user is available
   useEffect(() => {
     const token = localStorage.getItem('token');
-    if (token) {
+    
+    console.log('🔔 NotificationContext: User state changed...', {
+      hasUser: !!user,
+      userData: user,
+      hasToken: !!token,
+      tokenLength: token ? token.length : 0,
+      isInitialized
+    });
+    
+    if (user && token && !isInitialized) {
+      console.log('🔔 NotificationContext: Initializing with user and token...');
       notificationService.connect(token);
       setupSocketConnection();
       
       // Load notifications only once on mount
       loadNotifications({ limit: 20 }, true);
-      
-      return () => {
-        notificationService.disconnect();
-      };
+      setIsInitialized(true);
+    } else if (!user && isInitialized) {
+      console.log('🔔 NotificationContext: User logged out, disconnecting...');
+      notificationService.disconnect();
+      setIsInitialized(false);
+    } else if (!token) {
+      console.warn('🔔 NotificationContext: No token found, skipping initialization');
+      console.log('💡 To fix this: Make sure you are logged in and the token is stored in localStorage');
     }
-  }, []); // Empty dependency array ensures this only runs once
+  }, [user, isInitialized]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (isInitialized) {
+        notificationService.disconnect();
+      }
+    };
+  }, [isInitialized]);
 
   const setupSocketConnection = () => {
     notificationService.on('connect', () => {
@@ -165,6 +201,7 @@ export const NotificationProvider = ({ children }) => {
     });
 
     notificationService.on('new_notification', (notification) => {
+      console.log('🔔 New notification received via WebSocket:', notification);
       dispatch({ type: ActionTypes.ADD_NOTIFICATION, payload: notification });
     });
 
@@ -216,6 +253,7 @@ export const NotificationProvider = ({ children }) => {
         const response = await notificationService.getNotifications(options);
         
         // Always update the state with the response
+        console.log('📥 API Response:', response);
         dispatch({ 
           type: ActionTypes.SET_NOTIFICATIONS, 
           payload: { 
@@ -223,7 +261,7 @@ export const NotificationProvider = ({ children }) => {
             total: response.total || 0 
           }
         });
-        console.log(`Loaded ${response.notifications?.length || 0} notifications`);
+        console.log(`Loaded ${response.notifications?.length || 0} notifications:`, response.notifications);
         
       } catch (error) {
         console.error('Error loading notifications:', error);
@@ -248,9 +286,10 @@ export const NotificationProvider = ({ children }) => {
   const markAsRead = async (notificationId) => {
     try {
       await notificationService.markAsRead(notificationId);
+      // Remove the notification from the list since it's deleted from database
       dispatch({ 
-        type: ActionTypes.UPDATE_NOTIFICATION, 
-        payload: { id: notificationId, isRead: true, readAt: new Date() }
+        type: ActionTypes.REMOVE_NOTIFICATION, 
+        payload: notificationId
       });
     } catch (error) {
       dispatch({ type: ActionTypes.SET_ERROR, payload: error.message });
@@ -260,7 +299,8 @@ export const NotificationProvider = ({ children }) => {
   const markAllAsRead = async (type = null) => {
     try {
       await notificationService.markAllAsRead(type);
-      dispatch({ type: ActionTypes.MARK_ALL_READ });
+      // Clear all notifications since they're deleted from database
+      dispatch({ type: ActionTypes.SET_NOTIFICATIONS, payload: { notifications: [], total: 0 } });
     } catch (error) {
       dispatch({ type: ActionTypes.SET_ERROR, payload: error.message });
     }

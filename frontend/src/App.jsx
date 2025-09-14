@@ -161,7 +161,7 @@ function App() {
   return (
     <HelmetProvider>
       <ErrorBoundary>
-        <NotificationProvider>
+        <NotificationProvider user={user}>
           <div className="App">
             {showLogin ? (
               <LoginForm onLogin={handleLogin} onRegister={() => setShowLogin(false)} />

@@ -7,6 +7,7 @@ import { UpdateZoomMeetingDto } from './dto/update-zoom-meeting.dto';
 import { User } from '../users/entities/user.entity';
 import { Attendance } from '../materials/entities/attendance.entity';
 import { Course } from '../courses/entities/course.entity';
+import { Parent } from '../parents/entities/parent.entity';
 import { Role } from '../../common/enums/role.enum';
 import { NotificationsService } from '../notifications/notifications.service';
 import { ZoomApiService } from './services/zoom-api.service';
@@ -22,6 +23,8 @@ export class ZoomService {
     private readonly attendanceRepository: Repository<Attendance>,
     @InjectRepository(Course)
     private readonly courseRepository: Repository<Course>,
+    @InjectRepository(Parent)
+    private readonly parentRepository: Repository<Parent>,
     @Inject(forwardRef(() => NotificationsService))
     private readonly notificationsService: NotificationsService,
     private readonly zoomApiService: ZoomApiService,
@@ -513,7 +516,12 @@ export class ZoomService {
     }
 
     meeting.status = 'ended';
-    return await this.zoomMeetingRepository.save(meeting);
+    const savedMeeting = await this.zoomMeetingRepository.save(meeting);
+
+    // Check attendance and send notifications for absent students
+    await this.checkAttendanceAndSendNotifications(meeting);
+
+    return savedMeeting;
   }
 
   async cancelMeeting(id: string, userId: string): Promise<ZoomMeeting> {
@@ -870,5 +878,89 @@ export class ZoomService {
     }
 
     return attendanceRecords;
+  }
+
+  // Check attendance after meeting ends and send notifications for absent students
+  private async checkAttendanceAndSendNotifications(meeting: ZoomMeeting): Promise<void> {
+    try {
+      console.log(`🔍 Checking attendance for ended meeting: ${meeting.title} (ID: ${meeting.id})`);
+
+      // Get all attendance records for this meeting
+      const attendanceRecords = await this.attendanceRepository.find({
+        where: { meetingId: meeting.id },
+        relations: ['student']
+      });
+
+      console.log(`📊 Found ${attendanceRecords.length} attendance records for meeting ${meeting.id}`);
+
+      // Find absent students
+      const absentStudents = attendanceRecords.filter(record => record.status === 'absent');
+      console.log(`❌ Found ${absentStudents.length} absent students`);
+
+      if (absentStudents.length === 0) {
+        console.log('✅ No absent students found - no notifications to send');
+        return;
+      }
+
+      // Send notifications for each absent student
+      for (const attendanceRecord of absentStudents) {
+        const student = attendanceRecord.student;
+        if (!student) {
+          console.log(`⚠️ Student not found for attendance record ${attendanceRecord.id}`);
+          continue;
+        }
+
+        console.log(`📤 Sending absent notification for student: ${student.firstName} ${student.lastName}`);
+
+        // Send notification to the student
+        await this.notificationsService.createAbsentNotification(
+          student.id,
+          meeting.title,
+          false, // isParent = false
+          undefined, // childName not needed for student
+          {
+            meetingId: meeting.id,
+            courseId: meeting.courseId,
+            sessionTitle: meeting.title,
+            studentId: student.id
+          }
+        );
+
+        // Find parent(s) of this student
+        const parents = await this.parentRepository.find({
+          where: {
+            studentIds: In([student.id]) // Find parents who have this student in their studentIds array
+          },
+          relations: ['user']
+        });
+
+        console.log(`👨‍👩‍👧‍👦 Found ${parents.length} parent(s) for student ${student.firstName} ${student.lastName}`);
+
+        // Send notification to each parent
+        for (const parent of parents) {
+          if (parent.user) {
+            console.log(`📤 Sending absent notification to parent: ${parent.user.firstName} ${parent.user.lastName}`);
+            
+            await this.notificationsService.createAbsentNotification(
+              parent.user.id,
+              meeting.title,
+              true, // isParent = true
+              `${student.firstName} ${student.lastName}`, // childName
+              {
+                meetingId: meeting.id,
+                courseId: meeting.courseId,
+                sessionTitle: meeting.title,
+                studentId: student.id,
+                parentId: parent.user.id
+              }
+            );
+          }
+        }
+      }
+
+      console.log(`✅ Attendance check completed for meeting ${meeting.title}`);
+    } catch (error) {
+      console.error(`❌ Error checking attendance for meeting ${meeting.id}:`, error);
+    }
   }
 }

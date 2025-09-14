@@ -8,6 +8,35 @@ import AssignmentsTab from './AssignmentsTab';
 import { materialsService } from '../../../services';
 
 const MaterialPages = ({ courseData, onBack, currentUser }) => {
+  // Debug logging for teacher course data
+  console.log('🔍 MaterialPages received courseData:', courseData);
+  console.log('🔍 MaterialPages received currentUser:', currentUser);
+  console.log('🔍 CourseData structure:', {
+    id: courseData?.id,
+    name: courseData?.name,
+    courseId: courseData?.courseId,
+    classId: courseData?.classId,
+    teacherId: courseData?.teacherId,
+    hasId: !!courseData?.id
+  });
+  
+  // Validate course data
+  if (!courseData || !courseData.id) {
+    console.error('❌ MaterialPages: Invalid course data - missing ID');
+    return (
+      <div className="flex flex-col items-center justify-center h-64 text-center">
+        <div className="text-red-500 text-lg font-semibold mb-2">⚠️ Invalid Course Data</div>
+        <div className="text-gray-600 mb-4">Course information is missing or invalid.</div>
+        <button
+          onClick={onBack}
+          className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+        >
+          Go Back
+        </button>
+      </div>
+    );
+  }
+  
   // Get theme colors based on user role
   const getThemeColors = () => {
     switch (currentUser?.role) {

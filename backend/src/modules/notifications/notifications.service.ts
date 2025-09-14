@@ -111,20 +111,24 @@ export class NotificationsService {
       throw new Error('Notification not found');
     }
 
-    // Update readAt timestamp when marking as read
+    // If marking as read, delete the notification instead of updating it
     if (updateNotificationDto.isRead && !notification.isRead) {
-      updateNotificationDto['readAt'] = new Date();
+      await this.notificationRepository.remove(notification);
+      this.logger.log(`Deleted notification ${id} for user ${userId} after marking as read`);
+      return notification; // Return the deleted notification for response
     }
 
+    // For other updates (not marking as read), update normally
     Object.assign(notification, updateNotificationDto);
     return this.notificationRepository.save(notification);
   }
 
   async markAllAsRead(userId: string, markAllReadDto?: MarkAllReadDto): Promise<{ count: number }> {
+    // Delete all unread notifications instead of marking them as read
     const queryBuilder = this.notificationRepository
       .createQueryBuilder()
-      .update(Notification)
-      .set({ isRead: true, readAt: new Date() })
+      .delete()
+      .from(Notification)
       .where('userId = :userId', { userId })
       .andWhere('isRead = :isRead', { isRead: false });
 
@@ -134,7 +138,7 @@ export class NotificationsService {
 
     const result = await queryBuilder.execute();
     
-    this.logger.log(`Marked ${result.affected} notifications as read for user ${userId}`);
+    this.logger.log(`Deleted ${result.affected} unread notifications for user ${userId}`);
     return { count: result.affected || 0 };
   }
 
@@ -188,7 +192,14 @@ export class NotificationsService {
     console.log('📝 Notifications to create:', notifications);
 
     try {
-      const savedNotifications = await this.notificationRepository.save(notifications);
+      // Create notifications one by one to trigger real-time updates
+      const savedNotifications = [];
+      for (const notificationData of notifications) {
+        const savedNotification = await this.create(notificationData);
+        if (savedNotification) {
+          savedNotifications.push(savedNotification);
+        }
+      }
       console.log('✅ Successfully created notifications:', savedNotifications.length);
       this.logger.log(`Created assignment published notifications for ${studentIds.length} students`);
     } catch (error) {
@@ -250,7 +261,10 @@ export class NotificationsService {
       metadata: { sessionTitle, startTime, ...metadata },
     }));
 
-    await this.notificationRepository.save(notifications);
+    // Create notifications one by one to trigger real-time updates
+    for (const notificationData of notifications) {
+      await this.create(notificationData);
+    }
     this.logger.log(`Created zoom session ${sessionType} notifications for ${userIds.length} users`);
   }
 
@@ -279,7 +293,10 @@ export class NotificationsService {
       metadata: { postTitle, authorName, courseName, ...metadata },
     }));
 
-    await this.notificationRepository.save(notifications);
+    // Create notifications one by one to trigger real-time updates
+    for (const notificationData of notifications) {
+      await this.create(notificationData);
+    }
     this.logger.log(`Created new post notifications for ${userIds.length} users`);
   }
 
@@ -316,6 +333,23 @@ export class NotificationsService {
     const notificationsDisabled = this.configService.get<boolean>('DISABLE_NOTIFICATIONS', false);
     if (notificationsDisabled) {
       this.logger.log('Notifications are disabled - skipping absent notification');
+      return;
+    }
+
+    // Check if user already has an absent notification for this session
+    const existingAbsentNotification = await this.notificationRepository.findOne({
+      where: {
+        userId,
+        type: isParent ? NotificationType.CHILD_ABSENT : NotificationType.MARKED_ABSENT,
+        metadata: {
+          sessionTitle: metadata?.sessionTitle || sessionTitle,
+          meetingId: metadata?.meetingId
+        }
+      }
+    });
+
+    if (existingAbsentNotification) {
+      console.log(`⚠️ User ${userId} already has an absent notification for session "${sessionTitle}" - skipping duplicate notification`);
       return;
     }
 
@@ -381,8 +415,57 @@ export class NotificationsService {
       metadata: { userName, userRole, ...metadata },
     }));
 
-    await this.notificationRepository.save(notifications);
+    // Create notifications one by one to trigger real-time updates
+    for (const notificationData of notifications) {
+      await this.create(notificationData);
+    }
     this.logger.log(`Created new user joined notifications for ${adminIds.length} admins`);
+  }
+
+  async createChildAddedToClassNotification(
+    parentId: string,
+    childName: string,
+    className: string,
+    metadata?: Record<string, any>
+  ): Promise<void> {
+    // Check if notifications are disabled
+    const notificationsDisabled = this.configService.get<boolean>('DISABLE_NOTIFICATIONS', false);
+    if (notificationsDisabled) {
+      this.logger.log('Notifications are disabled - skipping child added to class notification');
+      return;
+    }
+
+    await this.create({
+      userId: parentId,
+      type: NotificationType.CHILD_ADDED_TO_CLASS,
+      priority: NotificationPriority.MEDIUM,
+      title: 'Child Added to Class',
+      message: `Your child ${childName} has been added to the class "${className}"`,
+      metadata: { childName, className, ...metadata },
+    });
+  }
+
+  async createAddedToCourseNotification(
+    teacherId: string,
+    courseName: string,
+    className: string,
+    metadata?: Record<string, any>
+  ): Promise<void> {
+    // Check if notifications are disabled
+    const notificationsDisabled = this.configService.get<boolean>('DISABLE_NOTIFICATIONS', false);
+    if (notificationsDisabled) {
+      this.logger.log('Notifications are disabled - skipping added to course notification');
+      return;
+    }
+
+    await this.create({
+      userId: teacherId,
+      type: NotificationType.ADDED_TO_COURSE,
+      priority: NotificationPriority.MEDIUM,
+      title: 'Added to Course',
+      message: `You have been added as a teacher to the course "${courseName}" in class "${className}"`,
+      metadata: { courseName, className, ...metadata },
+    });
   }
 
   // Cleanup method for old notifications

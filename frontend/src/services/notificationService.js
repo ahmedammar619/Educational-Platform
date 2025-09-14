@@ -24,6 +24,7 @@ class NotificationService {
     }
 
     const backendUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+    console.log('🔌 NotificationService: Connecting to backend at:', backendUrl);
     
     console.log('🔌 Connecting to Socket.IO with token:', this.token ? `${this.token.substring(0, 20)}...` : 'No token');
     

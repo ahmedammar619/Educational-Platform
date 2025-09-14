@@ -22,8 +22,8 @@ import baraemLogo from '../../assets/baraem.svg';
 import UserProfilePopup from '../ui/UserProfilePopup';
 import { AlertDialog } from '../ui';
 import useAlert from '../../hooks/useAlert';
-// import NotificationDropdown from '../notifications/NotificationDropdown';
-// import { useNotifications } from '../../contexts/NotificationContext';
+import NotificationDropdown from '../notifications/NotificationDropdown';
+import { useNotifications } from '../../contexts/NotificationContext';
 
 // Role-based navigation configurations
 const getNavigationConfig = (role) => {
@@ -135,8 +135,8 @@ const MainLayout = ({ user, onLogout, children, routes }) => {
   const location = useLocation();
   const [showProfilePopup, setShowProfilePopup] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  // const [showNotifications, setShowNotifications] = useState(false);
-  // const { unreadCount, isConnected } = useNotifications();
+  const [showNotifications, setShowNotifications] = useState(false);
+  const { unreadCount, isConnected } = useNotifications();
 
   const userRole = user?.role || 'student';
   const navigation = getNavigationConfig(userRole);
@@ -195,7 +195,7 @@ const MainLayout = ({ user, onLogout, children, routes }) => {
   };
 
   const handleNotificationClick = () => {
-    // setShowNotifications(!showNotifications);
+    setShowNotifications(!showNotifications);
     setShowProfilePopup(false); // Close profile popup if open
   };
 
@@ -283,7 +283,7 @@ const MainLayout = ({ user, onLogout, children, routes }) => {
                 {sidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
               </button>
 
-              {/* <div className="relative">
+              <div className="relative">
                 <button 
                   onClick={handleNotificationClick}
                   className={`relative p-2 text-gray-400 ${colors.hover} transition-colors`}
@@ -304,7 +304,7 @@ const MainLayout = ({ user, onLogout, children, routes }) => {
                   isOpen={showNotifications}
                   onClose={() => setShowNotifications(false)}
                 />
-              </div> */}
+              </div>
 
               <div className="flex items-center space-x-3">
                 <button

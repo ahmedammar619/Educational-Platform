@@ -827,23 +827,27 @@ export class MaterialsService {
       throw new NotFoundException(`Course with ID ${courseId} not found`);
     }
 
-    // Get student list directly from database by joining with class_students table
+    // Get student list from the classes.students field (comma-separated string)
     const classData = await this.courseRepository.manager.query(`
-      SELECT c.id, c.name, cs.student_id 
+      SELECT c.id, c.name, c.students 
       FROM classes c
-      LEFT JOIN class_students cs ON cs.class_id = c.id
       WHERE c.id = $1
     `, [course.classId]);
 
     // Enhanced debugging for class data
     console.log('Raw class data:', classData);
 
-    // Get student IDs from the class_students table
-    const studentIds = classData
-      .filter(row => row.student_id)  // Filter out null student_ids
-      .map(row => row.student_id);    // Extract just the student_ids
+    // Get student IDs from the classes.students field
+    let studentIds: string[] = [];
+    if (classData.length > 0 && classData[0].students) {
+      const studentsString = classData[0].students;
+      studentIds = studentsString.split(',').map(id => id.trim()).filter(id => id.length > 0);
+      
+      // Remove duplicates to prevent duplicate notifications
+      studentIds = [...new Set(studentIds)];
+    }
 
-    console.log('Found student IDs from class_students table:', studentIds);
+    console.log('Found student IDs from classes.students field:', studentIds);
 
     console.log('Course found:', { courseId, courseName: course.name, classId: course.class?.id });
     console.log('Parsed student IDs:', studentIds);
@@ -945,7 +949,7 @@ export class MaterialsService {
   async submitAssignment(assignmentId: string, file: Express.Multer.File, studentId: string): Promise<AssignmentSubmission> {
     const assignment = await this.assignmentRepository.findOne({ 
       where: { id: assignmentId },
-      relations: ['course', 'course.class', 'creator']
+      relations: ['course', 'course.class', 'course.teacher', 'creator']
     });
     if (!assignment) {
       throw new NotFoundException(`Assignment with ID ${assignmentId} not found`);
@@ -1013,12 +1017,12 @@ export class MaterialsService {
     const savedSubmission = await this.assignmentSubmissionRepository.save(submission);
 
     // Send notification to teacher about assignment submission
-    if (assignment.creator && !isUpdate) { // Only notify for new submissions, not updates
+    if (assignment.course && assignment.course.teacherId && !isUpdate) { // Only notify for new submissions, not updates
       try {
         const student = await this.userRepository.findOne({ where: { id: studentId } });
         if (student) {
           await this.notificationsService.createAssignmentSubmittedNotification(
-            assignment.creator.id,
+            assignment.course.teacherId, // Always send to the course teacher, not assignment creator
             `${student.firstName} ${student.lastName}`,
             assignment.name, // Use 'name' instead of 'title'
             assignment.course.name,
@@ -1687,16 +1691,18 @@ export class MaterialsService {
       return [];
     }
 
-    // Get students from the class_students table
+    // Get students from the classes.students field
     const classData = await this.courseRepository.manager.query(`
-      SELECT cs.student_id 
-      FROM class_students cs
-      WHERE cs.class_id = $1
+      SELECT c.students 
+      FROM classes c
+      WHERE c.id = $1
     `, [course.classId]);
 
-    const studentIds = classData
-      .filter(row => row.student_id)
-      .map(row => row.student_id);
+    let studentIds: string[] = [];
+    if (classData.length > 0 && classData[0].students) {
+      const studentsString = classData[0].students;
+      studentIds = studentsString.split(',').map(id => id.trim()).filter(id => id.length > 0);
+    }
 
     if (studentIds.length === 0) {
       return [];

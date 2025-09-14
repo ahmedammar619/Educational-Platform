@@ -287,6 +287,14 @@ const TeacherClasses = ({ user }) => {
                                     <div className="flex justify-center sm:justify-end">
                                       <button
                                         onClick={() => {
+                                          console.log('🔍 Teacher clicking course material button for course:', course);
+                                          console.log('🔍 Course data structure:', {
+                                            id: course.id,
+                                            name: course.name,
+                                            courseId: course.courseId,
+                                            classId: course.classId,
+                                            teacherId: course.teacherId
+                                          });
                                           setSelectedClassForMaterial(course);
                                           setShowMaterialPages(true);
                                         }}
@@ -322,7 +330,7 @@ const TeacherClasses = ({ user }) => {
         </>
       ) : (
         <MaterialPages
-          classData={selectedClassForMaterial}
+          courseData={selectedClassForMaterial}
           onBack={() => {
             setShowMaterialPages(false);
             setSelectedClassForMaterial(null);

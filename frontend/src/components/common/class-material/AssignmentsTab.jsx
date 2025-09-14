@@ -24,6 +24,10 @@ const AssignmentsTab = ({ currentUser, theme, courseId }) => {
   const { confirmationState, showConfirmation, hideConfirmation, handleConfirm } = useConfirmation();
   const [assignments, setAssignments] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [creatingAssignment, setCreatingAssignment] = useState(false);
+  const [editingAssignment, setEditingAssignment] = useState(false);
+  const [submittingAssignment, setSubmittingAssignment] = useState(false);
+  const [gradingAssignment, setGradingAssignment] = useState(false);
 
   const [showCreateAssignment, setShowCreateAssignment] = useState(false);
   const [showSubmitAssignment, setShowSubmitAssignment] = useState(false);
@@ -121,7 +125,20 @@ const AssignmentsTab = ({ currentUser, theme, courseId }) => {
 
   // Event handlers
   const handleCreateAssignment = async () => {
+    // Prevent double-clicking
+    if (creatingAssignment) {
+      return;
+    }
+
     if (assignmentTitle.trim() && assignmentDescription.trim() && assignmentDueDate && assignmentDueTime && courseId) {
+      setCreatingAssignment(true);
+      
+      // Set a timeout to prevent infinite loading (30 seconds)
+      const timeoutId = setTimeout(() => {
+        setCreatingAssignment(false);
+        showErrorToast(null, 'Request timed out. Please check your connection and try again.');
+      }, 30000);
+
       try {
         const assignmentData = {
           title: assignmentTitle.trim(),
@@ -147,12 +164,28 @@ const AssignmentsTab = ({ currentUser, theme, courseId }) => {
       } catch (error) {
         console.error('Error creating assignment:', error);
         showErrorToast(error, 'Failed to create assignment. Please try again.');
+      } finally {
+        clearTimeout(timeoutId);
+        setCreatingAssignment(false);
       }
     }
   };
 
   const handleEditAssignment = async () => {
+    // Prevent double-clicking
+    if (editingAssignment) {
+      return;
+    }
+
     if (assignmentTitle.trim() && assignmentDescription.trim() && assignmentDueDate && assignmentDueTime && selectedAssignment) {
+      setEditingAssignment(true);
+      
+      // Set a timeout to prevent infinite loading (30 seconds)
+      const timeoutId = setTimeout(() => {
+        setEditingAssignment(false);
+        showErrorToast(null, 'Request timed out. Please check your connection and try again.');
+      }, 30000);
+
       try {
         const assignmentData = {
           title: assignmentTitle.trim(),
@@ -179,12 +212,28 @@ const AssignmentsTab = ({ currentUser, theme, courseId }) => {
       } catch (error) {
         console.error('Error updating assignment:', error);
         showErrorToast(error, 'Failed to update assignment. Please try again.');
+      } finally {
+        clearTimeout(timeoutId);
+        setEditingAssignment(false);
       }
     }
   };
 
   const handleSubmitAssignment = async () => {
+    // Prevent double-clicking
+    if (submittingAssignment) {
+      return;
+    }
+
     if (uploadedFile && selectedAssignment) {
+      setSubmittingAssignment(true);
+      
+      // Set a timeout to prevent infinite loading (30 seconds)
+      const timeoutId = setTimeout(() => {
+        setSubmittingAssignment(false);
+        showErrorToast(null, 'Request timed out. Please check your connection and try again.');
+      }, 30000);
+
       try {
         const isEditing = getSubmissionStatus(selectedAssignment, currentUser?.id || 'current_student') !== 'not_submitted';
 
@@ -200,12 +249,28 @@ const AssignmentsTab = ({ currentUser, theme, courseId }) => {
       } catch (error) {
         console.error('Error submitting assignment:', error);
         showErrorToast(error, 'Failed to submit assignment. Please try again.');
+      } finally {
+        clearTimeout(timeoutId);
+        setSubmittingAssignment(false);
       }
     }
   };
 
   const handleGradeAssignment = async () => {
+    // Prevent double-clicking
+    if (gradingAssignment) {
+      return;
+    }
+
     if (grade && selectedSubmission) {
+      setGradingAssignment(true);
+      
+      // Set a timeout to prevent infinite loading (30 seconds)
+      const timeoutId = setTimeout(() => {
+        setGradingAssignment(false);
+        showErrorToast(null, 'Request timed out. Please check your connection and try again.');
+      }, 30000);
+
       try {
         const gradeData = {
           grade: parseInt(grade),
@@ -226,6 +291,9 @@ const AssignmentsTab = ({ currentUser, theme, courseId }) => {
       } catch (error) {
         console.error('Error grading assignment:', error);
         showErrorToast(error, 'Failed to save grade. Please try again.');
+      } finally {
+        clearTimeout(timeoutId);
+        setGradingAssignment(false);
       }
     }
   };
@@ -585,10 +653,17 @@ const AssignmentsTab = ({ currentUser, theme, courseId }) => {
                 </button>
                 <button
                   onClick={handleCreateAssignment}
-                  disabled={!assignmentTitle.trim() || !assignmentDescription.trim() || !assignmentDueDate || !assignmentDueTime}
-                  className={`flex-1 px-4 py-2 border-2 border-${theme.primary}-600 text-${theme.primary}-600 rounded-lg hover:bg-${theme.primaryLight} disabled:opacity-50 disabled:cursor-not-allowed transition-colors`}
+                  disabled={creatingAssignment || !assignmentTitle.trim() || !assignmentDescription.trim() || !assignmentDueDate || !assignmentDueTime}
+                  className={`flex-1 px-4 py-2 border-2 border-${theme.primary}-600 text-${theme.primary}-600 rounded-lg hover:bg-${theme.primaryLight} disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2`}
                 >
-                  Create Assignment
+                  {creatingAssignment ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current"></div>
+                      <span>Creating...</span>
+                    </>
+                  ) : (
+                    'Create Assignment'
+                  )}
                 </button>
               </div>
             </div>
@@ -708,10 +783,17 @@ const AssignmentsTab = ({ currentUser, theme, courseId }) => {
                 </button>
                 <button
                   onClick={handleEditAssignment}
-                  disabled={!assignmentTitle.trim() || !assignmentDescription.trim() || !assignmentDueDate || !assignmentDueTime}
-                  className={`flex-1 px-4 py-2 border-2 border-${theme.primary}-600 text-${theme.primary}-600 rounded-lg hover:bg-${theme.primaryLight} disabled:opacity-50 disabled:cursor-not-allowed transition-colors`}
+                  disabled={editingAssignment || !assignmentTitle.trim() || !assignmentDescription.trim() || !assignmentDueDate || !assignmentDueTime}
+                  className={`flex-1 px-4 py-2 border-2 border-${theme.primary}-600 text-${theme.primary}-600 rounded-lg hover:bg-${theme.primaryLight} disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2`}
                 >
-                  Update Assignment
+                  {editingAssignment ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current"></div>
+                      <span>Updating...</span>
+                    </>
+                  ) : (
+                    'Update Assignment'
+                  )}
                 </button>
               </div>
             </div>
@@ -801,12 +883,23 @@ const AssignmentsTab = ({ currentUser, theme, courseId }) => {
                 </button>
                 <button
                   onClick={handleSubmitAssignment}
-                  disabled={!uploadedFile}
-                  className={`flex-1 px-4 py-2 border-2 border-${theme.primary}-600 text-${theme.primary}-600 rounded-lg hover:bg-${theme.primaryLight} disabled:opacity-50 disabled:cursor-not-allowed transition-colors`}
+                  disabled={submittingAssignment || !uploadedFile}
+                  className={`flex-1 px-4 py-2 border-2 border-${theme.primary}-600 text-${theme.primary}-600 rounded-lg hover:bg-${theme.primaryLight} disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2`}
                 >
-                  {getSubmissionStatus(selectedAssignment, currentUser?.id || 'current_student') === 'not_submitted'
-                    ? 'Submit Assignment'
-                    : 'Update Submission'}
+                  {submittingAssignment ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current"></div>
+                      <span>
+                        {getSubmissionStatus(selectedAssignment, currentUser?.id || 'current_student') === 'not_submitted'
+                          ? 'Submitting...'
+                          : 'Updating...'}
+                      </span>
+                    </>
+                  ) : (
+                    getSubmissionStatus(selectedAssignment, currentUser?.id || 'current_student') === 'not_submitted'
+                      ? 'Submit Assignment'
+                      : 'Update Submission'
+                  )}
                 </button>
               </div>
             </div>
@@ -947,10 +1040,17 @@ const AssignmentsTab = ({ currentUser, theme, courseId }) => {
                     </button>
                     <button
                       onClick={handleGradeAssignment}
-                      disabled={!grade || grade < 0 || grade > selectedAssignment.marks}
-                      className="px-4 py-2 border-2 border-green-600 text-green-600 rounded-lg hover:bg-green-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      disabled={gradingAssignment || !grade || grade < 0 || grade > selectedAssignment.marks}
+                      className="px-4 py-2 border-2 border-green-600 text-green-600 rounded-lg hover:bg-green-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
                     >
-                      Save Grade
+                      {gradingAssignment ? (
+                        <>
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current"></div>
+                          <span>Saving...</span>
+                        </>
+                      ) : (
+                        'Save Grade'
+                      )}
                     </button>
                   </div>
                 </div>
@@ -965,10 +1065,20 @@ const AssignmentsTab = ({ currentUser, theme, courseId }) => {
         <div className="text-center pt-3 border-t border-gray-200">
           <button
             onClick={() => setShowCreateAssignment(true)}
-            className={`px-3 py-2 border-2 border-${theme.primary}-600 text-${theme.primary}-600 rounded-lg hover:bg-${theme.primaryLight} transition-colors flex items-center gap-2`}
+            disabled={creatingAssignment}
+            className={`px-3 py-2 border-2 border-${theme.primary}-600 text-${theme.primary}-600 rounded-lg hover:bg-${theme.primaryLight} transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed`}
           >
-            <Plus className="h-5 w-5" />
-            Create Assignment
+            {creatingAssignment ? (
+              <>
+                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-current"></div>
+                <span>Creating...</span>
+              </>
+            ) : (
+              <>
+                <Plus className="h-5 w-5" />
+                Create Assignment
+              </>
+            )}
           </button>
         </div>
       )}
