@@ -33,7 +33,7 @@ export const API_CONFIG = {
   
   // Request configuration
   REQUEST_CONFIG: {
-    TIMEOUT: 10000,
+    TIMEOUT: 30000, // Increased from 10000ms to 30000ms for better performance
     HEADERS: {
       'Content-Type': 'application/json',
     },

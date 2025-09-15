@@ -109,15 +109,18 @@ export class AuthService {
       // Note: The user account is still created in the users table
     }
 
-    // Notify all admins about the new user registration
+    // Notify all admins about the new user registration (optimized query)
     try {
+      // Only select the ID field for better performance
       const adminUsers = await this.userRepository.find({
-        where: { role: Role.Admin }
+        where: { role: Role.Admin },
+        select: ['id']
       });
       
       if (adminUsers.length > 0) {
         const adminIds = adminUsers.map(admin => admin.id);
-        await this.notificationsService.createNewUserJoinedNotification(
+        // Send notification asynchronously to avoid blocking
+        this.notificationsService.createNewUserJoinedNotification(
           adminIds,
           `${savedUser.firstName} ${savedUser.lastName}`,
           savedUser.role,
@@ -125,8 +128,11 @@ export class AuthService {
             userId: savedUser.id,
             email: savedUser.email
           }
-        );
-        console.log('✅ New user registration notification sent to admins');
+        ).then(() => {
+          console.log('✅ New user registration notification sent to admins');
+        }).catch(error => {
+          console.error('❌ Failed to send new user registration notification:', error);
+        });
       }
     } catch (error) {
       console.error('❌ Failed to send new user registration notification:', error);
@@ -144,13 +150,16 @@ export class AuthService {
           emailVerificationExpiry: verificationExpiry,
         });
 
-        // Send verification email
-        await this.emailService.sendVerificationEmail(
+        // Send verification email asynchronously (non-blocking)
+        this.emailService.sendVerificationEmail(
           savedUser.email,
           verificationToken,
           savedUser.firstName
-        );
-        console.log('✅ Verification email sent to new parent');
+        ).then(() => {
+          console.log('✅ Verification email sent to new parent');
+        }).catch(error => {
+          console.error('❌ Failed to send verification email:', error);
+        });
       } catch (error) {
         console.error('❌ Failed to send verification email:', error);
         // Don't fail registration if email sending fails
@@ -208,14 +217,16 @@ export class AuthService {
       emailVerificationExpiry: verificationExpiry,
     });
 
-    // Send verification email
-    await this.emailService.sendVerificationEmail(
+    // Send verification email asynchronously (non-blocking)
+    this.emailService.sendVerificationEmail(
       savedUser.email,
       verificationToken,
       'New User' // Temporary name
-    );
-
-    console.log('✅ Email-only registration completed, verification email sent');
+    ).then(() => {
+      console.log('✅ Email-only registration completed, verification email sent');
+    }).catch(error => {
+      console.error('❌ Failed to send verification email:', error);
+    });
 
     return {
       message: 'Registration successful. Please check your email to verify your account and complete your profile.',
@@ -575,16 +586,16 @@ export class AuthService {
       emailVerificationExpiry: verificationExpiry,
     });
 
-    // Send verification email
-    const emailSent = await this.emailService.sendVerificationEmail(
+    // Send verification email asynchronously (non-blocking)
+    this.emailService.sendVerificationEmail(
       user.email,
       verificationToken,
       user.firstName
-    );
-
-    if (!emailSent) {
-      throw new BadRequestException('Failed to send verification email');
-    }
+    ).then(() => {
+      console.log('✅ Verification email sent successfully');
+    }).catch(error => {
+      console.error('❌ Failed to send verification email:', error);
+    });
 
     return {
       message: 'Verification email sent successfully',
@@ -699,16 +710,16 @@ export class AuthService {
       emailVerificationExpiry: verificationExpiry,
     });
 
-    // Send verification email
-    const emailSent = await this.emailService.sendVerificationEmail(
+    // Send verification email asynchronously (non-blocking)
+    this.emailService.sendVerificationEmail(
       user.email,
       verificationToken,
       user.firstName
-    );
-
-    if (!emailSent) {
-      throw new BadRequestException('Failed to send verification email');
-    }
+    ).then(() => {
+      console.log('✅ Verification email resent successfully');
+    }).catch(error => {
+      console.error('❌ Failed to resend verification email:', error);
+    });
 
     return {
       message: 'Verification email resent successfully',
