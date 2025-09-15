@@ -169,7 +169,7 @@ const AdminForm = ({ user }) => {
                 ) : (
                   <>
                     <Save className="h-4 w-4" />
-                    Save Form Settings
+                    Save Form 
                   </>
                 )}
               </button>

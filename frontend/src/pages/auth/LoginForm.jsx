@@ -13,7 +13,7 @@ const LoginForm = React.memo(({ onLogin, onRegister }) => {
     lastName: '',
     email: '',
     password: '',
-    role: 'student', // Default to student, can be changed to parent
+    role: 'parent', // Default to parent
     phone: '',
     birthDate: ''
   });
@@ -39,14 +39,14 @@ const LoginForm = React.memo(({ onLogin, onRegister }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     // Prevent double-clicking
     if (loading) {
       console.warn('🚫 Form submission already in progress, ignoring duplicate click');
       showWarningToast('Please wait', 'Form submission is already in progress.');
       return;
     }
-    
+
     console.log('Form submitted!', { isLogin, formData }); // Debug log
     setLoading(true);
     setError('');
@@ -56,17 +56,17 @@ const LoginForm = React.memo(({ onLogin, onRegister }) => {
       if (isLogin) {
         // Login flow
         const loadingToast = showLoadingToast('Signing in...');
-        
+
         console.log('Login attempt with:', formData.email);
         console.log('Calling authenticateUser...'); // Debug log
-        
+
         try {
           const authResult = await authenticateUser(formData.email, formData.password);
           console.log('authenticateUser result:', authResult); // Debug log
 
           if (authResult && authResult.user) {
             console.log('Authentication successful:', authResult);
-            
+
             // Check if user needs to complete their profile (has placeholder names)
             const hasPlaceholderName = authResult.user.firstName?.startsWith('New ') && authResult.user.lastName === 'User';
             if (hasPlaceholderName) {
@@ -76,18 +76,18 @@ const LoginForm = React.memo(({ onLogin, onRegister }) => {
               setShowProfileCompletion(true);
               return;
             }
-            
+
             console.log('Calling onLogin...'); // Debug log
-            
+
             // Dismiss loading toast and show success toast
             dismissToast(loadingToast);
             showSuccessToast(`Welcome back, ${authResult.user.firstName || authResult.user.name || 'User'}!`);
-            
+
             onLogin(authResult.user, authResult.token);
             return;
           } else {
             console.log('Authentication failed - no user in result'); // Debug log
-            
+
             // Dismiss loading toast and show error toast
             dismissToast(loadingToast);
             showErrorToast('Authentication failed. Please check your credentials.');
@@ -98,13 +98,13 @@ const LoginForm = React.memo(({ onLogin, onRegister }) => {
           console.error('AuthError type:', typeof authError);
           console.error('AuthError response:', authError.response);
           console.error('AuthError message:', authError.message);
-          
+
           // Dismiss loading toast
           dismissToast(loadingToast);
-          
+
           // Extract error message from authentication error
           let errorMessage = 'Invalid credentials. Please check your email and password.';
-          
+
           if (authError.response?.data?.message) {
             errorMessage = authError.response.data.message;
           } else if (authError.message) {
@@ -112,51 +112,50 @@ const LoginForm = React.memo(({ onLogin, onRegister }) => {
           } else if (typeof authError === 'string') {
             errorMessage = authError;
           }
-          
+
           console.log('Setting error message:', errorMessage);
           showErrorToast(errorMessage);
           setError(errorMessage);
           setLoading(false);
-          
+
           console.log('LoginForm: Authentication failed, staying on login page');
           return; // Exit early to prevent further processing
         }
       } else {
         // Registration flow
         const loadingToast = showLoadingToast('Creating account...');
-        
+
         console.log('Registration attempt for:', formData.email);
         const registrationData = {
           firstName: formData.firstName,
           lastName: formData.lastName,
           email: formData.email,
           password: formData.password,
-          role: formData.role, // Use selected role (teacher or student)
+          role: formData.role, // Use selected role (parent only)
           phone: formData.phone, // Phone required for both teachers and students
-          ...(formData.role === 'student' && { birthDate: formData.birthDate })
         };
 
         const result = await authService.register(registrationData);
         console.log('Registration successful:', result);
-        
+
         // Dismiss loading toast and show success toast
         dismissToast(loadingToast);
         showSuccessToast(`Account for ${formData.firstName} ${formData.lastName} created successfully! Please sign in.`);
-        
+
         // Show success message for registration
         setSuccess('Account created successfully! Please sign in with your new credentials.');
-        
+
         // Clear form data for login
         setFormData({
           firstName: '',
           lastName: '',
           email: formData.email, // Keep email for convenience
           password: '',
-          role: 'student', // Reset to default
+          role: 'parent', // Reset to default
           phone: '',
           birthDate: ''
         });
-        
+
         // Switch to login mode
         setIsLogin(true);
         setLoading(false);
@@ -169,10 +168,10 @@ const LoginForm = React.memo(({ onLogin, onRegister }) => {
       setError('Operation failed. Please try again.');
     } catch (error) {
       console.error('Operation error:', error);
-      
+
       // Extract error message from different possible error formats
       let errorMessage = 'An unexpected error occurred. Please try again.';
-      
+
       if (error.response?.data?.message) {
         errorMessage = error.response.data.message;
       } else if (error.message) {
@@ -180,7 +179,7 @@ const LoginForm = React.memo(({ onLogin, onRegister }) => {
       } else if (typeof error === 'string') {
         errorMessage = error;
       }
-      
+
       showErrorToast(errorMessage);
       setError(errorMessage);
     } finally {
@@ -194,7 +193,7 @@ const LoginForm = React.memo(({ onLogin, onRegister }) => {
       ...prev,
       [name]: value
     }));
-    
+
     // Clear error when user starts typing
     if (error) {
       setError('');
@@ -220,7 +219,7 @@ const LoginForm = React.memo(({ onLogin, onRegister }) => {
     console.log('Profile completion successful:', updatedUser);
     setShowProfileCompletion(false);
     setPendingUser(null);
-    
+
     // Get the token from localStorage (it should be there from the initial login)
     const token = localStorage.getItem('token');
     if (token) {
@@ -246,12 +245,12 @@ const LoginForm = React.memo(({ onLogin, onRegister }) => {
           <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
             {isLogin ? 'Sign in to your account' : 'Create your account'}
           </h2>
-                     <p className="mt-2 text-center text-sm text-gray-600">
-             {isLogin 
-               ? 'Welcome back! Please sign in to continue.'
-               : 'Join our educational platform as a student or parent'
-             }
-           </p>
+          <p className="mt-2 text-center text-sm text-gray-600">
+            {isLogin
+              ? 'Welcome back! Please sign in to continue.'
+              : 'Join our educational platform as a parent'
+            }
+          </p>
         </div>
 
         {error && (
@@ -398,8 +397,8 @@ const LoginForm = React.memo(({ onLogin, onRegister }) => {
 
           {!isLogin && (
             <>
-              {/* Phone Number Field for Students and Parents */}
-              {(formData.role === 'student' || formData.role === 'parent') && (
+              {/* Phone Number Field for Parents */}
+              {formData.role === 'parent' && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Phone Number *
@@ -413,70 +412,28 @@ const LoginForm = React.memo(({ onLogin, onRegister }) => {
                 </div>
               )}
 
-                             {/* Role Selection Radio Buttons */}
-               <div>
-                 <label className="block text-sm font-medium text-gray-700 mb-3">
-                   Account Type *
-                 </label>
-                 <div className="space-y-3">
-                   <label className="flex items-center">
-                     <input
-                       type="radio"
-                       name="role"
-                       value="student"
-                       checked={formData.role === 'student'}
-                       onChange={() => handleRoleChange('student')}
-                       className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300"
-                     />
-                     <span className="ml-3 text-sm text-gray-700">
-                       <span className="font-medium">Student</span>
-                       <span className="text-gray-500 ml-1">- Enroll in courses and learn</span>
-                     </span>
-                   </label>
-                   
-                   <label className="flex items-center">
-                     <input
-                       type="radio"
-                       name="role"
-                       value="parent"
-                       checked={formData.role === 'parent'}
-                       onChange={() => handleRoleChange('parent')}
-                       className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300"
-                     />
-                     <span className="ml-3 text-sm text-gray-700">
-                       <span className="font-medium">Parent</span>
-                       <span className="text-gray-500 ml-1">- Manage your children's education</span>
-                     </span>
-                   </label>
-                 </div>
-               </div>
-
-              {/* Birth Date Field for Students */}
-              {formData.role === 'student' && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Birth Date *
+              {/* Role Selection - Parent Only */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-3">
+                  Account Type *
+                </label>
+                <div className="space-y-3">
+                  <label className="flex items-center">
+                    <input
+                      type="radio"
+                      name="role"
+                      value="parent"
+                      checked={formData.role === 'parent'}
+                      onChange={() => handleRoleChange('parent')}
+                      className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300"
+                    />
+                    <span className="ml-3 text-sm text-gray-700">
+                      <span className="font-medium">Parent</span>
+                      <span className="text-gray-500 ml-1">- Manage your children's education</span>
+                    </span>
                   </label>
-                  <input
-                    type="date"
-                    name="birthDate"
-                    value={formData.birthDate}
-                    onChange={handleInputChange}
-                    className="w-full px-3 py-2 sm:py-2.5 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm sm:text-base"
-                    required={formData.role === 'student'}
-                  />
                 </div>
-              )}
-
-                             <div className="mb-4 p-3 bg-blue-50 rounded-md">
-                 <p className="text-sm text-blue-800 font-medium">Registration Information:</p>
-                 <div className="text-xs text-blue-700 mt-1">
-                   <div>• Students and parents can register through this form</div>
-                   <div>• Teachers: Contact your administrator or use the teacher portal</div>
-                   <div>• Phone number required for all public registrations</div>
-                   <div>• Students created by parents don't require phone numbers</div>
-                 </div>
-               </div>
+              </div>
             </>
           )}
 
@@ -491,46 +448,46 @@ const LoginForm = React.memo(({ onLogin, onRegister }) => {
                 {isLogin ? 'Signing in...' : 'Creating account...'}
               </>
             ) : (
-              isLogin ? 'Sign In' : `Create ${formData.role === 'parent' ? 'Parent' : 'Student'} Account`
+              isLogin ? 'Sign In' : 'Create Parent Account'
             )}
           </button>
         </form>
 
         <div className="mt-6 text-center">
           <button
-                         onClick={() => {
-               setIsLogin(!isLogin);
-               setError('');
-               setSuccess('');
-               setFormData({
-                 firstName: '',
-                 lastName: '',
-                 email: '',
-                 password: '',
-                 role: 'student',
-                 phone: '',
-                 birthDate: ''
-               });
-             }}
+            onClick={() => {
+              setIsLogin(!isLogin);
+              setError('');
+              setSuccess('');
+              setFormData({
+                firstName: '',
+                lastName: '',
+                email: '',
+                password: '',
+                role: 'parent',
+                phone: '',
+                birthDate: ''
+              });
+            }}
             className="text-green-600 hover:text-green-800 text-sm"
           >
-                         {isLogin
-               ? "Don't have an account? Sign up as student or parent"
-               : "Already have an account? Sign in"
-             }
+            {isLogin
+              ? "Don't have an account? Sign up as parent"
+              : "Already have an account? Sign in"
+            }
           </button>
         </div>
 
         {isLogin && (
-                     <div className="mt-4 p-3 bg-blue-50 rounded-md">
-             <p className="text-sm text-blue-800 font-medium">Authentication Policy:</p>
-             <div className="text-xs text-blue-700 mt-2 space-y-1">
-               <div>• Use your real credentials to login</div>
-               <div>• Students and parents can create accounts through registration</div>
-               <div>• Teachers: Contact your administrator or use the teacher portal</div>
-               <div>• All data is securely stored and managed</div>
-             </div>
-           </div>
+          <div className="mt-4 p-3 bg-blue-50 rounded-md">
+            <p className="text-sm text-blue-800 font-medium">Authentication Policy:</p>
+            <div className="text-xs text-blue-700 mt-2 space-y-1">
+              <div>• Use your real credentials to login</div>
+              <div>• Parents can create accounts through registration</div>
+              <div>• Teachers: Contact your administrator or use the teacher portal</div>
+              <div>• All data is securely stored and managed</div>
+            </div>
+          </div>
         )}
 
         {/* Profile Completion Modal */}
