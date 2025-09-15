@@ -141,7 +141,7 @@ const EmailVerificationModal = ({ user, onVerified, onCancel, onResend }) => {
             </div>
 
             {/* Action Buttons */}
-            <div className="space-y-3">
+            <div className="space-y-3">              
               <button
                 onClick={handleResendEmail}
                 disabled={resendLoading || resendCooldown > 0}
@@ -169,7 +169,7 @@ const EmailVerificationModal = ({ user, onVerified, onCancel, onResend }) => {
             {/* Help Text */}
             <div className="text-center">
               <p className="text-xs text-gray-500">
-                Having trouble? Contact support or try signing in again.
+                After clicking the verification link in your email, click "I've Verified My Email" above.
               </p>
             </div>
           </div>

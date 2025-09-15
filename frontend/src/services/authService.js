@@ -14,6 +14,18 @@ class AuthService {
     }
   }
 
+  // Email-only registration
+  async registerWithEmailOnly(emailData) {
+    try {
+      const response = await api.post('/api/auth/register-email', emailData);
+      // Don't show success toast here - the verification modal will handle the UI
+      return response.data;
+    } catch (error) {
+      showErrorToast(error, 'Registration failed. Please try again.');
+      throw error.response?.data || error.message;
+    }
+  }
+
   // User login
   async login(credentials) {
     try {

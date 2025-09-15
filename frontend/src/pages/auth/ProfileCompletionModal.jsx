@@ -26,7 +26,7 @@ const ProfileCompletionModal = ({ user, onComplete, onCancel }) => {
   useEffect(() => {
     // Pre-fill with any existing data, but clear placeholder names
     if (user) {
-      const firstName = user.firstName?.startsWith('New ') ? '' : (user.firstName || '');
+      const firstName = user.firstName?.startsWith('') ? '' : (user.firstName || '');
       const lastName = user.lastName === 'User' ? '' : (user.lastName || '');
       
       setFormData(prev => ({
@@ -138,13 +138,13 @@ const ProfileCompletionModal = ({ user, onComplete, onCancel }) => {
       // Email verification should have been completed before reaching this modal
       // No need to check email verification here
 
-      showSuccessToast('Profile updated successfully! Please sign in to continue.');
+      showSuccessToast('Profile completed successfully! Please sign in to continue.');
 
       // Clear any existing token since we want user to login fresh
       await authService.logout();
 
-      // Force a page reload to ensure clean state and navigate to login
-      window.location.href = '/auth';
+      // Call onComplete to close modal and return to LoginForm
+      onComplete();
     } catch (error) {
       console.error('Error updating profile:', error);
       dismissToast(loadingToast);
