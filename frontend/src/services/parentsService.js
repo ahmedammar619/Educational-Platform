@@ -16,7 +16,6 @@ class ParentsService {
   async updateParentProfile(profileData) {
     try {
       const response = await api.put('/api/parents/profile', profileData);
-      showSuccessToast('Profile updated successfully!', 'Your parent profile has been updated.');
       return response.data;
     } catch (error) {
       showErrorToast(error, 'Failed to update profile. Please try again.');
@@ -48,7 +47,6 @@ class ParentsService {
   async createChildAccount(childData, parentId) {
     try {
       const response = await api.post(`/api/parents/${parentId}/create-child-account`, childData);
-      showSuccessToast('Child account created successfully!', `Account for ${childData.firstName} ${childData.lastName} has been created.`);
       return response.data;
     } catch (error) {
       showErrorToast(error, 'Failed to create child account. Please try again.');

@@ -28,7 +28,6 @@ class CoursesService {
   async createCourse(courseData) {
     try {
       const response = await api.post('/api/courses', courseData);
-      showSuccessToast('Course created successfully!', `"${courseData.name}" has been created and is ready for students.`);
       return response.data;
     } catch (error) {
       showErrorToast(error, 'Failed to create course. Please try again.');
@@ -40,7 +39,6 @@ class CoursesService {
   async updateCourse(courseId, courseData) {
     try {
       const response = await api.patch(`/api/courses/${courseId}`, courseData);
-      showSuccessToast('Course updated successfully!', `"${courseData.name}" has been updated.`);
       return response.data;
     } catch (error) {
       showErrorToast(error, 'Failed to update course. Please try again.');
@@ -52,7 +50,6 @@ class CoursesService {
   async deleteCourse(courseId) {
     try {
       const response = await api.delete(`/api/courses/${courseId}`);
-      showSuccessToast('Course deleted successfully!', 'The course has been removed from the system.');
       return response.data;
     } catch (error) {
       showErrorToast(error, 'Failed to delete course. Please try again.');

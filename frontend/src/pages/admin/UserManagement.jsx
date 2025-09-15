@@ -294,7 +294,7 @@ const UserManagement = ({ user }) => {
 
       // Dismiss loading toast and show success toast
       dismissToast(loadingToast);
-      showSuccessToast(`User created successfully! They will receive a temporary password and must complete their profile on first login.`);
+      showSuccessToast('User created successfully!');
     } catch (error) {
       console.error('Error creating user:', error);
       

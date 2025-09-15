@@ -73,7 +73,6 @@ class AuthService {
   async updateProfile(profileData) {
     try {
       const response = await api.put('/api/auth/profile', profileData);
-      showSuccessToast('Profile updated successfully!', 'Your profile information has been saved.');
       return response.data;
     } catch (error) {
       showErrorToast(error, 'Failed to update profile. Please try again.');
@@ -85,7 +84,6 @@ class AuthService {
   async changePassword(passwordData) {
     try {
       const response = await api.put('/api/auth/change-password', passwordData);
-      showSuccessToast('Password changed successfully!', 'Your password has been updated.');
       return response.data;
     } catch (error) {
       showErrorToast(error, 'Failed to change password. Please try again.');

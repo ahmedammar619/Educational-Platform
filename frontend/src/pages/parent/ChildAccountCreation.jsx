@@ -127,7 +127,7 @@ const ChildAccountCreation = ({ user, onSuccess, onCancel }) => {
       
       // Dismiss loading toast and show success toast
       dismissToast(loadingToast);
-      showSuccessToast(`Child account for ${formData.firstName} ${formData.lastName} created successfully!`);
+      showSuccessToast('Child account created successfully!');
       
       setSubmitStatus('success');
               setSuccessData(response); // Store success data

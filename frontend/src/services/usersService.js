@@ -46,7 +46,6 @@ class UsersService {
   async createUser(userData) {
     try {
       const response = await api.post('/api/users', userData);
-      showSuccessToast('User created successfully!', `User account for ${userData.firstName} ${userData.lastName} has been created.`);
       return response.data;
     } catch (error) {
       showErrorToast(error, 'Failed to create user. Please try again.');
@@ -58,7 +57,6 @@ class UsersService {
   async updateUser(userId, userData) {
     try {
       const response = await api.put(`/api/users/${userId}`, userData);
-      showSuccessToast('User updated successfully!', 'User information has been updated.');
       return response.data;
     } catch (error) {
       showErrorToast(error, 'Failed to update user. Please try again.');
@@ -70,7 +68,6 @@ class UsersService {
   async deleteUser(userId) {
     try {
       const response = await api.delete(`/api/users/${userId}`);
-      showSuccessToast('User deleted successfully!', 'The user account has been removed.');
       return response.data;
     } catch (error) {
       showErrorToast(error, 'Failed to delete user. Please try again.');
