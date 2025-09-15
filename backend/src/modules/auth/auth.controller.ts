@@ -19,6 +19,7 @@ import {
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
+import { EmailRegisterDto } from './dto/email-register.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { Public } from '../../common/decorators/public.decorator';
@@ -43,6 +44,21 @@ export class AuthController {
   })
   async register(@Body() registerDto: RegisterDto) {
     return this.authService.register(registerDto);
+  }
+
+  @Public()
+  @Post('register-email')
+  @ApiOperation({ summary: 'Register with email only (Public)' })
+  @ApiResponse({
+    status: 201,
+    description: 'Email registration successful, verification email sent',
+  })
+  @ApiResponse({
+    status: 409,
+    description: 'User already exists with this email',
+  })
+  async registerWithEmailOnly(@Body() emailRegisterDto: EmailRegisterDto) {
+    return this.authService.registerWithEmailOnly(emailRegisterDto);
   }
 
   @Public()

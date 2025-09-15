@@ -14,6 +14,7 @@ import * as crypto from 'crypto';
 
 import { User } from '../users/entities/user.entity';
 import { RegisterDto } from './dto/register.dto';
+import { EmailRegisterDto } from './dto/email-register.dto';
 import { LoginDto } from './dto/login.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
@@ -170,6 +171,56 @@ export class AuthService {
       user: this.sanitizeUser(savedUser),
       token,
       emailVerificationRequired: role === Role.Parent, // Only parents need email verification
+    };
+  }
+
+  async registerWithEmailOnly(emailRegisterDto: EmailRegisterDto) {
+    const { email } = emailRegisterDto;
+
+    // Check if user already exists
+    const existingUser = await this.userRepository.findOne({
+      where: { email },
+    });
+
+    if (existingUser) {
+      throw new ConflictException('User already exists with this email');
+    }
+
+    // Create a temporary user with minimal data
+    const tempUser = this.userRepository.create({
+      email,
+      firstName: 'New', // Temporary placeholder
+      lastName: 'User', // Temporary placeholder
+      role: Role.Parent, // Default to parent role
+      emailVerified: false,
+      passwordHash: '', // Will be set during profile completion
+    });
+
+    const savedUser = await this.userRepository.save(tempUser);
+
+    // Generate verification token
+    const verificationToken = crypto.randomBytes(32).toString('hex');
+    const verificationExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+
+    // Update user with verification token
+    await this.userRepository.update(savedUser.id, {
+      emailVerificationToken: verificationToken,
+      emailVerificationExpiry: verificationExpiry,
+    });
+
+    // Send verification email
+    await this.emailService.sendVerificationEmail(
+      savedUser.email,
+      verificationToken,
+      'New User' // Temporary name
+    );
+
+    console.log('✅ Email-only registration completed, verification email sent');
+
+    return {
+      message: 'Registration successful. Please check your email to verify your account and complete your profile.',
+      user: this.sanitizeUser(savedUser),
+      emailVerificationRequired: true,
     };
   }
 

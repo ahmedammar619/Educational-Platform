@@ -33,22 +33,23 @@ const EmailVerificationPage = () => {
       setMessage(result.message || 'Your email has been verified successfully!');
       showSuccessToast('Email verified successfully!');
       
-      // Store the verified user data
+      // Store the verified user data and token
       const userData = result.user || {};
+      const token = result.token;
+      
+      if (token) {
+        // Store the token and user data for profile completion
+        localStorage.setItem('token', token);
+        localStorage.setItem('user', JSON.stringify(userData));
+        console.log('✅ Token stored after email verification:', token.substring(0, 20) + '...');
+      }
+      
       setVerifiedUser(userData);
       
-      // Only show ProfileCompletionModal for teachers after email verification
-      if (userData.role === 'teacher') {
-        // Show ProfileCompletionModal after a short delay
-        setTimeout(() => {
-          setShowProfileCompletion(true);
-        }, 2000);
-      } else {
-        // For parents and other roles, redirect to login after a short delay
-        setTimeout(() => {
-          navigate('/auth');
-        }, 2000);
-      }
+      // Show ProfileCompletionModal for ALL users after email verification
+      setTimeout(() => {
+        setShowProfileCompletion(true);
+      }, 2000);
     } catch (error) {
       console.error('Email verification error:', error);
       dismissToast(loadingToast);
@@ -91,11 +92,12 @@ const EmailVerificationPage = () => {
   };
 
   const handleProfileCompletion = (updatedUser) => {
-    // Profile completed successfully, ProfileCompletionModal handles navigation
+    // Profile completed successfully, navigate to login
     console.log('Profile completion successful:', updatedUser);
     setShowProfileCompletion(false);
     setVerifiedUser(null);
-    // ProfileCompletionModal will navigate to login page automatically
+    // Navigate to login page
+    navigate('/auth');
   };
 
   const handleProfileCompletionCancel = async () => {
@@ -171,7 +173,7 @@ const EmailVerificationPage = () => {
                     🎉 Congratulations! Your email has been verified successfully.
                   </p>
                   <p className="text-green-700 text-sm mb-4">
-                    Your email has been verified successfully! Please complete your profile information below.
+                    Your email has been verified successfully! Please complete your profile information to continue.
                   </p>
                 </div>
               )}
@@ -228,8 +230,8 @@ const EmailVerificationPage = () => {
         </div>
       </div>
 
-      {/* Profile Completion Modal - Only for teachers */}
-      {showProfileCompletion && verifiedUser && verifiedUser.role === 'teacher' && (
+      {/* Profile Completion Modal - For ALL users after email verification */}
+      {showProfileCompletion && verifiedUser && (
         <ProfileCompletionModal
           user={verifiedUser}
           onComplete={handleProfileCompletion}
