@@ -197,7 +197,7 @@ const ProfileCompletionModal = ({ user, onComplete, onCancel }) => {
               Profile completion is required to access the platform. Please provide your information and set a secure password.
               {user?.role === 'admin' && (
                 <span className="block mt-2 text-sm text-blue-600">
-                  As an admin, you can skip email verification and proceed directly to profile completion.
+                  Admin users created through the admin panel should already have complete profiles and can login directly.
                 </span>
               )}
             </p>

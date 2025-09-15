@@ -60,6 +60,8 @@ export class AdminService {
     const user = this.userRepository.create({
       ...createUserDto,
       passwordHash,
+      // Set emailVerified to true for admin users created through admin panel
+      emailVerified: createUserDto.role === Role.Admin ? true : false,
     });
 
     const savedUser = await this.userRepository.save(user);

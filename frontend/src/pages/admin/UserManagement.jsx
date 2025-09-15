@@ -1107,6 +1107,9 @@ const UserModal = ({ title, user, onClose, onSubmit }) => {
   const [formData, setFormData] = useState({
     email: '',
     role: '',
+    firstName: '',
+    lastName: '',
+    password: '',
   });
 
   // Reset form when modal opens
@@ -1114,6 +1117,9 @@ const UserModal = ({ title, user, onClose, onSubmit }) => {
     setFormData({
       email: '',
       role: '',
+      firstName: '',
+      lastName: '',
+      password: '',
     });
   }, []);
 
@@ -1124,15 +1130,30 @@ const UserModal = ({ title, user, onClose, onSubmit }) => {
     setLoading(true);
 
     try {
-      // Only handle new user creation
-      const submitData = {
-        email: formData.email,
-        role: formData.role,
-        password: 'Password@123', // Default password for all new admin/teacher accounts
-        firstName: `New ${formData.role.charAt(0).toUpperCase() + formData.role.slice(1)}`, // Placeholder name
-        lastName: 'User', // Placeholder name
-        phone: '', // Empty - to be filled on first login
-      };
+      // Handle new user creation with different logic for admin vs teacher
+      let submitData;
+      
+      if (formData.role === 'admin') {
+        // For admin users, create with full details
+        submitData = {
+          email: formData.email,
+          role: formData.role,
+          password: formData.password,
+          firstName: formData.firstName,
+          lastName: formData.lastName,
+          phone: '' // Optional for admin
+        };
+      } else {
+        // For teacher users, use the old logic with placeholder names
+        submitData = {
+          email: formData.email,
+          role: formData.role,
+          password: 'Password@123', // Default password for teachers
+          firstName: `New ${formData.role.charAt(0).toUpperCase() + formData.role.slice(1)}`, // Placeholder name
+          lastName: 'User', // Placeholder name
+          phone: '', // Empty - to be filled on first login
+        };
+      }
 
       console.log('Creating new user data:', submitData);
       await onSubmit(submitData);
@@ -1145,7 +1166,7 @@ const UserModal = ({ title, user, onClose, onSubmit }) => {
 
   return (
     <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 flex items-center" style={{ margin: 0 }}>
-      <div className="relative mx-auto p-5 border w-96 shadow-lg rounded-md bg-white max-h-[90vh] overflow-y-auto">
+      <div className="relative mx-auto p-5 border w-full max-w-md shadow-lg rounded-md bg-white max-h-[90vh] overflow-y-auto">
         <div className="mt-1">
           <h3 className="text-lg font-medium text-gray-900 mb-2">{title}</h3>
           <form onSubmit={handleSubmit} className="space-y-3">
@@ -1162,7 +1183,6 @@ const UserModal = ({ title, user, onClose, onSubmit }) => {
               />
             </div>
 
-
             <div>
               <label className="block text-sm font-medium text-gray-700">Role</label>
               <select
@@ -1171,26 +1191,75 @@ const UserModal = ({ title, user, onClose, onSubmit }) => {
                 value={formData.role}
                 onChange={(e) => {
                   const newRole = e.target.value;
-                  // Clear fields when switching roles - only admin and teacher allowed
-                  if (newRole === 'teacher') {
-                    setFormData({ ...formData, role: newRole, courses: '' });
-                  } else if (newRole === 'admin') {
-                    setFormData({ ...formData, role: newRole, courses: '' });
-                  } else {
-                    setFormData({ ...formData, role: newRole, courses: '' });
-                  }
+                  // Clear fields when switching roles
+                  setFormData({ 
+                    ...formData, 
+                    role: newRole,
+                    firstName: '',
+                    lastName: '',
+                    password: ''
+                  });
                 }}
               >
                 <option value="">Select Role</option>
                 <option value="teacher">Teacher</option>
                 <option value="admin">Admin</option>
               </select>
-              {formData.role && (
+              {formData.role === 'teacher' && (
                 <p className="mt-1 text-xs text-gray-500">
-                  The temporary password is <strong className="text-blue-600 font-bold">Password@123</strong>
+                  Teachers will use temporary password: <strong className="text-blue-600 font-bold">Password@123</strong>
+                </p>
+              )}
+              {formData.role === 'admin' && (
+                <p className="mt-1 text-xs text-blue-600">
+                  <strong>Admin users:</strong> Complete profile required. They can login immediately without profile completion.
                 </p>
               )}
             </div>
+
+            {/* Admin-specific fields */}
+            {formData.role === 'admin' && (
+              <>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">First Name</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Enter first name"
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    value={formData.firstName}
+                    onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Last Name</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Enter last name"
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    value={formData.lastName}
+                    onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Password</label>
+                  <input
+                    type="password"
+                    required
+                    placeholder="Enter password"
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    value={formData.password}
+                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                  />
+                  <p className="mt-1 text-xs text-gray-500">
+                    Password must contain: at least 8 characters, one uppercase letter, one lowercase letter, one number, and one special character
+                  </p>
+                </div>
+              </>
+            )}
 
 
             <div className="flex justify-end space-x-3 pt-4">
