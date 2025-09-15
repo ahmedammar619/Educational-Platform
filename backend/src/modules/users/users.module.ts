@@ -6,6 +6,7 @@ import { User } from './entities/user.entity';
 import { TeachersModule } from '../teachers/teachers.module';
 import { StudentsModule } from '../students/students.module';
 import { ParentsModule } from '../parents/parents.module';
+import { EmailService } from '../../common/services/email.service';
 
 @Module({
   imports: [
@@ -15,7 +16,7 @@ import { ParentsModule } from '../parents/parents.module';
     ParentsModule
   ],
   controllers: [UsersController],
-  providers: [UsersService],
+  providers: [UsersService, EmailService],
   exports: [UsersService],
 })
 export class UsersModule {}

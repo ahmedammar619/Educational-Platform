@@ -83,9 +83,56 @@ class AuthService {
     return user ? JSON.parse(user) : null;
   }
 
+  // Get current user from API (with latest verification status)
+  async getCurrentUserFromAPI() {
+    try {
+      const response = await api.get('/api/auth/profile');
+      return response;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  }
+
   // Get token from localStorage
   getToken() {
     return localStorage.getItem('token');
+  }
+
+  // Email verification methods
+  async sendVerificationEmail(userId) {
+    try {
+      const response = await api.post('/api/auth/send-verification-email', { userId });
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  }
+
+  async verifyEmail(token) {
+    try {
+      const response = await api.get(`/api/auth/verify-email?token=${token}`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  }
+
+  async resendVerificationEmail(userId) {
+    try {
+      const response = await api.post('/api/auth/resend-verification-email', { userId });
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  }
+
+  async sendWelcomeEmailAfterProfileCompletion(userId) {
+    try {
+      const response = await api.post('/api/auth/send-welcome-email', { userId });
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
   }
 }
 

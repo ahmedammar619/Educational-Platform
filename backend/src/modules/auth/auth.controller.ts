@@ -22,6 +22,7 @@ import { RegisterDto } from './dto/register.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { Public } from '../../common/decorators/public.decorator';
+import { SkipEmailVerification } from '../../common/decorators/skip-email-verification.decorator';
 
 @ApiTags('Authentication')
 @Controller('auth')
@@ -45,6 +46,7 @@ export class AuthController {
   }
 
   @Public()
+  @SkipEmailVerification()
   @Post('login')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'User login' })
@@ -92,18 +94,8 @@ export class AuthController {
 
   @Get('profile')
   @ApiOperation({ summary: 'Get user profile (Protected)' })
-  async getProfile(@Query('userId') userId: string) {
-    // For public access, we need to get user by ID from query
-    if (!userId) {
-      throw new Error('User ID is required');
-    }
-    // For now, return a placeholder response since we don't have getUserById
-    return {
-      user: {
-        id: userId,
-        message: 'User ID provided. In production, fetch user details from database.'
-      }
-    };
+  async getProfile(@Request() req) {
+    return this.authService.getProfile(req.user.sub);
   }
 
   @Put('profile')
@@ -152,6 +144,76 @@ export class AuthController {
       throw new Error('User ID is required');
     }
     return this.authService.deactivateAccount(body.userId);
+  }
+
+  @Post('send-verification-email')
+  @Public()
+  @ApiOperation({ summary: 'Send email verification (Public)' })
+  @ApiResponse({
+    status: 200,
+    description: 'Verification email sent successfully',
+  })
+  async sendVerificationEmail(@Body() body: { userId: string }) {
+    if (!body.userId) {
+      throw new Error('User ID is required');
+    }
+    return this.authService.sendVerificationEmail(body.userId);
+  }
+
+  @Post('verify-email')
+  @Public()
+  @ApiOperation({ summary: 'Verify email address (Public)' })
+  @ApiResponse({
+    status: 200,
+    description: 'Email verified successfully',
+  })
+  async verifyEmail(@Body() body: { token: string }) {
+    if (!body.token) {
+      throw new Error('Verification token is required');
+    }
+    return this.authService.verifyEmail(body.token);
+  }
+
+  @Get('verify-email')
+  @Public()
+  @ApiOperation({ summary: 'Verify email address via query parameter (Public)' })
+  @ApiResponse({
+    status: 200,
+    description: 'Email verified successfully',
+  })
+  async verifyEmailFromQuery(@Query('token') token: string) {
+    if (!token) {
+      throw new Error('Verification token is required');
+    }
+    return this.authService.verifyEmail(token);
+  }
+
+  @Post('resend-verification-email')
+  @Public()
+  @ApiOperation({ summary: 'Resend verification email (Public)' })
+  @ApiResponse({
+    status: 200,
+    description: 'Verification email resent successfully',
+  })
+  async resendVerificationEmail(@Body() body: { userId: string }) {
+    if (!body.userId) {
+      throw new Error('User ID is required');
+    }
+    return this.authService.resendVerificationEmail(body.userId);
+  }
+
+  @Post('send-welcome-email')
+  @Public()
+  @ApiOperation({ summary: 'Send welcome email after profile completion (Public)' })
+  @ApiResponse({
+    status: 200,
+    description: 'Welcome email sent successfully',
+  })
+  async sendWelcomeEmailAfterProfileCompletion(@Body() body: { userId: string }) {
+    if (!body.userId) {
+      throw new Error('User ID is required');
+    }
+    return this.authService.sendWelcomeEmailAfterProfileCompletion(body.userId);
   }
 
   // Test JWT token verification

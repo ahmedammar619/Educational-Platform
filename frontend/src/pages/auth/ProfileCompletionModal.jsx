@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Eye, EyeOff, User, Lock, Phone, Save } from 'lucide-react';
+import { Eye, EyeOff, User, Lock, Phone, Save, Mail } from 'lucide-react';
 import { showSuccessToast, showErrorToast, showLoadingToast, dismissToast } from '../../utils/toast.js';
-import { usersService } from '../../services/index.js';
+import { usersService, authService } from '../../services/index.js';
 import PhoneInput from '../../components/ui/PhoneInput.jsx';
+// Email verification is handled in LoginForm before this modal
 
 const ProfileCompletionModal = ({ user, onComplete, onCancel }) => {
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
@@ -18,6 +19,7 @@ const ProfileCompletionModal = ({ user, onComplete, onCancel }) => {
   });
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
+  // Email verification is handled before this modal, so no need for these states
 
   useEffect(() => {
     // Pre-fill with any existing data, but clear placeholder names
@@ -71,6 +73,10 @@ const ProfileCompletionModal = ({ user, onComplete, onCancel }) => {
       newErrors.lastName = 'Last name is required';
     }
 
+    if (!formData.phone.trim()) {
+      newErrors.phone = 'Phone number is required';
+    }
+
     if (!formData.newPassword) {
       newErrors.newPassword = 'New password is required';
     } else {
@@ -116,7 +122,20 @@ const ProfileCompletionModal = ({ user, onComplete, onCancel }) => {
       console.log('Updating user profile:', updateData);
       await usersService.updateUser(user.id, updateData);
 
+      // Send welcome email after profile completion
+      try {
+        await authService.sendWelcomeEmailAfterProfileCompletion(user.id);
+        console.log('✅ Welcome email sent after profile completion');
+      } catch (error) {
+        console.error('❌ Failed to send welcome email:', error);
+        // Don't fail the profile completion if welcome email fails
+      }
+
       dismissToast(loadingToast);
+
+      // Email verification should have been completed before reaching this modal
+      // No need to check email verification here
+
       showSuccessToast('Profile updated successfully! Welcome to the platform.');
 
       // Call onComplete with updated user data
@@ -124,7 +143,8 @@ const ProfileCompletionModal = ({ user, onComplete, onCancel }) => {
         ...user,
         firstName: formData.firstName.trim(),
         lastName: formData.lastName.trim(),
-        phone: formData.phone.trim()
+        phone: formData.phone.trim(),
+        emailVerified: true // Mark as verified since we got here
       };
 
       onComplete(updatedUser);
@@ -162,6 +182,8 @@ const ProfileCompletionModal = ({ user, onComplete, onCancel }) => {
     }));
   };
 
+  // Email verification handlers removed - handled in LoginForm
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" style={{ margin: '0px' }}>
       <div className="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
@@ -172,7 +194,12 @@ const ProfileCompletionModal = ({ user, onComplete, onCancel }) => {
             </div>
             <h2 className="text-2xl font-bold text-gray-900 mb-2">Complete Your Profile</h2>
             <p className="text-gray-600">
-              Welcome! Please complete your profile information and change your temporary password.
+              Profile completion is required to access the platform. Please provide your information and set a secure password.
+              {user?.role === 'admin' && (
+                <span className="block mt-2 text-sm text-blue-600">
+                  As an admin, you can skip email verification and proceed directly to profile completion.
+                </span>
+              )}
             </p>
           </div>
 
@@ -222,18 +249,21 @@ const ProfileCompletionModal = ({ user, onComplete, onCancel }) => {
             {/* Phone Number */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Phone Number
+                Phone Number *
               </label>
               <PhoneInput
                 value={formData.phone}
                 onChange={handlePhoneChange}
                 placeholder="Enter your phone number"
-                required={false}
+                required={true}
               />
+              {errors.phone && (
+                <p className="mt-1 text-sm text-red-600">{errors.phone}</p>
+              )}
             </div>
 
             {/* Current Password */}
-            <div>
+            {/* <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Current Password *
               </label>
@@ -260,7 +290,7 @@ const ProfileCompletionModal = ({ user, onComplete, onCancel }) => {
               {errors.currentPassword && (
                 <p className="mt-1 text-sm text-red-600">{errors.currentPassword}</p>
               )}
-            </div>
+            </div> */}
 
             {/* New Password */}
             <div>
@@ -356,6 +386,8 @@ const ProfileCompletionModal = ({ user, onComplete, onCancel }) => {
           </form>
         </div>
       </div>
+
+      {/* Email verification modal removed - handled in LoginForm */}
     </div>
   );
 };

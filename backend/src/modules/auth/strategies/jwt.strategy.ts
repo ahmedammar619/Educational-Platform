@@ -62,13 +62,15 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       console.log('✅ JWT Strategy - User validated successfully:', {
         userId: user.id,
         email: user.email,
-        role: user.role
+        role: user.role,
+        emailVerified: user.emailVerified
       });
 
       return {
         sub: user.id,
         email: user.email,
         role: user.role,
+        emailVerified: user.emailVerified,
       };
     } catch (error) {
       console.error('❌ JWT Strategy - Validation error:', error);

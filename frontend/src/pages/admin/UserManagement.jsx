@@ -2,7 +2,8 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { Search, Plus, Trash2, UserCheck, Eye, EyeOff, Key, Users, ChevronDown, ChevronUp } from 'lucide-react';
 import { usersService, studentsService } from '../../services';
 import PhoneInput from '../../components/ui/PhoneInput';
-import { showSuccessToast, showErrorToast, showConfirmToast, showLoadingToast, dismissToast } from '../../utils/toast.js';
+import { showSuccessToast, showErrorToast, showLoadingToast, dismissToast } from '../../utils/toast.js';
+import ConfirmationDialog from '../../components/ui/ConfirmationDialog';
 
 const UserManagement = ({ user }) => {
   const [allUsers, setAllUsers] = useState([]);
@@ -23,6 +24,13 @@ const UserManagement = ({ user }) => {
   });
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showLimitDropdown, setShowLimitDropdown] = useState(false);
+  const [confirmationDialog, setConfirmationDialog] = useState({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: null,
+    userId: null
+  });
 
   useEffect(() => {
     fetchUsers();
@@ -364,103 +372,113 @@ const UserManagement = ({ user }) => {
     const userToDelete = allUsers.find(u => u.id === userId);
     const userName = userToDelete?.name || 'this user';
 
-    // Show beautiful confirmation toast
-    showConfirmToast(
-      `Are you sure you want to delete ${userName}? This action cannot be undone.`,
-      async () => {
-        // User confirmed deletion
-        setDeletingUsers(prev => new Set(prev).add(userId));
-        const loadingToast = showLoadingToast('Deleting user...');
+    // Show confirmation dialog
+    setConfirmationDialog({
+      isOpen: true,
+      title: 'Delete User',
+      message: `Are you sure you want to delete ${userName}? This action cannot be undone.`,
+      onConfirm: () => performUserDeletion(userId, userToDelete),
+      userId: userId
+    });
+  };
 
-        try {
-          console.log('🗑️ Attempting to delete user:', userId);
+  const performUserDeletion = async (userId, userToDelete) => {
+    // Close confirmation dialog
+    setConfirmationDialog({
+      isOpen: false,
+      title: '',
+      message: '',
+      onConfirm: null,
+      userId: null
+    });
 
-          // Check if we have a token
-          const token = localStorage.getItem('token');
-          console.log('🔐 Token check:', {
-            hasToken: !!token,
-            tokenLength: token ? token.length : 0,
-            tokenPreview: token ? `${token.substring(0, 20)}...` : 'none'
-          });
+    // User confirmed deletion
+    setDeletingUsers(prev => new Set(prev).add(userId));
+    const loadingToast = showLoadingToast('Deleting user...');
 
-          // Call the backend API to delete user
-          console.log('📡 Calling usersService.deleteUser...');
-          await usersService.deleteUser(userId);
+    try {
+      console.log('🗑️ Attempting to delete user:', userId);
 
-          console.log('✅ User deleted successfully from backend');
+      // Check if we have a token
+      const token = localStorage.getItem('token');
+      console.log('🔐 Token check:', {
+        hasToken: !!token,
+        tokenLength: token ? token.length : 0,
+        tokenPreview: token ? `${token.substring(0, 20)}...` : 'none'
+      });
 
-          // Remove the user from local state after successful deletion
-          setAllUsers(prev => {
-            // If deleting a parent, remove the parent AND all their children
-            if (userToDelete?.role === 'parent') {
-              console.log(`🗑️ Deleting parent ${userToDelete.name} and all children`);
-              const childrenIds = userToDelete.children?.map(child => child.id) || [];
-              console.log(`👶 Children to remove: ${childrenIds.join(', ')}`);
+      // Call the backend API to delete user
+      console.log('📡 Calling usersService.deleteUser...');
+      await usersService.deleteUser(userId);
 
-              // Remove the parent and all their children
-              return prev.filter(user =>
-                user.id !== userId && // Remove the parent
-                !childrenIds.includes(user.id) // Remove all children
-              );
-            }
-            // If deleting a student, also remove them from their parent's children array
-            else if (userToDelete?.role === 'student' && userToDelete?.parentId) {
-              return prev.map(user => {
-                if (user.id === userToDelete.parentId) {
-                  // Remove the student from parent's children array
-                  const updatedChildren = (user.children || []).filter(child => child.id !== userId);
-                  return {
-                    ...user,
-                    children: updatedChildren,
-                    studentIds: updatedChildren.map(c => c.id)
-                  };
-                }
-                return user;
-              }).filter(user => user.id !== userId); // Remove the deleted user
-            } else {
-              // For other roles, just remove the user
-              return prev.filter(user => user.id !== userId);
-            }
-          });
+      console.log('✅ User deleted successfully from backend');
 
-          // Dismiss loading toast and show success toast
-          dismissToast(loadingToast);
-          showSuccessToast(`${userName} deleted successfully!`);
-        } catch (error) {
-          console.error('❌ Error deleting user:', error);
-          console.error('❌ Error details:', {
-            message: error.message,
-            response: error.response?.data,
-            status: error.response?.status,
-            statusText: error.response?.statusText
-          });
+      // Remove the user from local state after successful deletion
+      setAllUsers(prev => {
+        // If deleting a parent, remove the parent AND all their children
+        if (userToDelete?.role === 'parent') {
+          console.log(`🗑️ Deleting parent ${userToDelete.name} and all children`);
+          const childrenIds = userToDelete.children?.map(child => child.id) || [];
+          console.log(`👶 Children to remove: ${childrenIds.join(', ')}`);
 
-          // Dismiss loading toast and show error toast
-          dismissToast(loadingToast);
-
-          // Handle specific error cases
-          if (error.message && error.message.includes('related data')) {
-            showErrorToast(
-              'Cannot delete this user because they have related data (courses, classes, etc.). ' +
-              'Please remove all related data first or consider deactivating the user instead.'
-            );
-          } else {
-            const errorMessage = error.message || error.response?.data?.message || 'Unknown error occurred';
-            showErrorToast(`Error deleting user: ${errorMessage}`);
-          }
-        } finally {
-          setDeletingUsers(prev => {
-            const newSet = new Set(prev);
-            newSet.delete(userId);
-            return newSet;
-          });
+          // Remove the parent and all their children
+          return prev.filter(user =>
+            user.id !== userId && // Remove the parent
+            !childrenIds.includes(user.id) // Remove all children
+          );
         }
-      },
-      () => {
-        // User cancelled deletion - no action needed
-        console.log('User cancelled deletion');
+        // If deleting a student, also remove them from their parent's children array
+        else if (userToDelete?.role === 'student' && userToDelete?.parentId) {
+          return prev.map(user => {
+            if (user.id === userToDelete.parentId) {
+              // Remove the student from parent's children array
+              const updatedChildren = (user.children || []).filter(child => child.id !== userId);
+              return {
+                ...user,
+                children: updatedChildren,
+                studentIds: updatedChildren.map(c => c.id)
+              };
+            }
+            return user;
+          }).filter(user => user.id !== userId); // Remove the deleted user
+        } else {
+          // For other roles, just remove the user
+          return prev.filter(user => user.id !== userId);
+        }
+      });
+
+      // Dismiss loading toast and show success toast
+      dismissToast(loadingToast);
+      showSuccessToast(`${userToDelete?.name || 'User'} deleted successfully!`);
+    } catch (error) {
+      console.error('❌ Error deleting user:', error);
+      console.error('❌ Error details:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+        statusText: error.response?.statusText
+      });
+
+      // Dismiss loading toast and show error toast
+      dismissToast(loadingToast);
+
+      // Handle specific error cases
+      if (error.message && error.message.includes('related data')) {
+        showErrorToast(
+          'Cannot delete this user because they have related data (courses, classes, etc.). ' +
+          'Please remove all related data first or consider deactivating the user instead.'
+        );
+      } else {
+        const errorMessage = error.message || error.response?.data?.message || 'Unknown error occurred';
+        showErrorToast(`Error deleting user: ${errorMessage}`);
       }
-    );
+    } finally {
+      setDeletingUsers(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(userId);
+        return newSet;
+      });
+    }
   };
 
   const getRoleColor = (role) => {
@@ -1058,6 +1076,26 @@ const UserManagement = ({ user }) => {
           onSubmit={handleCreateUser}
         />
       )}
+
+      {/* Confirmation Dialog */}
+      <ConfirmationDialog
+        isOpen={confirmationDialog.isOpen}
+        onClose={() => setConfirmationDialog({
+          isOpen: false,
+          title: '',
+          message: '',
+          onConfirm: null,
+          userId: null
+        })}
+        onConfirm={confirmationDialog.onConfirm}
+        title={confirmationDialog.title}
+        message={confirmationDialog.message}
+        confirmText="Delete"
+        cancelText="Cancel"
+        type="danger"
+        confirmButtonVariant="danger"
+        isLoading={deletingUsers.has(confirmationDialog.userId)}
+      />
 
     </div>
   );

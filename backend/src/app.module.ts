@@ -34,6 +34,7 @@ import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 import { RateLimitInterceptor } from './common/interceptors/rate-limit.interceptor';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
+import { EmailVerificationGuard } from './common/guards/email-verification.guard';
 
 // Entities
 import { User } from './modules/users/entities/user.entity';
@@ -149,6 +150,10 @@ import { Notification } from './modules/notifications/entities/notification.enti
     {
       provide: APP_GUARD,
       useClass: RolesGuard,
+    },
+    {
+      provide: APP_GUARD,
+      useClass: EmailVerificationGuard,
     },
     // Global Interceptors
     {

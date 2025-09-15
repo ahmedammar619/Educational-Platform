@@ -4,6 +4,7 @@ import { showSuccessToast, showErrorToast, showWarningToast, showLoadingToast, d
 import { authService } from '../../services';
 import PhoneInput from '../../components/ui/PhoneInput';
 import ProfileCompletionModal from '../../pages/auth/ProfileCompletionModal';
+import EmailVerificationModal from '../../components/auth/EmailVerificationModal';
 
 const LoginForm = React.memo(({ onLogin, onRegister }) => {
   const [isLogin, setIsLogin] = useState(true);
@@ -22,6 +23,8 @@ const LoginForm = React.memo(({ onLogin, onRegister }) => {
   const [success, setSuccess] = useState('');
   const [showProfileCompletion, setShowProfileCompletion] = useState(false);
   const [pendingUser, setPendingUser] = useState(null);
+  const [showEmailVerification, setShowEmailVerification] = useState(false);
+  const [emailVerificationUser, setEmailVerificationUser] = useState(null);
 
   // Real authentication function using authService
   const authenticateUser = async (email, password) => {
@@ -67,10 +70,28 @@ const LoginForm = React.memo(({ onLogin, onRegister }) => {
           if (authResult && authResult.user) {
             console.log('Authentication successful:', authResult);
 
-            // Check if user needs to complete their profile (has placeholder names)
-            const hasPlaceholderName = authResult.user.firstName?.startsWith('New ') && authResult.user.lastName === 'User';
-            if (hasPlaceholderName) {
-              console.log('User requires profile completion - has placeholder name');
+            // Check if user needs email verification FIRST (only for teachers and parents, NOT admins)
+            if ((authResult.user.role === 'teacher' || authResult.user.role === 'parent') && !authResult.user.emailVerified) {
+              console.log('Teacher/Parent requires email verification');
+              dismissToast(loadingToast);
+              setEmailVerificationUser(authResult.user);
+              setShowEmailVerification(true);
+              setLoading(false);
+              return;
+            }
+
+            // Check if user needs to complete their profile
+            // For teachers and parents only: check if they have incomplete profile data
+            // Admins should not be required to complete profile during login
+            const needsProfileCompletion = (authResult.user.role === 'teacher' || authResult.user.role === 'parent') && 
+              (!authResult.user.firstName || 
+               !authResult.user.lastName || 
+               authResult.user.firstName.startsWith('New ') || 
+               authResult.user.lastName === 'User' ||
+               !authResult.user.phone);
+            
+            if (needsProfileCompletion) {
+              console.log('User requires profile completion - incomplete profile data');
               dismissToast(loadingToast);
               setPendingUser(authResult.user);
               setShowProfileCompletion(true);
@@ -138,8 +159,18 @@ const LoginForm = React.memo(({ onLogin, onRegister }) => {
         const result = await authService.register(registrationData);
         console.log('Registration successful:', result);
 
-        // Dismiss loading toast and show success toast
+        // Dismiss loading toast
         dismissToast(loadingToast);
+
+        // Check if email verification is required
+        if (result.emailVerificationRequired) {
+          console.log('Email verification required for new user');
+          setEmailVerificationUser(result.user);
+          setShowEmailVerification(true);
+          setLoading(false);
+          return;
+        }
+
         showSuccessToast(`Account for ${formData.firstName} ${formData.lastName} created successfully! Please sign in.`);
 
         // Show success message for registration
@@ -236,6 +267,63 @@ const LoginForm = React.memo(({ onLogin, onRegister }) => {
     setPendingUser(null);
     authService.logout(); // Clear the temporary login
     showErrorToast('Profile completion is required to access the platform.');
+  };
+
+  const handleEmailVerificationComplete = (verifiedUser) => {
+    console.log('Email verification completed:', verifiedUser);
+    setShowEmailVerification(false);
+    setEmailVerificationUser(null);
+    
+    // Check if user still needs profile completion after email verification
+    // For teachers, parents, and admins: check if they have incomplete profile data
+    const needsProfileCompletion = (verifiedUser.role === 'teacher' || verifiedUser.role === 'parent' || verifiedUser.role === 'admin') && 
+      (!verifiedUser.firstName || 
+       !verifiedUser.lastName || 
+       verifiedUser.firstName.startsWith('New ') || 
+       verifiedUser.lastName === 'User' ||
+       !verifiedUser.phone);
+    
+    if (needsProfileCompletion) {
+      console.log('User still needs profile completion after email verification');
+      setPendingUser(verifiedUser);
+      setShowProfileCompletion(true);
+      return;
+    }
+    
+    // Get the token from localStorage (it should be there from the initial login)
+    const token = localStorage.getItem('token');
+    if (token) {
+      showSuccessToast('Email verified successfully! Welcome to the platform.');
+      onLogin(verifiedUser, token);
+    } else {
+      showSuccessToast('Email verified successfully! You can now sign in.');
+      
+      // Clear form data for login
+      setFormData({
+        firstName: '',
+        lastName: '',
+        email: verifiedUser.email, // Keep email for convenience
+        password: '',
+        role: 'parent',
+        phone: '',
+        birthDate: ''
+      });
+
+      // Switch to login mode
+      setIsLogin(true);
+    }
+  };
+
+  const handleEmailVerificationCancel = () => {
+    console.log('Email verification cancelled');
+    setShowEmailVerification(false);
+    setEmailVerificationUser(null);
+    showErrorToast('Email verification is required to complete your registration.');
+  };
+
+  const handleEmailVerificationResend = () => {
+    console.log('Email verification resent');
+    // The EmailVerificationModal handles the resend logic
   };
 
   return (
@@ -496,6 +584,16 @@ const LoginForm = React.memo(({ onLogin, onRegister }) => {
             user={pendingUser}
             onComplete={handleProfileCompletion}
             onCancel={handleProfileCompletionCancel}
+          />
+        )}
+
+        {/* Email Verification Modal */}
+        {showEmailVerification && emailVerificationUser && (
+          <EmailVerificationModal
+            user={emailVerificationUser}
+            onVerified={handleEmailVerificationComplete}
+            onCancel={handleEmailVerificationCancel}
+            onResend={handleEmailVerificationResend}
           />
         )}
       </div>

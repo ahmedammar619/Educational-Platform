@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { HelmetProvider } from 'react-helmet-async';
+import { Routes, Route, useLocation } from 'react-router-dom';
 import { LoginForm } from './pages/auth';
+import EmailVerificationPage from './pages/auth/EmailVerificationPage';
 import { AppRouter } from './routers';
 import { authService } from './services';
 import { NotificationProvider } from './contexts/NotificationContext';
@@ -56,6 +58,7 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [showLogin, setShowLogin] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const location = useLocation();
 
   const validateToken = React.useCallback(async () => {
     try {
@@ -163,15 +166,23 @@ function App() {
       <ErrorBoundary>
         <NotificationProvider user={user}>
           <div className="App">
-            {showLogin ? (
-              <LoginForm onLogin={handleLogin} onRegister={() => setShowLogin(false)} />
-            ) : (
-              <AppRouter 
-                user={user} 
-                onLogin={handleLoginClick}
-                onLogout={handleLogout}
-              />
-            )}
+            <Routes>
+              {/* Email verification route - always accessible */}
+              <Route path="/verify-email" element={<EmailVerificationPage />} />
+              
+              {/* All other routes */}
+              <Route path="*" element={
+                showLogin ? (
+                  <LoginForm onLogin={handleLogin} onRegister={() => setShowLogin(false)} />
+                ) : (
+                  <AppRouter 
+                    user={user} 
+                    onLogin={handleLoginClick}
+                    onLogout={handleLogout}
+                  />
+                )
+              } />
+            </Routes>
             <ToastContainer position="top-right" />
           </div>
         </NotificationProvider>

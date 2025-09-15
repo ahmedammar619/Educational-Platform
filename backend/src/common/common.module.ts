@@ -5,6 +5,7 @@ import { R2FileService } from './services/r2-file.service';
 import { StripeService } from './services/stripe.service';
 import { AuditLogService } from './services/audit-log.service';
 import { CountryCodesService } from './services/country-codes.service';
+import { EmailService } from './services/email.service';
 import { CountryCodesController } from './controllers/country-codes.controller';
 
 @Global()
@@ -16,6 +17,7 @@ import { CountryCodesController } from './controllers/country-codes.controller';
     StripeService,
     AuditLogService,
     CountryCodesService,
+    EmailService,
   ],
   controllers: [CountryCodesController],
   exports: [
@@ -25,6 +27,7 @@ import { CountryCodesController } from './controllers/country-codes.controller';
     StripeService,
     AuditLogService,
     CountryCodesService,
+    EmailService,
   ],
 })
 export class CommonModule {}

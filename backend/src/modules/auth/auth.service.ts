@@ -21,6 +21,7 @@ import { Role } from '../../common/enums/role.enum';
 import { StudentsService } from '../students/students.service';
 import { ParentsService } from '../parents/parents.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { EmailService } from '../../common/services/email.service';
 
 @Injectable()
 export class AuthService {
@@ -31,6 +32,7 @@ export class AuthService {
     private readonly studentsService: StudentsService,
     private readonly parentsService: ParentsService,
     private readonly notificationsService: NotificationsService,
+    private readonly emailService: EmailService,
   ) {}
 
   async register(registerDto: RegisterDto) {
@@ -129,44 +131,121 @@ export class AuthService {
       console.error('❌ Failed to send new user registration notification:', error);
     }
 
+    // Send verification email for teachers and parents only
+    if (role === Role.Parent) {
+      try {
+        const verificationToken = crypto.randomBytes(32).toString('hex');
+        const verificationExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+
+        // Update user with verification token
+        await this.userRepository.update(savedUser.id, {
+          emailVerificationToken: verificationToken,
+          emailVerificationExpiry: verificationExpiry,
+        });
+
+        // Send verification email
+        await this.emailService.sendVerificationEmail(
+          savedUser.email,
+          verificationToken,
+          savedUser.firstName
+        );
+        console.log('✅ Verification email sent to new parent');
+      } catch (error) {
+        console.error('❌ Failed to send verification email:', error);
+        // Don't fail registration if email sending fails
+      }
+    } else {
+      // For students, mark email as verified by default
+      await this.userRepository.update(savedUser.id, {
+        emailVerified: true,
+      });
+      console.log('✅ Student email marked as verified by default');
+    }
+
     // Generate JWT token
     const token = this.generateToken(savedUser);
 
     return {
-      message: `${role === Role.Parent ? 'Parent' : 'Student'} account created successfully`,
+      message: `${role === Role.Parent ? 'Parent' : 'Student'} account created successfully.${role === Role.Parent ? ' Please check your email to verify your account.' : ''}`,
       user: this.sanitizeUser(savedUser),
       token,
+      emailVerificationRequired: role === Role.Parent, // Only parents need email verification
     };
   }
 
   async login(loginDto: LoginDto) {
     const { email, password } = loginDto;
 
-    // Find user with password and include createdAt
-    const user = await this.userRepository.findOne({
-      where: { email },
-      select: ['id', 'email', 'passwordHash', 'firstName', 'lastName', 'role', 'createdAt'],
-    });
+    try {
+      // Try to get user with emailVerified column first
+      const user = await this.userRepository.findOne({
+        where: { email },
+        select: ['id', 'email', 'passwordHash', 'firstName', 'lastName', 'role', 'emailVerified', 'createdAt'],
+      });
 
-    if (!user) {
-      throw new UnauthorizedException('Invalid credentials');
+      if (!user) {
+        throw new UnauthorizedException('Invalid credentials');
+      }
+
+      // Verify password
+      const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
+      
+      if (!isPasswordValid) {
+        throw new UnauthorizedException('Invalid credentials');
+      }
+
+      // For admins, always treat email as verified (skip all verification)
+      if (user.role === Role.Admin) {
+        user.emailVerified = true;
+      }
+
+      // Generate JWT token
+      const token = this.generateToken(user);
+
+      return {
+        message: 'Login successful',
+        user: this.sanitizeUser(user),
+        token,
+      };
+    } catch (error) {
+      // If emailVerified column doesn't exist, try without it
+      if (error.message && error.message.includes('emailVerified')) {
+        console.log('⚠️ emailVerified column not found, fetching user without it');
+        const user = await this.userRepository.findOne({
+          where: { email },
+          select: ['id', 'email', 'passwordHash', 'firstName', 'lastName', 'role', 'createdAt'],
+        });
+
+        if (!user) {
+          throw new UnauthorizedException('Invalid credentials');
+        }
+
+        // Verify password
+        const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
+        
+        if (!isPasswordValid) {
+          throw new UnauthorizedException('Invalid credentials');
+        }
+
+        // For admins, always treat email as verified (skip all verification)
+        if (user.role === Role.Admin) {
+          user.emailVerified = true;
+        } else {
+          // For other roles, assume email is not verified if column doesn't exist
+          user.emailVerified = false;
+        }
+
+        // Generate JWT token
+        const token = this.generateToken(user);
+
+        return {
+          message: 'Login successful',
+          user: this.sanitizeUser(user),
+          token,
+        };
+      }
+      throw error;
     }
-
-    // Verify password
-    const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
-    
-    if (!isPasswordValid) {
-      throw new UnauthorizedException('Invalid credentials');
-    }
-
-    // Generate JWT token
-    const token = this.generateToken(user);
-
-    return {
-      message: 'Login successful',
-      user: this.sanitizeUser(user),
-      token,
-    };
   }
 
   async logout(userId: string) {
@@ -233,16 +312,48 @@ export class AuthService {
   }
 
   async getProfile(userId: string) {
-    const user = await this.userRepository.findOne({
-      where: { id: userId },
-      select: ['id', 'firstName', 'lastName', 'email', 'role', 'phone', 'createdAt'],
-    });
+    try {
+      // Try to get user with emailVerified column first
+      const user = await this.userRepository.findOne({
+        where: { id: userId },
+        select: ['id', 'firstName', 'lastName', 'email', 'role', 'phone', 'emailVerified', 'createdAt'],
+      });
 
-    if (!user) {
-      throw new NotFoundException('User not found');
+      if (!user) {
+        throw new NotFoundException('User not found');
+      }
+
+      // For admins, always treat email as verified (skip all verification)
+      if (user.role === Role.Admin) {
+        user.emailVerified = true;
+      }
+
+      return this.sanitizeUser(user);
+    } catch (error) {
+      // If emailVerified column doesn't exist, try without it
+      if (error.message && error.message.includes('emailVerified')) {
+        console.log('⚠️ emailVerified column not found, fetching user without it');
+        const user = await this.userRepository.findOne({
+          where: { id: userId },
+          select: ['id', 'firstName', 'lastName', 'email', 'role', 'phone', 'createdAt'],
+        });
+
+        if (!user) {
+          throw new NotFoundException('User not found');
+        }
+
+        // For admins, always treat email as verified (skip all verification)
+        if (user.role === Role.Admin) {
+          user.emailVerified = true;
+        } else {
+          // For other roles, assume email is not verified if column doesn't exist
+          user.emailVerified = false;
+        }
+
+        return this.sanitizeUser(user);
+      }
+      throw error;
     }
-
-    return this.sanitizeUser(user);
   }
 
   async validateUser(email: string, password: string): Promise<any> {
@@ -262,16 +373,48 @@ export class AuthService {
   }
 
   async findById(id: string): Promise<User> {
-    const user = await this.userRepository.findOne({
-      where: { id },
-      select: ['id', 'email', 'firstName', 'lastName', 'role', 'createdAt'],
-    });
+    try {
+      // Try to get user with emailVerified column first
+      const user = await this.userRepository.findOne({
+        where: { id },
+        select: ['id', 'email', 'firstName', 'lastName', 'role', 'emailVerified', 'createdAt'],
+      });
 
-    if (!user) {
-      throw new NotFoundException('User not found');
+      if (!user) {
+        throw new NotFoundException('User not found');
+      }
+
+      // For admins, always treat email as verified (skip all verification)
+      if (user.role === Role.Admin) {
+        user.emailVerified = true;
+      }
+
+      return user;
+    } catch (error) {
+      // If emailVerified column doesn't exist, try without it
+      if (error.message && error.message.includes('emailVerified')) {
+        console.log('⚠️ emailVerified column not found, fetching user without it');
+        const user = await this.userRepository.findOne({
+          where: { id },
+          select: ['id', 'email', 'firstName', 'lastName', 'role', 'createdAt'],
+        });
+
+        if (!user) {
+          throw new NotFoundException('User not found');
+        }
+
+        // For admins, always treat email as verified (skip all verification)
+        if (user.role === Role.Admin) {
+          user.emailVerified = true;
+        } else {
+          // For other roles, assume email is not verified if column doesn't exist
+          user.emailVerified = false;
+        }
+
+        return user;
+      }
+      throw error;
     }
-
-    return user;
   }
 
   async updateProfile(userId: string, updateProfileDto: UpdateProfileDto) {
@@ -335,6 +478,7 @@ export class AuthService {
       sub: user.id,
       email: user.email,
       role: user.role,
+      emailVerified: user.emailVerified,
       iat: Math.floor(Date.now() / 1000),
     };
 
@@ -348,5 +492,179 @@ export class AuthService {
   private sanitizeUser(user: User): Partial<User> {
     const { passwordHash, ...sanitizedUser } = user;
     return sanitizedUser;
+  }
+
+  // Email verification methods
+  async sendVerificationEmail(userId: string) {
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    // Check if emailVerified column exists and user is already verified
+    try {
+      if (user.emailVerified) {
+        throw new BadRequestException('Email is already verified');
+      }
+    } catch (error) {
+      // If emailVerified column doesn't exist, continue with sending verification
+      console.log('⚠️ emailVerified column not found, proceeding with sending verification');
+    }
+
+    // Generate verification token
+    const verificationToken = crypto.randomBytes(32).toString('hex');
+    const verificationExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+
+    // Update user with verification token
+    await this.userRepository.update(userId, {
+      emailVerificationToken: verificationToken,
+      emailVerificationExpiry: verificationExpiry,
+    });
+
+    // Send verification email
+    const emailSent = await this.emailService.sendVerificationEmail(
+      user.email,
+      verificationToken,
+      user.firstName
+    );
+
+    if (!emailSent) {
+      throw new BadRequestException('Failed to send verification email');
+    }
+
+    return {
+      message: 'Verification email sent successfully',
+      email: user.email,
+    };
+  }
+
+  async verifyEmail(token: string) {
+    const user = await this.userRepository.findOne({
+      where: { emailVerificationToken: token },
+    });
+
+    if (!user) {
+      throw new BadRequestException('Invalid verification token');
+    }
+
+    // Check if emailVerified column exists and user is already verified
+    try {
+      if (user.emailVerified) {
+        throw new BadRequestException('Email is already verified');
+      }
+    } catch (error) {
+      // If emailVerified column doesn't exist, continue with verification
+      console.log('⚠️ emailVerified column not found, proceeding with verification');
+    }
+
+    if (!user.emailVerificationExpiry || user.emailVerificationExpiry < new Date()) {
+      throw new BadRequestException('Verification token has expired');
+    }
+
+    // Update user as verified - handle missing emailVerified column
+    try {
+      await this.userRepository.update(user.id, {
+        emailVerified: true,
+        emailVerificationToken: null,
+        emailVerificationExpiry: null,
+      });
+    } catch (error) {
+      // If emailVerified column doesn't exist, just clear the token
+      if (error.message && error.message.includes('emailVerified')) {
+        console.log('⚠️ emailVerified column not found, clearing verification token only');
+        await this.userRepository.update(user.id, {
+          emailVerificationToken: null,
+          emailVerificationExpiry: null,
+        });
+      } else {
+        throw error;
+      }
+    }
+
+    return {
+      message: 'Email verified successfully',
+      user: this.sanitizeUser(user),
+    };
+  }
+
+  async resendVerificationEmail(userId: string) {
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    // Check if emailVerified column exists and user is already verified
+    try {
+      if (user.emailVerified) {
+        throw new BadRequestException('Email is already verified');
+      }
+    } catch (error) {
+      // If emailVerified column doesn't exist, continue with resending verification
+      console.log('⚠️ emailVerified column not found, proceeding with resending verification');
+    }
+
+    // Check if we can resend (rate limiting - not too frequent)
+    const now = new Date();
+    const lastSent = user.emailVerificationExpiry;
+    
+    if (lastSent && (now.getTime() - lastSent.getTime()) < 5 * 60 * 1000) { // 5 minutes
+      throw new BadRequestException('Please wait before requesting another verification email');
+    }
+
+    // Generate new verification token
+    const verificationToken = crypto.randomBytes(32).toString('hex');
+    const verificationExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+
+    // Update user with new verification token
+    await this.userRepository.update(userId, {
+      emailVerificationToken: verificationToken,
+      emailVerificationExpiry: verificationExpiry,
+    });
+
+    // Send verification email
+    const emailSent = await this.emailService.sendVerificationEmail(
+      user.email,
+      verificationToken,
+      user.firstName
+    );
+
+    if (!emailSent) {
+      throw new BadRequestException('Failed to send verification email');
+    }
+
+    return {
+      message: 'Verification email resent successfully',
+      email: user.email,
+    };
+  }
+
+  // Send welcome email after profile completion
+  async sendWelcomeEmailAfterProfileCompletion(userId: string) {
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    // Send welcome email
+    await this.emailService.sendWelcomeEmail(
+      user.email,
+      user.firstName,
+      user.lastName,
+      user.role
+    );
+
+    return {
+      message: 'Welcome email sent successfully',
+      email: user.email,
+    };
   }
 }

@@ -122,6 +122,26 @@ class EnvironmentVariables {
   @IsNumber()
   LOG_MAX_SIZE: number;
 
+  // Email Configuration
+  @IsString()
+  SMTP_HOST: string;
+
+  @IsNumber()
+  @IsPort()
+  SMTP_PORT: number;
+
+  @IsString()
+  SMTP_USER: string;
+
+  @IsString()
+  SMTP_PASS: string;
+
+  @IsBoolean()
+  SMTP_SECURE: boolean;
+
+  @IsString()
+  FRONTEND_URL: string;
+
   @IsNumber()
   LOG_MAX_DAYS: number;
 
@@ -168,10 +188,6 @@ class EnvironmentVariables {
   @IsString()
   STRIPE_WEBHOOK_SECRET?: string;
 
-  // Frontend URL (for Stripe redirects)
-  @IsOptional()
-  @IsString()
-  FRONTEND_URL?: string;
 
   // Zoom Configuration
   @IsOptional()

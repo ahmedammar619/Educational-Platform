@@ -47,6 +47,15 @@ export class User {
   @Column({ nullable: true, length: 64 })
   stripe_customer_id?: string;
 
+  @Column({ default: false })
+  emailVerified: boolean;
+
+  @Column({ nullable: true, length: 255 })
+  emailVerificationToken?: string;
+
+  @Column({ type: 'timestamp', nullable: true })
+  emailVerificationExpiry?: Date;
+
   @CreateDateColumn()
   createdAt: Date;
 

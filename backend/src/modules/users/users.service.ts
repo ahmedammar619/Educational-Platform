@@ -6,9 +6,11 @@ import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { Role } from '../../common/enums/role.enum';
 import * as bcrypt from 'bcryptjs';
+import * as crypto from 'crypto';
 import { TeachersService } from '../teachers/teachers.service';
 import { StudentsService } from '../students/students.service';
 import { ParentsService } from '../parents/parents.service';
+import { EmailService } from '../../common/services/email.service';
 
 @Injectable()
 export class UsersService {
@@ -18,6 +20,7 @@ export class UsersService {
     private readonly teachersService: TeachersService,
     private readonly studentsService: StudentsService,
     private readonly parentsService: ParentsService,
+    private readonly emailService: EmailService,
   ) {}
 
   async findAll(): Promise<User[]> {
@@ -81,6 +84,29 @@ export class UsersService {
     try {
       if (savedUser.role === Role.Teacher) {
         await this.teachersService.createTeacherFromUser(savedUser.id);
+        
+        // Send verification email for teachers
+        try {
+          const verificationToken = crypto.randomBytes(32).toString('hex');
+          const verificationExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+
+          // Update user with verification token
+          await this.userRepository.update(savedUser.id, {
+            emailVerificationToken: verificationToken,
+            emailVerificationExpiry: verificationExpiry,
+          });
+
+          // Send verification email
+          await this.emailService.sendVerificationEmail(
+            savedUser.email,
+            verificationToken,
+            savedUser.firstName
+          );
+          console.log('✅ Verification email sent to new teacher');
+        } catch (error) {
+          console.error('❌ Failed to send verification email to teacher:', error);
+          // Don't fail user creation if email sending fails
+        }
       } else if (savedUser.role === Role.Student) {
         // Extract student-specific data from the DTO
         const { birthDate, parentId } = createUserDto;
@@ -88,9 +114,38 @@ export class UsersService {
           throw new Error('Birth date is required for students');
         }
         await this.studentsService.createStudentFromUser(savedUser.id, birthDate, savedUser.phone, parentId);
+        
+        // For students, mark email as verified by default
+        await this.userRepository.update(savedUser.id, {
+          emailVerified: true,
+        });
+        console.log('✅ Student email marked as verified by default');
       } else if (savedUser.role === Role.Parent) {
         // Create parent record for users with Parent role
         await this.parentsService.createParentFromUser(savedUser.id);
+        
+        // Send verification email for parents
+        try {
+          const verificationToken = crypto.randomBytes(32).toString('hex');
+          const verificationExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+
+          // Update user with verification token
+          await this.userRepository.update(savedUser.id, {
+            emailVerificationToken: verificationToken,
+            emailVerificationExpiry: verificationExpiry,
+          });
+
+          // Send verification email
+          await this.emailService.sendVerificationEmail(
+            savedUser.email,
+            verificationToken,
+            savedUser.firstName
+          );
+          console.log('✅ Verification email sent to new parent');
+        } catch (error) {
+          console.error('❌ Failed to send verification email to parent:', error);
+          // Don't fail user creation if email sending fails
+        }
       }
     } catch (error) {
       // If creating in separate table fails, we should clean up the user
