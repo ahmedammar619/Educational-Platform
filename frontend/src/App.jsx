@@ -72,10 +72,10 @@ function App() {
       }
       
       // Invalid or expired token, clear everything
-      authService.logout();
+      await authService.logout();
     } catch (error) {
       console.error('Token validation failed:', error);
-      authService.logout();
+      await authService.logout();
     } finally {
       setLoading(false);
     }
@@ -133,7 +133,7 @@ function App() {
     setShowLogin(true);
   }, []);
 
-  const handleLogout = React.useCallback(() => {
+  const handleLogout = React.useCallback(async () => {
     // Set logging out state to prevent error boundary issues
     setIsLoggingOut(true);
     
@@ -141,7 +141,7 @@ function App() {
     showInfoToast('Signing out...', 'You have been successfully logged out.');
     
     // Clear user state and logout from authService
-    authService.logout();
+    await authService.logout();
     setUser(null);
     
     // Use setTimeout to ensure state updates are processed before navigation

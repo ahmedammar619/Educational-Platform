@@ -81,9 +81,10 @@ const LoginForm = React.memo(({ onLogin, onRegister }) => {
             }
 
             // Check if user needs to complete their profile
-            // For teachers and parents only: check if they have incomplete profile data
+            // For parents only: check if they have incomplete profile data
+            // Teachers should only complete profile after email verification, not during login
             // Admins should not be required to complete profile during login
-            const needsProfileCompletion = (authResult.user.role === 'teacher' || authResult.user.role === 'parent') && 
+            const needsProfileCompletion = authResult.user.role === 'parent' && 
               (!authResult.user.firstName || 
                !authResult.user.lastName || 
                authResult.user.firstName.startsWith('New ') || 
@@ -91,7 +92,7 @@ const LoginForm = React.memo(({ onLogin, onRegister }) => {
                !authResult.user.phone);
             
             if (needsProfileCompletion) {
-              console.log('User requires profile completion - incomplete profile data');
+              console.log('Parent requires profile completion - incomplete profile data');
               dismissToast(loadingToast);
               setPendingUser(authResult.user);
               setShowProfileCompletion(true);
@@ -246,27 +247,22 @@ const LoginForm = React.memo(({ onLogin, onRegister }) => {
   };
 
   const handleProfileCompletion = (updatedUser) => {
-    // Profile completed successfully, now proceed with login
+    // Profile completed successfully, ProfileCompletionModal handles navigation
     console.log('Profile completion successful:', updatedUser);
     setShowProfileCompletion(false);
     setPendingUser(null);
-
-    // Get the token from localStorage (it should be there from the initial login)
-    const token = localStorage.getItem('token');
-    if (token) {
-      onLogin(updatedUser, token);
-    } else {
-      showErrorToast('Session expired. Please login again.');
-    }
+    // ProfileCompletionModal will navigate to login page automatically
   };
 
-  const handleProfileCompletionCancel = () => {
+  const handleProfileCompletionCancel = async () => {
     // User cancelled profile completion, clear everything
     console.log('Profile completion cancelled');
     setShowProfileCompletion(false);
     setPendingUser(null);
-    authService.logout(); // Clear the temporary login
+    await authService.logout(); // Clear the temporary login
     showErrorToast('Profile completion is required to access the platform.');
+    // Force reload to ensure clean state
+    window.location.href = '/auth';
   };
 
   const handleEmailVerificationComplete = (verifiedUser) => {
@@ -274,43 +270,37 @@ const LoginForm = React.memo(({ onLogin, onRegister }) => {
     setShowEmailVerification(false);
     setEmailVerificationUser(null);
     
-    // Check if user still needs profile completion after email verification
-    // For teachers, parents, and admins: check if they have incomplete profile data
-    const needsProfileCompletion = (verifiedUser.role === 'teacher' || verifiedUser.role === 'parent' || verifiedUser.role === 'admin') && 
-      (!verifiedUser.firstName || 
-       !verifiedUser.lastName || 
-       verifiedUser.firstName.startsWith('New ') || 
-       verifiedUser.lastName === 'User' ||
-       !verifiedUser.phone);
-    
-    if (needsProfileCompletion) {
-      console.log('User still needs profile completion after email verification');
+    // Only show ProfileCompletionModal for teachers after email verification
+    if (verifiedUser.role === 'teacher') {
+      console.log('Teacher email verified, proceeding to profile completion');
       setPendingUser(verifiedUser);
       setShowProfileCompletion(true);
-      return;
-    }
-    
-    // Get the token from localStorage (it should be there from the initial login)
-    const token = localStorage.getItem('token');
-    if (token) {
-      showSuccessToast('Email verified successfully! Welcome to the platform.');
-      onLogin(verifiedUser, token);
     } else {
-      showSuccessToast('Email verified successfully! You can now sign in.');
+      // For parents and other roles, proceed directly to login
+      console.log('Non-teacher email verified, proceeding to login');
       
-      // Clear form data for login
-      setFormData({
-        firstName: '',
-        lastName: '',
-        email: verifiedUser.email, // Keep email for convenience
-        password: '',
-        role: 'parent',
-        phone: '',
-        birthDate: ''
-      });
+      // Get the token from localStorage (it should be there from the initial login)
+      const token = localStorage.getItem('token');
+      if (token) {
+        showSuccessToast('Email verified successfully! Welcome to the platform.');
+        onLogin(verifiedUser, token);
+      } else {
+        showSuccessToast('Email verified successfully! You can now sign in.');
+        
+        // Clear form data for login
+        setFormData({
+          firstName: '',
+          lastName: '',
+          email: verifiedUser.email, // Keep email for convenience
+          password: '',
+          role: 'parent',
+          phone: '',
+          birthDate: ''
+        });
 
-      // Switch to login mode
-      setIsLogin(true);
+        // Switch to login mode
+        setIsLogin(true);
+      }
     }
   };
 

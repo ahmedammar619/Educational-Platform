@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { Eye, EyeOff, User, Lock, Phone, Save, Mail } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { showSuccessToast, showErrorToast, showLoadingToast, dismissToast } from '../../utils/toast.js';
 import { usersService, authService } from '../../services/index.js';
 import PhoneInput from '../../components/ui/PhoneInput.jsx';
 // Email verification is handled in LoginForm before this modal
 
 const ProfileCompletionModal = ({ user, onComplete, onCancel }) => {
+  const navigate = useNavigate();
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -136,18 +138,13 @@ const ProfileCompletionModal = ({ user, onComplete, onCancel }) => {
       // Email verification should have been completed before reaching this modal
       // No need to check email verification here
 
-      showSuccessToast('Profile updated successfully! Welcome to the platform.');
+      showSuccessToast('Profile updated successfully! Please sign in to continue.');
 
-      // Call onComplete with updated user data
-      const updatedUser = {
-        ...user,
-        firstName: formData.firstName.trim(),
-        lastName: formData.lastName.trim(),
-        phone: formData.phone.trim(),
-        emailVerified: true // Mark as verified since we got here
-      };
+      // Clear any existing token since we want user to login fresh
+      await authService.logout();
 
-      onComplete(updatedUser);
+      // Force a page reload to ensure clean state and navigate to login
+      window.location.href = '/auth';
     } catch (error) {
       console.error('Error updating profile:', error);
       dismissToast(loadingToast);

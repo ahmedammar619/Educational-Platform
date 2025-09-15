@@ -584,9 +584,30 @@ export class AuthService {
       }
     }
 
+    // Get the updated user from database
+    const updatedUser = await this.userRepository.findOne({
+      where: { id: user.id },
+    });
+
+    // Generate a new JWT token with updated emailVerified status
+    const newToken = this.jwtService.sign(
+      {
+        sub: updatedUser.id,
+        email: updatedUser.email,
+        role: updatedUser.role,
+        emailVerified: updatedUser.emailVerified,
+      },
+      {
+        expiresIn: '24h',
+        issuer: 'educational-platform',
+        audience: 'educational-platform-users',
+      }
+    );
+
     return {
       message: 'Email verified successfully',
-      user: this.sanitizeUser(user),
+      user: this.sanitizeUser(updatedUser),
+      token: newToken,
     };
   }
 

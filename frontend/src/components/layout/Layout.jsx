@@ -28,8 +28,8 @@ const Layout = ({ children, user, onLogout }) => {
     setSidebarOpen(false); // Close sidebar on mobile after navigation
   };
 
-  const handleLogout = () => {
-    authService.logout();
+  const handleLogout = async () => {
+    await authService.logout();
     onLogout();
     setSidebarOpen(false);
     setShowProfilePopup(false);

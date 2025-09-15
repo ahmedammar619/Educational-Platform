@@ -31,11 +31,20 @@ class AuthService {
   }
 
   // User logout
-  logout() {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    // Don't redirect here - let the App component handle it
-    // window.location.href = '/login';
+  async logout() {
+    try {
+      // Call backend logout endpoint if user is authenticated
+      if (this.isAuthenticated()) {
+        await api.post('/api/auth/logout');
+      }
+    } catch (error) {
+      // Don't throw error for logout - just log it
+      console.warn('Logout API call failed:', error);
+    } finally {
+      // Always clear local storage
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+    }
   }
 
   // Get current user profile
