@@ -179,10 +179,53 @@ export class ParentsService {
   async deleteParent(id: string): Promise<void> {
     console.log(`🗑️ Starting deletion of parent: ${id}`);
     
-    const parent = await this.findOne(id);
-    console.log(`📋 Parent found: ${parent.user.firstName} ${parent.user.lastName}`);
-    console.log(`👶 Children to delete: ${JSON.stringify(parent.studentIds)}`);
+    // First check if parent record exists
+    let parent;
+    try {
+      parent = await this.findOne(id);
+      console.log(`📋 Parent found: ${parent.user.firstName} ${parent.user.lastName}`);
+      console.log(`👶 Children to delete: ${JSON.stringify(parent.studentIds)}`);
+    } catch (error) {
+      if (error.message === 'Parent not found') {
+        console.log(`⚠️ Parent record not found in parents table, checking if user exists with parent role...`);
+        
+        // Try to create missing parent record first
+        const parent = await this.ensureParentRecordExists(id);
+        
+        if (parent) {
+          console.log(`✅ Created missing parent record, proceeding with normal deletion...`);
+          // Now proceed with normal deletion logic
+          await this.deleteParentRecords(id, parent);
+          return;
+        }
+        
+        // If we can't create parent record, check if user exists with parent role
+        const user = await this.userRepository.findOne({
+          where: { id, role: Role.Parent }
+        });
+        
+        if (!user) {
+          throw new NotFoundException('Parent not found');
+        }
+        
+        console.log(`✅ User found with parent role: ${user.firstName} ${user.lastName}`);
+        console.log(`ℹ️ No parent record exists, proceeding with user deletion only`);
+        
+        // Just delete the user record since no parent record exists
+        await this.userRepository.delete(id);
+        console.log(`✅ User record deleted: ${id}`);
+        return;
+      } else {
+        throw error;
+      }
+    }
     
+    // Proceed with normal deletion logic
+    await this.deleteParentRecords(id, parent);
+  }
+
+  // Helper method to handle the actual deletion of parent records and children
+  private async deleteParentRecords(id: string, parent: Parent): Promise<void> {
     // Delete all students that have this parent (cascade delete)
     if (parent.studentIds && parent.studentIds.length > 0) {
       console.log(`🔄 Processing ${parent.studentIds.length} children...`);
@@ -434,7 +477,7 @@ export class ParentsService {
   }
 
   // Method to ensure a parent record exists for a given user ID
-  async ensureParentRecordExists(userId: string): Promise<Parent> {
+  async ensureParentRecordExists(userId: string): Promise<Parent | null> {
     // First check if parent record already exists
     let parent = await this.parentRepository.findOne({
       where: { id: userId },
@@ -451,10 +494,11 @@ export class ParentsService {
     });
 
     if (!user) {
-      throw new NotFoundException('User not found or does not have Parent role');
+      return null; // User doesn't exist or doesn't have parent role
     }
 
     // Create the parent record
+    console.log(`🔧 Creating missing parent record for user: ${user.firstName} ${user.lastName}`);
     parent = this.parentRepository.create({
       id: userId,
       studentIds: []
