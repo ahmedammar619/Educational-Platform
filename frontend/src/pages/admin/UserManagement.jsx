@@ -297,11 +297,12 @@ const UserManagement = ({ user }) => {
       showSuccessToast(`User created successfully! They will receive a temporary password and must complete their profile on first login.`);
     } catch (error) {
       console.error('Error creating user:', error);
-      const errorMessage = error.message || error.response?.data?.message || 'Unknown error occurred';
-
-      // Dismiss loading toast and show error toast
+      
+      // Dismiss loading toast
       dismissToast(loadingToast);
-      showErrorToast(`Error creating user: ${errorMessage}`);
+      
+      // Re-throw the error so it can be handled by the modal
+      throw error;
     } finally {
       setIsCreatingUser(false);
     }
@@ -1104,6 +1105,8 @@ const UserManagement = ({ user }) => {
 // User Modal Component
 const UserModal = ({ title, user, onClose, onSubmit }) => {
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [errors, setErrors] = useState({});
   const [formData, setFormData] = useState({
     email: '',
     role: '',
@@ -1121,12 +1124,15 @@ const UserModal = ({ title, user, onClose, onSubmit }) => {
       lastName: '',
       password: '',
     });
+    setErrors({});
   }, []);
 
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    // Clear previous errors
+    setErrors({});
     setLoading(true);
 
     try {
@@ -1159,8 +1165,74 @@ const UserModal = ({ title, user, onClose, onSubmit }) => {
       await onSubmit(submitData);
     } catch (error) {
       console.error('Error in UserModal submit:', error);
+      
+      // Handle different types of errors - extract the most detailed error message
+      let errorMessage = 'An error occurred';
+      
+      if (error.response?.data) {
+        // Try multiple possible error message fields
+        errorMessage = error.response.data.message || 
+                      error.response.data.error || 
+                      error.response.data.details ||
+                      error.response.data.error_description ||
+                      JSON.stringify(error.response.data);
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      const statusCode = error.response?.status;
+      
+      console.log('Full error object:', error);
+      console.log('Error response:', error.response);
+      console.log('Error response data:', error.response?.data);
+      console.log('Status code:', statusCode);
+      console.log('Error message:', errorMessage);
+      
+      // Show the actual error details from the server to the user
+      if (errorMessage.toLowerCase().includes('email') && 
+          (errorMessage.toLowerCase().includes('already') || 
+           errorMessage.toLowerCase().includes('exists') ||
+           errorMessage.toLowerCase().includes('duplicate') ||
+           errorMessage.toLowerCase().includes('taken') ||
+           errorMessage.toLowerCase().includes('used'))) {
+        setErrors({ email: errorMessage }); // Show the actual server message
+      } else if (statusCode === 400 || statusCode === 409) {
+        // Handle 400 Bad Request or 409 Conflict - show actual server message
+        console.log('Handling 400/409 error, message:', errorMessage);
+        if (errorMessage.toLowerCase().includes('email') || statusCode === 409) {
+          setErrors({ email: errorMessage }); // Show the actual server message
+        } else {
+          setErrors({ general: errorMessage }); // Show the actual server message
+        }
+      } else if (error.response?.status === 422) {
+        // Handle validation errors - show actual server message
+        setErrors({ general: errorMessage });
+      } else {
+        // Show the actual error message from the server
+        let displayMessage = errorMessage;
+        
+        // If we still have a generic message, try to show more details
+        if (displayMessage === 'An error occurred' && error.response?.data) {
+          displayMessage = `Error ${statusCode}: ${JSON.stringify(error.response.data)}`;
+        }
+        
+        setErrors({ general: displayMessage || 'An unexpected error occurred. Please try again.' });
+      }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleInputChange = (field, value) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+    
+    // Clear error for this field when user starts typing
+    if (errors[field]) {
+      setErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors[field];
+        return newErrors;
+      });
     }
   };
 
@@ -1169,6 +1241,26 @@ const UserModal = ({ title, user, onClose, onSubmit }) => {
       <div className="relative mx-auto p-5 border w-full max-w-md shadow-lg rounded-md bg-white max-h-[90vh] overflow-y-auto">
         <div className="mt-1">
           <h3 className="text-lg font-medium text-gray-900 mb-2">{title}</h3>
+          
+          {/* General Error Display */}
+          {errors.general && (
+            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
+              <div className="flex">
+                <div className="flex-shrink-0">
+                  <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                  </svg>
+                </div>
+                <div className="ml-3">
+                  <h3 className="text-sm font-medium text-red-800">Error</h3>
+                  <div className="mt-2 text-sm text-red-700">
+                    <p>{errors.general}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+          
           <form onSubmit={handleSubmit} className="space-y-3">
 
             <div>
@@ -1177,10 +1269,17 @@ const UserModal = ({ title, user, onClose, onSubmit }) => {
                 type="email"
                 required
                 placeholder="Enter email address"
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className={`mt-1 block w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${
+                  errors.email 
+                    ? 'border-red-500 focus:ring-red-500' 
+                    : 'border-gray-300 focus:ring-blue-500'
+                }`}
                 value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                onChange={(e) => handleInputChange('email', e.target.value)}
               />
+              {errors.email && (
+                <p className="mt-1 text-sm text-red-600">{errors.email}</p>
+              )}
             </div>
 
             <div>
@@ -1199,17 +1298,14 @@ const UserModal = ({ title, user, onClose, onSubmit }) => {
                     lastName: '',
                     password: ''
                   });
+                  // Clear errors when changing role
+                  setErrors({});
                 }}
               >
                 <option value="">Select Role</option>
                 <option value="teacher">Teacher</option>
                 <option value="admin">Admin</option>
               </select>
-              {formData.role === 'teacher' && (
-                <p className="mt-1 text-xs text-gray-500">
-                  Teachers will use temporary password: <strong className="text-blue-600 font-bold">Password@123</strong>
-                </p>
-              )}
               {formData.role === 'admin' && (
                 <p className="mt-1 text-xs text-blue-600">
                   <strong>Admin users:</strong> Complete profile required. They can login immediately without profile completion.
@@ -1228,7 +1324,7 @@ const UserModal = ({ title, user, onClose, onSubmit }) => {
                     placeholder="Enter first name"
                     className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     value={formData.firstName}
-                    onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+                    onChange={(e) => handleInputChange('firstName', e.target.value)}
                   />
                 </div>
 
@@ -1240,20 +1336,33 @@ const UserModal = ({ title, user, onClose, onSubmit }) => {
                     placeholder="Enter last name"
                     className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     value={formData.lastName}
-                    onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+                    onChange={(e) => handleInputChange('lastName', e.target.value)}
                   />
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700">Password</label>
-                  <input
-                    type="password"
-                    required
-                    placeholder="Enter password"
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    value={formData.password}
-                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                  />
+                  <div className="relative">
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      required
+                      placeholder="Enter password"
+                      className="mt-1 block w-full px-3 py-2 pr-10 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      value={formData.password}
+                      onChange={(e) => handleInputChange('password', e.target.value)}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                    >
+                      {showPassword ? (
+                        <EyeOff className="h-4 w-4 text-gray-400" />
+                      ) : (
+                        <Eye className="h-4 w-4 text-gray-400" />
+                      )}
+                    </button>
+                  </div>
                   <p className="mt-1 text-xs text-gray-500">
                     Password must contain: at least 8 characters, one uppercase letter, one lowercase letter, one number, and one special character
                   </p>

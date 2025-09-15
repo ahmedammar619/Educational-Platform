@@ -6,7 +6,7 @@ import PhoneInput from '../../components/ui/PhoneInput';
 import ProfileCompletionModal from '../../pages/auth/ProfileCompletionModal';
 import EmailVerificationModal from '../../components/auth/EmailVerificationModal';
 
-const LoginForm = React.memo(({ onLogin, onRegister }) => {
+const LoginForm = React.memo(({ onLogin, onRegister, onProfileCompletion }) => {
   const [isLogin, setIsLogin] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({
@@ -223,11 +223,14 @@ const LoginForm = React.memo(({ onLogin, onRegister }) => {
     }));
   };
 
-  const handleProfileCompletion = (updatedUser) => {
+  const handleProfileCompletion = async (updatedUser) => {
     // Profile completed successfully, return to login form
     console.log('Profile completion successful:', updatedUser);
     setShowProfileCompletion(false);
     setPendingUser(null);
+    
+    // Clear any existing authentication state since user needs to login fresh
+    await authService.logout();
     
     // Clear form data and switch to login mode
     setFormData({
@@ -244,6 +247,11 @@ const LoginForm = React.memo(({ onLogin, onRegister }) => {
     setIsLogin(true);
     setError('');
     setSuccess('Profile completed successfully! You can now sign in with your credentials.');
+    
+    // Notify App component to clear user state and show login form
+    if (onProfileCompletion) {
+      onProfileCompletion();
+    }
   };
 
   const handleProfileCompletionCancel = async () => {

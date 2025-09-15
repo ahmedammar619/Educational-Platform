@@ -140,10 +140,8 @@ const ProfileCompletionModal = ({ user, onComplete, onCancel }) => {
 
       showSuccessToast('Profile completed successfully! Please sign in to continue.');
 
-      // Clear any existing token since we want user to login fresh
-      await authService.logout();
-
       // Call onComplete to close modal and return to LoginForm
+      // The LoginForm will handle the logout properly
       onComplete();
     } catch (error) {
       console.error('Error updating profile:', error);

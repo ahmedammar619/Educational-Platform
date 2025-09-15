@@ -58,10 +58,18 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [showLogin, setShowLogin] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [preventAutoLogin, setPreventAutoLogin] = useState(false);
   const location = useLocation();
 
   const validateToken = React.useCallback(async () => {
     try {
+      // Don't auto-login if we're preventing it (e.g., after manual logout)
+      if (preventAutoLogin) {
+        console.log('Auto-login prevented, skipping token validation');
+        setLoading(false);
+        return;
+      }
+
       // Check if user is authenticated using authService
       if (authService.isAuthenticated()) {
         const currentUser = authService.getCurrentUser();
@@ -79,7 +87,7 @@ function App() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [preventAutoLogin]);
 
   useEffect(() => {
     // Check if user is already authenticated on app start
@@ -122,6 +130,7 @@ function App() {
     console.log('App: Valid userData received, proceeding with login');
     setUser(userData);
     setShowLogin(false);
+    setPreventAutoLogin(false); // Reset the flag on successful login
     
     console.log('App: User state set to:', userData); // Debug log
     console.log('App: Login modal closed, showLogin set to false'); // Debug log
@@ -136,6 +145,9 @@ function App() {
   const handleLogout = React.useCallback(async () => {
     // Set logging out state to prevent error boundary issues
     setIsLoggingOut(true);
+    
+    // Prevent auto-login after logout
+    setPreventAutoLogin(true);
     
     // Show logout confirmation
     showInfoToast('Signing out...', 'You have been successfully logged out.');
@@ -173,7 +185,15 @@ function App() {
               {/* All other routes */}
               <Route path="*" element={
                 showLogin ? (
-                  <LoginForm onLogin={handleLogin} onRegister={() => setShowLogin(false)} />
+                  <LoginForm 
+                    onLogin={handleLogin} 
+                    onRegister={() => setShowLogin(false)}
+                    onProfileCompletion={() => {
+                      setUser(null);
+                      setShowLogin(true);
+                      setPreventAutoLogin(true);
+                    }}
+                  />
                 ) : (
                   <AppRouter 
                     user={user} 
