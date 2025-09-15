@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Mail, CheckCircle, AlertCircle, RefreshCw } from 'lucide-react';
 import { showSuccessToast, showErrorToast, showLoadingToast, dismissToast } from '../../utils/toast.js';
@@ -13,15 +13,23 @@ const EmailVerificationPage = () => {
   const [message, setMessage] = useState('');
   const [showProfileCompletion, setShowProfileCompletion] = useState(false);
   const [verifiedUser, setVerifiedUser] = useState(null);
+  const verificationAttemptedRef = useRef(false);
   const token = searchParams.get('token');
 
   useEffect(() => {
-    if (token) {
+    if (token && !verificationAttemptedRef.current) {
+      verificationAttemptedRef.current = true;
       handleEmailVerification(token);
     }
   }, [token]);
 
   const handleEmailVerification = async (verificationToken) => {
+    // Prevent multiple verification attempts
+    if (verificationAttemptedRef.current && verificationStatus !== 'pending') {
+      console.log('Verification already attempted, skipping...');
+      return;
+    }
+
     setLoading(true);
     const loadingToast = showLoadingToast('Verifying your email...');
 
