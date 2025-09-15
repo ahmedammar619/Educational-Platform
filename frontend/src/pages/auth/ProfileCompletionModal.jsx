@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Eye, EyeOff, User, Lock, Phone, Save } from 'lucide-react';
-import { showSuccessToast, showErrorToast, showLoadingToast, dismissToast } from '../../utils/toast.jsx';
+import { showSuccessToast, showErrorToast, showLoadingToast, dismissToast } from '../../utils/toast.js';
 import { usersService } from '../../services/index.js';
 import PhoneInput from '../../components/ui/PhoneInput.jsx';
 

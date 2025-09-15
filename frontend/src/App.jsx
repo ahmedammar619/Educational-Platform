@@ -5,7 +5,7 @@ import { AppRouter } from './routers';
 import { authService } from './services';
 import { NotificationProvider } from './contexts/NotificationContext';
 import ToastContainer from './components/ui/ToastContainer';
-import { showInfoToast } from './utils/toast.jsx';
+import { showInfoToast } from './utils/toast.js';
 import './App.css';
 
 // Error Boundary Component

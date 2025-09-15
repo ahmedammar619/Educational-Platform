@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { Eye, EyeOff, User, Lock } from 'lucide-react';
-import { showSuccessToast, showErrorToast, showWarningToast, showLoadingToast, dismissToast } from '../../utils/toast.jsx';
+import { showSuccessToast, showErrorToast, showWarningToast, showLoadingToast, dismissToast } from '../../utils/toast.js';
 import { authService } from '../../services';
 import PhoneInput from '../../components/ui/PhoneInput';
 import ProfileCompletionModal from '../../pages/auth/ProfileCompletionModal';

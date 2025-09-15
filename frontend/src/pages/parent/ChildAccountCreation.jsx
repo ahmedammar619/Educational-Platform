@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { User, Mail, Lock, Calendar, Eye, EyeOff } from 'lucide-react';
-import { showSuccessToast, showErrorToast, showWarningToast, showLoadingToast, dismissToast } from '../../utils/toast.jsx';
+import { showSuccessToast, showErrorToast, showWarningToast, showLoadingToast, dismissToast } from '../../utils/toast.js';
 import parentsService from '../../services/parentsService';
 
 const ChildAccountCreation = ({ user, onSuccess, onCancel }) => {

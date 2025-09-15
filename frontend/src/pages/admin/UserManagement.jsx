@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { Search, Plus, Trash2, UserCheck, Eye, EyeOff, Key, Users, ChevronDown, ChevronUp } from 'lucide-react';
 import { usersService, studentsService } from '../../services';
 import PhoneInput from '../../components/ui/PhoneInput';
-import { showSuccessToast, showErrorToast, showConfirmToast, showLoadingToast, dismissToast } from '../../utils/toast.jsx';
+import { showSuccessToast, showErrorToast, showConfirmToast, showLoadingToast, dismissToast } from '../../utils/toast.js';
 
 const UserManagement = ({ user }) => {
   const [allUsers, setAllUsers] = useState([]);

@@ -1,4 +1,4 @@
-1) finish notifications logic
+1) finish notifications logic (done)
 2) remove all dashboards becasue they are 97.4% unncessary (done)
 3) responsiveness for the whole website (done)
 4) quiz form (done)
