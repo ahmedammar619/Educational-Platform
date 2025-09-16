@@ -40,6 +40,27 @@ export class ZoomMeeting {
   @Column({ type: 'varchar', length: 50, default: 'scheduled' })
   status: string;
 
+  @Column({ type: 'varchar', length: 50, default: 'pending' })
+  recordingStatus: string;
+
+  @Column({ type: 'text', nullable: true })
+  recordingUrl: string;
+
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  youtubeVideoId: string;
+
+  @Column({ type: 'text', nullable: true })
+  youtubeUrl: string;
+
+  @Column({ type: 'timestamp', nullable: true })
+  recordingCompletedAt: Date;
+
+  @Column({ type: 'varchar', length: 500, nullable: true })
+  r2RecordingKey: string;
+
+  @Column({ type: 'text', nullable: true })
+  r2RecordingUrl: string;
+
   @Column({ type: 'uuid' })
   createdById: string;
 
