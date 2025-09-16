@@ -419,12 +419,12 @@ export class ZoomApiService {
     try {
       this.logger.log(`Downloading recording file from Zoom: ${downloadUrl}`);
       
-      const zoomAccessToken = await this.generateZoomAccessToken();
-
+      // For direct download URLs, we don't need authentication tokens
+      // The URLs are already authenticated and can be downloaded directly
       const response = await fetch(downloadUrl, {
         method: 'GET',
         headers: {
-          Authorization: `Bearer ${zoomAccessToken}`,
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
         },
       });
 
@@ -436,7 +436,15 @@ export class ZoomApiService {
 
       this.logger.log('Successfully downloaded recording file from Zoom');
       
-      return response.body as Readable;
+      // Convert fetch response body to Node.js Readable stream
+      const { Readable } = require('stream');
+      
+      // Get the response body as buffer first
+      const buffer = await response.arrayBuffer();
+      const nodeBuffer = Buffer.from(buffer);
+      
+      // Create a readable stream from the buffer
+      return Readable.from(nodeBuffer);
     } catch (error) {
       this.logger.error('Error downloading recording file:', error);
       throw error;

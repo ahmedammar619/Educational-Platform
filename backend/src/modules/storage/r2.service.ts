@@ -61,14 +61,15 @@ export class R2Service {
         totalSize += chunk.length;
       }
 
-      // Create a new readable stream from the chunks
-      const uploadStream = Readable.from(Buffer.concat(chunks));
+      // Create a buffer from all chunks
+      const fileBuffer = Buffer.concat(chunks);
 
       const command = new PutObjectCommand({
         Bucket: this.bucketName,
         Key: key,
-        Body: uploadStream,
+        Body: fileBuffer,
         ContentType: contentType,
+        ContentLength: totalSize,
         Metadata: metadata,
       });
 

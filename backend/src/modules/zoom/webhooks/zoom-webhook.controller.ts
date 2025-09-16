@@ -49,6 +49,8 @@ export class ZoomWebhookController {
     try {
       this.logger.log(`Received Zoom webhook event: ${body.event}`);
       this.logger.log(`Headers received: ${JSON.stringify(headers)}`);
+      this.logger.log(`Body received: ${JSON.stringify(body)}`);
+      this.logger.log(`Body type: ${typeof body}`);
 
       // Get signature from headers
       const signature = headers['authorization'] || headers['x-zoom-signature'];

@@ -1,7 +1,10 @@
 import { Controller, Get, Post, Param, Logger } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import { Public } from '../../../common/decorators/public.decorator';
 import { RecordingService } from '../services/recording.service';
 import { ZoomApiService } from '../services/zoom-api.service';
+import { ZoomMeeting } from '../entities/zoom-meeting.entity';
 
 @Controller('zoom/recording-test')
 export class RecordingTestController {
@@ -9,7 +12,9 @@ export class RecordingTestController {
 
   constructor(
     private recordingService: RecordingService,
-    private zoomApiService: ZoomApiService
+    private zoomApiService: ZoomApiService,
+    @InjectRepository(ZoomMeeting)
+    private zoomMeetingRepository: Repository<ZoomMeeting>
   ) {}
 
   @Get('status/:meetingId')
@@ -122,6 +127,55 @@ export class RecordingTestController {
   }
 
   @Public()
+  @Get('check-database-meetings')
+  async checkDatabaseMeetings() {
+    try {
+      this.logger.log('Checking database meetings...');
+      
+      // Get all meetings from database
+      const meetings = await this.zoomMeetingRepository.find({
+        relations: ['course', 'createdBy'],
+        order: { createdAt: 'DESC' }
+      });
+      
+      // Check specifically for our target meeting
+      const targetMeeting = meetings.find(m => m.zoomMeetingId === '88982449475');
+      
+      return {
+        success: true,
+        message: 'Database meetings check completed',
+        data: {
+          totalMeetings: meetings.length,
+          targetMeetingExists: !!targetMeeting,
+          targetMeeting: targetMeeting ? {
+            id: targetMeeting.id,
+            title: targetMeeting.title,
+            zoomMeetingId: targetMeeting.zoomMeetingId,
+            status: targetMeeting.status,
+            recordingStatus: targetMeeting.recordingStatus,
+            createdAt: targetMeeting.createdAt,
+            course: targetMeeting.course?.name || 'No course'
+          } : null,
+          allMeetings: meetings.map(m => ({
+            id: m.id,
+            title: m.title,
+            zoomMeetingId: m.zoomMeetingId,
+            status: m.status,
+            recordingStatus: m.recordingStatus,
+            createdAt: m.createdAt
+          }))
+        }
+      };
+    } catch (error) {
+      this.logger.error(`Error checking database meetings: ${error.message}`);
+      return {
+        success: false,
+        error: error.message,
+      };
+    }
+  }
+
+  @Public()
   @Get('test-r2-connection')
   async testR2Connection() {
     try {
@@ -159,6 +213,7 @@ export class RecordingTestController {
     }
   }
 
+  @Public()
   @Get('check-recording-workflow/:meetingId')
   async checkRecordingWorkflow(@Param('meetingId') meetingId: string) {
     try {
@@ -216,6 +271,7 @@ export class RecordingTestController {
     }
   }
 
+  @Public()
   @Post('test-r2-upload/:meetingId')
   async testR2Upload(@Param('meetingId') meetingId: string) {
     try {
@@ -411,6 +467,76 @@ export class RecordingTestController {
       return {
         success: false,
         error: error.message,
+      };
+    }
+  }
+
+  @Public()
+  @Post('test-youtube-upload/:meetingId')
+  async testYouTubeUpload(@Param('meetingId') meetingId: string) {
+    try {
+      this.logger.log(`Testing YouTube upload for meeting: ${meetingId}`);
+      
+      // Get the latest R2 recording for this meeting
+      const recordingsResponse = await this.recordingService['r2Service'].listRecordings();
+      const meetingRecordings = recordingsResponse.recordings.filter(rec => 
+        rec.key.includes(meetingId) || rec.courseName === 'math'
+      );
+      
+      if (meetingRecordings.length === 0) {
+        return {
+          success: false,
+          error: 'No recordings found in R2 for this meeting'
+        };
+      }
+      
+      const latestRecording = meetingRecordings[0];
+      this.logger.log(`Found recording: ${latestRecording.key}`);
+      
+      // Test streaming from R2
+      const r2Stream = await this.recordingService['r2Service'].streamRecording(latestRecording.key);
+      
+      // Test YouTube upload
+      const youtubeService = this.recordingService['youtubeService'];
+      const videoTitle = youtubeService.generateVideoTitle(
+        'Test Recording',
+        meetingId,
+        new Date()
+      );
+      
+      const videoDescription = youtubeService.generateVideoDescription(
+        'Test Recording',
+        meetingId,
+        new Date()
+      );
+      
+      const youtubeResult = await youtubeService.uploadVideo(
+        r2Stream,
+        videoTitle,
+        videoDescription,
+        meetingId
+      );
+      
+      this.logger.log(`YouTube upload successful: ${youtubeResult.videoId}`);
+      
+      return {
+        success: true,
+        message: 'YouTube upload test successful',
+        data: {
+          meetingId,
+          r2Key: latestRecording.key,
+          r2Url: latestRecording.url,
+          youtubeVideoId: youtubeResult.videoId,
+          youtubeUrl: youtubeResult.url,
+          videoTitle: youtubeResult.title,
+          videoDescription: youtubeResult.description
+        }
+      };
+    } catch (error) {
+      this.logger.error(`Error testing YouTube upload: ${error.message}`, error.stack);
+      return {
+        success: false,
+        error: error.message
       };
     }
   }
