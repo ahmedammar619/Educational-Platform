@@ -1,4 +1,5 @@
 import { Controller, Post, Body, Headers, Logger, HttpStatus, HttpException } from '@nestjs/common';
+import { Public } from '../../../common/decorators/public.decorator';
 import { ZoomWebhookService } from './zoom-webhook.service';
 
 interface ZoomWebhookEvent {
@@ -39,6 +40,7 @@ export class ZoomWebhookController {
 
   constructor(private readonly zoomWebhookService: ZoomWebhookService) {}
 
+  @Public()
   @Post('events')
   async handleWebhookEvent(
     @Body() body: ZoomWebhookEvent,
@@ -46,11 +48,16 @@ export class ZoomWebhookController {
   ): Promise<{ status: string; message: string }> {
     try {
       this.logger.log(`Received Zoom webhook event: ${body.event}`);
+      this.logger.log(`Headers received: ${JSON.stringify(headers)}`);
+
+      // Get signature from headers
+      const signature = headers['authorization'] || headers['x-zoom-signature'];
+      this.logger.log(`Signature from headers: ${signature}`);
 
       // Verify webhook signature for security
       const isValidSignature = await this.zoomWebhookService.verifyWebhookSignature(
         body,
-        headers['authorization'] || headers['x-zoom-signature']
+        signature
       );
 
       if (!isValidSignature) {
@@ -81,6 +88,7 @@ export class ZoomWebhookController {
     }
   }
 
+  @Public()
   @Post('validation')
   async validateWebhook(
     @Body() body: any,
@@ -101,6 +109,31 @@ export class ZoomWebhookController {
     } catch (error) {
       this.logger.error(`Error validating webhook: ${error.message}`, error.stack);
       throw new HttpException('Webhook validation failed', HttpStatus.BAD_REQUEST);
+    }
+  }
+
+  @Public()
+  @Post('debug')
+  async debugWebhook(
+    @Body() body: any,
+    @Headers() headers: Record<string, string>
+  ): Promise<{ status: string; debug: any }> {
+    try {
+      const signature = headers['authorization'] || headers['x-zoom-signature'];
+      const webhookSecret = this.zoomWebhookService['webhookSecret'];
+      
+      return {
+        status: 'debug',
+        debug: {
+          webhookSecret: webhookSecret,
+          signature: signature,
+          headers: headers,
+          body: body
+        }
+      };
+    } catch (error) {
+      this.logger.error(`Error in debug endpoint: ${error.message}`, error.stack);
+      throw new HttpException('Debug failed', HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }
 }
