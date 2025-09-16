@@ -20,6 +20,32 @@ interface ZoomMeetingResponse {
   duration: number;
 }
 
+interface ZoomRecordingsResponse {
+  meetings: Array<{
+    id: string;
+    uuid: string;
+    topic: string;
+    start_time: string;
+    duration: number;
+    host_id: string;
+    recording_files: Array<{
+      id: string;
+      file_type: string;
+      file_size: number;
+      recording_type: string;
+      status: string;
+      download_url: string;
+      play_url: string;
+      recording_start: string;
+      recording_end: string;
+    }>;
+  }>;
+  from: string;
+  to: string;
+  page_count: number;
+  page_size: number;
+}
+
 @Injectable()
 export class ZoomApiService {
   private readonly logger = new Logger(ZoomApiService.name);
@@ -413,6 +439,45 @@ export class ZoomApiService {
       return response.body as Readable;
     } catch (error) {
       this.logger.error('Error downloading recording file:', error);
+      throw error;
+    }
+  }
+
+  async getAllRecordings(from?: string, to?: string): Promise<ZoomRecordingsResponse> {
+    try {
+      this.logger.log('Getting all recordings from Zoom account...');
+      
+      const zoomAccessToken = await this.generateZoomAccessToken();
+
+      // Build query parameters
+      const params = new URLSearchParams();
+      if (from) params.append('from', from);
+      if (to) params.append('to', to);
+      params.append('page_size', '300'); // Maximum page size
+      params.append('include_fields', 'recording_files');
+
+      const url = `https://api.zoom.us/v2/users/me/recordings?${params.toString()}`;
+
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${zoomAccessToken}`,
+        },
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        this.logger.error(`Failed to get all recordings: ${response.status} ${errorText}`);
+        throw new Error(`Zoom API error: ${response.status} ${errorText}`);
+      }
+
+      const jsonResponse = await response.json() as ZoomRecordingsResponse;
+      this.logger.log(`Successfully retrieved ${jsonResponse.meetings?.length || 0} meetings with recordings`);
+      
+      return jsonResponse;
+    } catch (error) {
+      this.logger.error('Error getting all recordings:', error);
       throw error;
     }
   }

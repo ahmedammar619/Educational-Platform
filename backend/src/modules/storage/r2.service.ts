@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand, ListObjectsV2Command } from '@aws-sdk/client-s3';
 import { Readable } from 'stream';
 
 @Injectable()
@@ -142,14 +142,16 @@ export class R2Service {
 
   /**
    * Generate a unique key for a recording file
-   * @param meetingId - The Zoom meeting ID
+   * @param courseName - The course name
    * @param fileName - The original file name
    * @returns A unique key for the recording
    */
-  generateRecordingKey(meetingId: string, fileName: string): string {
+  generateRecordingKey(courseName: string, fileName: string): string {
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     const extension = fileName.split('.').pop() || 'mp4';
-    return `recordings/${meetingId}/${timestamp}.${extension}`;
+    // Sanitize course name for folder structure
+    const sanitizedCourseName = courseName.replace(/[^a-zA-Z0-9\s-_]/g, '').replace(/\s+/g, '_');
+    return `recordings/${sanitizedCourseName}/${timestamp}.${extension}`;
   }
 
   /**
@@ -168,5 +170,129 @@ export class R2Service {
    */
   async streamRecording(key: string): Promise<Readable> {
     return this.downloadRecording(key);
+  }
+
+  /**
+   * List all objects in the bucket or a specific prefix
+   * @param prefix - Optional prefix to filter objects (e.g., 'recordings/')
+   * @param maxKeys - Maximum number of objects to return (default: 1000)
+   * @returns List of objects with their metadata
+   */
+  async listObjects(prefix?: string, maxKeys: number = 1000): Promise<{
+    objects: Array<{
+      key: string;
+      size: number;
+      lastModified: Date;
+      etag: string;
+      storageClass?: string;
+    }>;
+    totalCount: number;
+    hasMore: boolean;
+  }> {
+    try {
+      this.logger.log(`Listing objects in bucket with prefix: ${prefix || 'all'}`);
+
+      const command = new ListObjectsV2Command({
+        Bucket: this.bucketName,
+        Prefix: prefix,
+        MaxKeys: maxKeys,
+      });
+
+      const response = await this.s3Client.send(command);
+
+      const objects = (response.Contents || []).map(obj => ({
+        key: obj.Key || '',
+        size: obj.Size || 0,
+        lastModified: obj.LastModified || new Date(),
+        etag: obj.ETag || '',
+        storageClass: obj.StorageClass,
+      }));
+
+      this.logger.log(`Found ${objects.length} objects in bucket`);
+
+      return {
+        objects,
+        totalCount: objects.length,
+        hasMore: response.IsTruncated || false,
+      };
+    } catch (error) {
+      this.logger.error(`Error listing objects in bucket: ${error.message}`, error.stack);
+      throw new Error(`Failed to list objects in bucket: ${error.message}`);
+    }
+  }
+
+  /**
+   * List all recordings in the recordings folder
+   * @param courseName - Optional course name to filter recordings for a specific course
+   * @returns List of recording objects
+   */
+  async listRecordings(courseName?: string): Promise<{
+    recordings: Array<{
+      key: string;
+      courseName: string;
+      fileName: string;
+      size: number;
+      lastModified: Date;
+      url: string;
+    }>;
+    totalCount: number;
+    totalSize: number;
+  }> {
+    try {
+      const prefix = 'recordings/';
+      const result = await this.listObjects(prefix);
+
+      let filteredObjects = result.objects;
+      
+      // Filter by course name if provided
+      if (courseName) {
+        const sanitizedCourseName = courseName.replace(/[^a-zA-Z0-9\s-_]/g, '').replace(/\s+/g, '_');
+        filteredObjects = result.objects.filter(obj => 
+          obj.key.includes(`recordings/${sanitizedCourseName}/`)
+        );
+      }
+
+      const recordings = filteredObjects.map(obj => {
+        const fileName = obj.key.split('/').pop() || '';
+        const keyParts = obj.key.split('/');
+        
+        // Handle both old and new folder structures:
+        // Old: recordings/{meetingId}_{timestamp}.{extension}
+        // New: recordings/{courseName}/{timestamp}.{extension}
+        let courseNameFromKey = '';
+        
+        if (keyParts.length === 2) {
+          // Old structure: recordings/{meetingId}_{timestamp}.{extension}
+          // Extract meeting ID from filename and use as course name
+          const meetingId = fileName.split('_')[0];
+          courseNameFromKey = `Meeting_${meetingId}`;
+        } else if (keyParts.length === 3) {
+          // New structure: recordings/{courseName}/{timestamp}.{extension}
+          courseNameFromKey = keyParts[1] || '';
+        }
+
+        return {
+          key: obj.key,
+          courseName: courseNameFromKey,
+          fileName,
+          size: obj.size,
+          lastModified: obj.lastModified,
+          url: this.getPublicUrl(obj.key),
+        };
+      });
+
+      const totalSize = recordings.reduce((sum, recording) => sum + recording.size, 0);
+
+      this.logger.log(`Found ${recordings.length} recordings (${totalSize} bytes total)`);
+
+      return {
+        recordings,
+        totalCount: recordings.length,
+        totalSize,
+      };
+    } catch (error) {
+      this.logger.error(`Error listing recordings: ${error.message}`, error.stack);
+      throw new Error(`Failed to list recordings: ${error.message}`);
+    }
   }
 }

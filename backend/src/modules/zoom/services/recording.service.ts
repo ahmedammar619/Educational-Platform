@@ -112,9 +112,10 @@ export class RecordingService {
       // Download the recording file from Zoom
       const recordingStream = await this.zoomApiService.downloadRecordingFile(recordingFile.download_url);
 
-      // Generate R2 key
+      // Generate R2 key using course name
       const fileName = `${meeting.title.replace(/[^a-zA-Z0-9]/g, '_')}_${meeting.id}.${recordingFile.file_type.toLowerCase()}`;
-      const r2Key = this.r2Service.generateRecordingKey(meeting.zoomMeetingId, fileName);
+      const courseName = meeting.course?.name || 'Unknown_Course';
+      const r2Key = this.r2Service.generateRecordingKey(courseName, fileName);
 
       // Upload to R2
       const r2Result = await this.r2Service.uploadRecording(

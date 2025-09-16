@@ -48,6 +48,7 @@ export class RecordingTestController {
     }
   }
 
+  @Public()
   @Get('zoom-details/:meetingId')
   async getZoomRecordingDetails(@Param('meetingId') meetingId: string) {
     try {
@@ -134,7 +135,7 @@ export class RecordingTestController {
       const r2Service = new R2Service(configService);
       
       // Test R2 connection by checking if we can generate a key
-      const testKey = r2Service.generateRecordingKey('test-meeting', 'test-file.mp4');
+      const testKey = r2Service.generateRecordingKey('Test_Course', 'test-file.mp4');
       const testUrl = r2Service.getPublicUrl(testKey);
       
       return {
@@ -255,9 +256,10 @@ export class RecordingTestController {
       const configService = new ConfigService();
       const r2Service = new R2Service(configService);
       
-      // Generate R2 key
+      // Generate R2 key using course name
       const fileName = `test_${meetingId}_${Date.now()}.${mainRecording.file_type.toLowerCase()}`;
-      const r2Key = r2Service.generateRecordingKey(meetingId, fileName);
+      const courseName = 'Test_Course'; // For testing purposes
+      const r2Key = r2Service.generateRecordingKey(courseName, fileName);
       
       // Test upload to R2
       this.logger.log(`Testing upload to R2: ${r2Key}`);
@@ -298,5 +300,195 @@ export class RecordingTestController {
         error: error.message,
       };
     }
+  }
+
+  @Public()
+  @Get('list-recordings')
+  async listRecordings() {
+    try {
+      this.logger.log('Listing all recordings from R2 storage');
+      
+      // Import R2Service dynamically
+      const { R2Service } = await import('../../storage/r2.service');
+      const { ConfigService } = await import('@nestjs/config');
+      
+      const configService = new ConfigService();
+      const r2Service = new R2Service(configService);
+      
+      // List all recordings
+      const recordings = await r2Service.listRecordings();
+      
+      return {
+        success: true,
+        message: 'Recordings listed successfully',
+        data: {
+          recordings: recordings.recordings,
+          totalCount: recordings.totalCount,
+          totalSize: recordings.totalSize,
+          totalSizeFormatted: this.formatBytes(recordings.totalSize),
+        },
+      };
+    } catch (error) {
+      this.logger.error(`Error listing recordings: ${error.message}`);
+      return {
+        success: false,
+        error: error.message,
+      };
+    }
+  }
+
+  @Public()
+  @Get('list-recordings/:courseName')
+  async listRecordingsForCourse(@Param('courseName') courseName: string) {
+    try {
+      this.logger.log(`Listing recordings for course: ${courseName}`);
+      
+      // Import R2Service dynamically
+      const { R2Service } = await import('../../storage/r2.service');
+      const { ConfigService } = await import('@nestjs/config');
+      
+      const configService = new ConfigService();
+      const r2Service = new R2Service(configService);
+      
+      // List recordings for specific course
+      const recordings = await r2Service.listRecordings(courseName);
+      
+      return {
+        success: true,
+        message: `Recordings for course ${courseName} listed successfully`,
+        data: {
+          courseName,
+          recordings: recordings.recordings,
+          totalCount: recordings.totalCount,
+          totalSize: recordings.totalSize,
+          totalSizeFormatted: this.formatBytes(recordings.totalSize),
+        },
+      };
+    } catch (error) {
+      this.logger.error(`Error listing recordings for course: ${error.message}`);
+      return {
+        success: false,
+        error: error.message,
+      };
+    }
+  }
+
+  @Public()
+  @Get('list-bucket-contents')
+  async listBucketContents() {
+    try {
+      this.logger.log('Listing all bucket contents from R2 storage');
+      
+      // Import R2Service dynamically
+      const { R2Service } = await import('../../storage/r2.service');
+      const { ConfigService } = await import('@nestjs/config');
+      
+      const configService = new ConfigService();
+      const r2Service = new R2Service(configService);
+      
+      // List all objects in bucket
+      const bucketContents = await r2Service.listObjects();
+      
+      // Filter only recordings folder contents
+      const recordingsObjects = bucketContents.objects.filter(obj => 
+        obj.key.startsWith('recordings/')
+      );
+      
+      return {
+        success: true,
+        message: 'Bucket contents listed successfully',
+        data: {
+          allObjects: bucketContents.objects,
+          recordingsObjects: recordingsObjects,
+          totalCount: bucketContents.totalCount,
+          recordingsCount: recordingsObjects.length,
+          hasMore: bucketContents.hasMore,
+          bucketName: configService.get('R2_BUCKET_NAME'),
+        },
+      };
+    } catch (error) {
+      this.logger.error(`Error listing bucket contents: ${error.message}`);
+      return {
+        success: false,
+        error: error.message,
+      };
+    }
+  }
+
+  @Public()
+  @Get('list-all-zoom-recordings')
+  async listAllZoomRecordings() {
+    try {
+      this.logger.log('Listing all recordings from Zoom cloud storage');
+      
+      // Get all recordings from Zoom
+      const zoomRecordings = await this.zoomApiService.getAllRecordings();
+      
+      // Process the recordings data
+      const meetings = zoomRecordings.meetings || [];
+      const totalMeetings = meetings.length;
+      let totalRecordings = 0;
+      let totalSize = 0;
+      
+      const processedMeetings = meetings.map(meeting => {
+        const recordingFiles = meeting.recording_files || [];
+        totalRecordings += recordingFiles.length;
+        
+        const meetingSize = recordingFiles.reduce((sum, file) => sum + (file.file_size || 0), 0);
+        totalSize += meetingSize;
+        
+        return {
+          meetingId: meeting.id,
+          uuid: meeting.uuid,
+          topic: meeting.topic,
+          startTime: meeting.start_time,
+          duration: meeting.duration,
+          hostId: meeting.host_id,
+          recordingCount: recordingFiles.length,
+          recordingFiles: recordingFiles.map(file => ({
+            id: file.id,
+            fileType: file.file_type,
+            fileSize: file.file_size,
+            recordingType: file.recording_type,
+            status: file.status,
+            downloadUrl: file.download_url,
+            playUrl: file.play_url,
+            recordingStart: file.recording_start,
+            recordingEnd: file.recording_end,
+          })),
+          totalSize: meetingSize,
+        };
+      });
+      
+      return {
+        success: true,
+        message: 'Zoom recordings listed successfully',
+        data: {
+          meetings: processedMeetings,
+          totalMeetings,
+          totalRecordings,
+          totalSize,
+          totalSizeFormatted: this.formatBytes(totalSize),
+          from: zoomRecordings.from,
+          to: zoomRecordings.to,
+          pageCount: zoomRecordings.page_count,
+          pageSize: zoomRecordings.page_size,
+        },
+      };
+    } catch (error) {
+      this.logger.error(`Error listing Zoom recordings: ${error.message}`);
+      return {
+        success: false,
+        error: error.message,
+      };
+    }
+  }
+
+  private formatBytes(bytes: number): string {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   }
 }
