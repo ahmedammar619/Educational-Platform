@@ -18,6 +18,8 @@ import { EmailRegisterDto } from './dto/email-register.dto';
 import { LoginDto } from './dto/login.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 import { Role } from '../../common/enums/role.enum';
 import { StudentsService } from '../students/students.service';
 import { ParentsService } from '../parents/parents.service';
@@ -346,60 +348,6 @@ export class AuthService {
     };
   }
 
-  async forgotPassword(email: string) {
-    const user = await this.userRepository.findOne({
-      where: { email },
-    });
-
-    if (!user) {
-      // Don't reveal if user exists or not for security
-      return {
-        message: 'If an account with that email exists, a password reset link has been sent.',
-      };
-    }
-
-    // Generate secure reset token using crypto.randomBytes
-    const resetToken = crypto.randomBytes(32).toString('hex');
-    const resetTokenExpiry = new Date(Date.now() + 3600000); // 1 hour
-
-    // Store reset token in user entity
-    await this.userRepository.update(user.id, {
-      resetToken,
-      resetTokenExpiry,
-    });
-
-    // In production, send email with reset link
-    // For now, just return the token (remove this in production)
-    return {
-      message: 'Password reset email sent',
-      resetToken, // Remove this in production
-    };
-  }
-
-  async resetPassword(token: string, newPassword: string) {
-    const user = await this.userRepository.findOne({
-      where: { resetToken: token },
-    });
-
-    if (!user || !user.resetTokenExpiry || user.resetTokenExpiry < new Date()) {
-      throw new BadRequestException('Invalid or expired reset token');
-    }
-
-    // Hash new password (optimized: 10 rounds for better performance while maintaining security)
-    const saltRounds = 10;
-    const newPasswordHash = await bcrypt.hash(newPassword, saltRounds);
-
-    // Update password and clear reset token
-    await this.userRepository.update(user.id, {
-      passwordHash: newPasswordHash,
-      resetToken: null,
-      resetTokenExpiry: null,
-    });
-
-    return {
-      message: 'Password reset successful',
-    };
-  }
 
   async getProfile(userId: string) {
     try {
@@ -776,6 +724,164 @@ export class AuthService {
     return {
       message: 'Welcome email sent successfully',
       email: user.email,
+    };
+  }
+
+  // Forgot Password functionality
+  async forgotPassword(forgotPasswordDto: ForgotPasswordDto) {
+    const { email } = forgotPasswordDto;
+
+    // First, validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      throw new BadRequestException('Please provide a valid email address');
+    }
+
+    // Find user by email
+    const user = await this.userRepository.findOne({
+      where: { email },
+    });
+
+    if (!user) {
+      throw new NotFoundException('No account found with this email address');
+    }
+
+    // Only allow password reset for teachers and parents
+    if (user.role !== Role.Teacher && user.role !== Role.Parent) {
+      if (user.role === Role.Student) {
+        throw new BadRequestException('Students cannot reset their password directly. Please contact your parent to change your password.');
+      } else if (user.role === Role.Admin) {
+        throw new BadRequestException('Admin accounts cannot reset password via email. Please change your password directly from the database.');
+      } else {
+        throw new BadRequestException('Password reset is only available for teachers and parents');
+      }
+    }
+
+    // Generate reset token
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    const resetTokenExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+
+    // Save reset token to user
+    user.resetToken = resetToken;
+    user.resetTokenExpiry = resetTokenExpiry;
+    await this.userRepository.save(user);
+
+    // Send reset email
+    await this.emailService.sendPasswordResetEmail(
+      user.email,
+      resetToken,
+      user.firstName
+    );
+
+    return {
+      message: 'Password reset link has been sent to your email address',
+      email: user.email,
+    };
+  }
+
+  async resetPassword(resetPasswordDto: ResetPasswordDto) {
+    const { token, newPassword } = resetPasswordDto;
+
+    // Find user by reset token
+    const user = await this.userRepository.findOne({
+      where: { resetToken: token },
+    });
+
+    if (!user || !user.resetTokenExpiry || user.resetTokenExpiry < new Date()) {
+      throw new BadRequestException('Invalid or expired reset token');
+    }
+
+    // Hash new password
+    const passwordHash = await bcrypt.hash(newPassword, 12);
+
+    // Update user password and clear reset token
+    user.passwordHash = passwordHash;
+    user.resetToken = null;
+    user.resetTokenExpiry = null;
+    await this.userRepository.save(user);
+
+    return {
+      message: 'Password reset successfully',
+    };
+  }
+
+  // Student password management for parents
+  async getStudentPassword(parentId: string, studentId: string) {
+    // Verify parent-child relationship
+    const parent = await this.parentsService.findOne(parentId);
+    if (!parent) {
+      throw new NotFoundException('Parent not found');
+    }
+
+    // Get student details
+    const student = await this.studentsService.findOne(studentId);
+    if (!student) {
+      throw new NotFoundException('Student not found');
+    }
+
+    // Check if this student belongs to the parent
+    const isChildOfParent = await this.parentsService.isChildOfParent(parentId, studentId);
+    if (!isChildOfParent) {
+      throw new ForbiddenException('You can only view passwords for your own children');
+    }
+
+    // Get user details for the student
+    const user = await this.userRepository.findOne({
+      where: { id: studentId },
+    });
+
+    if (!user) {
+      throw new NotFoundException('Student user not found');
+    }
+
+    return {
+      studentId: user.id,
+      studentName: `${user.firstName} ${user.lastName}`,
+      email: user.email,
+      // Note: We don't return the actual password hash for security
+      hasPassword: !!user.passwordHash,
+    };
+  }
+
+  async updateStudentPassword(parentId: string, studentId: string, newPassword: string) {
+    // Verify parent-child relationship
+    const parent = await this.parentsService.findOne(parentId);
+    if (!parent) {
+      throw new NotFoundException('Parent not found');
+    }
+
+    // Get student details
+    const student = await this.studentsService.findOne(studentId);
+    if (!student) {
+      throw new NotFoundException('Student not found');
+    }
+
+    // Check if this student belongs to the parent
+    const isChildOfParent = await this.parentsService.isChildOfParent(parentId, studentId);
+    if (!isChildOfParent) {
+      throw new ForbiddenException('You can only update passwords for your own children');
+    }
+
+    // Get user details for the student
+    const user = await this.userRepository.findOne({
+      where: { id: studentId },
+    });
+
+    if (!user) {
+      throw new NotFoundException('Student user not found');
+    }
+
+    // Hash new password
+    const passwordHash = await bcrypt.hash(newPassword, 12);
+
+    // Update student password
+    user.passwordHash = passwordHash;
+    await this.userRepository.save(user);
+
+    return {
+      message: 'Student password updated successfully',
+      studentId: user.id,
+      studentName: `${user.firstName} ${user.lastName}`,
     };
   }
 }

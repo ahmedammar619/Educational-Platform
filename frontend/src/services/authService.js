@@ -153,6 +153,46 @@ class AuthService {
       throw error.response?.data || error.message;
     }
   }
+
+  // Password reset methods
+  async forgotPassword(emailData) {
+    try {
+      const response = await api.post('/api/auth/forgot-password', emailData);
+      return response.data;
+    } catch (error) {
+      // Preserve the full error object so the component can access error.response.data.message
+      throw error;
+    }
+  }
+
+  async resetPassword(resetData) {
+    try {
+      const response = await api.post('/api/auth/reset-password', resetData);
+      return response.data;
+    } catch (error) {
+      // Preserve the full error object so the component can access error.response.data.message
+      throw error;
+    }
+  }
+
+  // Student password management (for parents)
+  async getStudentPassword(studentId) {
+    try {
+      const response = await api.get(`/api/auth/student-password/${studentId}`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  }
+
+  async updateStudentPassword(studentId, newPassword) {
+    try {
+      const response = await api.put(`/api/auth/student-password/${studentId}`, { newPassword });
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  }
 }
 
 export default new AuthService();

@@ -8,6 +8,7 @@ import {
   HttpStatus,
   Request,
   Query,
+  Param,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -22,6 +23,8 @@ import { RegisterDto } from './dto/register.dto';
 import { EmailRegisterDto } from './dto/email-register.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 import { Public } from '../../common/decorators/public.decorator';
 import { SkipEmailVerification } from '../../common/decorators/skip-email-verification.decorator';
 
@@ -293,5 +296,78 @@ export class AuthController {
       timestamp: new Date().toISOString(),
       note: 'This endpoint is now public. In production, add proper authentication.'
     };
+  }
+
+  @Public()
+  @Post('forgot-password')
+  @ApiOperation({ summary: 'Request password reset (Public)' })
+  @ApiResponse({
+    status: 200,
+    description: 'Password reset email sent (if account exists)',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid email format',
+  })
+  async forgotPassword(@Body() forgotPasswordDto: ForgotPasswordDto) {
+    return this.authService.forgotPassword(forgotPasswordDto);
+  }
+
+  @Public()
+  @Post('reset-password')
+  @ApiOperation({ summary: 'Reset password with token (Public)' })
+  @ApiResponse({
+    status: 200,
+    description: 'Password reset successfully',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid or expired reset token',
+  })
+  async resetPassword(@Body() resetPasswordDto: ResetPasswordDto) {
+    return this.authService.resetPassword(resetPasswordDto);
+  }
+
+  @Get('student-password/:studentId')
+  @ApiOperation({ summary: 'Get student password info (Parent only)' })
+  @ApiResponse({
+    status: 200,
+    description: 'Student password information retrieved',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Access denied - not your child',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Student not found',
+  })
+  async getStudentPassword(
+    @Param('studentId') studentId: string,
+    @Request() req: any
+  ) {
+    return this.authService.getStudentPassword(req.user.sub, studentId);
+  }
+
+  @Put('student-password/:studentId')
+  @ApiOperation({ summary: 'Update student password (Parent only)' })
+  @ApiResponse({
+    status: 200,
+    description: 'Student password updated successfully',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Access denied - not your child',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Student not found',
+  })
+  async updateStudentPassword(
+    @Param('studentId') studentId: string,
+    @Body('newPassword') newPassword: string,
+    @Request() req: any
+  ) {
+    return this.authService.updateStudentPassword(req.user.sub, studentId, newPassword);
   }
 }

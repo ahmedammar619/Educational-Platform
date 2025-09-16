@@ -1,5 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { Eye, EyeOff, User, Lock } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { showSuccessToast, showErrorToast, showWarningToast, showLoadingToast, dismissToast } from '../../utils/toast.js';
 import { authService } from '../../services';
 import PhoneInput from '../../components/ui/PhoneInput';
@@ -408,6 +409,18 @@ const LoginForm = React.memo(({ onLogin, onRegister, onProfileCompletion, onLogo
                   {showPassword ? <EyeOff className="h-4 w-4 sm:h-5 sm:w-5" /> : <Eye className="h-4 w-4 sm:h-5 sm:w-5" />}
                 </button>
               </div>
+            </div>
+          )}
+
+          {/* Forgot Password Link - Only show for login */}
+          {isLogin && (
+            <div className="text-right" style={{ marginTop: '0px'}}>
+              <Link
+                to="/forgot-password"
+                className="text-green-600 hover:text-green-800 text-sm"
+              >
+                Forgot your password?
+              </Link>
             </div>
           )}
 

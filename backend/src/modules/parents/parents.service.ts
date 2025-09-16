@@ -881,4 +881,17 @@ export class ParentsService {
     return age;
   }
 
+  // Check if a student belongs to a parent
+  async isChildOfParent(parentId: string, studentId: string): Promise<boolean> {
+    const parent = await this.parentRepository.findOne({
+      where: { id: parentId },
+    });
+
+    if (!parent) {
+      return false;
+    }
+
+    return parent.studentIds.includes(studentId);
+  }
+
 }

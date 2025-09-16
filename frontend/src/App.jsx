@@ -3,6 +3,8 @@ import { HelmetProvider } from 'react-helmet-async';
 import { Routes, Route, useLocation } from 'react-router-dom';
 import { LoginForm } from './pages/auth';
 import EmailVerificationPage from './pages/auth/EmailVerificationPage';
+import ForgotPasswordPage from './pages/auth/ForgotPasswordPage';
+import ResetPasswordPage from './pages/auth/ResetPasswordPage';
 import { AppRouter } from './routers';
 import { authService } from './services';
 import { NotificationProvider } from './contexts/NotificationContext';
@@ -181,6 +183,10 @@ function App() {
             <Routes>
               {/* Email verification route - always accessible */}
               <Route path="/verify-email" element={<EmailVerificationPage />} />
+              
+              {/* Password reset routes - always accessible */}
+              <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+              <Route path="/reset-password" element={<ResetPasswordPage />} />
               
               {/* All other routes */}
               <Route path="*" element={

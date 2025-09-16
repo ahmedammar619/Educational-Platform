@@ -242,6 +242,101 @@ This is an automated message, please do not reply to this email.
     `;
   }
 
+  async sendPasswordResetEmail(email: string, resetToken: string, firstName: string): Promise<boolean> {
+    try {
+      const resetUrl = `${this.configService.get<string>('FRONTEND_URL', 'http://localhost:3000')}/reset-password?token=${resetToken}`;
+      
+      const mailOptions = {
+        from: `"Baraem Al Nour" <${this.configService.get<string>('SMTP_USER', 'info@baraemalnour.org')}>`,
+        to: email,
+        subject: 'Reset Your Password - Baraem Al Nour Educational Platform',
+        html: this.getPasswordResetEmailTemplate(firstName, resetUrl),
+        text: this.getPasswordResetEmailText(firstName, resetUrl),
+      };
+
+      const result = await this.transporter.sendMail(mailOptions);
+      this.logger.log(`Password reset email sent successfully to ${email}. MessageId: ${result.messageId}`);
+      return true;
+    } catch (error) {
+      this.logger.error(`Failed to send password reset email to ${email}:`, error);
+      this.logger.error(`Error details: ${error.message}`);
+      if (error.code) {
+        this.logger.error(`Error code: ${error.code}`);
+      }
+      return false;
+    }
+  }
+
+  private getPasswordResetEmailTemplate(firstName: string, resetUrl: string): string {
+    return `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Password Reset</title>
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+          .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
+          .button { display: inline-block; background: #dc3545; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; margin: 20px 0; }
+          .footer { text-align: center; margin-top: 30px; color: #666; font-size: 14px; }
+          .warning { background: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; border-radius: 5px; margin: 20px 0; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1 style="margin: 0; font-size: 24px;">🔒 Baraem Al Nour</h1>
+            <p style="margin: 5px 0 0 0; font-size: 16px; opacity: 0.9;">Educational Platform</p>
+          </div>
+          <div class="content">
+            <h2>Hello ${firstName}!</h2>
+            <p>We received a request to reset your password for your Baraem Al Nour Educational Platform account.</p>
+            <p>If you made this request, click the button below to reset your password:</p>
+            <div style="text-align: center;">
+              <a href="${resetUrl}" class="button">Reset Password</a>
+            </div>
+            <div class="warning">
+              <strong>⚠️ Security Notice:</strong>
+              <ul>
+                <li>This link will expire in 24 hours for security reasons</li>
+                <li>If you didn't request this password reset, please ignore this email</li>
+                <li>Your password will remain unchanged until you click the link above</li>
+              </ul>
+            </div>
+            </div>
+          <div class="footer">
+            <p>© 2024 Baraem Al Nour Educational Platform. All rights reserved.</p>
+            <p>This is an automated message, please do not reply to this email.</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+  }
+
+  private getPasswordResetEmailText(firstName: string, resetUrl: string): string {
+    return `
+Hello ${firstName}!
+
+We received a request to reset your password for your Baraem Al Nour Educational Platform account.
+
+If you made this request, visit this link to reset your password:
+
+${resetUrl}
+
+⚠️ Security Notice:
+- This link will expire in 24 hours for security reasons
+- If you didn't request this password reset, please ignore this email
+- Your password will remain unchanged until you visit the link above
+
+© 2024 Baraem Al Nour Educational Platform. All rights reserved.
+This is an automated message, please do not reply to this email.
+    `;
+  }
+
   async testConnection(): Promise<boolean> {
     try {
       await this.transporter.verify();

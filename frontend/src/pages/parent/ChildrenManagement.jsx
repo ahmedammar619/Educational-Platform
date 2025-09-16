@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { Users, Plus, ArrowLeft, MessageCircle } from 'lucide-react';
+import { Users, Plus, ArrowLeft, MessageCircle, Lock, Eye, EyeOff, Key } from 'lucide-react';
 import ChildAccountCreation from './ChildAccountCreation';
 import parentsService from '../../services/parentsService';
+import authService from '../../services/authService';
 
 const ChildrenManagement = ({ user }) => {
   const [children, setChildren] = useState([]);
@@ -12,6 +13,18 @@ const ChildrenManagement = ({ user }) => {
   const [showAddChildForm, setShowAddChildForm] = useState(false);
   const [error, setError] = useState(null);
   const [forceRender, setForceRender] = useState(0); // Force re-render mechanism
+  
+  // Password management state
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [passwordModalChild, setPasswordModalChild] = useState(null);
+  const [passwordData, setPasswordData] = useState({
+    newPassword: '',
+    confirmPassword: ''
+  });
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [passwordLoading, setPasswordLoading] = useState(false);
+  const [passwordError, setPasswordError] = useState('');
 
   useEffect(() => {
     fetchChildren();
@@ -192,6 +205,59 @@ const ChildrenManagement = ({ user }) => {
     };
   };
 
+  // Password management functions
+  const openPasswordModal = (child) => {
+    setPasswordModalChild(child);
+    setPasswordData({ newPassword: '', confirmPassword: '' });
+    setPasswordError('');
+    setShowPasswordModal(true);
+  };
+
+  const closePasswordModal = () => {
+    setShowPasswordModal(false);
+    setPasswordModalChild(null);
+    setPasswordData({ newPassword: '', confirmPassword: '' });
+    setPasswordError('');
+    setShowPassword(false);
+    setShowConfirmPassword(false);
+  };
+
+  const handlePasswordUpdate = async (e) => {
+    e.preventDefault();
+    
+    if (!passwordModalChild) return;
+
+    if (!passwordData.newPassword) {
+      setPasswordError('Please enter a new password');
+      return;
+    }
+
+    if (passwordData.newPassword.length < 8) {
+      setPasswordError('Password must be at least 8 characters long');
+      return;
+    }
+
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      setPasswordError('Passwords do not match');
+      return;
+    }
+
+    setPasswordLoading(true);
+    setPasswordError('');
+
+    try {
+      await authService.updateStudentPassword(passwordModalChild.id, passwordData.newPassword);
+      closePasswordModal();
+      // You could add a success toast here
+      alert('Password updated successfully!');
+    } catch (error) {
+      console.error('Password update error:', error);
+      setPasswordError(error.response?.data?.message || 'Failed to update password. Please try again.');
+    } finally {
+      setPasswordLoading(false);
+    }
+  };
+
   if (loading) {
     console.log('Rendering loading state');
     return (
@@ -369,8 +435,7 @@ const ChildrenManagement = ({ user }) => {
           {children.map((child) => (
             <div
               key={child.id}
-              className="bg-white rounded-xl border border-gray-100 hover:border-purple-200 hover:shadow-lg transition-all duration-300 p-4 md:p-6 text-center group cursor-pointer"
-              onClick={() => setSelectedChild(child)}
+              className="bg-white rounded-xl border border-gray-100 hover:border-purple-200 hover:shadow-lg transition-all duration-300 p-4 md:p-6 text-center group"
             >
               <div className="w-12 h-12 md:w-16 md:h-16 bg-purple-500 rounded-full flex items-center justify-center mx-auto mb-3 md:mb-4 group-hover:bg-purple-600 transition-colors">
                 <span className="text-white text-lg md:text-xl font-bold">
@@ -389,8 +454,17 @@ const ChildrenManagement = ({ user }) => {
                 {child.class} • {child.age ? `${child.age} years` : 'Age not specified'}
               </div>
 
-              <div className="text-xs text-purple-600 font-medium group-hover:text-purple-700 transition-colors">
-                Click to view details
+              <div className="space-y-2">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    openPasswordModal(child);
+                  }}
+                  className="w-full flex items-center justify-center space-x-1 bg-purple-50 text-purple-600 hover:bg-purple-100 transition-colors py-2 px-3 rounded-lg text-xs font-medium"
+                >
+                  <Key className="h-3 w-3" />
+                  <span>Change Password</span>
+                </button>
               </div>
             </div>
           ))}
@@ -528,6 +602,122 @@ const ChildrenManagement = ({ user }) => {
                 </>
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Password Management Modal */}
+      {showPasswordModal && passwordModalChild && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50" style={{ margin: '0px' }}>
+          <div className="bg-white rounded-xl shadow-lg max-w-md w-full p-6">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
+                  <Lock className="h-5 w-5 text-purple-600" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">Manage Password</h3>
+                  <p className="text-sm text-gray-600">
+                    {passwordModalChild.firstName && passwordModalChild.lastName
+                      ? `${passwordModalChild.firstName} ${passwordModalChild.lastName}`
+                      : passwordModalChild.name
+                    }
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={closePasswordModal}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <form onSubmit={handlePasswordUpdate} className="space-y-4">
+              <div>
+                <label htmlFor="newPassword" className="block text-sm font-medium text-gray-700 mb-2">
+                  New Password
+                </label>
+                <div className="relative">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    id="newPassword"
+                    value={passwordData.newPassword}
+                    onChange={(e) => setPasswordData(prev => ({ ...prev, newPassword: e.target.value }))}
+                    className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
+                    placeholder="Enter new password"
+                    required
+                    disabled={passwordLoading}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  >
+                    {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                  </button>
+                </div>
+                <p className="text-xs text-gray-500 mt-1">Must be at least 8 characters long</p>
+              </div>
+
+              <div>
+                <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-2">
+                  Confirm New Password
+                </label>
+                <div className="relative">
+                  <input
+                    type={showConfirmPassword ? 'text' : 'password'}
+                    id="confirmPassword"
+                    value={passwordData.confirmPassword}
+                    onChange={(e) => setPasswordData(prev => ({ ...prev, confirmPassword: e.target.value }))}
+                    className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
+                    placeholder="Confirm new password"
+                    required
+                    disabled={passwordLoading}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  >
+                    {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                  </button>
+                </div>
+              </div>
+
+              {passwordError && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                  <p className="text-sm text-red-600">{passwordError}</p>
+                </div>
+              )}
+
+              <div className="flex space-x-3 pt-4">
+                <button
+                  type="button"
+                  onClick={closePasswordModal}
+                  disabled={passwordLoading}
+                  className="flex-1 bg-gray-100 text-gray-700 py-3 px-4 rounded-lg hover:bg-gray-200 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={passwordLoading}
+                  className="flex-1 bg-purple-600 text-white py-3 px-4 rounded-lg hover:bg-purple-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
+                >
+                  {passwordLoading ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                      <span>Updating...</span>
+                    </>
+                  ) : (
+                    <span>Update Password</span>
+                  )}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
