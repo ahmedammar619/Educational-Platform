@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { Search, Filter, MoreVertical, Eye, Edit, Trash2, AlertCircle } from 'lucide-react';
-import { getMockData } from '../../data/mockData';
 
 const TeacherStudents = ({ user }) => {
   const [students, setStudents] = useState([]);
@@ -17,42 +16,10 @@ const TeacherStudents = ({ user }) => {
     try {
       setLoading(true);
       
-      // Use mock data since there's no backend endpoint for teacher students
-      const mockStudents = [
-        {
-          id: '1',
-          firstName: 'Aisha',
-          lastName: 'Al-Mahmoud',
-          email: 'aisha.almahmoud@example.com',
-          enrolledClasses: ['Islamic Studies - Level 1', 'Arabic Language - Beginner'],
-          attendanceRate: 85,
-          progress: 75,
-          lastActive: '2024-05-15T10:30:00Z'
-        },
-        {
-          id: '2',
-          firstName: 'Hassan',
-          lastName: 'Al-Rahman',
-          email: 'hassan.alrahman@example.com',
-          enrolledClasses: ['Islamic Studies - Level 1'],
-          attendanceRate: 92,
-          progress: 88,
-          lastActive: '2024-05-14T14:15:00Z'
-        },
-        {
-          id: '3',
-          firstName: 'Zara',
-          lastName: 'Al-Saadi',
-          email: 'zara.alsaadi@example.com',
-          enrolledClasses: ['Arabic Language - Beginner'],
-          attendanceRate: 78,
-          progress: 65,
-          lastActive: '2024-05-13T09:45:00Z'
-        }
-      ];
-      
-      setStudents(mockStudents);
-      setFilteredStudents(mockStudents);
+      // TODO: Implement actual API call to fetch teacher's students
+      // For now, show empty state
+      setStudents([]);
+      setFilteredStudents([]);
     } catch (error) {
       console.error('Failed to fetch students:', error);
       setStudents([]);
@@ -63,7 +30,7 @@ const TeacherStudents = ({ user }) => {
   };
 
   const getAttendanceRate = (studentId) => {
-    // Get attendance rate from mock data
+    // Get attendance rate from student data
     const student = students.find(s => s.id === studentId);
     return student ? student.attendanceRate : 0;
   };

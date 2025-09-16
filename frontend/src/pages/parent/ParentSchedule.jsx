@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Calendar, Clock, User, Filter, ChevronLeft, ChevronRight, Users, BookOpen, GraduationCap, MapPin, RefreshCw } from 'lucide-react';
 import { format, startOfWeek, endOfWeek, eachDayOfInterval, isSameDay, addWeeks, subWeeks, parseISO, addDays, isAfter, isBefore, startOfDay, endOfDay } from 'date-fns';
-import { mockUsers, mockCourses } from '../../data/mockData';
 import FullCalendar from '@fullcalendar/react';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import dayGridPlugin from '@fullcalendar/daygrid';
@@ -250,11 +249,8 @@ const ParentSchedule = ({ user }) => {
       return events;
     }
 
-    // Get teacher name from course data (preferred) or fallback to mockUsers
-    const teacherName = classItem.teacherName || (() => {
-      const teacher = mockUsers.find(t => t.id === classItem.teacherId && t.role === 'teacher');
-      return teacher ? `${teacher.firstName} ${teacher.lastName}` : 'Teacher TBD';
-    })();
+    // Get teacher name from course data
+    const teacherName = classItem.teacherName || 'Teacher TBD';
 
     // Generate events for each session
     scheduleInfo.sessions.forEach(session => {
@@ -427,11 +423,8 @@ const ParentSchedule = ({ user }) => {
           }
 
           if (isAfter(nextDate, today)) {
-            // Get teacher name from course data (preferred) or fallback to mockUsers
-            const teacherName = course.teacherName || (() => {
-              const teacher = mockUsers.find(t => t.id === course.teacherId && t.role === 'teacher');
-              return teacher ? `${teacher.firstName} ${teacher.lastName}` : 'Teacher TBD';
-            })();
+            // Get teacher name from course data
+            const teacherName = course.teacherName || 'Teacher TBD';
 
             upcoming.push({
               course: course.name,
@@ -476,11 +469,8 @@ const ParentSchedule = ({ user }) => {
       if (scheduleInfo && scheduleInfo.sessions) {
         console.log('Parsed schedule for', classItem.name, ':', scheduleInfo);
 
-        // Get teacher name from course data (preferred) or fallback to mockUsers
-        const teacherName = classItem.teacherName || (() => {
-          const teacher = mockUsers.find(t => t.id === classItem.teacherId && t.role === 'teacher');
-          return teacher ? `${teacher.firstName} ${teacher.lastName}` : 'Teacher TBD';
-        })();
+        // Get teacher name from course data
+        const teacherName = classItem.teacherName || 'Teacher TBD';
 
         // Get course start and end dates
         const courseStartDate = new Date(classItem.startDate);

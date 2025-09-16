@@ -417,7 +417,7 @@ const StudentModal = ({ classData, onClose }) => {
           firstName: 'Unknown',
           lastName: 'Parent',
           fullName: 'Unknown Parent',
-          email: 'unknown@example.com'
+          email: 'No email available'
         };
       }
       
@@ -427,7 +427,7 @@ const StudentModal = ({ classData, onClose }) => {
         firstName: parentData.firstName || (parentData.name ? parentData.name.split(' ')[0] : 'Unknown'),
         lastName: parentData.lastName || (parentData.name ? parentData.name.split(' ')[1] || '' : 'Parent'),
         fullName: parentData.fullName || parentData.name || `${parentData.firstName || 'Unknown'} ${parentData.lastName || 'Parent'}`,
-        email: parentData.email || 'unknown@example.com',
+        email: parentData.email || 'No email available',
         phone: parentData.phone || parentData.phoneNumber || null
       };
     } catch (error) {
@@ -437,7 +437,7 @@ const StudentModal = ({ classData, onClose }) => {
         firstName: 'Unknown',
         lastName: 'Parent',
         fullName: 'Unknown Parent',
-        email: 'unknown@example.com',
+        email: 'No email available',
         phone: null
       };
     }
@@ -467,7 +467,7 @@ const StudentModal = ({ classData, onClose }) => {
               firstName: student.parent.firstName || 'Unknown',
               lastName: student.parent.lastName || 'Parent',
               fullName: `${student.parent.firstName || 'Unknown'} ${student.parent.lastName || 'Parent'}`,
-              email: student.parent.email || 'unknown@example.com',
+              email: student.parent.email || 'No email available',
               phone: student.parent.phone || student.parent.phoneNumber || null
             };
           } else {

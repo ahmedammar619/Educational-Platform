@@ -233,7 +233,7 @@ Webhook Event Details:
         parent: { 
           firstName: subscription.parentName?.split(' ')[0] || 'Unknown', 
           lastName: subscription.parentName?.split(' ').slice(1).join(' ') || 'Parent', 
-          email: subscription.parentEmail || 'unknown@example.com' 
+          email: subscription.parentEmail || 'No email available' 
         },
         subscriptions: []
       };
