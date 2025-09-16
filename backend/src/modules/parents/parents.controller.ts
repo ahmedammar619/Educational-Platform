@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Delete, Param, Body, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Param, Body, UseGuards, Patch } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBody, ApiBearerAuth } from '@nestjs/swagger';
 import { ParentsService } from './parents.service';
 import { CreateParentDto } from './dto/create-parent.dto';
@@ -313,6 +313,53 @@ export class ParentsController {
     }
     
     return this.parentsService.getParentSchedule(id);
+  }
+
+  @Get('notifications')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.Parent)
+  @ApiOperation({ summary: 'Get parent notifications (Parent only)' })
+  @ApiResponse({
+    status: 200,
+    description: 'Notifications retrieved successfully',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - Parent privileges required',
+  })
+  async getParentNotifications(@CurrentUser() currentUser: any) {
+    return this.parentsService.getParentNotifications(currentUser.sub);
+  }
+
+  @Patch('notifications/:notificationId/read')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.Parent)
+  @ApiOperation({ summary: 'Mark notification as read (Parent only)' })
+  @ApiResponse({
+    status: 200,
+    description: 'Notification marked as read successfully',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - Parent privileges required',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Notification not found',
+  })
+  async markNotificationAsRead(
+    @Param('notificationId') notificationId: string,
+    @CurrentUser() currentUser: any
+  ) {
+    return this.parentsService.markNotificationAsRead(notificationId, currentUser.sub);
   }
 
   @Delete(':id')

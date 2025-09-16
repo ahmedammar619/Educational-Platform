@@ -111,24 +111,27 @@ export class NotificationsService {
       throw new Error('Notification not found');
     }
 
-    // If marking as read, delete the notification instead of updating it
-    if (updateNotificationDto.isRead && !notification.isRead) {
-      await this.notificationRepository.remove(notification);
-      this.logger.log(`Deleted notification ${id} for user ${userId} after marking as read`);
-      return notification; // Return the deleted notification for response
-    }
-
-    // For other updates (not marking as read), update normally
+    // Update the notification with the new data
     Object.assign(notification, updateNotificationDto);
+    
+    // If marking as read, also set the readAt timestamp
+    if (updateNotificationDto.isRead && !notification.isRead) {
+      notification.readAt = new Date();
+      this.logger.log(`Marked notification ${id} as read for user ${userId}`);
+    }
+    
     return this.notificationRepository.save(notification);
   }
 
   async markAllAsRead(userId: string, markAllReadDto?: MarkAllReadDto): Promise<{ count: number }> {
-    // Delete all unread notifications instead of marking them as read
+    // Mark all unread notifications as read instead of deleting them
     const queryBuilder = this.notificationRepository
       .createQueryBuilder()
-      .delete()
-      .from(Notification)
+      .update(Notification)
+      .set({ 
+        isRead: true,
+        readAt: new Date()
+      })
       .where('userId = :userId', { userId })
       .andWhere('isRead = :isRead', { isRead: false });
 
@@ -138,7 +141,7 @@ export class NotificationsService {
 
     const result = await queryBuilder.execute();
     
-    this.logger.log(`Deleted ${result.affected} unread notifications for user ${userId}`);
+    this.logger.log(`Marked ${result.affected} notifications as read for user ${userId}`);
     return { count: result.affected || 0 };
   }
 

@@ -894,4 +894,12 @@ export class ParentsService {
     return parent.studentIds.includes(studentId);
   }
 
+  async getParentNotifications(parentId: string): Promise<any> {
+    return this.notificationsService.findAll(parentId);
+  }
+
+  async markNotificationAsRead(notificationId: string, parentId: string): Promise<any> {
+    return this.notificationsService.update(notificationId, parentId, { isRead: true });
+  }
+
 }
