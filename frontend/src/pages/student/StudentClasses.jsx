@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { BookOpen, Clock, User, MapPin, Calendar, CheckCircle, Users, Search, Filter, ChevronDown, ChevronRight, ExternalLink } from 'lucide-react';
 import studentsService from '../../services/studentsService';
-import { showErrorToast } from '../../utils/errorHandler';
+import { showErrorToast, showSuccessToast } from '../../utils/errorHandler';
 
 
 
@@ -11,6 +11,7 @@ const StudentClasses = ({ user, onOpenMaterials }) => {
   const [loading, setLoading] = useState(true);
   const [expandedClasses, setExpandedClasses] = useState(new Set());
   const [googleFormUrl, setGoogleFormUrl] = useState(null);
+  const [formStatus, setFormStatus] = useState({ formCompleted: false, completionDate: null });
   const [filters, setFilters] = useState({
     search: '',
     teacher: '',
@@ -27,6 +28,7 @@ const StudentClasses = ({ user, onOpenMaterials }) => {
   useEffect(() => {
     loadStudentClasses();
     loadGoogleFormUrl();
+    loadFormStatus();
   }, [user]);
 
   useEffect(() => {
@@ -63,6 +65,27 @@ const StudentClasses = ({ user, onOpenMaterials }) => {
     } catch (error) {
       console.error('Error loading Google form URL:', error);
       // Don't show error toast for this as it's not critical
+    }
+  };
+
+  const loadFormStatus = async () => {
+    try {
+      const response = await studentsService.getFormStatus();
+      setFormStatus(response);
+    } catch (error) {
+      console.error('Error loading form status:', error);
+      // Don't show error toast for this as it's not critical
+    }
+  };
+
+  const handleFormCompletion = async () => {
+    try {
+      await studentsService.markFormCompleted();
+      setFormStatus({ formCompleted: true, completionDate: new Date() });
+      showSuccessToast('Form completion recorded! Admin will review your submission.');
+    } catch (error) {
+      console.error('Error marking form as completed:', error);
+      showErrorToast('Failed to record form completion. Please try again.');
     }
   };
 
@@ -155,22 +178,76 @@ const StudentClasses = ({ user, onOpenMaterials }) => {
             <div className="text-center py-8">
               <BookOpen className="h-8 w-8 sm:h-12 sm:w-12 text-gray-400 mx-auto mb-4" />
               <p className="text-sm sm:text-base text-gray-600 mb-2">No classes enrolled yet</p>
-              <p className="text-xs sm:text-sm text-gray-500 mb-6">
-                You haven't been assigned to any classes yet. Please complete the registration form to get enrolled.
-              </p>
-              {googleFormUrl && (
-                <a
-                  href={googleFormUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 px-6 py-3 text-red-600 border-2 border-red-300 rounded-lg hover:border-red-400 hover:bg-red-50 transition-colors duration-200 bg-transparent font-medium"
-                >
-                  <ExternalLink className="h-4 w-4" />
-                  Complete Registration Form
-                </a>
-              )}
-              {!googleFormUrl && (
-                <p className="text-xs text-gray-400">Please contact admin for registration</p>
+              
+              {!formStatus.formCompleted ? (
+                <>
+                  <p className="text-xs sm:text-sm text-gray-500 mb-6">
+                    You haven't been assigned to any classes yet. Please complete the registration form to get enrolled.
+                  </p>
+                  {googleFormUrl && (
+                    <div className="space-y-4">
+                      {/* HUGE WARNING */}
+                      <div className="bg-red-50 border-2 border-red-200 rounded-lg p-4 mb-4">
+                        <div className="flex items-center gap-3 mb-3">
+                          <div className="flex-shrink-0">
+                            <svg className="h-8 w-8 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                            </svg>
+                          </div>
+                          <div>
+                            <h3 className="text-lg font-bold text-red-800">⚠️ IMPORTANT WARNING ⚠️</h3>
+                            <p className="text-sm font-semibold text-red-700">You can only open this form ONCE!</p>
+                          </div>
+                        </div>
+                        <div className="bg-red-100 border border-red-300 rounded-md p-3">
+                          <p className="text-sm text-red-800 font-medium mb-2">🚨 CRITICAL NOTICE:</p>
+                          <ul className="text-sm text-red-700 space-y-1 list-disc list-inside">
+                            <li><strong>This form can only be opened ONE TIME</strong></li>
+                            <li>Once you click the button below, you CANNOT open it again</li>
+                            <li>Make sure you have all your information ready before clicking</li>
+                            <li>Complete the entire form in one session</li>
+                            <li>After submission, you must return here to mark it as completed</li>
+                          </ul>
+                        </div>
+                      </div>
+                      
+                      <a
+                        href={googleFormUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={handleFormCompletion}
+                        className="inline-flex items-center gap-2 px-8 py-4 text-white bg-red-600 border-2 border-red-600 rounded-lg hover:bg-red-700 hover:border-red-700 transition-colors duration-200 font-bold text-lg shadow-lg"
+                      >
+                        <ExternalLink className="h-5 w-5" />
+                        🚨 OPEN REGISTRATION FORM (ONE TIME ONLY) 🚨
+                      </a>
+                      
+                      <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3">
+                        <p className="text-sm text-yellow-800 font-medium">
+                          📝 <strong>Instructions:</strong> Click the red button above to open the form, complete it fully, then return to this page. The button will disappear after you click it.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                  {!googleFormUrl && (
+                    <p className="text-xs text-gray-400">Please contact admin for registration</p>
+                  )}
+                </>
+              ) : (
+                <>
+                  <div className="flex items-center justify-center gap-2 mb-4">
+                    <CheckCircle className="h-5 w-5 text-green-600" />
+                    <p className="text-sm font-medium text-green-600">Registration Form Completed</p>
+                  </div>
+                  <p className="text-xs sm:text-sm text-gray-500 mb-4">
+                    Thank you for completing the registration form! Admin will review your submission and assign you to appropriate classes.
+                  </p>
+                  {formStatus.completionDate && (
+                    <p className="text-xs text-gray-400">
+                      Completed on: {new Date(formStatus.completionDate).toLocaleDateString()}
+                    </p>
+                  )}
+                </>
               )}
             </div>
           </div>

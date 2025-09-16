@@ -42,6 +42,8 @@ const ChildrenManagement = ({ user }) => {
       setError(null);
       const response = await parentsService.getMyChildrenDetailed(user.id);
 
+      console.log('API Response:', response);
+
       // Handle case where response might be undefined or null
       if (!response) {
         console.log('No response from API, setting empty children array');
@@ -51,25 +53,54 @@ const ChildrenManagement = ({ user }) => {
 
       // Extract children from response
       const childrenArray = response.children || response.data || [];
+      console.log('Children array from API:', childrenArray);
+
+      // Check if we have valid children data
+      if (!Array.isArray(childrenArray) || childrenArray.length === 0) {
+        console.log('No valid children data, setting empty array');
+        setChildren([]);
+        return;
+      }
 
       // Transform the data to match the expected format
-      const childrenWithDetails = childrenArray.map(child => ({
-        id: child.id,
-        name: `${child.firstName} ${child.lastName}`,
-        firstName: child.firstName,
-        lastName: child.lastName,
-        email: child.email,
-        parentId: child.parentId,
-        age: child.age,
-        class: child.className,
-        accountType: child.accountType,
-        relationship_type: 'child',
-        studentData: null
-      }));
+      const childrenWithDetails = childrenArray.map(child => {
+        // Skip children with undefined or null essential data
+        if (!child || (!child.firstName && !child.lastName)) {
+          console.log('Skipping invalid child data:', child);
+          return null;
+        }
 
+        return {
+          id: child.id,
+          name: `${child.firstName || ''} ${child.lastName || ''}`.trim(),
+          firstName: child.firstName,
+          lastName: child.lastName,
+          email: child.email,
+          parentId: child.parentId,
+          age: child.age,
+          class: child.className || 'Not specified',
+          accountType: child.accountType || 'Student',
+          relationship_type: 'child',
+          studentData: null
+        };
+      }).filter(child => child !== null); // Remove null entries
+
+      console.log('Processed children:', childrenWithDetails);
       setChildren(childrenWithDetails);
-      if (childrenWithDetails.length > 0 && !selectedChild) {
-        setSelectedChild(childrenWithDetails[0]);
+      
+      // Validate and set selected child
+      if (childrenWithDetails.length > 0) {
+        // Check if current selectedChild is valid
+        const isValidSelectedChild = selectedChild && 
+          selectedChild.firstName && 
+          selectedChild.lastName && 
+          childrenWithDetails.some(child => child.id === selectedChild.id);
+        
+        if (!isValidSelectedChild || !selectedChild) {
+          setSelectedChild(childrenWithDetails[0]);
+        }
+      } else {
+        setSelectedChild(null);
       }
     } catch (error) {
       console.error('Failed to fetch children:', error);
@@ -439,19 +470,20 @@ const ChildrenManagement = ({ user }) => {
             >
               <div className="w-12 h-12 md:w-16 md:h-16 bg-purple-500 rounded-full flex items-center justify-center mx-auto mb-3 md:mb-4 group-hover:bg-purple-600 transition-colors">
                 <span className="text-white text-lg md:text-xl font-bold">
-                  {child.firstName ? child.firstName.charAt(0) : child.name.charAt(0)}
+                  {child.firstName ? child.firstName.charAt(0) : 
+                   child.name ? child.name.charAt(0) : 'U'}
                 </span>
               </div>
 
               <h3 className="font-semibold text-gray-900 text-sm md:text-lg mb-1">
                 {child.firstName && child.lastName
                   ? `${child.firstName} ${child.lastName}`
-                  : child.name
+                  : (child.name || 'Unknown Child')
                 }
               </h3>
 
               <div className="text-xs md:text-sm text-gray-500 mb-3 md:mb-4">
-                {child.class} • {child.age ? `${child.age} years` : 'Age not specified'}
+                {(child.class || 'Not specified')} • {child.age ? `${child.age} years` : 'Age not specified'}
               </div>
 
               <div className="space-y-2">
@@ -479,18 +511,19 @@ const ChildrenManagement = ({ user }) => {
             <div className="flex flex-col sm:flex-row sm:items-center">
               <div className="w-12 h-12 md:w-16 md:h-16 bg-purple-500 rounded-xl md:rounded-2xl flex items-center justify-center mb-3 sm:mb-0 sm:mr-6 shadow-lg mx-auto sm:mx-0">
                 <span className="text-white text-lg md:text-xl font-bold">
-                  {selectedChild.firstName ? selectedChild.firstName.charAt(0) : selectedChild.name.charAt(0)}
+                  {selectedChild.firstName ? selectedChild.firstName.charAt(0) : 
+                   selectedChild.name ? selectedChild.name.charAt(0) : 'U'}
                 </span>
               </div>
               <div className="flex-1 text-center sm:text-left">
                 <h2 className="text-xl md:text-2xl font-bold text-gray-900 mb-1">
                   {selectedChild.firstName && selectedChild.lastName
                     ? `${selectedChild.firstName} ${selectedChild.lastName}`
-                    : selectedChild.name
+                    : (selectedChild.name || 'Unknown Child')
                   }
                 </h2>
                 <p className="text-gray-600 text-sm md:text-lg">
-                  {selectedChild.class} • {selectedChild.age ? `${selectedChild.age} years old` : 'Age not specified'}
+                  {(selectedChild.class || 'Not specified')} • {selectedChild.age ? `${selectedChild.age} years old` : 'Age not specified'}
                 </p>
               </div>
             </div>
@@ -501,22 +534,22 @@ const ChildrenManagement = ({ user }) => {
             {/* Quick Stats */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6 md:mb-8">
               <div className="text-center lg:text-left">
-                <div className="text-lg md:text-2xl font-bold text-purple-600 mb-1">{selectedChild.class}</div>
                 <div className="text-xs md:text-sm text-gray-500 font-medium">Class</div>
+                <div className="text-lg md:text-2xl font-bold text-purple-600 mb-1">{selectedChild.class || 'Not specified'}</div>
               </div>
               <div className="text-center lg:text-left">
+                <div className="text-xs md:text-sm text-gray-500 font-medium">Age</div>
                 <div className="text-lg md:text-2xl font-bold text-purple-600 mb-1">
                   {selectedChild.age || 'N/A'}
                 </div>
-                <div className="text-xs md:text-sm text-gray-500 font-medium">Age</div>
               </div>
               <div className="text-center lg:text-left">
-                <div className="text-sm md:text-lg font-semibold text-gray-700 mb-1">Student</div>
                 <div className="text-xs md:text-sm text-gray-500 font-medium">Account Type</div>
+                <div className="text-sm md:text-lg font-semibold text-gray-700 mb-1">{selectedChild.accountType || 'Student'}</div>
               </div>
               <div className="text-center lg:text-left">
-                <div className="text-xs md:text-lg font-semibold text-gray-700 mb-1 truncate">{selectedChild.id}</div>
                 <div className="text-xs md:text-sm text-gray-500 font-medium">Student ID</div>
+                <div className="text-xs md:text-lg font-semibold text-gray-700 mb-1 truncate">{selectedChild.id || 'No ID'}</div>
               </div>
             </div>
 

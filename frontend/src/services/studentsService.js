@@ -164,7 +164,47 @@ class StudentsService {
   // Get Google Form URL for student registration
   async getGoogleFormUrl() {
     try {
-      const response = await api.get('/api/public/google-form-url');
+      const response = await api.get('/api/students/google-form-url');
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  }
+
+  // Mark registration form as completed
+  async markFormCompleted() {
+    try {
+      const response = await api.post('/api/students/mark-form-completed');
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  }
+
+  // Get form completion status
+  async getFormStatus() {
+    try {
+      const response = await api.get('/api/students/form-status');
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  }
+
+  // Get all form completions (Admin only)
+  async getFormCompletions() {
+    try {
+      const response = await api.get('/api/students/form-completions');
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  }
+
+  // Reset student form completion (Admin only)
+  async resetFormCompletion(studentId) {
+    try {
+      const response = await api.post(`/api/students/${studentId}/reset-form-completion`);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;

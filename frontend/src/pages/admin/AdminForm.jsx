@@ -1,15 +1,21 @@
 import React, { useState, useEffect } from 'react';
-import { Newspaper, Save, ExternalLink, AlertCircle, CheckCircle } from 'lucide-react';
+import { Newspaper, Save, ExternalLink, AlertCircle, CheckCircle, Users, Calendar, Mail, Phone, X, RefreshCw, Clock } from 'lucide-react';
 import { showErrorToast, showSuccessToast } from '../../utils/errorHandler';
 import { API_CONFIG } from '../../config/api';
+import studentsService from '../../services/studentsService';
 
 const AdminForm = ({ user }) => {
   const [googleFormUrl, setGoogleFormUrl] = useState('');
+  const [originalUrl, setOriginalUrl] = useState('');
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [formCompletions, setFormCompletions] = useState([]);
+  const [loadingCompletions, setLoadingCompletions] = useState(false);
+  const [resetting, setResetting] = useState(null);
 
   useEffect(() => {
     loadFormSettings();
+    loadFormCompletions();
   }, []);
 
   const loadFormSettings = async () => {
@@ -24,7 +30,9 @@ const AdminForm = ({ user }) => {
       
       if (response.ok) {
         const data = await response.json();
-        setGoogleFormUrl(data.googleFormUrl || '');
+        const url = data.googleFormUrl || '';
+        setGoogleFormUrl(url);
+        setOriginalUrl(url);
       } else {
         console.error('Failed to load form settings:', response.status, response.statusText);
         showErrorToast('Failed to load form settings');
@@ -63,6 +71,7 @@ const AdminForm = ({ user }) => {
       });
 
       if (response.ok) {
+        setOriginalUrl(googleFormUrl); // Update original URL after successful save
         showSuccessToast('Registration form URL updated successfully');
       } else {
         const errorData = await response.json();
@@ -82,6 +91,48 @@ const AdminForm = ({ user }) => {
     }
   };
 
+  const loadFormCompletions = async () => {
+    setLoadingCompletions(true);
+    try {
+      const response = await studentsService.getFormCompletions();
+      setFormCompletions(response || []);
+    } catch (error) {
+      console.error('Error loading form completions:', error);
+      showErrorToast('Failed to load form completions');
+    } finally {
+      setLoadingCompletions(false);
+    }
+  };
+
+  const handleResetFormCompletion = async (studentId, studentName) => {
+    if (!window.confirm(`Are you sure you want to reset the form completion for ${studentName}? This will allow them to access the form again.`)) {
+      return;
+    }
+
+    setResetting(studentId);
+    try {
+      const response = await studentsService.resetFormCompletion(studentId);
+      showSuccessToast(`Form completion reset for ${response.studentName}. They can now access the form again.`);
+      loadFormCompletions(); // Reload the list
+    } catch (error) {
+      console.error('Error resetting form completion:', error);
+      showErrorToast('Failed to reset form completion');
+    } finally {
+      setResetting(null);
+    }
+  };
+
+  const formatDate = (dateString) => {
+    if (!dateString) return 'N/A';
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
   if (loading) {
     return (
       <div className="bg-white rounded-lg shadow-sm border">
@@ -97,14 +148,6 @@ const AdminForm = ({ user }) => {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Registration Form</h1>
-          <p className="text-sm sm:text-base text-gray-600">Manage student registration form configuration</p>
-        </div>
-      </div>
-
       {/* Google Form URL Configuration */}
       <div className="bg-white rounded-lg shadow-sm border">
         <div className="p-4 sm:p-6">
@@ -115,13 +158,6 @@ const AdminForm = ({ user }) => {
           
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Google Form URL
-              </label>
-              <p className="text-xs text-gray-500 mb-3">
-                This URL will be shown to students who haven't been assigned to any classes yet. 
-                They can use this form to complete their registration.
-              </p>
               <div className="flex gap-2">
                 <input
                   type="url"
@@ -140,65 +176,138 @@ const AdminForm = ({ user }) => {
                     Test
                   </button>
                 )}
+                <button
+                  onClick={saveGoogleFormUrl}
+                  disabled={saving || !googleFormUrl.trim() || googleFormUrl === originalUrl}
+                  className="flex items-center gap-2 px-4 py-2 text-green-600 border-2 border-green-300 rounded-lg hover:border-green-400 hover:bg-green-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200 bg-transparent font-medium"
+                >
+                  {saving ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-600"></div>
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="h-4 w-4" />
+                      Save
+                    </>
+                  )}
+                </button>
               </div>
-            </div>
-
-            <div className="flex items-start gap-2 p-3 bg-blue-50 border border-blue-200 rounded-md">
-              <AlertCircle className="h-4 w-4 text-blue-600 mt-0.5 flex-shrink-0" />
-              <div className="text-sm text-blue-800">
-                <p className="font-medium mb-1">How it works:</p>
-                <ul className="list-disc list-inside space-y-1 text-xs">
-                  <li>Students who are not enrolled in any class will see a button to complete this form</li>
-                  <li>After admin reviews the form submissions, they can manually enroll students in classes</li>
-                  <li>Once enrolled, students will no longer see the form button</li>
-                </ul>
-              </div>
-            </div>
-
-            <div className="flex justify-end">
-              <button
-                onClick={saveGoogleFormUrl}
-                disabled={saving || !googleFormUrl.trim()}
-                className="flex items-center gap-2 px-4 py-2 text-green-600 border-2 border-green-300 rounded-lg hover:border-green-400 hover:bg-green-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200 bg-transparent font-medium"
-              >
-                {saving ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-600"></div>
-                    Saving...
-                  </>
-                ) : (
-                  <>
-                    <Save className="h-4 w-4" />
-                    Save Form 
-                  </>
-                )}
-              </button>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Current Status */}
+      {/* Form Completions */}
       <div className="bg-white rounded-lg shadow-sm border">
         <div className="p-4 sm:p-6">
-          <div className="flex items-center gap-2 mb-4">
-            <CheckCircle className="h-5 w-5 text-green-600" />
-            <h3 className="text-lg font-semibold text-gray-900">Current Status</h3>
-          </div>
-          
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-600">Registration Form URL:</span>
-              <span className={`text-sm font-medium ${googleFormUrl ? 'text-green-600' : 'text-gray-400'}`}>
-                {googleFormUrl ? 'Configured' : 'Not configured'}
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <Users className="h-5 w-5 text-blue-600" />
+              <h3 className="text-lg font-semibold text-gray-900">Form Completions</h3>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium text-gray-700">
+                {formCompletions.length} completion{formCompletions.length !== 1 ? 's' : ''}
               </span>
             </div>
-            {googleFormUrl && (
-              <div className="text-xs text-gray-500 break-all">
-                {googleFormUrl}
-              </div>
-            )}
           </div>
+
+          {loadingCompletions ? (
+            <div className="text-center py-8">
+              <Users className="h-8 w-8 sm:h-12 sm:w-12 text-gray-400 mx-auto mb-4" />
+              <p className="text-sm sm:text-base text-gray-600">Loading form completions...</p>
+            </div>
+          ) : formCompletions.length === 0 ? (
+            <div className="text-center py-8">
+              <Users className="h-8 w-8 sm:h-12 sm:w-12 text-gray-400 mx-auto mb-4" />
+              <p className="text-sm sm:text-base text-gray-600 mb-2">No form completions yet</p>
+              <p className="text-xs sm:text-sm text-gray-500">
+                Students who complete the registration form will appear here
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {formCompletions.map((completion) => (
+                <div key={completion.id} className="bg-gray-50 rounded-lg border border-gray-200 p-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                    {/* Student Info */}
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3 mb-2">
+                        <div className="flex items-center gap-2">
+                          <Users className="h-4 w-4 text-blue-600" />
+                          <h4 className="text-lg font-semibold text-gray-900">
+                            {completion.firstName} {completion.lastName}
+                          </h4>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          {completion.hasClasses ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded-full">
+                              <CheckCircle className="h-3 w-3" />
+                              Enrolled
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium bg-yellow-100 text-yellow-800 rounded-full">
+                              <Clock className="h-3 w-3" />
+                              Pending
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      
+                      <div className="flex flex-wrap items-center gap-4 text-sm">
+                        <div className="flex items-center gap-2">
+                          <Mail className="h-4 w-4 text-gray-400" />
+                          <span className="text-gray-600">{completion.email}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Calendar className="h-4 w-4 text-gray-400" />
+                          <span className="text-gray-600">
+                            Completed: {formatDate(completion.formCompletionDate)}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Calendar className="h-4 w-4 text-gray-400" />
+                          <span className="text-gray-600">
+                            Joined: {formatDate(completion.createdAt)}
+                          </span>
+                        </div>
+                        {completion.phone && (
+                          <div className="flex items-center gap-2">
+                            <Phone className="h-4 w-4 text-gray-400" />
+                            <span className="text-gray-600">{completion.phone}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Actions */}
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => handleResetFormCompletion(completion.id, `${completion.firstName} ${completion.lastName}`)}
+                        disabled={resetting === completion.id}
+                        className="flex items-center gap-2 px-3 py-2 text-red-600 border-2 border-red-300 rounded-lg hover:border-red-400 hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200 bg-transparent font-medium text-sm"
+                        title="Reset form completion (allows student to access form again)"
+                      >
+                        {resetting === completion.id ? (
+                          <>
+                            <RefreshCw className="h-4 w-4 animate-spin" />
+                            Resetting...
+                          </>
+                        ) : (
+                          <>
+                            <X className="h-4 w-4" />
+                            Reset
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>

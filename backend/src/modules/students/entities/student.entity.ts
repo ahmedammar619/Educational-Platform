@@ -52,6 +52,13 @@ export class Student {
   @Column({ name: 'subscription_end_date', type: 'timestamp', nullable: true })
   subscriptionEndDate?: Date;
 
+  // Form completion tracking
+  @Column({ name: 'registration_form_completed', type: 'boolean', default: false })
+  registrationFormCompleted: boolean;
+
+  @Column({ name: 'form_completion_date', type: 'timestamp', nullable: true })
+  formCompletionDate?: Date;
+
   get age(): number {
     const today = new Date();
     const birthDate = new Date(this.birthDate);

@@ -384,4 +384,86 @@ export class StudentsService {
 
     return [transformedClass];
   }
+
+  async markFormCompleted(studentId: string) {
+    const student = await this.findOne(studentId);
+    
+    if (student.registrationFormCompleted) {
+      throw new ConflictException('Registration form has already been completed');
+    }
+
+    student.registrationFormCompleted = true;
+    student.formCompletionDate = new Date();
+
+    await this.studentRepository.save(student);
+
+    return {
+      message: 'Registration form marked as completed successfully',
+      formCompleted: true,
+      completionDate: student.formCompletionDate,
+    };
+  }
+
+  async getFormStatus(studentId: string) {
+    const student = await this.findOne(studentId);
+    
+    return {
+      formCompleted: student.registrationFormCompleted,
+      completionDate: student.formCompletionDate,
+      hasClasses: !!student.classId,
+    };
+  }
+
+  async getFormCompletions() {
+    const students = await this.studentRepository.find({
+      where: { registrationFormCompleted: true },
+      relations: ['user'],
+      select: {
+        id: true,
+        registrationFormCompleted: true,
+        formCompletionDate: true,
+        classId: true,
+        user: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          email: true,
+          phone: true,
+          createdAt: true,
+        }
+      },
+      order: { formCompletionDate: 'DESC' }
+    });
+
+    return students.map(student => ({
+      id: student.id,
+      firstName: student.user.firstName,
+      lastName: student.user.lastName,
+      email: student.user.email,
+      phone: student.user.phone,
+      formCompletionDate: student.formCompletionDate,
+      hasClasses: !!student.classId,
+      createdAt: student.user.createdAt,
+    }));
+  }
+
+  async resetFormCompletion(studentId: string) {
+    const student = await this.findOne(studentId);
+    
+    if (!student.registrationFormCompleted) {
+      throw new ConflictException('This student has not completed the registration form yet');
+    }
+
+    student.registrationFormCompleted = false;
+    student.formCompletionDate = null;
+
+    await this.studentRepository.save(student);
+
+    return {
+      message: 'Form completion status reset successfully. Student can now access the form again.',
+      studentId: student.id,
+      studentName: `${student.user.firstName} ${student.user.lastName}`,
+      resetAt: new Date(),
+    };
+  }
 }

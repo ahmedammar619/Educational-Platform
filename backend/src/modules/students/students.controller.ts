@@ -54,6 +54,42 @@ export class StudentsController {
     return { students };
   }
 
+  @Get('google-form-url')
+  @Public()
+  @ApiOperation({ summary: 'Get Google Form URL for student registration' })
+  @ApiResponse({
+    status: 200,
+    description: 'Google Form URL retrieved successfully',
+  })
+  async getGoogleFormUrl() {
+    const url = await this.configService.getGoogleFormUrl();
+    return { googleFormUrl: url };
+  }
+
+  @Get('form-status')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.Student)
+  @ApiOperation({ summary: 'Get student form completion status' })
+  @ApiResponse({
+    status: 200,
+    description: 'Form status retrieved successfully',
+  })
+  async getFormStatus(@CurrentUser() currentUser: any) {
+    return this.studentsService.getFormStatus(currentUser.sub);
+  }
+
+  @Get('form-completions')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.Admin)
+  @ApiOperation({ summary: 'Get all students who completed the registration form (Admin only)' })
+  @ApiResponse({
+    status: 200,
+    description: 'Form completions retrieved successfully',
+  })
+  async getFormCompletions() {
+    return this.studentsService.getFormCompletions();
+  }
+
   @Get(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @ApiOperation({ summary: 'Get student by ID (Protected)' })
@@ -247,16 +283,28 @@ export class StudentsController {
     return this.studentsService.getStudentClasses(id);
   }
 
-  @Get('google-form-url')
-  @Public()
-  @ApiOperation({ summary: 'Get Google Form URL for student registration' })
+  @Post('mark-form-completed')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.Student)
+  @ApiOperation({ summary: 'Mark registration form as completed by student' })
   @ApiResponse({
     status: 200,
-    description: 'Google Form URL retrieved successfully',
+    description: 'Form marked as completed successfully',
   })
-  async getGoogleFormUrl() {
-    const url = await this.configService.getGoogleFormUrl();
-    return { googleFormUrl: url };
+  async markFormCompleted(@CurrentUser() currentUser: any) {
+    return this.studentsService.markFormCompleted(currentUser.sub);
+  }
+
+  @Post(':id/reset-form-completion')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.Admin)
+  @ApiOperation({ summary: 'Reset student form completion status (Admin only)' })
+  @ApiResponse({
+    status: 200,
+    description: 'Form completion status reset successfully',
+  })
+  async resetFormCompletion(@Param('id') studentId: string) {
+    return this.studentsService.resetFormCompletion(studentId);
   }
 
   private async isParentOfStudent(parentId: string, studentId: string): Promise<boolean> {
