@@ -474,19 +474,29 @@ export class NotificationsService {
     });
   }
 
-  // Cleanup method for old notifications
-  async cleanupOldNotifications(daysOld: number = 30): Promise<{ count: number }> {
+  // Cleanup method for old notifications - deletes notifications older than specified days regardless of read status
+  async cleanupOldNotifications(daysOld: number = 3): Promise<{ count: number }> {
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - daysOld);
 
+    // Delete notifications older than cutoff date regardless of read/archived status
     const result = await this.notificationRepository
       .createQueryBuilder()
       .delete()
       .where('createdAt < :cutoffDate', { cutoffDate })
-      .andWhere('isArchived = :archived', { archived: true })
       .execute();
 
-    this.logger.log(`Cleaned up ${result.affected} old notifications`);
+    this.logger.log(`Cleaned up ${result.affected} notifications older than ${daysOld} days`);
     return { count: result.affected || 0 };
+  }
+
+  // Automatic cleanup method for scheduled tasks
+  async automaticCleanup(): Promise<void> {
+    try {
+      const result = await this.cleanupOldNotifications(3); // 3 days
+      this.logger.log(`Automatic cleanup completed: ${result.count} notifications deleted`);
+    } catch (error) {
+      this.logger.error(`Automatic cleanup failed: ${error.message}`);
+    }
   }
 }

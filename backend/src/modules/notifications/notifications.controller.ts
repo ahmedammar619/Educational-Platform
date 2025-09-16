@@ -141,10 +141,19 @@ export class NotificationsController {
 
   @Post('cleanup')
   @Roles(Role.Admin)
-  @ApiOperation({ summary: 'Cleanup old notifications (Admin only)' })
+  @ApiOperation({ summary: 'Cleanup old notifications (Admin only) - deletes notifications older than specified days regardless of read status' })
   @ApiResponse({ status: 200, description: 'Old notifications cleaned up successfully' })
-  async cleanup(@Query('daysOld', new DefaultValuePipe(30), ParseIntPipe) daysOld: number) {
+  async cleanup(@Query('daysOld', new DefaultValuePipe(3), ParseIntPipe) daysOld: number) {
     return this.notificationsService.cleanupOldNotifications(daysOld);
+  }
+
+  @Post('cleanup-auto')
+  @Roles(Role.Admin)
+  @ApiOperation({ summary: 'Trigger automatic cleanup manually (Admin only)' })
+  @ApiResponse({ status: 200, description: 'Automatic cleanup triggered successfully' })
+  async triggerAutomaticCleanup() {
+    await this.notificationsService.automaticCleanup();
+    return { message: 'Automatic cleanup triggered successfully' };
   }
 
   @Post('test')
