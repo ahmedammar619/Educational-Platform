@@ -1,27 +1,36 @@
 import React from 'react';
+import { BookOpen, Users, Calendar, Award, CheckCircle, Star, Clock, User } from 'lucide-react';
 
 const ServicesSection = () => {
   const services = [
     {
-      icon: "📚",
+      icon: BookOpen,
+      iconColor: "text-green-600",
+      bgColor: "bg-green-100",
       title: "Quran Memorization",
       description: "Structured programs for memorizing the Holy Quran with proper Tajweed and understanding.",
       features: ["Individual attention", "Progress tracking", "Regular assessments", "Certification"]
     },
     {
-      icon: "🌍",
+      icon: Users,
+      iconColor: "text-blue-600",
+      bgColor: "bg-blue-100",
       title: "Arabic Language",
       description: "Comprehensive Arabic learning from basic reading and writing to advanced grammar and literature.",
       features: ["Interactive lessons", "Native speakers", "Cultural context", "Practical exercises"]
     },
     {
-      icon: "🕌",
+      icon: Calendar,
+      iconColor: "text-purple-600",
+      bgColor: "bg-purple-100",
       title: "Islamic Studies",
       description: "Deep understanding of Islamic principles, history, values, and contemporary applications.",
       features: ["Age-appropriate content", "Interactive discussions", "Real-world examples", "Family involvement"]
     },
     {
-      icon: "🎯",
+      icon: Award,
+      iconColor: "text-yellow-600",
+      bgColor: "bg-yellow-100",
       title: "Personal Development",
       description: "Character building and life skills development based on Islamic values and principles.",
       features: ["Moral education", "Leadership skills", "Community service", "Self-discipline"]
@@ -29,8 +38,8 @@ const ServicesSection = () => {
   ];
 
   return (
-    <section id="services" className="py-12 sm:py-16 lg:py-20 bg-white h-full border-b border-gray-200 shadow-b shadow-gray-200">
-      <div  className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <section id="services" className="py-12 sm:py-16 lg:py-20 bg-white">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-12 sm:mb-16">
           <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900 mb-4 sm:mb-6">
             Our Educational Services
@@ -43,26 +52,37 @@ const ServicesSection = () => {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-6 sm:gap-8 mb-12 sm:mb-8">
           {services.map((service, index) => (
-            <div key={index} className="bg-gradient-to-br from-gray-50 to-white p-6 sm:p-8 rounded-2xl shadow-sm border border-gray-100 hover:shadow-lg transition-all duration-300">
-              <div className="text-center mb-4 sm:mb-6">
-                <div className="w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-br from-green-100 to-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <span className="text-2xl sm:text-3xl">{service.icon}</span>
+            <div key={index} className="bg-white rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-all duration-300 overflow-hidden">
+              {/* Header */}
+              <div className="p-6 sm:p-8 border-b border-gray-100">
+                <div className="flex items-start justify-between mb-2">
+                  <div className={`w-12 h-12 sm:w-16 sm:h-16 ${service.bgColor} rounded-xl flex items-center justify-center`}>
+                    <service.icon className={`h-6 w-6 sm:h-8 sm:w-8 ${service.iconColor}`} />
+                  </div>
                 </div>
-                <h3 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2 sm:mb-3">
+                
+                <h3 className="text-xl sm:text-2xl font-bold text-gray-900 mb-3">
                   {service.title}
                 </h3>
-                <p className="text-sm sm:text-base text-gray-600 leading-relaxed">
+                <p className="text-sm sm:text-base text-gray-600 leading-relaxed mb-4">
                   {service.description}
                 </p>
               </div>
               
-              <div className="space-y-2 sm:space-y-3">
-                {service.features.map((feature, featureIndex) => (
-                  <div key={featureIndex} className="flex items-center text-sm sm:text-base text-gray-700">
-                    <div className="w-2 h-2 bg-green-500 rounded-full mr-3 flex-shrink-0"></div>
-                    {feature}
-                  </div>
-                ))}
+              {/* Features */}
+              <div className="p-6 sm:p-8">
+                <h4 className="text-sm font-semibold text-gray-900 mb-4 flex items-center">
+                  <CheckCircle className="h-4 w-4 text-green-500 mr-2" />
+                  Key Features
+                </h4>
+                <div className="space-y-3">
+                  {service.features.map((feature, featureIndex) => (
+                    <div key={featureIndex} className="flex items-center text-sm text-gray-700">
+                      <div className="w-1.5 h-1.5 bg-green-500 rounded-full mr-3 flex-shrink-0"></div>
+                      {feature}
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           ))}
