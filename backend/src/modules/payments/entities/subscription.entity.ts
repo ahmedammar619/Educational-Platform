@@ -55,7 +55,7 @@ export class Subscription {
   @JoinColumn({ name: 'user_id' })
   user: User;
 
-  @ManyToOne(() => Student)
+  @ManyToOne(() => Student, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'student_id' })
   student: Student;
 

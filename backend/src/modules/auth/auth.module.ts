@@ -10,6 +10,7 @@ import { ConfigService } from '@nestjs/config';
 import { StudentsModule } from '../students/students.module';
 import { ParentsModule } from '../parents/parents.module';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { EmailService } from '../../common/services/email.service';
 
 @Module({
   imports: [
@@ -41,6 +42,7 @@ import { NotificationsModule } from '../notifications/notifications.module';
   providers: [
     AuthService,
     JwtStrategy,
+    EmailService,
   ],
   exports: [AuthService, JwtModule],
 })

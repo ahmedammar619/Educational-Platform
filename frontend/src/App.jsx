@@ -189,10 +189,26 @@ function App() {
                     onLogin={handleLogin} 
                     onRegister={() => setShowLogin(false)}
                     onProfileCompletion={() => {
+                      console.log('Profile completion callback triggered - clearing user state and showing login');
+                      
+                      // CRITICAL: Immediately clear user state to prevent any navigation attempts
+                      // This must happen synchronously to prevent AppRouter from seeing the user
                       setUser(null);
                       setShowLogin(true);
                       setPreventAutoLogin(true);
+                      
+                      // Force clear any remaining authentication state
+                      try {
+                        localStorage.removeItem('token');
+                        localStorage.removeItem('user');
+                        console.log('✅ Cleared all auth data from localStorage after profile completion');
+                      } catch (error) {
+                        console.error('❌ Error clearing localStorage:', error);
+                      }
+                      
+                      console.log('Profile completion: User state cleared, login form should be visible');
                     }}
+                    onLogout={handleLogout}
                   />
                 ) : (
                   <AppRouter 

@@ -52,7 +52,7 @@ export class AssignmentSubmission {
   @JoinColumn({ name: 'assignmentId' })
   assignment: any;
 
-  @ManyToOne(() => User)
+  @ManyToOne(() => User, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'studentId' })
   student: User;
 

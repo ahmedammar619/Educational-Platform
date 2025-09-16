@@ -6,6 +6,10 @@ import { User } from '../users/entities/user.entity';
 import { Parent } from '../parents/entities/parent.entity';
 import { Class } from '../classes/entities/class.entity';
 import { Course } from '../courses/entities/course.entity';
+import { AssignmentSubmission } from '../materials/entities/assignment-submission.entity';
+import { Attendance } from '../materials/entities/attendance.entity';
+import { Subscription } from '../payments/entities/subscription.entity';
+import { Invoice } from '../payments/entities/invoice.entity';
 import { CreateStudentDto } from './dto/create-student.dto';
 import { UpdateStudentDto } from './dto/update-student.dto';
 import { Role } from '../../common/enums/role.enum';
@@ -24,6 +28,14 @@ export class StudentsService {
     private readonly classRepository: Repository<Class>,
     @InjectRepository(Course)
     private readonly courseRepository: Repository<Course>,
+    @InjectRepository(AssignmentSubmission)
+    private readonly assignmentSubmissionRepository: Repository<AssignmentSubmission>,
+    @InjectRepository(Attendance)
+    private readonly attendanceRepository: Repository<Attendance>,
+    @InjectRepository(Subscription)
+    private readonly subscriptionRepository: Repository<Subscription>,
+    @InjectRepository(Invoice)
+    private readonly invoiceRepository: Repository<Invoice>,
   ) {}
 
   async createStudent(createStudentDto: CreateStudentDto): Promise<Student> {
@@ -160,7 +172,21 @@ export class StudentsService {
   async deleteStudent(id: string): Promise<void> {
     const student = await this.findOne(id);
     
-    // Check if student has a parent and remove from parent's children array
+    // Clean up all related data before deleting the student
+    
+    // 1. Delete assignment submissions
+    await this.assignmentSubmissionRepository.delete({ studentId: id });
+    
+    // 2. Delete attendance records
+    await this.attendanceRepository.delete({ studentId: id });
+    
+    // 3. Delete subscriptions
+    await this.subscriptionRepository.delete({ studentId: id });
+    
+    // 4. Delete invoices
+    await this.invoiceRepository.delete({ studentId: id });
+    
+    // 5. Check if student has a parent and remove from parent's children array
     if (student.parentId) {
       const parent = await this.parentRepository.findOne({
         where: { id: student.parentId }
@@ -173,10 +199,10 @@ export class StudentsService {
       }
     }
     
-    // Delete student record first
+    // 6. Delete student record first
     await this.studentRepository.delete(id);
     
-    // Delete the corresponding user record
+    // 7. Delete the corresponding user record
     await this.userRepository.delete(id);
   }
 

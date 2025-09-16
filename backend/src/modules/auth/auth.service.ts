@@ -101,12 +101,22 @@ export class AuthService {
       } else if (role === Role.Parent) {
         // Create parent record from the saved user
         await this.parentsService.createParentFromUser(savedUser.id);
+        console.log('✅ Parent record created successfully for user:', savedUser.id);
       }
     } catch (error) {
       // If creating in separate table fails, we should clean up the user
-      // For now, just log the error - in production you might want to handle this differently
-      console.error('Failed to create record in separate table:', error);
-      // Note: The user account is still created in the users table
+      console.error('❌ Failed to create record in separate table:', error);
+      
+      // Clean up the user record since the role-specific record creation failed
+      try {
+        await this.userRepository.remove(savedUser);
+        console.log('✅ Cleaned up user record after role-specific creation failure');
+      } catch (cleanupError) {
+        console.error('❌ Failed to clean up user record:', cleanupError);
+      }
+      
+      // Re-throw the original error to fail the registration
+      throw new BadRequestException(`Failed to create ${role.toLowerCase()} account: ${error.message}`);
     }
 
     // Notify all admins about the new user registration (optimized query)
@@ -206,6 +216,24 @@ export class AuthService {
     });
 
     const savedUser = await this.userRepository.save(tempUser);
+
+    // Create parent record for email-only registration
+    try {
+      await this.parentsService.createParentFromUser(savedUser.id);
+      console.log('✅ Parent record created successfully for email-only registration:', savedUser.id);
+    } catch (error) {
+      console.error('❌ Failed to create parent record for email-only registration:', error);
+      
+      // Clean up the user record since parent creation failed
+      try {
+        await this.userRepository.remove(savedUser);
+        console.log('✅ Cleaned up user record after parent creation failure');
+      } catch (cleanupError) {
+        console.error('❌ Failed to clean up user record:', cleanupError);
+      }
+      
+      throw new BadRequestException(`Failed to create parent account: ${error.message}`);
+    }
 
     // Generate verification token
     const verificationToken = crypto.randomBytes(32).toString('hex');

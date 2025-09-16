@@ -6,7 +6,7 @@ import { usersService, authService } from '../../services/index.js';
 import PhoneInput from '../../components/ui/PhoneInput.jsx';
 // Email verification is handled in LoginForm before this modal
 
-const ProfileCompletionModal = ({ user, onComplete, onCancel }) => {
+const ProfileCompletionModal = ({ user, onComplete, onCancel, onLogout }) => {
   const navigate = useNavigate();
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
@@ -140,9 +140,36 @@ const ProfileCompletionModal = ({ user, onComplete, onCancel }) => {
 
       showSuccessToast('Profile completed successfully! Please sign in to continue.');
 
+      // CRITICAL: Use the App's logout function to ensure proper state clearing
+      // This will clear the user state in App.jsx and prevent navigation
+      if (onLogout) {
+        console.log('✅ Calling App logout function to clear user state');
+        await onLogout();
+      } else {
+        // Fallback: use authService logout
+        try {
+          await authService.logout();
+          console.log('✅ User logged out after profile completion');
+          
+          // Additional safeguard: manually clear localStorage
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+          console.log('✅ Manually cleared localStorage after profile completion');
+        } catch (error) {
+          console.error('❌ Error during logout after profile completion:', error);
+          // Even if logout fails, clear localStorage manually
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+          console.log('✅ Manually cleared localStorage as fallback');
+        }
+      }
+
+      // Force navigation to root path to ensure we're on the auth page
+      console.log('✅ Navigating to root path after profile completion');
+      window.location.href = '/';
+
       // Call onComplete to close modal and return to LoginForm
-      // The LoginForm will handle the logout properly
-      onComplete();
+      onComplete(true); // Pass true to indicate user should be logged out
     } catch (error) {
       console.error('Error updating profile:', error);
       dismissToast(loadingToast);
