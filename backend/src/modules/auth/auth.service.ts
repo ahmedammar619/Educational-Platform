@@ -67,8 +67,8 @@ export class AuthService {
       throw new BadRequestException('Phone number is required for students');
     }
 
-    // Hash password
-    const saltRounds = 12;
+    // Hash password (optimized: 10 rounds for better performance while maintaining security)
+    const saltRounds = 10;
     const passwordHash = await bcrypt.hash(password, saltRounds);
 
     // Prepare user data
@@ -357,8 +357,8 @@ export class AuthService {
       throw new BadRequestException('Invalid or expired reset token');
     }
 
-    // Hash new password
-    const saltRounds = 12;
+    // Hash new password (optimized: 10 rounds for better performance while maintaining security)
+    const saltRounds = 10;
     const newPasswordHash = await bcrypt.hash(newPassword, saltRounds);
 
     // Update password and clear reset token
@@ -513,8 +513,8 @@ export class AuthService {
       throw new BadRequestException('Current password is incorrect');
     }
 
-    // Hash new password
-    const saltRounds = 12;
+    // Hash new password (optimized: 10 rounds for better performance while maintaining security)
+    const saltRounds = 10;
     const newPasswordHash = await bcrypt.hash(newPassword, saltRounds);
 
     // Update password

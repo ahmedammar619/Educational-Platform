@@ -67,8 +67,8 @@ export class UsersService {
       throw new ConflictException('User already exists with this email');
     }
 
-    // Hash password
-    const saltRounds = 12;
+    // Hash password (optimized: 10 rounds for better performance while maintaining security)
+    const saltRounds = 10;
     const passwordHash = await bcrypt.hash(password, saltRounds);
 
     // Create user
@@ -181,9 +181,9 @@ export class UsersService {
     // Prepare update data
     const updateData: any = { ...updateUserDto };
 
-    // Hash password if it's being updated
+    // Hash password if it's being updated (optimized: 10 rounds for better performance while maintaining security)
     if (updateUserDto.password) {
-      const saltRounds = 12;
+      const saltRounds = 10;
       updateData.passwordHash = await bcrypt.hash(updateUserDto.password, saltRounds);
       delete updateData.password;
     }

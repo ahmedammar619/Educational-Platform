@@ -52,8 +52,8 @@ export class AdminService {
       throw new ConflictException('User already exists with this email');
     }
 
-    // Hash password
-    const saltRounds = 12;
+    // Hash password (optimized: 10 rounds for better performance while maintaining security)
+    const saltRounds = 10;
     const passwordHash = await bcrypt.hash(password, saltRounds);
 
     // Create user
