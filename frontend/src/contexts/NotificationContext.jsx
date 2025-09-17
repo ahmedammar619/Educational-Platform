@@ -15,6 +15,8 @@ export const NotificationType = {
   ASSIGNMENT_SUBMITTED: 'assignment_submitted',
   ADDED_TO_COURSE: 'added_to_course',
   NEW_USER_JOINED: 'new_user_joined',
+  ANNOUNCEMENT_MEETING: 'announcement_meeting',
+  ANNOUNCEMENT_POST: 'announcement_post',
 };
 
 // Priority levels
@@ -284,16 +286,8 @@ export const NotificationProvider = ({ children, user }) => {
   };
 
   const markAsRead = async (notificationId) => {
-    try {
-      await notificationService.markAsRead(notificationId);
-      // Remove the notification from the list since it's deleted from database
-      dispatch({ 
-        type: ActionTypes.REMOVE_NOTIFICATION, 
-        payload: notificationId
-      });
-    } catch (error) {
-      dispatch({ type: ActionTypes.SET_ERROR, payload: error.message });
-    }
+    // Now we just delete directly instead of marking as read
+    await deleteNotification(notificationId);
   };
 
   const markAllAsRead = async (type = null) => {

@@ -47,8 +47,8 @@ const NotificationDropdown = ({ isOpen, onClose }) => {
     return new Date(b.createdAt) - new Date(a.createdAt);
   });
 
-  const handleMarkAllAsRead = () => {
-    markAllAsRead();
+  const handleClearAll = () => {
+    markAllAsRead(); // This actually deletes all notifications
   };
 
   const handleFilterChange = (newFilter) => {
@@ -77,11 +77,12 @@ const NotificationDropdown = ({ isOpen, onClose }) => {
           
           {unreadCount > 0 && (
             <button
-              onClick={handleMarkAllAsRead}
-              className="flex items-center space-x-1 text-sm text-blue-600 hover:text-blue-800 transition-colors font-medium"
+              onClick={handleClearAll}
+              className="flex items-center space-x-1 text-sm text-red-600 hover:text-red-800 transition-colors font-medium"
+              title="Delete all notifications"
             >
               <Check className="h-4 w-4" />
-              <span>Mark all read</span>
+              <span>Clear all</span>
             </button>
           )}
         </div>

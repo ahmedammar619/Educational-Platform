@@ -31,6 +31,8 @@ const NotificationItem = ({
       case 'added_to_class':
       case 'child_added_to_class':
       case 'added_to_course':
+      case 'announcement_meeting':
+      case 'announcement_post':
         return {
           icon: <Info className="h-5 w-5" />,
           bgColor: 'bg-blue-500',
@@ -73,7 +75,7 @@ const NotificationItem = ({
 
   const handleMarkAsRead = (e) => {
     e.stopPropagation();
-    onMarkAsRead(id);
+    onDelete(id); // Use delete instead of mark as read
   };
 
   const handleDelete = (e) => {
@@ -110,8 +112,8 @@ const NotificationItem = ({
               {!isRead && (
                 <button
                   onClick={handleMarkAsRead}
-                  className="p-1 text-blue-600 fw-bold rounded-full bg-blue-100 hover:text-blue-800 hover:bg-blue-200 transition-colors"
-                  title="Mark as read"
+                  className="p-1 text-green-600 fw-bold rounded-full bg-green-100 hover:text-green-800 hover:bg-green-200 transition-colors"
+                  title="Delete notification"
                 >
                   <Check className="h-4 w-4" />
                 </button>

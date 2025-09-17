@@ -129,25 +129,8 @@ export class NotificationsGateway implements OnGatewayConnection, OnGatewayDisco
     }
   }
 
-  @SubscribeMessage('mark_notification_read')
-  async handleMarkNotificationRead(
-    @ConnectedSocket() client: AuthenticatedSocket,
-    @MessageBody() data: { notificationId: string }
-  ) {
-    if (!client.userId) return;
-
-    try {
-      await this.notificationsService.update(data.notificationId, client.userId, { isRead: true });
-      
-      // Update unread count
-      const unreadCount = await this.notificationsService.getUnreadCount(client.userId);
-      client.emit('unread_count', { count: unreadCount });
-      
-      this.logger.log(`User ${client.userId} marked notification ${data.notificationId} as read`);
-    } catch (error) {
-      client.emit('error', { message: 'Failed to mark notification as read' });
-    }
-  }
+  // Removed delete_notification socket handler - we use HTTP API calls directly
+  // This prevents double deletion issues
 
   // Public methods for sending notifications
   async sendNotificationToUser(userId: string, notification: any) {

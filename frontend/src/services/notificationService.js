@@ -75,6 +75,8 @@ class NotificationService {
       this.emit('unread_count', data);
     });
 
+    // Removed notification_deleted listener - we use HTTP API calls directly
+
     this.socket.on('error', (error) => {
       console.error('Socket error:', error);
       this.emit('error', error);
@@ -175,14 +177,8 @@ class NotificationService {
   }
 
   async markAsRead(id) {
-    const response = await api.patch(`/api/notifications/${id}`, { isRead: true });
-    
-    // Emit socket event to update real-time
-    if (this.socket && this.isConnected) {
-      this.socket.emit('mark_notification_read', { notificationId: id });
-    }
-    
-    return response.data;
+    // Now we just delete directly instead of marking as read
+    return this.deleteNotification(id);
   }
 
   async markAllAsRead(type = null) {
@@ -191,8 +187,17 @@ class NotificationService {
   }
 
   async deleteNotification(id) {
-    const response = await api.delete(`/api/notifications/${id}`);
-    return response.data;
+    try {
+      const response = await api.delete(`/api/notifications/${id}`);
+      
+      // No need to emit socket event - the HTTP API call is sufficient
+      // The UI will handle the deletion through the context
+      
+      return response.data;
+    } catch (error) {
+      console.error('Error deleting notification:', error);
+      throw error;
+    }
   }
 
   async archiveNotification(id) {

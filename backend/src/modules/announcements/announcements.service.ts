@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, Inject, forwardRef } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as path from 'path';
@@ -8,6 +8,9 @@ import { AnnouncementPostAttachment } from './entities/announcement-post-attachm
 import { CreateAnnouncementPostDto } from './dto/create-announcement-post.dto';
 import { UpdateAnnouncementPostDto } from './dto/update-announcement-post.dto';
 import { R2FileService } from '../../common/services/r2-file.service';
+import { User } from '../users/entities/user.entity';
+import { NotificationsService } from '../notifications/notifications.service';
+import { NotificationType } from '../notifications/entities/notification.entity';
 
 @Injectable()
 export class AnnouncementsService {
@@ -16,7 +19,11 @@ export class AnnouncementsService {
     private announcementPostRepository: Repository<AnnouncementPost>,
     @InjectRepository(AnnouncementPostAttachment)
     private announcementPostAttachmentRepository: Repository<AnnouncementPostAttachment>,
+    @InjectRepository(User)
+    private readonly userRepository: Repository<User>,
     private readonly r2FileService: R2FileService,
+    @Inject(forwardRef(() => NotificationsService))
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   async createPost(
@@ -39,11 +46,17 @@ export class AnnouncementsService {
       await this.handleFileAttachment(savedPost.id, file);
     }
 
-    // Return post with relations
-    return this.announcementPostRepository.findOne({
+    // Get the complete post with relations for notification
+    const completePost = await this.announcementPostRepository.findOne({
       where: { id: savedPost.id },
       relations: ['author', 'attachments'],
     });
+
+    // Send notification to ALL users about the new announcement post (except creator)
+    await this.sendAnnouncementPostNotification(completePost, 'created');
+
+    // Return post with relations
+    return completePost;
   }
 
   async getPosts(): Promise<AnnouncementPost[]> {
@@ -97,11 +110,17 @@ export class AnnouncementsService {
       await this.handleFileAttachment(postId, file);
     }
 
-    // Return updated post with relations
-    return this.announcementPostRepository.findOne({
+    // Get the updated post with relations for notification
+    const updatedCompletePost = await this.announcementPostRepository.findOne({
       where: { id: postId },
       relations: ['author', 'attachments'],
     });
+
+    // Send notification about post update (except to creator)
+    await this.sendAnnouncementPostNotification(updatedCompletePost, 'updated');
+
+    // Return updated post with relations
+    return updatedCompletePost;
   }
 
   async deletePost(postId: string, userId: string): Promise<void> {
@@ -113,6 +132,9 @@ export class AnnouncementsService {
     if (post.author.role !== 'admin' && post.authorId !== userId) {
       throw new ForbiddenException('Only admins can delete announcement posts');
     }
+
+    // Send notification about post deletion BEFORE deleting (except to creator)
+    await this.sendAnnouncementPostNotification(post, 'deleted');
 
     // Delete associated files and attachment records
     if (post.attachments && post.attachments.length > 0) {
@@ -271,6 +293,55 @@ export class AnnouncementsService {
           }
         }
       }
+    }
+  }
+
+  private async sendAnnouncementPostNotification(post: AnnouncementPost, action: string): Promise<void> {
+    try {
+      // Get ALL platform users (admin, teachers, students, parents) to send notifications to EVERYONE
+      const allUsers = await this.userRepository.find();
+      console.log(`📢 ANNOUNCEMENT POST: Sending notification to ALL ${allUsers.length} platform users for action: ${action}`);
+
+      // For announcement posts, we want to notify EVERYONE on the platform except the creator
+      for (const user of allUsers) {
+        // Skip notifying the creator of the post
+        if (user.id === post.authorId) {
+          continue;
+        }
+
+        let title: string;
+        let message: string;
+
+        switch (action) {
+          case 'created':
+            title = '📢 New Announcement Post';
+            message = `A new announcement "${post.subject}" has been posted for all platform users. Check the announcements tab to read the full details.`;
+            break;
+          case 'updated':
+            title = '📝 Announcement Post Updated';
+            message = `The announcement "${post.subject}" has been updated. Check the announcements tab for the latest information.`;
+            break;
+          case 'deleted':
+            title = '🗑️ Announcement Post Removed';
+            message = `The announcement "${post.subject}" has been removed by an administrator.`;
+            break;
+          default:
+            continue;
+        }
+
+        await this.notificationsService.create({
+          userId: user.id,
+          title,
+          message,
+          type: NotificationType.ANNOUNCEMENT_POST,
+          relatedId: post.id,
+        });
+      }
+
+      console.log(`✅ Successfully sent announcement post notifications to ALL ${allUsers.length} platform users (excluding creator) for action: ${action}`);
+    } catch (error) {
+      console.error('❌ Error sending announcement post notifications:', error);
+      // Don't throw error - notification failure shouldn't break the main operation
     }
   }
 }

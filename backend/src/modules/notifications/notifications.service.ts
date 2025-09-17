@@ -1,4 +1,4 @@
-import { Injectable, Logger, Inject, forwardRef } from '@nestjs/common';
+import { Injectable, Logger, Inject, forwardRef, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, FindManyOptions, Between } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
@@ -108,7 +108,7 @@ export class NotificationsService {
   async update(id: string, userId: string, updateNotificationDto: UpdateNotificationDto): Promise<Notification> {
     const notification = await this.findOne(id, userId);
     if (!notification) {
-      throw new Error('Notification not found');
+      throw new NotFoundException('Notification not found');
     }
 
     // Update the notification with the new data
@@ -124,14 +124,10 @@ export class NotificationsService {
   }
 
   async markAllAsRead(userId: string, markAllReadDto?: MarkAllReadDto): Promise<{ count: number }> {
-    // Mark all unread notifications as read instead of deleting them
+    // Delete all unread notifications permanently instead of just marking them as read
     const queryBuilder = this.notificationRepository
       .createQueryBuilder()
-      .update(Notification)
-      .set({ 
-        isRead: true,
-        readAt: new Date()
-      })
+      .delete()
       .where('userId = :userId', { userId })
       .andWhere('isRead = :isRead', { isRead: false });
 
@@ -141,7 +137,7 @@ export class NotificationsService {
 
     const result = await queryBuilder.execute();
     
-    this.logger.log(`Marked ${result.affected} notifications as read for user ${userId}`);
+    this.logger.log(`Permanently deleted ${result.affected} unread notifications for user ${userId} (mark all as read)`);
     return { count: result.affected || 0 };
   }
 
@@ -154,7 +150,7 @@ export class NotificationsService {
   async delete(id: string, userId: string): Promise<void> {
     const result = await this.notificationRepository.delete({ id, userId });
     if (result.affected === 0) {
-      throw new Error('Notification not found');
+      throw new NotFoundException('Notification not found');
     }
   }
 

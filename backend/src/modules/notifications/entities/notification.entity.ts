@@ -32,6 +32,7 @@ export enum NotificationType {
 
   // Announcement notifications
   ANNOUNCEMENT_MEETING = 'announcement_meeting',
+  ANNOUNCEMENT_POST = 'announcement_post',
 }
 
 export enum NotificationPriority {
