@@ -139,18 +139,37 @@ export class ZoomWebhookService {
       this.logger.log(`Recording completed for meeting: ${meetingId}`);
 
       // Find the meeting in our database
-      const meeting = await this.zoomMeetingRepository.findOne({
+      let meeting = await this.zoomMeetingRepository.findOne({
         where: { zoomMeetingId: meetingId },
       });
 
       if (!meeting) {
         this.logger.warn(`Meeting not found in database: ${meetingId}`);
-        return;
+        this.logger.log(`Creating database entry for external Zoom meeting: ${meetingId}`);
+        
+        // Create a database entry for external Zoom meetings
+        const newMeeting = this.zoomMeetingRepository.create({
+          zoomMeetingId: meetingId,
+          title: event.payload.object.topic || 'External Zoom Meeting',
+          description: 'Recording from external Zoom meeting',
+          invitationLink: event.payload.object.join_url || '',
+          date: event.payload.object.start_time ? new Date(event.payload.object.start_time).toISOString().split('T')[0] : null,
+          time: event.payload.object.start_time ? new Date(event.payload.object.start_time).toTimeString().split(' ')[0].slice(0, 5) : null,
+          period: 'AM',
+          status: 'ended',
+          recordingStatus: 'completed',
+          // Set required fields with default values for external meetings
+          createdById: '00000000-0000-0000-0000-000000000000', // Placeholder UUID for external meetings
+          courseId: null, // External meeting has no course
+        });
+        
+        meeting = await this.zoomMeetingRepository.save(newMeeting);
+        this.logger.log(`Created database entry for external meeting: ${meeting.id}`);
+      } else {
+        // Update recording status for existing meetings
+        meeting.recordingStatus = 'completed';
+        await this.zoomMeetingRepository.save(meeting);
       }
-
-      // Update recording status
-      meeting.recordingStatus = 'completed';
-      await this.zoomMeetingRepository.save(meeting);
 
       // Process the recording (download to R2, upload to YouTube)
       await this.recordingService.processRecording(meeting, event.payload.object);
