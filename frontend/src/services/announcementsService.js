@@ -163,6 +163,16 @@ const announcementsService = {
     }
   },
 
+  async startAnnouncementMeeting(meetingId) {
+    try {
+      const response = await api.post(`/api/announcements/meetings/${meetingId}/start`);
+      return response.data;
+    } catch (error) {
+      console.error('Error starting announcement meeting:', error);
+      throw error;
+    }
+  },
+
   async cancelAnnouncementMeeting(meetingId) {
     try {
       const response = await api.post(`/api/announcements/meetings/${meetingId}/cancel`);

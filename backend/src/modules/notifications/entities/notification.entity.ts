@@ -29,6 +29,9 @@ export enum NotificationType {
 
   // Admin notifications
   NEW_USER_JOINED = 'new_user_joined',
+
+  // Announcement notifications
+  ANNOUNCEMENT_MEETING = 'announcement_meeting',
 }
 
 export enum NotificationPriority {
@@ -67,6 +70,9 @@ export class Notification {
 
   @Column({ type: 'json', nullable: true })
   metadata: Record<string, any>;
+
+  @Column({ type: 'varchar', nullable: true })
+  relatedId: string;
 
   @Column({ default: false })
   isRead: boolean;

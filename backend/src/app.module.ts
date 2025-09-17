@@ -58,6 +58,7 @@ import { ZoomMeeting } from './modules/zoom/entities/zoom-meeting.entity';
 import { AppConfig } from './modules/admin/entities/app-config.entity';
 import { AnnouncementPost } from './modules/announcements/entities/announcement-post.entity';
 import { AnnouncementPostAttachment } from './modules/announcements/entities/announcement-post-attachment.entity';
+import { AnnouncementMeeting } from './modules/announcements/entities/announcement-meeting.entity';
 import { Notification } from './modules/notifications/entities/notification.entity';
 
 @Module({
@@ -99,6 +100,7 @@ import { Notification } from './modules/notifications/entities/notification.enti
           AppConfig,
           AnnouncementPost,
           AnnouncementPostAttachment,
+          AnnouncementMeeting,
           Notification
         ],
         synchronize: process.env.NODE_ENV !== 'production' || process.env.DB_SYNC === 'true',

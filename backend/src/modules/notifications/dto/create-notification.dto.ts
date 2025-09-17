@@ -24,4 +24,8 @@ export class CreateNotificationDto {
   @IsObject()
   @IsOptional()
   metadata?: Record<string, any>;
+
+  @IsString()
+  @IsOptional()
+  relatedId?: string;
 }

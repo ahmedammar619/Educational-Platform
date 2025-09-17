@@ -26,6 +26,6 @@ import { YouTubeModule } from '../youtube/youtube.module';
   ],
   controllers: [ZoomController, ZoomWebhookController, RecordingTestController],
   providers: [ZoomService, ZoomApiService, RecordingService, ZoomWebhookService],
-  exports: [ZoomService, RecordingService],
+  exports: [ZoomService, ZoomApiService, RecordingService],
 })
 export class ZoomModule {}

@@ -8,6 +8,7 @@ const AnnouncementsPage = ({ currentUser, theme }) => {
 
   const tabs = [
     { id: 'posts', name: 'Posts', icon: MessageSquare },
+    { id: 'zoom', name: 'Zoom Meetings', icon: Video },
   ];
 
   return (

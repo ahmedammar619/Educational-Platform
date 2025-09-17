@@ -14,14 +14,19 @@ import {
   NotFoundException,
   Query,
 } from '@nestjs/common';
-import { ApiTags, ApiBearerAuth, ApiOperation, ApiResponse, ApiConsumes } from '@nestjs/swagger';
+import { ApiTags, ApiBearerAuth, ApiOperation, ApiResponse, ApiConsumes, ApiQuery } from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { Response } from 'express';
 import * as path from 'path';
+import { plainToClass } from 'class-transformer';
 import { AnnouncementsService } from './announcements.service';
+import { AnnouncementMeetingsService } from './services/announcement-meetings.service';
 import { CreateAnnouncementPostDto } from './dto/create-announcement-post.dto';
 import { UpdateAnnouncementPostDto } from './dto/update-announcement-post.dto';
 import { AnnouncementPostResponseDto } from './dto/announcement-post-response.dto';
+import { CreateAnnouncementMeetingDto } from './dto/create-announcement-meeting.dto';
+import { UpdateAnnouncementMeetingDto } from './dto/update-announcement-meeting.dto';
+import { AnnouncementMeetingResponseDto } from './dto/announcement-meeting-response.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -32,7 +37,10 @@ import { Role } from '../../common/enums/role.enum';
 @UseGuards(JwtAuthGuard, RolesGuard)
 @ApiBearerAuth('JWT-auth')
 export class AnnouncementsController {
-  constructor(private readonly announcementsService: AnnouncementsService) {}
+  constructor(
+    private readonly announcementsService: AnnouncementsService,
+    private readonly announcementMeetingsService: AnnouncementMeetingsService,
+  ) {}
 
   // Posts
   @Post('posts')
@@ -298,83 +306,121 @@ export class AnnouncementsController {
     }
   }
 
-  // Meetings endpoints (placeholder - will return empty array for now)
+  // Meetings endpoints
   @Get('meetings')
   @Roles(Role.Admin, Role.Teacher, Role.Student, Role.Parent)
   @ApiOperation({ summary: 'Get all announcement meetings' })
-  @ApiResponse({ status: 200, description: 'Meetings retrieved successfully' })
-  async getMeetings(@Query() filters: any): Promise<any[]> {
-    console.log('Controller - Getting announcement meetings:', filters);
-    
-    // For now, return empty array since we haven't implemented meetings yet
-    // This prevents the 404 error and allows the frontend to work
-    return [];
+  @ApiResponse({ status: 200, description: 'Meetings retrieved successfully', type: [AnnouncementMeetingResponseDto] })
+  @ApiQuery({ name: 'status', required: false, description: 'Filter by meeting status' })
+  @ApiQuery({ name: 'search', required: false, description: 'Search meetings by title, description, or creator' })
+  async getMeetings(
+    @Query('status') status?: string,
+    @Query('search') search?: string,
+  ): Promise<AnnouncementMeetingResponseDto[]> {
+    let meetings;
+
+    if (search) {
+      meetings = await this.announcementMeetingsService.searchMeetings(search);
+    } else if (status) {
+      meetings = await this.announcementMeetingsService.getMeetingsByStatus(status);
+    } else {
+      meetings = await this.announcementMeetingsService.findAllMeetings();
+    }
+
+    return meetings.map(meeting => 
+      plainToClass(AnnouncementMeetingResponseDto, meeting, { excludeExtraneousValues: true })
+    );
   }
 
   @Post('meetings')
   @Roles(Role.Admin)
   @ApiOperation({ summary: 'Create a new announcement meeting' })
-  @ApiResponse({ status: 201, description: 'Meeting created successfully' })
-  async createMeeting(@Body() meetingData: any, @Req() req): Promise<{ message: string }> {
-    console.log('Controller - Creating announcement meeting:', { meetingData, userId: req.user?.sub });
-    
-    // For now, return success message since we haven't implemented meetings yet
-    return { message: 'Meeting creation not implemented yet' };
+  @ApiResponse({ status: 201, description: 'Meeting created successfully', type: AnnouncementMeetingResponseDto })
+  async createMeeting(
+    @Body() createMeetingDto: CreateAnnouncementMeetingDto,
+    @Req() req: any,
+  ): Promise<AnnouncementMeetingResponseDto> {
+    const meeting = await this.announcementMeetingsService.createMeeting(createMeetingDto, req.user.sub);
+    return plainToClass(AnnouncementMeetingResponseDto, meeting, { excludeExtraneousValues: true });
   }
 
-  @Patch('meetings/:meetingId')
+  @Get('meetings/my-meetings')
+  @Roles(Role.Admin)
+  @ApiOperation({ summary: 'Get meetings created by the current user' })
+  @ApiResponse({ status: 200, description: 'User meetings retrieved successfully', type: [AnnouncementMeetingResponseDto] })
+  async findMyMeetings(@Req() req: any): Promise<AnnouncementMeetingResponseDto[]> {
+    const meetings = await this.announcementMeetingsService.findMeetingsByUser(req.user.sub);
+    return meetings.map(meeting => 
+      plainToClass(AnnouncementMeetingResponseDto, meeting, { excludeExtraneousValues: true })
+    );
+  }
+
+  @Get('meetings/:id')
+  @Roles(Role.Admin, Role.Teacher, Role.Student, Role.Parent)
+  @ApiOperation({ summary: 'Get a specific announcement meeting by ID' })
+  @ApiResponse({ status: 200, description: 'Meeting retrieved successfully', type: AnnouncementMeetingResponseDto })
+  @ApiResponse({ status: 404, description: 'Meeting not found' })
+  async findMeetingById(@Param('id') id: string): Promise<AnnouncementMeetingResponseDto> {
+    const meeting = await this.announcementMeetingsService.findMeetingById(id);
+    return plainToClass(AnnouncementMeetingResponseDto, meeting, { excludeExtraneousValues: true });
+  }
+
+  @Patch('meetings/:id')
   @Roles(Role.Admin)
   @ApiOperation({ summary: 'Update an announcement meeting' })
-  @ApiResponse({ status: 200, description: 'Meeting updated successfully' })
-  async updateMeeting(@Param('meetingId') meetingId: string, @Body() updateData: any, @Req() req): Promise<{ message: string }> {
-    console.log('Controller - Updating announcement meeting:', { meetingId, updateData, userId: req.user?.sub });
-    
-    // For now, return success message since we haven't implemented meetings yet
-    return { message: 'Meeting update not implemented yet' };
+  @ApiResponse({ status: 200, description: 'Meeting updated successfully', type: AnnouncementMeetingResponseDto })
+  async updateMeeting(
+    @Param('id') id: string,
+    @Body() updateMeetingDto: UpdateAnnouncementMeetingDto,
+    @Req() req: any,
+  ): Promise<AnnouncementMeetingResponseDto> {
+    const meeting = await this.announcementMeetingsService.updateMeeting(id, updateMeetingDto, req.user.sub);
+    return plainToClass(AnnouncementMeetingResponseDto, meeting, { excludeExtraneousValues: true });
   }
 
-  @Delete('meetings/:meetingId')
+  @Delete('meetings/:id')
   @Roles(Role.Admin)
   @ApiOperation({ summary: 'Delete an announcement meeting' })
   @ApiResponse({ status: 200, description: 'Meeting deleted successfully' })
-  async deleteMeeting(@Param('meetingId') meetingId: string, @Req() req): Promise<{ message: string }> {
-    console.log('Controller - Deleting announcement meeting:', { meetingId, userId: req.user?.sub });
-    
-    // For now, return success message since we haven't implemented meetings yet
-    return { message: 'Meeting deletion not implemented yet' };
+  async deleteMeeting(@Param('id') id: string, @Req() req: any): Promise<{ message: string }> {
+    await this.announcementMeetingsService.deleteMeeting(id, req.user.sub);
+    return { message: 'Announcement meeting deleted successfully' };
   }
 
-  @Post('meetings/:meetingId/join')
+  @Post('meetings/:id/join')
   @Roles(Role.Admin, Role.Teacher, Role.Student, Role.Parent)
   @ApiOperation({ summary: 'Join an announcement meeting' })
-  @ApiResponse({ status: 200, description: 'Meeting joined successfully' })
-  async joinMeeting(@Param('meetingId') meetingId: string, @Req() req): Promise<{ message: string }> {
-    console.log('Controller - Joining announcement meeting:', { meetingId, userId: req.user?.sub });
-    
-    // For now, return success message since we haven't implemented meetings yet
-    return { message: 'Meeting join not implemented yet' };
+  @ApiResponse({ status: 200, description: 'Meeting joined successfully', type: AnnouncementMeetingResponseDto })
+  async joinMeeting(@Param('id') id: string): Promise<AnnouncementMeetingResponseDto> {
+    const meeting = await this.announcementMeetingsService.joinMeeting(id);
+    return plainToClass(AnnouncementMeetingResponseDto, meeting, { excludeExtraneousValues: true });
   }
 
-  @Post('meetings/:meetingId/end')
+  @Post('meetings/:id/start')
+  @Roles(Role.Admin)
+  @ApiOperation({ summary: 'Start an announcement meeting and notify all users' })
+  @ApiResponse({ status: 200, description: 'Meeting started successfully', type: AnnouncementMeetingResponseDto })
+  async startMeeting(@Param('id') id: string): Promise<AnnouncementMeetingResponseDto> {
+    const meeting = await this.announcementMeetingsService.startMeeting(id);
+    return plainToClass(AnnouncementMeetingResponseDto, meeting, { excludeExtraneousValues: true });
+  }
+
+  @Post('meetings/:id/end')
   @Roles(Role.Admin)
   @ApiOperation({ summary: 'End an announcement meeting' })
-  @ApiResponse({ status: 200, description: 'Meeting ended successfully' })
-  async endMeeting(@Param('meetingId') meetingId: string, @Req() req): Promise<{ message: string }> {
-    console.log('Controller - Ending announcement meeting:', { meetingId, userId: req.user?.sub });
-    
-    // For now, return success message since we haven't implemented meetings yet
-    return { message: 'Meeting end not implemented yet' };
+  @ApiResponse({ status: 200, description: 'Meeting ended successfully', type: AnnouncementMeetingResponseDto })
+  async endMeeting(@Param('id') id: string, @Req() req: any): Promise<AnnouncementMeetingResponseDto> {
+    const meeting = await this.announcementMeetingsService.endMeeting(id, req.user.sub);
+    return plainToClass(AnnouncementMeetingResponseDto, meeting, { excludeExtraneousValues: true });
   }
 
-  @Post('meetings/:meetingId/cancel')
+  @Post('meetings/:id/cancel')
   @Roles(Role.Admin)
   @ApiOperation({ summary: 'Cancel an announcement meeting' })
-  @ApiResponse({ status: 200, description: 'Meeting cancelled successfully' })
-  async cancelMeeting(@Param('meetingId') meetingId: string, @Req() req): Promise<{ message: string }> {
-    console.log('Controller - Cancelling announcement meeting:', { meetingId, userId: req.user?.sub });
-    
-    // For now, return success message since we haven't implemented meetings yet
-    return { message: 'Meeting cancellation not implemented yet' };
+  @ApiResponse({ status: 200, description: 'Meeting cancelled successfully', type: AnnouncementMeetingResponseDto })
+  async cancelMeeting(@Param('id') id: string, @Req() req: any): Promise<AnnouncementMeetingResponseDto> {
+    const meeting = await this.announcementMeetingsService.cancelMeeting(id, req.user.sub);
+    return plainToClass(AnnouncementMeetingResponseDto, meeting, { excludeExtraneousValues: true });
   }
 
   // Test endpoint for R2
