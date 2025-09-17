@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Inject, forwardRef } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Course, SessionData } from './entities/course.entity';
@@ -6,7 +6,7 @@ import { Class } from '../classes/entities/class.entity';
 import { User } from '../users/entities/user.entity';
 import { CreateCourseDto } from './dto/create-course.dto';
 import { UpdateCourseDto } from './dto/update-course.dto';
-
+import { NotificationsService } from '../notifications/notifications.service';
 import { Role } from '../../common/enums/role.enum';
 
 @Injectable()
@@ -20,6 +20,8 @@ export class CoursesService {
     private readonly classRepository: Repository<Class>,
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
+    @Inject(forwardRef(() => NotificationsService))
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   async createCourse(createCourseDto: CreateCourseDto): Promise<Course> {
@@ -88,6 +90,24 @@ export class CoursesService {
         await this.classRepository.save(targetClass);
         console.log('Added course ID to class courseIds array:', savedCourse.id);
       }
+    }
+
+    // Send notification to teacher about being added to the course
+    try {
+      await this.notificationsService.createAddedToCourseNotification(
+        teacherId,
+        createCourseDto.name,
+        classEntity.name,
+        {
+          courseId: savedCourse.id,
+          classId: classId,
+          createdDate: new Date().toISOString()
+        }
+      );
+      console.log(`✅ Sent course assignment notification to teacher: ${teacher.firstName} ${teacher.lastName}`);
+    } catch (error) {
+      console.error('❌ Failed to send course assignment notification to teacher:', error);
+      // Don't throw error - notification failure shouldn't break the main operation
     }
 
       return savedCourse;
