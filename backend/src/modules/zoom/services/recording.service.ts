@@ -188,7 +188,7 @@ export class RecordingService {
       }
 
       // Check if this is a placeholder recording (test data)
-      if (r2Key.includes('placeholder') || r2Key.startsWith('test-')) {
+      if (r2Key.includes('placeholder') || r2Key.startsWith('test-') || r2Key.includes('placeholder.recording.url')) {
         this.logger.warn('Skipping YouTube upload for placeholder/test recording');
         return {
           videoId: 'placeholder',
