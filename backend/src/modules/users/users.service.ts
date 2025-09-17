@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ConflictException, ForbiddenException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException, ForbiddenException ,BadRequestException} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from './entities/user.entity';
@@ -67,9 +67,17 @@ export class UsersService {
       throw new ConflictException('User already exists with this email');
     }
 
-    // Hash password (optimized: 10 rounds for better performance while maintaining security)
-    const saltRounds = 10;
-    const passwordHash = await bcrypt.hash(password, saltRounds);
+    // Hash password only if provided (for teachers, password is optional)
+    let passwordHash: string | undefined;
+    if (password) {
+      const saltRounds = 10;
+      passwordHash = await bcrypt.hash(password, saltRounds);
+    } else if (userData.role === Role.Teacher) {
+      // For teachers without password, we'll set it during email verification
+      passwordHash = null;
+    } else {
+      throw new BadRequestException('Password is required for non-teacher roles');
+    }
 
     // Create user
     const user = this.userRepository.create({

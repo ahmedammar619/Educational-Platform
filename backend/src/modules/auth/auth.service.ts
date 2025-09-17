@@ -279,6 +279,11 @@ export class AuthService {
         throw new UnauthorizedException('Invalid credentials');
       }
 
+      // Check if teacher doesn't have password set (needs to verify email first)
+      if (user.role === Role.Teacher && !user.passwordHash) {
+        throw new UnauthorizedException('Please check your email and complete the verification process to set up your account');
+      }
+
       // Verify password
       const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
       
@@ -310,6 +315,11 @@ export class AuthService {
 
         if (!user) {
           throw new UnauthorizedException('Invalid credentials');
+        }
+
+        // Check if teacher doesn't have password set (needs to verify email first)
+        if (user.role === Role.Teacher && !user.passwordHash) {
+          throw new UnauthorizedException('Please check your email and complete the verification process to set up your account');
         }
 
         // Verify password

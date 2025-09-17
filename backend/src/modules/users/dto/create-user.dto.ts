@@ -17,10 +17,12 @@ export class CreateUserDto {
   @IsEmailUnique({ message: 'This email is already registered. Please use a different email address.' })
   email: string;
 
-  @ApiProperty({ description: 'User password', minLength: 8 })
+  @ApiProperty({ description: 'User password (optional for teachers)', minLength: 8, required: false })
+  @IsOptional()
+  @ValidateIf((o) => o.role !== Role.Teacher)
   @IsString()
   @MinLength(8)
-  password: string;
+  password?: string;
 
   @ApiProperty({ description: 'User role', enum: Role })
   @IsEnum(Role)

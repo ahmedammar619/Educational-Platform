@@ -1150,14 +1150,14 @@ const UserModal = ({ title, user, onClose, onSubmit }) => {
           phone: '' // Optional for admin
         };
       } else {
-        // For teacher users, use the old logic with placeholder names
+        // For teacher users, create without password - they'll set it via verification email
         submitData = {
           email: formData.email,
           role: formData.role,
-          password: 'Password@123', // Default password for teachers
+          // No password - teacher will set it via verification email
           firstName: `New ${formData.role.charAt(0).toUpperCase() + formData.role.slice(1)}`, // Placeholder name
           lastName: 'User', // Placeholder name
-          phone: '', // Empty - to be filled on first login
+          phone: '', // Empty - to be filled via verification flow
         };
       }
 

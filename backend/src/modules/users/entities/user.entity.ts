@@ -24,9 +24,9 @@ export class User {
   @Column({ unique: true, length: 255 })
   email: string;
 
-  @Column()
+  @Column({ nullable: true })
   @Exclude()
-  passwordHash: string;
+  passwordHash?: string;
 
   @Column({ nullable: true, length: 20 })
   phone?: string;

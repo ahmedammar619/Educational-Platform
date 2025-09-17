@@ -14,7 +14,6 @@ const ProfileCompletionModal = ({ user, onComplete, onCancel, onLogout }) => {
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
-    currentPassword: 'Password@123', // Default password
     newPassword: '',
     confirmPassword: '',
     phone: ''
@@ -94,9 +93,7 @@ const ProfileCompletionModal = ({ user, onComplete, onCancel, onLogout }) => {
       newErrors.confirmPassword = 'Passwords do not match';
     }
 
-    if (formData.currentPassword !== 'Password@123') {
-      newErrors.currentPassword = 'Current password is incorrect';
-    }
+    // No current password validation needed - teacher is setting their first password
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -117,7 +114,7 @@ const ProfileCompletionModal = ({ user, onComplete, onCancel, onLogout }) => {
       const updateData = {
         firstName: formData.firstName.trim(),
         lastName: formData.lastName.trim(),
-        password: formData.newPassword,
+        password: formData.newPassword, // This is their first password, not a change
         phone: formData.phone.trim()
       };
 
@@ -216,7 +213,7 @@ const ProfileCompletionModal = ({ user, onComplete, onCancel, onLogout }) => {
             </div>
             <h2 className="text-2xl font-bold text-gray-900 mb-2">Complete Your Profile</h2>
             <p className="text-gray-600">
-              Profile completion is required to access the platform. Please provide your information and set a secure password.
+              Welcome! Please complete your profile and set your password to access the platform.
               {user?.role === 'admin' && (
                 <span className="block mt-2 text-sm text-blue-600">
                   Admin users created through the admin panel should already have complete profiles and can login directly.
@@ -314,10 +311,10 @@ const ProfileCompletionModal = ({ user, onComplete, onCancel, onLogout }) => {
               )}
             </div> */}
 
-            {/* New Password */}
+            {/* Password */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                New Password *
+                Password *
               </label>
               <div className="relative">
                 <input
@@ -328,7 +325,7 @@ const ProfileCompletionModal = ({ user, onComplete, onCancel, onLogout }) => {
                   className={`w-full px-3 py-2 pr-10 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                     errors.newPassword ? 'border-red-500' : 'border-gray-300'
                   }`}
-                  placeholder="Enter new password"
+                  placeholder="Enter your password"
                   required
                 />
                 <button
@@ -350,7 +347,7 @@ const ProfileCompletionModal = ({ user, onComplete, onCancel, onLogout }) => {
             {/* Confirm Password */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Confirm New Password *
+                Confirm Password *
               </label>
               <div className="relative">
                 <input
@@ -361,7 +358,7 @@ const ProfileCompletionModal = ({ user, onComplete, onCancel, onLogout }) => {
                   className={`w-full px-3 py-2 pr-10 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                     errors.confirmPassword ? 'border-red-500' : 'border-gray-300'
                   }`}
-                  placeholder="Confirm new password"
+                  placeholder="Confirm your password"
                   required
                 />
                 <button
