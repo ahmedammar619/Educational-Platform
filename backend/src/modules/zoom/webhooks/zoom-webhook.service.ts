@@ -148,7 +148,13 @@ export class ZoomWebhookService {
         this.logger.log(`Creating database entry for external Zoom meeting: ${meetingId}`);
         
         // Create a database entry for external Zoom meetings
-        const newMeeting = this.zoomMeetingRepository.create({
+        // Skip creating database entries for external meetings to avoid constraint issues
+        this.logger.log(`Skipping database creation for external meeting: ${meetingId}`);
+        this.logger.log(`Processing recording directly for external meeting: ${event.payload.object.topic}`);
+        
+        // Create a temporary meeting object for processing without saving to database
+        meeting = {
+          id: `external-${meetingId}`,
           zoomMeetingId: meetingId,
           title: event.payload.object.topic || 'External Zoom Meeting',
           description: 'Recording from external Zoom meeting',
@@ -158,13 +164,12 @@ export class ZoomWebhookService {
           period: 'AM',
           status: 'ended',
           recordingStatus: 'completed',
-          // Set required fields with default values for external meetings
-          createdById: '00000000-0000-0000-0000-000000000000', // Placeholder UUID for external meetings
-          courseId: null, // External meeting has no course
-        });
+          course: null, // External meeting has no course
+          createdAt: new Date(),
+          updatedAt: new Date()
+        } as any;
         
-        meeting = await this.zoomMeetingRepository.save(newMeeting);
-        this.logger.log(`Created database entry for external meeting: ${meeting.id}`);
+        this.logger.log(`Created temporary meeting object for external meeting: ${meeting.id}`);
       } else {
         // Update recording status for existing meetings
         meeting.recordingStatus = 'completed';

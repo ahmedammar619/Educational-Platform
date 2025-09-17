@@ -54,8 +54,12 @@ export class RecordingService {
 
       if (!recordingObject.recording_files || recordingObject.recording_files.length === 0) {
         this.logger.warn(`No recording files found for meeting: ${meeting.id}`);
-        meeting.recordingStatus = 'failed';
-        await this.zoomMeetingRepository.save(meeting);
+        
+        // Only update database for real meetings, not temporary external meetings
+        if (!meeting.id.startsWith('external-')) {
+          meeting.recordingStatus = 'failed';
+          await this.zoomMeetingRepository.save(meeting);
+        }
         return;
       }
 
@@ -68,8 +72,12 @@ export class RecordingService {
 
       if (!mainRecording) {
         this.logger.warn(`No suitable recording file found for meeting: ${meeting.id}`);
-        meeting.recordingStatus = 'failed';
-        await this.zoomMeetingRepository.save(meeting);
+        
+        // Only update database for real meetings, not temporary external meetings
+        if (!meeting.id.startsWith('external-')) {
+          meeting.recordingStatus = 'failed';
+          await this.zoomMeetingRepository.save(meeting);
+        }
         return;
       }
 
@@ -88,9 +96,11 @@ export class RecordingService {
     } catch (error) {
       this.logger.error(`Error processing recording: ${error.message}`, error.stack);
       
-      // Update meeting status to failed
-      meeting.recordingStatus = 'failed';
-      await this.zoomMeetingRepository.save(meeting);
+      // Update meeting status to failed (only for real meetings, not temporary external meetings)
+      if (!meeting.id.startsWith('external-')) {
+        meeting.recordingStatus = 'failed';
+        await this.zoomMeetingRepository.save(meeting);
+      }
       
       throw error;
     }
@@ -255,18 +265,25 @@ export class RecordingService {
     try {
       this.logger.log(`Updating meeting with recording results: ${meeting.id}`);
 
-      // Update meeting with all recording information
-      meeting.recordingStatus = 'completed';
-      meeting.recordingUrl = r2Result.url;
-      meeting.r2RecordingKey = r2Result.key;
-      meeting.r2RecordingUrl = r2Result.url;
-      meeting.youtubeVideoId = youtubeResult.videoId;
-      meeting.youtubeUrl = youtubeResult.url;
-      meeting.recordingCompletedAt = new Date();
+      // Only update database for real meetings, not temporary external meetings
+      if (!meeting.id.startsWith('external-')) {
+        // Update meeting with all recording information
+        meeting.recordingStatus = 'completed';
+        meeting.recordingUrl = r2Result.url;
+        meeting.r2RecordingKey = r2Result.key;
+        meeting.r2RecordingUrl = r2Result.url;
+        meeting.youtubeVideoId = youtubeResult.videoId;
+        meeting.youtubeUrl = youtubeResult.url;
+        meeting.recordingCompletedAt = new Date();
 
-      await this.zoomMeetingRepository.save(meeting);
-
-      this.logger.log(`Successfully updated meeting with recording results: ${meeting.id}`);
+        await this.zoomMeetingRepository.save(meeting);
+        this.logger.log(`Successfully updated meeting with recording results: ${meeting.id}`);
+      } else {
+        this.logger.log(`Skipped database update for external meeting: ${meeting.id}`);
+        this.logger.log(`Recording processed successfully:`);
+        this.logger.log(`  R2 URL: ${r2Result.url}`);
+        this.logger.log(`  YouTube URL: ${youtubeResult.url}`);
+      }
     } catch (error) {
       this.logger.error(`Error updating meeting with results: ${error.message}`, error.stack);
       throw new Error(`Failed to update meeting with results: ${error.message}`);
