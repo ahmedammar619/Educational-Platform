@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Inject, forwardRef } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
 import { Class } from './entities/class.entity';
@@ -9,6 +9,7 @@ import { CreateClassDto } from './dto/create-class.dto';
 import { UpdateClassDto } from './dto/update-class.dto';
 import { EnrollStudentsDto } from './dto/enroll-students.dto';
 import { Role } from '../../common/enums/role.enum';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class ClassesService {
@@ -21,6 +22,8 @@ export class ClassesService {
     private readonly courseRepository: Repository<Course>,
     @InjectRepository(Student)
     private readonly studentRepository: Repository<Student>,
+    @Inject(forwardRef(() => NotificationsService))
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   async createClass(createClassDto: CreateClassDto): Promise<Class> {
@@ -144,15 +147,25 @@ export class ClassesService {
       where: { classId }
     });
 
+    // Filter out students who are already enrolled in this class
+    const existingStudents = classEntity.students || [];
+    const newlyEnrolledStudentIds = enrollDto.studentIds.filter(
+      studentId => !existingStudents.includes(studentId)
+    );
+
     // Update student records with classId
     for (const student of students) {
       await this.studentRepository.update(student.id, { classId });
     }
 
     // Update the class's students array
-    const existingStudents = classEntity.students || [];
     const newStudents = [...new Set([...existingStudents, ...enrollDto.studentIds])];
     await this.classRepository.update(classId, { students: newStudents });
+
+    // Send notifications for newly enrolled students only
+    if (newlyEnrolledStudentIds.length > 0) {
+      await this.sendNotificationsForEnrollment(newlyEnrolledStudentIds, classEntity.name);
+    }
 
     // Students are now automatically enrolled in all courses within the class
     // No need for individual course enrollment - class enrollment gives access to all courses
@@ -217,5 +230,98 @@ export class ClassesService {
     
     // Return the full student data with user information
     return students.filter(student => student.user !== null);
+  }
+
+  // Helper method to send notifications (both student and parent) when students are enrolled in a class
+  private async sendNotificationsForEnrollment(studentIds: string[], className: string): Promise<void> {
+    try {
+      console.log(`📢 Sending notifications for ${studentIds.length} newly enrolled students in class: ${className}`);
+      
+      for (const studentId of studentIds) {
+        // Get student information
+        const student = await this.userRepository.findOne({
+          where: { id: studentId },
+          select: ['id', 'firstName', 'lastName']
+        });
+
+        if (!student) {
+          console.warn(`Student not found for notification: ${studentId}`);
+          continue;
+        }
+
+        const childName = `${student.firstName} ${student.lastName}`;
+
+        // 1. Send notification to the student
+        try {
+          await this.notificationsService.createAddedToClassNotification(
+            studentId,
+            className,
+            {
+              classId: className, // Note: This should ideally be classId, but className is more readable
+              enrollmentDate: new Date().toISOString()
+            }
+          );
+          console.log(`✅ Sent class enrollment notification to student: ${childName}`);
+        } catch (error) {
+          console.error(`❌ Failed to send notification to student ${childName}:`, error);
+        }
+
+        // 2. Send notification to parents
+        try {
+          const parents = await this.getParentsOfStudent(studentId);
+          
+          if (parents.length > 0) {
+            // Send notification to each parent
+            for (const parent of parents) {
+              await this.notificationsService.createChildAddedToClassNotification(
+                parent.id,
+                childName,
+                className,
+                {
+                  studentId: studentId,
+                  classId: className, // Note: This should ideally be classId, but className is more readable
+                  enrollmentDate: new Date().toISOString()
+                }
+              );
+            }
+            
+            console.log(`✅ Sent class enrollment notifications to ${parents.length} parents for student: ${childName}`);
+          } else {
+            console.log(`ℹ️ No parents found for student: ${childName}`);
+          }
+        } catch (error) {
+          console.error(`❌ Failed to send parent notifications for student ${childName}:`, error);
+        }
+      }
+    } catch (error) {
+      console.error('❌ Failed to send notifications for class enrollment:', error);
+      // Don't throw error - notification failure shouldn't break the main enrollment operation
+    }
+  }
+
+  // Helper method to get parents of a student
+  private async getParentsOfStudent(studentId: string): Promise<User[]> {
+    try {
+      // Get parent IDs from the parents table where studentId is in the studentIds array
+      const parentData = await this.userRepository.manager.query(`
+        SELECT p.id 
+        FROM parents p
+        WHERE $1 = ANY(p."studentIds")
+      `, [studentId]);
+
+      const parentIds = parentData.map(row => row.id);
+
+      if (parentIds.length === 0) {
+        return [];
+      }
+
+      return await this.userRepository.find({
+        where: { id: In(parentIds) },
+        select: ['id', 'firstName', 'lastName', 'email']
+      });
+    } catch (error) {
+      console.error('Error getting parents of student:', error);
+      return [];
+    }
   }
 }

@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ClassesService } from './classes.service';
 import { ClassesController } from './classes.controller';
@@ -6,10 +6,12 @@ import { Class } from './entities/class.entity';
 import { User } from '../users/entities/user.entity';
 import { Course } from '../courses/entities/course.entity';
 import { Student } from '../students/entities/student.entity';
+import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Class, User, Course, Student]),
+    forwardRef(() => NotificationsModule),
   ],
   controllers: [ClassesController],
   providers: [ClassesService],
