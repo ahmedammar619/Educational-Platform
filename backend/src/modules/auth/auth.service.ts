@@ -680,10 +680,12 @@ export class AuthService {
 
     // Check if we can resend (rate limiting - not too frequent)
     const now = new Date();
-    const lastSent = user.emailVerificationExpiry;
+    const lastSent = user.lastVerificationEmailSent;
     
-    if (lastSent && (now.getTime() - lastSent.getTime()) < 5 * 60 * 1000) { // 5 minutes
-      throw new BadRequestException('Please wait before requesting another verification email');
+    if (lastSent && (now.getTime() - lastSent.getTime()) < 1 * 60 * 1000) { // 1 minute
+      const waitTimeMs = 1 * 60 * 1000 - (now.getTime() - lastSent.getTime());
+      const waitTimeSeconds = Math.ceil(waitTimeMs / 1000);
+      throw new BadRequestException(`Please wait ${waitTimeSeconds} seconds before requesting another verification email. Rate limit: 1 email per minute.`);
     }
 
     // Generate new verification token
@@ -694,6 +696,7 @@ export class AuthService {
     await this.userRepository.update(userId, {
       emailVerificationToken: verificationToken,
       emailVerificationExpiry: verificationExpiry,
+      lastVerificationEmailSent: now,
     });
 
     // Send verification email asynchronously (non-blocking)

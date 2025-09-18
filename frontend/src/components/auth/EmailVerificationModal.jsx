@@ -10,11 +10,37 @@ const EmailVerificationModal = ({ user, onVerified, onCancel, onResend }) => {
   const [verificationStatus, setVerificationStatus] = useState('pending'); // pending, verified, error
 
   useEffect(() => {
+    // Check if there's an existing cooldown from localStorage
+    const checkExistingCooldown = () => {
+      const lastResendTime = localStorage.getItem(`resendCooldown_${user?.id}`);
+      if (lastResendTime) {
+        const now = Date.now();
+        const timeSinceLastResend = now - parseInt(lastResendTime);
+        const cooldownPeriod = 60 * 1000; // 60 seconds in milliseconds
+        
+        if (timeSinceLastResend < cooldownPeriod) {
+          const remainingTime = Math.ceil((cooldownPeriod - timeSinceLastResend) / 1000);
+          setResendCooldown(remainingTime);
+        } else {
+          // If no existing cooldown, set default 30-second cooldown for first appearance
+          setResendCooldown(30);
+          localStorage.setItem(`resendCooldown_${user?.id}`, Date.now().toString());
+        }
+      } else {
+        // If no existing cooldown, set default 30-second cooldown for first appearance
+        setResendCooldown(30);
+        localStorage.setItem(`resendCooldown_${user?.id}`, Date.now().toString());
+      }
+    };
+
+    checkExistingCooldown();
+
     // Start cooldown timer for resend button
     const timer = setInterval(() => {
       setResendCooldown(prev => {
-        if (prev <= 0) {
-          clearInterval(timer);
+        if (prev <= 1) {
+          // Clean up localStorage when cooldown expires
+          localStorage.removeItem(`resendCooldown_${user?.id}`);
           return 0;
         }
         return prev - 1;
@@ -22,7 +48,7 @@ const EmailVerificationModal = ({ user, onVerified, onCancel, onResend }) => {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, []);
+  }, [user?.id]);
 
   const handleResendEmail = async () => {
     if (resendCooldown > 0) return;
@@ -35,8 +61,11 @@ const EmailVerificationModal = ({ user, onVerified, onCancel, onResend }) => {
       dismissToast(loadingToast);
       showSuccessToast('Verification email sent! Please check your inbox.');
       
-      // Set cooldown for 60 seconds
+      // Set cooldown for 60 seconds (1 minute to match backend rate limit)
       setResendCooldown(60);
+      
+      // Store the cooldown time in localStorage for persistence
+      localStorage.setItem(`resendCooldown_${user.id}`, Date.now().toString());
       
       if (onResend) {
         onResend();
@@ -46,7 +75,20 @@ const EmailVerificationModal = ({ user, onVerified, onCancel, onResend }) => {
       dismissToast(loadingToast);
       
       const errorMessage = error.response?.data?.message || error.message || 'Failed to resend verification email';
-      showErrorToast(errorMessage);
+      
+      // Extract wait time from error message if rate limited
+      const waitTimeMatch = errorMessage.match(/Please wait (\d+) seconds/);
+      if (waitTimeMatch) {
+        const waitTimeSeconds = parseInt(waitTimeMatch[1]);
+        setResendCooldown(waitTimeSeconds);
+        
+        // Store the cooldown time in localStorage for persistence
+        localStorage.setItem(`resendCooldown_${user.id}`, Date.now().toString());
+        
+        showErrorToast(`Please wait ${waitTimeSeconds} seconds before requesting another email`);
+      } else {
+        showErrorToast(errorMessage);
+      }
     } finally {
       setResendLoading(false);
     }

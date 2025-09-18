@@ -56,6 +56,9 @@ export class User {
   @Column({ type: 'timestamp', nullable: true })
   emailVerificationExpiry?: Date;
 
+  @Column({ type: 'timestamp', nullable: true })
+  lastVerificationEmailSent?: Date;
+
   @CreateDateColumn()
   createdAt: Date;
 

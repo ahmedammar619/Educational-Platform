@@ -13,6 +13,7 @@ const EmailVerificationPage = () => {
   const [message, setMessage] = useState('');
   const [showProfileCompletion, setShowProfileCompletion] = useState(false);
   const [verifiedUser, setVerifiedUser] = useState(null);
+  const [resendCooldown, setResendCooldown] = useState(0);
   const verificationAttemptedRef = useRef(false);
   const token = searchParams.get('token');
 
@@ -22,6 +23,53 @@ const EmailVerificationPage = () => {
       handleEmailVerification(token);
     }
   }, [token]);
+
+  useEffect(() => {
+    // Check if there's an existing cooldown from localStorage
+    const checkExistingCooldown = () => {
+      const user = authService.getCurrentUser();
+      if (user) {
+        const lastResendTime = localStorage.getItem(`resendCooldown_${user.id}`);
+        if (lastResendTime) {
+          const now = Date.now();
+          const timeSinceLastResend = now - parseInt(lastResendTime);
+          const cooldownPeriod = 60 * 1000; // 60 seconds in milliseconds
+          
+          if (timeSinceLastResend < cooldownPeriod) {
+            const remainingTime = Math.ceil((cooldownPeriod - timeSinceLastResend) / 1000);
+            setResendCooldown(remainingTime);
+          } else {
+            // If no existing cooldown, set default 30-second cooldown for first appearance
+            setResendCooldown(30);
+            localStorage.setItem(`resendCooldown_${user.id}`, Date.now().toString());
+          }
+        } else {
+          // If no existing cooldown, set default 30-second cooldown for first appearance
+          setResendCooldown(30);
+          localStorage.setItem(`resendCooldown_${user.id}`, Date.now().toString());
+        }
+      }
+    };
+
+    checkExistingCooldown();
+
+    // Start cooldown timer for resend button
+    const timer = setInterval(() => {
+      setResendCooldown(prev => {
+        if (prev <= 1) {
+          // Clean up localStorage when cooldown expires
+          const user = authService.getCurrentUser();
+          if (user) {
+            localStorage.removeItem(`resendCooldown_${user.id}`);
+          }
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, []);
 
   const handleEmailVerification = async (verificationToken) => {
     // Prevent multiple verification attempts
@@ -72,6 +120,8 @@ const EmailVerificationPage = () => {
   };
 
   const handleResendVerification = async () => {
+    if (resendCooldown > 0) return;
+    
     setLoading(true);
     const loadingToast = showLoadingToast('Resending verification email...');
 
@@ -88,12 +138,34 @@ const EmailVerificationPage = () => {
       await authService.resendVerificationEmail(user.id);
       dismissToast(loadingToast);
       showSuccessToast('Verification email sent! Please check your inbox.');
+      
+      // Set cooldown for 60 seconds (1 minute to match backend rate limit)
+      setResendCooldown(60);
+      
+      // Store the cooldown time in localStorage for persistence
+      localStorage.setItem(`resendCooldown_${user.id}`, Date.now().toString());
     } catch (error) {
       console.error('Resend verification error:', error);
       dismissToast(loadingToast);
       
       const errorMessage = error.response?.data?.message || error.message || 'Failed to resend verification email';
-      showErrorToast(errorMessage);
+      
+      // Extract wait time from error message if rate limited
+      const waitTimeMatch = errorMessage.match(/Please wait (\d+) seconds/);
+      if (waitTimeMatch) {
+        const waitTimeSeconds = parseInt(waitTimeMatch[1]);
+        setResendCooldown(waitTimeSeconds);
+        
+        // Store the cooldown time in localStorage for persistence
+        const user = authService.getCurrentUser();
+        if (user) {
+          localStorage.setItem(`resendCooldown_${user.id}`, Date.now().toString());
+        }
+        
+        showErrorToast(`Please wait ${waitTimeSeconds} seconds before requesting another email`);
+      } else {
+        showErrorToast(errorMessage);
+      }
     } finally {
       setLoading(false);
     }
@@ -117,6 +189,12 @@ const EmailVerificationPage = () => {
     showErrorToast('Profile completion is required to access the platform.');
     // Force reload to ensure clean state
     window.location.href = '/auth';
+  };
+
+  const formatTime = (seconds) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
 
@@ -197,13 +275,18 @@ const EmailVerificationPage = () => {
                   <div className="space-y-3">
                     <button
                       onClick={handleResendVerification}
-                      disabled={loading}
+                      disabled={loading || resendCooldown > 0}
                       className="w-full px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
                     >
                       {loading ? (
                         <>
                           <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
                           Resending...
+                        </>
+                      ) : resendCooldown > 0 ? (
+                        <>
+                          <RefreshCw className="h-4 w-4 mr-2" />
+                          Resend in {formatTime(resendCooldown)}
                         </>
                       ) : (
                         <>

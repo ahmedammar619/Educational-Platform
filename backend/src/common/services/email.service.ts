@@ -122,7 +122,7 @@ export class EmailService {
         <style>
           body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
           .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-          .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+          .header { background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
           .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
           .button { display: inline-block; background: #28a745; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; margin: 20px 0; }
           .footer { text-align: center; margin-top: 30px; color: #666; font-size: 14px; }
@@ -131,8 +131,15 @@ export class EmailService {
       <body>
         <div class="container">
           <div class="header">
-            <h1 style="margin: 0; font-size: 24px;">🎓 Baraem Al Nour</h1>
-            <p style="margin: 5px 0 0 0; font-size: 16px; opacity: 0.9;">Educational Platform</p>
+            <div style="display: flex; align-items: center; justify-content: center; gap: 15px; margin-bottom: 10px;">
+              <div style="width: 50px; height: 50px; background: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; padding: 8px;">
+                <img src="${this.getLogoUrl()}" alt="Baraem Al Nour Logo" style="width: 100%; height: 100%; object-fit: contain;" />
+              </div>
+              <div>
+                <h1 style="margin: 0; font-size: 24px;">Baraem Al Nour</h1>
+                <p style="margin: 5px 0 0 0; font-size: 16px; opacity: 0.9;">Educational Platform</p>
+              </div>
+            </div>
           </div>
           <div class="content">
             <h2>Hello ${firstName}!</h2>
@@ -145,7 +152,7 @@ export class EmailService {
             <p>If you didn't create an account with us, please ignore this email.</p>
           </div>
           <div class="footer">
-            <p>© 2024 Baraem Al Nour Educational Platform. All rights reserved.</p>
+            <p>© 2025 Baraem Al Nour Educational Platform. All rights reserved.</p>
             <p>This is an automated message, please do not reply to this email.</p>
           </div>
         </div>
@@ -168,7 +175,7 @@ Important: This verification link will expire in 24 hours for security reasons.
 
 If you didn't create an account with us, please ignore this email.
 
-© 2024 Baraem Al Nour Educational Platform. All rights reserved.
+© 2025 Baraem Al Nour Educational Platform. All rights reserved.
 This is an automated message, please do not reply to this email.
     `;
   }
@@ -184,7 +191,7 @@ This is an automated message, please do not reply to this email.
         <style>
           body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
           .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-          .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+          .header { background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
           .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
           .footer { text-align: center; margin-top: 30px; color: #666; font-size: 14px; }
         </style>
@@ -192,11 +199,15 @@ This is an automated message, please do not reply to this email.
       <body>
         <div class="container">
           <div class="header">
-            <div style="margin-bottom: 15px;">
-              <img src="${this.getLogoUrl()}" alt="Baraem Al Nour Logo" style="height: 60px; width: auto; max-width: 200px;" />
+            <div style="display: flex; align-items: center; justify-content: center; gap: 15px; margin-bottom: 10px;">
+              <div style="width: 50px; height: 50px; background: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; padding: 8px;">
+                <img src="${this.getLogoUrl()}" alt="Baraem Al Nour Logo" style="width: 100%; height: 100%; object-fit: contain;" />
+              </div>
+              <div>
+                <h1 style="margin: 0; font-size: 24px;">Baraem Al Nour</h1>
+                <p style="margin: 5px 0 0 0; font-size: 16px; opacity: 0.9;">Educational Platform</p>
+              </div>
             </div>
-            <h1 style="margin: 0; font-size: 24px;">🎓 Baraem Al Nour</h1>
-            <p style="margin: 5px 0 0 0; font-size: 16px; opacity: 0.9;">Educational Platform</p>
           </div>
           <div class="content">
             <h2>Welcome ${firstName} ${lastName}!</h2>
@@ -212,7 +223,7 @@ This is an automated message, please do not reply to this email.
             <p>Thank you for choosing Baraem Al Nour Educational Platform!</p>
           </div>
           <div class="footer">
-            <p>© 2024 Baraem Al Nour Educational Platform. All rights reserved.</p>
+            <p>© 2025 Baraem Al Nour Educational Platform. All rights reserved.</p>
             <p>This is an automated message, please do not reply to this email.</p>
           </div>
         </div>
@@ -237,7 +248,7 @@ If you have any questions or need assistance, please don't hesitate to contact o
 
 Thank you for choosing Baraem Al Nour Educational Platform!
 
-© 2024 Baraem Al Nour Educational Platform. All rights reserved.
+© 2025 Baraem Al Nour Educational Platform. All rights reserved.
 This is an automated message, please do not reply to this email.
     `;
   }
@@ -278,7 +289,7 @@ This is an automated message, please do not reply to this email.
         <style>
           body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
           .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-          .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+          .header { background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
           .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
           .button { display: inline-block; background: #dc3545; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; margin: 20px 0; }
           .footer { text-align: center; margin-top: 30px; color: #666; font-size: 14px; }
@@ -288,8 +299,15 @@ This is an automated message, please do not reply to this email.
       <body>
         <div class="container">
           <div class="header">
-            <h1 style="margin: 0; font-size: 24px;">🔒 Baraem Al Nour</h1>
-            <p style="margin: 5px 0 0 0; font-size: 16px; opacity: 0.9;">Educational Platform</p>
+            <div style="display: flex; align-items: center; justify-content: center; gap: 15px; margin-bottom: 10px;">
+              <div style="width: 50px; height: 50px; background: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; padding: 8px;">
+                <img src="${this.getLogoUrl()}" alt="Baraem Al Nour Logo" style="width: 100%; height: 100%; object-fit: contain;" />
+              </div>
+              <div>
+                <h1 style="margin: 0; font-size: 24px;">Baraem Al Nour</h1>
+                <p style="margin: 5px 0 0 0; font-size: 16px; opacity: 0.9;">Educational Platform</p>
+              </div>
+            </div>
           </div>
           <div class="content">
             <h2>Hello ${firstName}!</h2>
@@ -308,7 +326,7 @@ This is an automated message, please do not reply to this email.
             </div>
             </div>
           <div class="footer">
-            <p>© 2024 Baraem Al Nour Educational Platform. All rights reserved.</p>
+            <p>© 2025 Baraem Al Nour Educational Platform. All rights reserved.</p>
             <p>This is an automated message, please do not reply to this email.</p>
           </div>
         </div>
@@ -332,7 +350,7 @@ ${resetUrl}
 - If you didn't request this password reset, please ignore this email
 - Your password will remain unchanged until you visit the link above
 
-© 2024 Baraem Al Nour Educational Platform. All rights reserved.
+© 2025 Baraem Al Nour Educational Platform. All rights reserved.
 This is an automated message, please do not reply to this email.
     `;
   }

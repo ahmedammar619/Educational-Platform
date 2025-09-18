@@ -102,6 +102,7 @@ export class UsersService {
           await this.userRepository.update(savedUser.id, {
             emailVerificationToken: verificationToken,
             emailVerificationExpiry: verificationExpiry,
+            lastVerificationEmailSent: new Date(),
           });
 
           // Send verification email
@@ -141,6 +142,7 @@ export class UsersService {
           await this.userRepository.update(savedUser.id, {
             emailVerificationToken: verificationToken,
             emailVerificationExpiry: verificationExpiry,
+            lastVerificationEmailSent: new Date(),
           });
 
           // Send verification email
