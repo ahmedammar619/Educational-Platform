@@ -25,8 +25,8 @@ export class Course {
   @Column({ length: 255 })
   name: string;
 
-  @Column('uuid')
-  teacherId: string;
+  @Column('uuid', { nullable: true })
+  teacherId: string | null;
 
   @Column('uuid')
   classId: string;
@@ -45,9 +45,9 @@ export class Course {
   @JoinColumn({ name: 'classId' })
   class: Class;
 
-  @ManyToOne(() => User)
+  @ManyToOne(() => User, { nullable: true })
   @JoinColumn({ name: 'teacherId' })
-  teacher: User;
+  teacher: User | null;
 
   @OneToMany('Post', 'course')
   posts: any[];

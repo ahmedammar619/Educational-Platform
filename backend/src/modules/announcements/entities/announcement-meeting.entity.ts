@@ -60,12 +60,12 @@ export class AnnouncementMeeting {
   @Column({ type: 'text', nullable: true })
   r2RecordingUrl: string;
 
-  @Column({ type: 'uuid' })
-  createdById: string;
+  @Column({ type: 'uuid', nullable: true })
+  createdById: string | null;
 
-  @ManyToOne(() => User, { eager: true })
+  @ManyToOne(() => User, { eager: true, nullable: true })
   @JoinColumn({ name: 'createdById' })
-  createdBy: User;
+  createdBy: User | null;
 
   @CreateDateColumn()
   createdAt: Date;

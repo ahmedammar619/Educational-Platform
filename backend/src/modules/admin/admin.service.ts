@@ -196,8 +196,96 @@ export class AdminService {
   }
 
   async deleteUser(userId: string) {
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+    
+    // Comprehensive cleanup of all user references before deletion
+    await this.cleanupUserReferences(userId);
+    
+    // Delete the user
     await this.userRepository.delete(userId);
     return { message: 'User deleted successfully' };
+  }
+
+  private async cleanupUserReferences(userId: string): Promise<void> {
+    console.log(`🧹 Admin cleanup: Cleaning up references for user: ${userId}`);
+    
+    try {
+      // Use raw queries to avoid circular dependencies and ensure all references are cleaned up
+      
+      // 1. Unassign from courses (set teacherId to null)
+      await this.userRepository.query(
+        'UPDATE courses SET "teacherId" = NULL WHERE "teacherId" = $1',
+        [userId]
+      );
+      
+      // 2. Unassign from zoom meetings (set createdById to null)
+      await this.userRepository.query(
+        'UPDATE zoom_meetings SET "createdById" = NULL WHERE "createdById" = $1',
+        [userId]
+      );
+      
+      // 3. Unassign from announcement meetings (set createdById to null)
+      await this.userRepository.query(
+        'UPDATE announcement_meetings SET "createdById" = NULL WHERE "createdById" = $1',
+        [userId]
+      );
+      
+      // 4. Unassign from attendance records (set markedBy to null)
+      await this.userRepository.query(
+        'UPDATE attendance SET "markedBy" = NULL WHERE "markedBy" = $1',
+        [userId]
+      );
+      
+      // 5. Unassign from announcement posts (set authorId to null)
+      await this.userRepository.query(
+        'UPDATE announcement_posts SET "authorId" = NULL WHERE "authorId" = $1',
+        [userId]
+      );
+      
+      // 6. Unassign from files (set uploadedBy to null)
+      await this.userRepository.query(
+        'UPDATE files SET "uploadedBy" = NULL WHERE "uploadedBy" = $1',
+        [userId]
+      );
+      
+      // 7. Unassign from posts (set authorId to null)
+      await this.userRepository.query(
+        'UPDATE posts SET "authorId" = NULL WHERE "authorId" = $1',
+        [userId]
+      );
+      
+      // 8. Unassign from assignments (set createdBy to null)
+      await this.userRepository.query(
+        'UPDATE assignments SET "createdBy" = NULL WHERE "createdBy" = $1',
+        [userId]
+      );
+      
+      // 9. Unassign from folders (set createdBy to null)
+      await this.userRepository.query(
+        'UPDATE folders SET "createdBy" = NULL WHERE "createdBy" = $1',
+        [userId]
+      );
+      
+      // 10. Unassign from assignment submissions (set gradedBy to null)
+      await this.userRepository.query(
+        'UPDATE assignment_submissions SET "gradedBy" = NULL WHERE "gradedBy" = $1',
+        [userId]
+      );
+      
+      // 11. Clean up teacher courses array if user is a teacher
+      await this.userRepository.query(
+        'UPDATE teachers SET courses = $1 WHERE id = $2',
+        [[], userId]
+      );
+      
+      console.log(`✅ Admin cleanup: Successfully cleaned up all references for user: ${userId}`);
+    } catch (error) {
+      console.error(`❌ Admin cleanup: Error cleaning up references for user ${userId}:`, error);
+      throw error;
+    }
   }
 
   // Configuration management methods

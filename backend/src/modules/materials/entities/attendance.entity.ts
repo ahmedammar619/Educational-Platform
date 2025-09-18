@@ -59,9 +59,9 @@ export class Attendance {
   @JoinColumn({ name: 'studentId' })
   student: User;
 
-  @ManyToOne(() => User)
+  @ManyToOne(() => User, { nullable: true })
   @JoinColumn({ name: 'markedBy' })
-  marker: User;
+  marker: User | null;
 
   @ManyToOne('ZoomMeeting', 'attendance')
   @JoinColumn({ name: 'meetingId' })

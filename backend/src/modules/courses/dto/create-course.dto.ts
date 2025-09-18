@@ -7,7 +7,8 @@ export class CreateCourseDto {
   name: string;
 
   @IsUUID()
-  teacherId: string;
+  @IsOptional()
+  teacherId?: string;
 
   @IsUUID()
   classId: string;

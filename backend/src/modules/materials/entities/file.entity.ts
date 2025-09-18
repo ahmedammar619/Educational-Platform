@@ -47,7 +47,7 @@ export class File {
   @JoinColumn({ name: 'folderId' })
   folder: any;
 
-  @ManyToOne(() => User)
+  @ManyToOne(() => User, { nullable: true })
   @JoinColumn({ name: 'uploadedBy' })
-  uploader: User;
+  uploader: User | null;
 }

@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import { Course, SessionData } from './entities/course.entity';
 import { Class } from '../classes/entities/class.entity';
 import { User } from '../users/entities/user.entity';
+import { Teacher } from '../teachers/entities/teacher.entity';
 import { CreateCourseDto } from './dto/create-course.dto';
 import { UpdateCourseDto } from './dto/update-course.dto';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -20,6 +21,8 @@ export class CoursesService {
     private readonly classRepository: Repository<Class>,
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
+    @InjectRepository(Teacher)
+    private readonly teacherRepository: Repository<Teacher>,
     @Inject(forwardRef(() => NotificationsService))
     private readonly notificationsService: NotificationsService,
   ) {}
@@ -38,12 +41,15 @@ export class CoursesService {
     try {
       console.log('Creating course with sessions:', { teacherId, classId, sessions });
 
-    // Verify teacher exists and is a teacher
-    const teacher = await this.userRepository.findOne({
-      where: { id: teacherId, role: Role.Teacher }
-    });
-    if (!teacher) {
-      throw new BadRequestException('Teacher not found or invalid role');
+    // Verify teacher exists and is a teacher (if teacherId is provided)
+    let teacher = null;
+    if (teacherId) {
+      teacher = await this.userRepository.findOne({
+        where: { id: teacherId, role: Role.Teacher }
+      });
+      if (!teacher) {
+        throw new BadRequestException('Teacher not found or invalid role');
+      }
     }
 
     // Verify class exists
@@ -92,22 +98,40 @@ export class CoursesService {
       }
     }
 
-    // Send notification to teacher about being added to the course
-    try {
-      await this.notificationsService.createAddedToCourseNotification(
-        teacherId,
-        createCourseDto.name,
-        classEntity.name,
-        {
-          courseId: savedCourse.id,
-          classId: classId,
-          createdDate: new Date().toISOString()
+    // Add course ID to teacher's courses array if teacher is assigned
+    if (teacherId) {
+      const teacherEntity = await this.teacherRepository.findOne({
+        where: { id: teacherId }
+      });
+      
+      if (teacherEntity) {
+        const currentCourses = teacherEntity.courses || [];
+        if (!currentCourses.includes(savedCourse.id)) {
+          teacherEntity.courses = [...currentCourses, savedCourse.id];
+          await this.teacherRepository.save(teacherEntity);
+          console.log('Added course ID to teacher courses array:', savedCourse.id);
         }
-      );
-      console.log(`✅ Sent course assignment notification to teacher: ${teacher.firstName} ${teacher.lastName}`);
-    } catch (error) {
-      console.error('❌ Failed to send course assignment notification to teacher:', error);
-      // Don't throw error - notification failure shouldn't break the main operation
+      }
+    }
+
+    // Send notification to teacher about being added to the course (if teacher is assigned)
+    if (teacherId && teacher) {
+      try {
+        await this.notificationsService.createAddedToCourseNotification(
+          teacherId,
+          createCourseDto.name,
+          classEntity.name,
+          {
+            courseId: savedCourse.id,
+            classId: classId,
+            createdDate: new Date().toISOString()
+          }
+        );
+        console.log(`✅ Sent course assignment notification to teacher: ${teacher.firstName} ${teacher.lastName}`);
+      } catch (error) {
+        console.error('❌ Failed to send course assignment notification to teacher:', error);
+        // Don't throw error - notification failure shouldn't break the main operation
+      }
     }
 
       return savedCourse;
@@ -167,13 +191,18 @@ export class CoursesService {
 
   async updateCourse(id: string, updateCourseDto: UpdateCourseDto): Promise<Course> {
     const course = await this.findCourseById(id);
+    const oldTeacherId = course.teacherId;
     
-    if (updateCourseDto.teacherId) {
-      const teacher = await this.userRepository.findOne({
-        where: { id: updateCourseDto.teacherId, role: Role.Teacher }
-      });
-      if (!teacher) {
-        throw new BadRequestException('Teacher not found or invalid role');
+    // Validate new teacher if provided
+    let newTeacher = null;
+    if (updateCourseDto.teacherId !== undefined) {
+      if (updateCourseDto.teacherId) {
+        newTeacher = await this.userRepository.findOne({
+          where: { id: updateCourseDto.teacherId, role: Role.Teacher }
+        });
+        if (!newTeacher) {
+          throw new BadRequestException('Teacher not found or invalid role');
+        }
       }
     }
 
@@ -208,7 +237,7 @@ export class CoursesService {
     if (updateCourseDto.name) {
       course.name = updateCourseDto.name;
     }
-    if (updateCourseDto.teacherId) {
+    if (updateCourseDto.teacherId !== undefined) {
       course.teacherId = updateCourseDto.teacherId;
     }
     if (updateCourseDto.classId) {
@@ -216,6 +245,37 @@ export class CoursesService {
     }
 
     const savedCourse = await this.courseRepository.save(course);
+
+    // Handle teacher assignment changes
+    if (updateCourseDto.teacherId !== undefined && oldTeacherId !== updateCourseDto.teacherId) {
+      // Remove course from old teacher's courses array
+      if (oldTeacherId) {
+        const oldTeacherEntity = await this.teacherRepository.findOne({
+          where: { id: oldTeacherId }
+        });
+        if (oldTeacherEntity) {
+          oldTeacherEntity.courses = oldTeacherEntity.courses.filter(courseId => courseId !== id);
+          await this.teacherRepository.save(oldTeacherEntity);
+          console.log('Removed course ID from old teacher courses array:', id);
+        }
+      }
+
+      // Add course to new teacher's courses array
+      if (updateCourseDto.teacherId) {
+        const newTeacherEntity = await this.teacherRepository.findOne({
+          where: { id: updateCourseDto.teacherId }
+        });
+        if (newTeacherEntity) {
+          const currentCourses = newTeacherEntity.courses || [];
+          if (!currentCourses.includes(id)) {
+            newTeacherEntity.courses = [...currentCourses, id];
+            await this.teacherRepository.save(newTeacherEntity);
+            console.log('Added course ID to new teacher courses array:', id);
+          }
+        }
+      }
+    }
+
     return savedCourse;
   }
 
@@ -231,6 +291,18 @@ export class CoursesService {
       targetClass.courseIds = targetClass.courseIds.filter(courseId => courseId !== id);
       await this.classRepository.save(targetClass);
       console.log('Removed course ID from class courseIds array:', id);
+    }
+    
+    // Remove course ID from teacher's courses array if teacher is assigned
+    if (course.teacherId) {
+      const teacherEntity = await this.teacherRepository.findOne({
+        where: { id: course.teacherId }
+      });
+      if (teacherEntity) {
+        teacherEntity.courses = teacherEntity.courses.filter(courseId => courseId !== id);
+        await this.teacherRepository.save(teacherEntity);
+        console.log('Removed course ID from teacher courses array:', id);
+      }
     }
     
     // Delete the course (sessions are stored as JSON in the course, so they'll be deleted automatically)

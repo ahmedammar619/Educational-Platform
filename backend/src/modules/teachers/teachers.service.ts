@@ -199,7 +199,95 @@ export class TeachersService {
       throw new NotFoundException('Teacher not found');
     }
 
+    // Comprehensive cleanup of all teacher references
+    await this.cleanupTeacherReferences(id);
+
+    // Delete the teacher record (this will cascade delete the user due to onDelete: 'CASCADE')
     await this.teacherRepository.delete(id);
+    console.log(`✅ Teacher deleted successfully: ${id}`);
+  }
+
+  private async cleanupTeacherReferences(teacherId: string): Promise<void> {
+    console.log(`🧹 Cleaning up all references for teacher: ${teacherId}`);
+    
+    try {
+      // Use raw queries for better performance and to avoid circular dependencies
+      
+      // 1. Unassign from courses (set teacherId to null)
+      const coursesResult = await this.teacherRepository.query(
+        'UPDATE courses SET "teacherId" = NULL WHERE "teacherId" = $1',
+        [teacherId]
+      );
+      console.log(`📚 Unassigned teacher from ${coursesResult[1] || 0} courses`);
+      
+      // 2. Unassign from zoom meetings (set createdById to null)
+      const zoomResult = await this.teacherRepository.query(
+        'UPDATE zoom_meetings SET "createdById" = NULL WHERE "createdById" = $1',
+        [teacherId]
+      );
+      console.log(`🎥 Unassigned teacher from ${zoomResult[1] || 0} zoom meetings`);
+      
+      // 3. Unassign from announcement meetings (set createdById to null)
+      const announcementMeetingsResult = await this.teacherRepository.query(
+        'UPDATE announcement_meetings SET "createdById" = NULL WHERE "createdById" = $1',
+        [teacherId]
+      );
+      console.log(`📢 Unassigned teacher from ${announcementMeetingsResult[1] || 0} announcement meetings`);
+      
+      // 4. Unassign from attendance records (set markedBy to null)
+      const attendanceResult = await this.teacherRepository.query(
+        'UPDATE attendance SET "markedBy" = NULL WHERE "markedBy" = $1',
+        [teacherId]
+      );
+      console.log(`✅ Unassigned teacher from ${attendanceResult[1] || 0} attendance records`);
+      
+      // 5. Unassign from announcement posts (set authorId to null)
+      const announcementPostsResult = await this.teacherRepository.query(
+        'UPDATE announcement_posts SET "authorId" = NULL WHERE "authorId" = $1',
+        [teacherId]
+      );
+      console.log(`📝 Unassigned teacher from ${announcementPostsResult[1] || 0} announcement posts`);
+      
+      // 6. Unassign from files (set uploadedBy to null)
+      const filesResult = await this.teacherRepository.query(
+        'UPDATE files SET "uploadedBy" = NULL WHERE "uploadedBy" = $1',
+        [teacherId]
+      );
+      console.log(`📁 Unassigned teacher from ${filesResult[1] || 0} files`);
+      
+      // 7. Unassign from posts (set authorId to null)
+      const postsResult = await this.teacherRepository.query(
+        'UPDATE posts SET "authorId" = NULL WHERE "authorId" = $1',
+        [teacherId]
+      );
+      console.log(`📄 Unassigned teacher from ${postsResult[1] || 0} posts`);
+      
+      // 8. Unassign from assignments (set createdBy to null)
+      const assignmentsResult = await this.teacherRepository.query(
+        'UPDATE assignments SET "createdBy" = NULL WHERE "createdBy" = $1',
+        [teacherId]
+      );
+      console.log(`📋 Unassigned teacher from ${assignmentsResult[1] || 0} assignments`);
+      
+      // 9. Unassign from folders (set createdBy to null)
+      const foldersResult = await this.teacherRepository.query(
+        'UPDATE folders SET "createdBy" = NULL WHERE "createdBy" = $1',
+        [teacherId]
+      );
+      console.log(`📂 Unassigned teacher from ${foldersResult[1] || 0} folders`);
+      
+      // 10. Unassign from assignment submissions (set gradedBy to null)
+      const submissionsResult = await this.teacherRepository.query(
+        'UPDATE assignment_submissions SET "gradedBy" = NULL WHERE "gradedBy" = $1',
+        [teacherId]
+      );
+      console.log(`📊 Unassigned teacher from ${submissionsResult[1] || 0} assignment submissions`);
+      
+      console.log(`✅ Successfully cleaned up all references for teacher: ${teacherId}`);
+    } catch (error) {
+      console.error(`❌ Error cleaning up references for teacher ${teacherId}:`, error);
+      throw error;
+    }
   }
 
   // Method to create a teacher record from an existing user
@@ -219,6 +307,29 @@ export class TeachersService {
       courses: [], // Start with empty courses array
     });
 
+    return this.teacherRepository.save(teacher);
+  }
+
+  // Method to sync teacher's courses array with actual course assignments
+  async syncTeacherCourses(teacherId: string): Promise<Teacher> {
+    const teacher = await this.teacherRepository.findOne({
+      where: { id: teacherId }
+    });
+
+    if (!teacher) {
+      throw new NotFoundException('Teacher not found');
+    }
+
+    // Get all courses assigned to this teacher
+    const assignedCourses = await this.courseRepository.find({
+      where: { teacherId },
+      select: ['id']
+    });
+
+    const courseIds = assignedCourses.map(course => course.id);
+
+    // Update teacher's courses array
+    teacher.courses = courseIds;
     return this.teacherRepository.save(teacher);
   }
 }

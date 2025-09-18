@@ -40,9 +40,9 @@ export class Post {
   @JoinColumn({ name: 'courseId' })
   course: any;
 
-  @ManyToOne(() => User)
+  @ManyToOne(() => User, { nullable: true })
   @JoinColumn({ name: 'authorId' })
-  author: User;
+  author: User | null;
 
   @OneToMany(() => PostAttachment, 'post')
   attachments: PostAttachment[];

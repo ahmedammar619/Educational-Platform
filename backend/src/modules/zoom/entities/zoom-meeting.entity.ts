@@ -61,15 +61,15 @@ export class ZoomMeeting {
   @Column({ type: 'text', nullable: true })
   r2RecordingUrl: string;
 
-  @Column({ type: 'uuid' })
-  createdById: string;
+  @Column({ type: 'uuid', nullable: true })
+  createdById: string | null;
 
   @Column({ type: 'uuid', nullable: true })
   courseId: string;
 
-  @ManyToOne(() => User, { eager: true })
+  @ManyToOne(() => User, { eager: true, nullable: true })
   @JoinColumn({ name: 'createdById' })
-  createdBy: User;
+  createdBy: User | null;
 
   @ManyToOne(() => Course, { eager: true })
   @JoinColumn({ name: 'courseId' })

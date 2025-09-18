@@ -242,6 +242,11 @@ export class UsersService {
   async deleteUser(id: string): Promise<{ message: string }> {
     const user = await this.findOne(id);
     
+    console.log(`🔄 Starting deletion process for user: ${user.firstName} ${user.lastName} (${user.role})`);
+    
+    // ALWAYS clean up references first, regardless of role
+    await this.cleanupUserReferences(id);
+    
     // If the user is a parent, use the parent-specific deletion logic
     if (user.role === Role.Parent) {
       console.log(`🔄 User ${user.firstName} ${user.lastName} is a parent, using parent deletion logic`);
@@ -249,8 +254,120 @@ export class UsersService {
       return { message: 'Parent and all children deleted successfully' };
     }
     
-    // For other roles, just delete the user
-    await this.userRepository.delete(id);
+    // If the user is a teacher, delete the teacher record first, then the user
+    if (user.role === Role.Teacher) {
+      console.log(`🔄 User ${user.firstName} ${user.lastName} is a teacher, cleaning up teacher record`);
+      // Delete teacher record if it exists (this might cascade delete the user)
+      try {
+        await this.userRepository.query('DELETE FROM teachers WHERE id = $1', [id]);
+        console.log('✅ Teacher record deleted');
+      } catch (error) {
+        console.log('⚠️ Teacher record may not exist or already deleted:', error.message);
+      }
+    }
+    
+    // Delete the user record (if not already deleted by cascade)
+    try {
+      const deleteResult = await this.userRepository.delete(id);
+      if (deleteResult.affected && deleteResult.affected > 0) {
+        console.log('✅ User record deleted');
+      } else {
+        console.log('⚠️ User record may have been already deleted by cascade');
+      }
+    } catch (error) {
+      console.log('⚠️ User deletion error (may be expected if cascade deleted):', error.message);
+    }
+    
     return { message: 'User deleted successfully' };
+  }
+
+  private async cleanupUserReferences(userId: string): Promise<void> {
+    console.log(`🧹 Cleaning up references for user: ${userId}`);
+    
+    try {
+      // Use raw queries to avoid circular dependencies and ensure all references are cleaned up
+      
+      // 1. Unassign from courses (set teacherId to null)
+      const coursesResult = await this.userRepository.query(
+        'UPDATE courses SET "teacherId" = NULL WHERE "teacherId" = $1',
+        [userId]
+      );
+      console.log(`📚 Unassigned user from ${coursesResult[1] || 0} courses`);
+      
+      // 2. Unassign from zoom meetings (set createdById to null)
+      const zoomResult = await this.userRepository.query(
+        'UPDATE zoom_meetings SET "createdById" = NULL WHERE "createdById" = $1',
+        [userId]
+      );
+      console.log(`🎥 Unassigned user from ${zoomResult[1] || 0} zoom meetings`);
+      
+      // 3. Unassign from announcement meetings (set createdById to null)
+      const announcementMeetingsResult = await this.userRepository.query(
+        'UPDATE announcement_meetings SET "createdById" = NULL WHERE "createdById" = $1',
+        [userId]
+      );
+      console.log(`📢 Unassigned user from ${announcementMeetingsResult[1] || 0} announcement meetings`);
+      
+      // 4. Unassign from attendance records (set markedBy to null)
+      const attendanceResult = await this.userRepository.query(
+        'UPDATE attendance SET "markedBy" = NULL WHERE "markedBy" = $1',
+        [userId]
+      );
+      console.log(`✅ Unassigned user from ${attendanceResult[1] || 0} attendance records`);
+      
+      // 5. Unassign from announcement posts (set authorId to null)
+      const announcementPostsResult = await this.userRepository.query(
+        'UPDATE announcement_posts SET "authorId" = NULL WHERE "authorId" = $1',
+        [userId]
+      );
+      console.log(`📝 Unassigned user from ${announcementPostsResult[1] || 0} announcement posts`);
+      
+      // 6. Unassign from files (set uploadedBy to null)
+      const filesResult = await this.userRepository.query(
+        'UPDATE files SET "uploadedBy" = NULL WHERE "uploadedBy" = $1',
+        [userId]
+      );
+      console.log(`📁 Unassigned user from ${filesResult[1] || 0} files`);
+      
+      // 7. Unassign from posts (set authorId to null)
+      const postsResult = await this.userRepository.query(
+        'UPDATE posts SET "authorId" = NULL WHERE "authorId" = $1',
+        [userId]
+      );
+      console.log(`📄 Unassigned user from ${postsResult[1] || 0} posts`);
+      
+      // 8. Unassign from assignments (set createdBy to null)
+      const assignmentsResult = await this.userRepository.query(
+        'UPDATE assignments SET "createdBy" = NULL WHERE "createdBy" = $1',
+        [userId]
+      );
+      console.log(`📋 Unassigned user from ${assignmentsResult[1] || 0} assignments`);
+      
+      // 9. Unassign from folders (set createdBy to null)
+      const foldersResult = await this.userRepository.query(
+        'UPDATE folders SET "createdBy" = NULL WHERE "createdBy" = $1',
+        [userId]
+      );
+      console.log(`📂 Unassigned user from ${foldersResult[1] || 0} folders`);
+      
+      // 10. Unassign from assignment submissions (set gradedBy to null, but keep studentId for record keeping)
+      const submissionsResult = await this.userRepository.query(
+        'UPDATE assignment_submissions SET "gradedBy" = NULL WHERE "gradedBy" = $1',
+        [userId]
+      );
+      console.log(`📊 Unassigned user from ${submissionsResult[1] || 0} assignment submissions`);
+      
+      // 11. Clean up teacher courses array if user is a teacher
+      const teacherResult = await this.userRepository.query(
+        'UPDATE teachers SET courses = $1 WHERE id = $2',
+        [[], userId]
+      );
+      console.log(`👨‍🏫 Cleaned up ${teacherResult[1] || 0} teacher course arrays`);
+      
+      console.log(`✅ Successfully cleaned up all references for user: ${userId}`);
+    } catch (error) {
+      console.error(`❌ Error cleaning up references for user ${userId}:`, error);
+      throw error;
+    }
   }
 }

@@ -32,9 +32,9 @@ export class AnnouncementPost {
   updatedAt: Date;
 
   // Relationships
-  @ManyToOne(() => User)
+  @ManyToOne(() => User, { nullable: true })
   @JoinColumn({ name: 'authorId' })
-  author: User;
+  author: User | null;
 
   @OneToMany(() => AnnouncementPostAttachment, 'post')
   attachments: AnnouncementPostAttachment[];

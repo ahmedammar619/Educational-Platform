@@ -192,12 +192,21 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
     
     // Prevent concurrent course creation
     if (isCreatingCourse) {
-      showErrorToast('Course creation in progress. Please wait...');
+      console.warn('🚫 Course creation already in progress, ignoring duplicate request');
       return;
     }
 
+    setIsCreatingCourse(true);
+
+    // Set up timeout to prevent infinite loading (30 seconds)
+    const timeoutId = setTimeout(() => {
+      console.warn('⏰ Course creation timeout reached, clearing loading state');
+      setIsCreatingCourse(false);
+      showErrorToast('Course creation timed out. Please try again.');
+    }, 30000);
+
     try {
-      setIsCreatingCourse(true);
+      console.log('🔄 Creating course:', courseData);
       
       // Create course with classId, teacherId, and sessions
       const coursePayload = {
@@ -207,16 +216,37 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
         sessions: courseData.sessions || []
       };
 
-      const newCourse = await coursesService.createCourse(coursePayload);
+      const createPromise = coursesService.createCourse(coursePayload);
+      
+      const newCourse = await Promise.race([
+        createPromise,
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Request timeout')), 25000)
+        )
+      ]);
+
+      console.log('✅ Course created successfully:', newCourse);
+
+      // Clear timeout since operation completed
+      clearTimeout(timeoutId);
 
       // Reload classes to get updated course data
       await loadClasses();
-    setShowCreateCourseModal(false);
-    setSelectedClass(null);
+      
+      setShowCreateCourseModal(false);
+      setSelectedClass(null);
       showSuccessToast('Course created successfully!');
     } catch (error) {
-      console.error('Error creating course:', error);
-      showErrorToast(error, 'Failed to create course. Please try again.');
+      // Clear timeout on error
+      clearTimeout(timeoutId);
+      
+      console.error('❌ Error creating course:', error);
+      
+      if (error.message === 'Request timeout') {
+        showErrorToast('Course creation timed out. Please check your connection and try again.');
+      } else {
+        showErrorToast(error, 'Failed to create course. Please try again.');
+      }
     } finally {
       setIsCreatingCourse(false);
     }
@@ -244,26 +274,75 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
   };
 
   const handleUpdateCourse = async (classId, courseId, courseData) => {
+    // Prevent double-clicking
+    if (updatingCourses.has(courseId)) {
+      console.warn('🚫 Course update already in progress, ignoring duplicate request');
+      return;
+    }
+
+    setUpdatingCourses(prev => new Set(prev).add(courseId));
+
+    // Set up timeout to prevent infinite loading (30 seconds)
+    const timeoutId = setTimeout(() => {
+      console.warn('⏰ Course update timeout reached, clearing loading state');
+      setUpdatingCourses(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(courseId);
+        return newSet;
+      });
+      showErrorToast('Course update timed out. Please try again.');
+    }, 30000);
+
     try {
-      // Update course basic info
-      const updatedCourse = await coursesService.updateCourse(courseId, {
+      console.log('🔄 Updating course:', { courseId, courseData });
+
+      // Update course basic info with timeout protection
+      const updatePromise = coursesService.updateCourse(courseId, {
         name: courseData.name,
         teacherId: courseData.teacherId,
         sessions: courseData.sessions || []
       });
+
+      const updatedCourse = await Promise.race([
+        updatePromise,
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Request timeout')), 25000)
+        )
+      ]);
+
+      console.log('✅ Course updated successfully:', updatedCourse);
+
+      // Clear timeout since operation completed
+      clearTimeout(timeoutId);
 
       // Sessions are now handled as part of the course update
       // The sessions data is already included in the courseData.sessions array
 
       // Reload classes to get updated course data
       await loadClasses();
-    setShowEditCourseModal(false);
-    setSelectedClass(null);
-    setSelectedCourse(null);
+      
+      setShowEditCourseModal(false);
+      setSelectedClass(null);
+      setSelectedCourse(null);
       showSuccessToast('Course updated successfully!');
     } catch (error) {
-      console.error('Error updating course:', error);
-      showErrorToast(error, 'Failed to update course. Please try again.');
+      // Clear timeout on error
+      clearTimeout(timeoutId);
+      
+      console.error('❌ Error updating course:', error);
+      
+      if (error.message === 'Request timeout') {
+        showErrorToast('Course update timed out. Please check your connection and try again.');
+      } else {
+        showErrorToast(error, 'Failed to update course. Please try again.');
+      }
+    } finally {
+      // Always clear the loading state, even if an error occurs
+      setUpdatingCourses(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(courseId);
+        return newSet;
+      });
     }
   };
 
@@ -303,6 +382,7 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
   };
 
   const [deletingCourses, setDeletingCourses] = useState(new Set());
+  const [updatingCourses, setUpdatingCourses] = useState(new Set());
 
   const handleDeleteCourse = async (classId, courseId) => {
     // Prevent double-clicking
@@ -592,10 +672,15 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
                                     setSelectedCourse(course);
                                     setShowEditCourseModal(true);
                                   }}
-                                  className="text-blue-600 hover:text-blue-800 p-1 rounded hover:bg-blue-50 transition-colors"
-                                  title="Edit Course"
+                                  disabled={updatingCourses.has(course.id)}
+                                  className="text-blue-600 hover:text-blue-800 p-1 rounded hover:bg-blue-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:text-gray-400"
+                                  title={updatingCourses.has(course.id) ? "Course is being updated..." : "Edit Course"}
                                 >
-                                  <Edit className="h-4 w-4" />
+                                  {updatingCourses.has(course.id) ? (
+                                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                                  ) : (
+                                    <Edit className="h-4 w-4" />
+                                  )}
                                 </button>
                                 <button
                                   onClick={() => handleDeleteCourse(classItem.id, course.id)}
@@ -764,7 +849,13 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
       {showCreateCourseModal && selectedClass && (
         <CourseModal
           title="Add New Course"
+          isUpdating={isCreatingCourse}
           onClose={() => {
+            // Prevent closing modal while course creation is in progress
+            if (isCreatingCourse) {
+              console.warn('🚫 Cannot close modal while course creation is in progress');
+              return;
+            }
             setShowCreateCourseModal(false);
             setSelectedClass(null);
           }}
@@ -777,7 +868,13 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
         <CourseModal
           title="Edit Course"
           courseData={selectedCourse}
+          isUpdating={updatingCourses.has(selectedCourse.id)}
           onClose={() => {
+            // Prevent closing modal while update is in progress
+            if (updatingCourses.has(selectedCourse.id)) {
+              console.warn('🚫 Cannot close modal while course update is in progress');
+              return;
+            }
             setShowEditCourseModal(false);
             setSelectedClass(null);
             setSelectedCourse(null);
@@ -985,7 +1082,7 @@ const ClassModal = ({ title, classData, onClose, onSubmit }) => {
 };
 
 // Course Modal Component (using the old class design)
-const CourseModal = ({ title, courseData, onClose, onSubmit }) => {
+const CourseModal = ({ title, courseData, isUpdating = false, onClose, onSubmit }) => {
   const [formData, setFormData] = useState({
     name: courseData?.name || '',
     teacherId: courseData?.teacherId || '',
@@ -1165,6 +1262,12 @@ const CourseModal = ({ title, courseData, onClose, onSubmit }) => {
   const handleSubmit = (e) => {
     e.preventDefault();
 
+    // Prevent form submission if already updating
+    if (isUpdating) {
+      console.warn('🚫 Form submission prevented - update already in progress');
+      return;
+    }
+
     // Filter out empty or invalid sessions
     const validSessions = formData.sessions.filter(session => 
       session && 
@@ -1214,7 +1317,8 @@ const CourseModal = ({ title, courseData, onClose, onSubmit }) => {
               <input
                 type="text"
                 required
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                disabled={isUpdating}
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               />
@@ -1229,7 +1333,8 @@ const CourseModal = ({ title, courseData, onClose, onSubmit }) => {
               ) : (
                 <select
                 required
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                disabled={isUpdating}
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
                   value={formData.teacherId}
                   onChange={(e) => handleTeacherChange(e.target.value)}
                 >
@@ -1261,7 +1366,8 @@ const CourseModal = ({ title, courseData, onClose, onSubmit }) => {
                       <button
                         type="button"
                         onClick={() => removeSession(index)}
-                        className="text-red-600 hover:text-red-800 p-1 rounded hover:bg-red-100 transition-colors"
+                        disabled={isUpdating}
+                        className="text-red-600 hover:text-red-800 p-1 rounded hover:bg-red-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:text-gray-400"
                       >
                         <Trash2 className="h-3 w-3 sm:h-4 sm:w-4" />
                       </button>
@@ -1275,7 +1381,8 @@ const CourseModal = ({ title, courseData, onClose, onSubmit }) => {
                 <button
                   type="button"
                   onClick={() => setShowAddSession(true)}
-                  className="w-full p-2 sm:p-3 border-2 border-dashed border-green-300 rounded-md text-green-600 hover:border-green-400 hover:text-green-700 transition-colors text-sm"
+                  disabled={isUpdating}
+                  className="w-full p-2 sm:p-3 border-2 border-dashed border-green-300 rounded-md text-green-600 hover:border-green-400 hover:text-green-700 transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed disabled:border-gray-300 disabled:text-gray-400"
                 >
                   + Add Session
                 </button>
@@ -1347,15 +1454,20 @@ const CourseModal = ({ title, courseData, onClose, onSubmit }) => {
               <button
                 type="button"
                 onClick={onClose}
-                className="px-3 sm:px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 text-sm"
+                disabled={isUpdating}
+                className="px-3 sm:px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                className="px-3 sm:px-4 py-2 border-2 border-green-600 text-green-600 rounded-md hover:bg-green-500 hover:text-white transition-all duration-200 text-sm"
+                disabled={isUpdating}
+                className="px-3 sm:px-4 py-2 border-2 border-green-600 text-green-600 rounded-md hover:bg-green-500 hover:text-white transition-all duration-200 text-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               >
-                {courseData ? 'Update' : 'Create'}
+                {isUpdating && (
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-600"></div>
+                )}
+                {isUpdating ? 'Updating...' : (courseData ? 'Update' : 'Create')}
               </button>
             </div>
           </form>

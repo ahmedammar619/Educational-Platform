@@ -5,11 +5,12 @@ import { CoursesController } from './courses.controller';
 import { Course } from './entities/course.entity';
 import { Class } from '../classes/entities/class.entity';
 import { User } from '../users/entities/user.entity';
+import { Teacher } from '../teachers/entities/teacher.entity';
 import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Course, Class, User]),
+    TypeOrmModule.forFeature([Course, Class, User, Teacher]),
     forwardRef(() => NotificationsModule),
   ],
   controllers: [CoursesController],

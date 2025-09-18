@@ -49,7 +49,7 @@ export class Folder {
   @OneToMany('File', 'folder')
   files: any[];
 
-  @ManyToOne(() => User)
+  @ManyToOne(() => User, { nullable: true })
   @JoinColumn({ name: 'createdBy' })
-  creator: User;
+  creator: User | null;
 }

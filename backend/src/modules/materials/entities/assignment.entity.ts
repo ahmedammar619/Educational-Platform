@@ -48,9 +48,9 @@ export class Assignment {
   @JoinColumn({ name: 'courseId' })
   course: any;
 
-  @ManyToOne(() => User)
+  @ManyToOne(() => User, { nullable: true })
   @JoinColumn({ name: 'createdBy' })
-  creator: User;
+  creator: User | null;
 
   @OneToMany('AssignmentSubmission', 'assignment')
   submissions: any[];
