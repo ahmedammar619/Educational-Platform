@@ -56,7 +56,7 @@ export const AppDataSource = new DataSource({
     AppConfig,
     Notification
   ],
-  migrations: process.env.NODE_ENV === 'production' ? ['dist/migrations/*.js'] : [],
+  migrations: process.env.NODE_ENV === 'production' ? ['dist/migrations/*.js'] : ['src/migrations/*.ts'],
   migrationsRun: process.env.NODE_ENV === 'production' && process.env.DB_SYNC !== 'true',
   subscribers: [],
   ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
