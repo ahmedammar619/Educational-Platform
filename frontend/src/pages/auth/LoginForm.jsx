@@ -370,17 +370,17 @@ const LoginForm = React.memo(({ onLogin, onRegister, onProfileCompletion, onLogo
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Email Address
+              Email Address or Username
             </label>
             <div className="relative">
               <User className="absolute left-3 top-3 h-4 w-4 sm:h-5 sm:w-5 text-gray-400" />
               <input
-                type="email"
+                type="text"
                 name="email"
                 value={formData.email}
                 onChange={handleInputChange}
                 className="w-full pl-10 pr-3 py-2 sm:py-2.5 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm sm:text-base"
-                placeholder="Enter your email"
+                placeholder="Enter your email or username"
                 required
               />
             </div>

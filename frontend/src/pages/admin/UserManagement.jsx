@@ -1264,11 +1264,11 @@ const UserModal = ({ title, user, onClose, onSubmit }) => {
           <form onSubmit={handleSubmit} className="space-y-3">
 
             <div>
-              <label className="block text-sm font-medium text-gray-700">Email</label>
+              <label className="block text-sm font-medium text-gray-700">Email or Username</label>
               <input
-                type="email"
+                type="text"
                 required
-                placeholder="Enter email address"
+                placeholder="Enter email address or username"
                 className={`mt-1 block w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${
                   errors.email 
                     ? 'border-red-500 focus:ring-red-500' 

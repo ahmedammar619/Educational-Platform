@@ -1,4 +1,4 @@
-import { IsEmail, IsString, IsDateString, MinLength } from 'class-validator';
+import { IsString, IsDateString, MinLength } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class CreateChildAccountDto {
@@ -11,7 +11,7 @@ export class CreateChildAccountDto {
   lastName: string;
 
   @ApiProperty({ description: 'Child email address' })
-  @IsEmail()
+  @IsString()
   email: string;
 
   @ApiProperty({ description: 'Child password', minLength: 8 })

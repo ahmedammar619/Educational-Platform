@@ -1,4 +1,4 @@
-import { IsEmail, IsString, IsOptional, MinLength } from 'class-validator';
+import { IsString, IsOptional, MinLength } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { IsEmailUnique } from '../../../common/validators/unique-email.validator';
 
@@ -12,7 +12,7 @@ export class CreateParentDto {
   lastName: string;
 
   @ApiProperty({ description: 'Parent email address' })
-  @IsEmail()
+  @IsString()
   @IsEmailUnique({ message: 'This email is already registered. Please use a different email address.' })
   email: string;
 

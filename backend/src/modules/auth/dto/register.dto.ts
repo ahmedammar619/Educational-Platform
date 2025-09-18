@@ -1,7 +1,6 @@
 // src/modules/auth/dto/register.dto.ts
 import { ApiProperty } from '@nestjs/swagger';
 import {
-  IsEmail,
   IsString,
   MinLength,
   IsEnum,
@@ -32,7 +31,7 @@ export class RegisterDto {
     description: "User's email address",
     example: 'john.doe@example.com',
   })
-  @IsEmail()
+  @IsString()
   @IsEmailUnique({ message: 'This email is already registered. Please use a different email address.' })
   email: string;
 
