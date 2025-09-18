@@ -1,0 +1,9 @@
+VITE_API_URL=http://localhost:3000
+
+env vars:
+R2_BUCKET_NAME=baraem
+R2_REGION=weur
+R2_ENDPOINT=https://9f7f3b84be13f9cfee5aa178acad1d08.r2.cloudflarestorage.com
+R2_ACCESS_KEY_ID=your_r2_access_key
+R2_SECRET_ACCESS_KEY=your_r2_secret_key
+R2_PUBLIC_URL=https://media.baraemalnour.org

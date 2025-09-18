@@ -1,0 +1,37 @@
+{
+  "name": "educational-platform-backup",
+  "version": "1.0.0",
+  "description": "Comprehensive backup and restore system for Educational Platform",
+  "main": "scripts/full-backup.js",
+  "scripts": {
+    "setup": "node setup.js",
+    "test-setup": "node setup.js --test",
+    "backup:full": "node scripts/full-backup.js",
+    "backup:database": "node scripts/database-backup.js",
+    "backup:files": "node scripts/files-backup.js",
+    "backup:r2": "node scripts/r2-backup.js",
+    "backup:env": "node scripts/env-backup.js",
+    "restore": "node scripts/restore.js",
+    "schedule": "node scripts/full-backup.js --schedule",
+    "test": "echo \"No tests specified\" && exit 0"
+  },
+  "keywords": [
+    "backup",
+    "restore",
+    "educational-platform",
+    "database",
+    "files",
+    "r2-storage"
+  ],
+  "author": "Educational Platform Team",
+  "license": "MIT",
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.879.0",
+    "archiver": "^7.0.1",
+    "dotenv": "^16.4.5"
+  },
+  "devDependencies": {},
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

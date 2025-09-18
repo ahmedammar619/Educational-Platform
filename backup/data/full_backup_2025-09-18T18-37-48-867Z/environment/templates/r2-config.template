@@ -1,0 +1,12 @@
+# Add these environment variables to your Railway backend service:
+
+R2_BUCKET_NAME=baraem
+R2_REGION=weur
+R2_ENDPOINT=https://media.baraemalnour.org
+R2_ACCESS_KEY_ID=your_r2_access_key
+R2_SECRET_ACCESS_KEY=your_r2_secret_key
+R2_PUBLIC_URL=https://media.baraemalnour.org/baraem
+
+# File Upload Configuration (optional - these have defaults)
+MAX_FILE_SIZE=104857600
+ALLOWED_EXTENSIONS=.pdf,.doc,.docx,.xls,.xlsx,.txt,.csv,.jpg,.jpeg,.png,.gif,.webp,.svg,.mp4,.webm,.ogg,.avi,.mov,.mp3,.wav,.ogg,.m4a,.zip,.rar,.7z,.tar,.gz

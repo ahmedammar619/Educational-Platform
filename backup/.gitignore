@@ -1,0 +1,281 @@
+# Educational Platform Backup System - .gitignore
+# This file ensures sensitive backup data is never committed to version control
+
+# =============================================================================
+# BACKUP DATA - NEVER COMMIT THESE
+# =============================================================================
+
+# All backup data directories
+data/
+!data/.gitkeep
+
+# Backup archives and compressed files
+*.zip
+*.tar
+*.tar.gz
+*.7z
+*.rar
+
+# Database backup files
+*.sql
+*.sql.gz
+*.backup
+*.dump
+
+# Environment and configuration backups
+*.env
+*.env.backup
+*.env.encrypted
+.env*
+
+# Encryption keys and sensitive files
+*.key
+*.pem
+*.p12
+*.pfx
+keys/
+secrets/
+
+# =============================================================================
+# NODE.JS AND NPM
+# =============================================================================
+
+# Dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage directory used by tools like istanbul
+coverage/
+*.lcov
+
+# nyc test coverage
+.nyc_output
+
+# Grunt intermediate storage
+.grunt
+
+# Bower dependency directory
+bower_components
+
+# node-waf configuration
+.lock-wscript
+
+# Compiled binary addons
+build/Release
+
+# Dependency directories
+jspm_packages/
+
+# Optional npm cache directory
+.npm
+
+# Optional eslint cache
+.eslintcache
+
+# Microbundle cache
+.rpt2_cache/
+.rts2_cache_cjs/
+.rts2_cache_es/
+.rts2_cache_umd/
+
+# Optional REPL history
+.node_repl_history
+
+# Output of 'npm pack'
+*.tgz
+
+# Yarn Integrity file
+.yarn-integrity
+
+# parcel-bundler cache
+.cache
+.parcel-cache
+
+# Next.js build output
+.next
+
+# Nuxt.js build / generate output
+.nuxt
+dist
+
+# Gatsby files
+.cache/
+public
+
+# Storybook build outputs
+.out
+.storybook-out
+
+# =============================================================================
+# LOGS AND TEMPORARY FILES
+# =============================================================================
+
+# Log files
+logs/
+*.log
+
+# Temporary files
+tmp/
+temp/
+.tmp/
+.temp/
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# =============================================================================
+# DEVELOPMENT AND EDITOR FILES
+# =============================================================================
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Vim temporary files
+.*.swp
+.*.swo
+
+# Emacs temporary files
+*~
+\#*\#
+/.emacs.desktop
+/.emacs.desktop.lock
+*.elc
+auto-save-list
+tramp
+.\#*
+
+# =============================================================================
+# SYSTEM AND RUNTIME FILES
+# =============================================================================
+
+# Windows
+*.exe
+*.msi
+*.msm
+*.msp
+
+# macOS
+.AppleDouble
+.LSOverride
+Icon
+._*
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+.AppleDB
+.AppleDesktop
+Network Trash Folder
+Temporary Items
+.apdisk
+
+# Linux
+*~
+.fuse_hidden*
+.directory
+.Trash-*
+.nfs*
+
+# =============================================================================
+# SECURITY AND SENSITIVE DATA
+# =============================================================================
+
+# Credentials and API keys
+credentials.json
+config.json
+secrets.json
+api-keys.txt
+tokens.txt
+
+# SSL certificates
+*.crt
+*.cert
+*.ca-bundle
+
+# Database connection strings
+connection-string.txt
+database-url.txt
+
+# =============================================================================
+# BACKUP SYSTEM SPECIFIC
+# =============================================================================
+
+# Backup metadata that might contain sensitive info
+*metadata*.json
+*manifest*.json
+backup_schedule.json
+
+# Restore temporary files
+temp_restore/
+restore_temp/
+
+# Backup verification files
+*.checksum
+*.hash
+*.md5
+*.sha256
+
+# =============================================================================
+# WHAT IS ALLOWED TO BE COMMITTED
+# =============================================================================
+
+# Keep these files (they are safe to commit):
+# - *.js (backup scripts)
+# - *.md (documentation)
+# - package.json (dependencies)
+# - package-lock.json (lock file)
+# - .gitignore (this file)
+# - *.bat (Windows batch files)
+# - README files
+# - Setup and configuration templates (without real values)
+
+# =============================================================================
+# EXCEPTIONS - Files to keep even if they match patterns above
+# =============================================================================
+
+# Keep empty data directory structure
+!data/
+!data/.gitkeep
+
+# Keep template files (they don't contain real credentials)
+!*.template
+!*example*
+!*sample*
+
+# Keep documentation
+!README*
+!CHANGELOG*
+!LICENSE*
+!*.md
+
+# Keep package files
+!package.json
+!package-lock.json
+
+# Keep scripts
+!scripts/
+!*.js
+!*.bat
+!*.sh
