@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Users, Calendar, BookOpen, MessageSquare, User, X, ChevronDown, ChevronRight } from 'lucide-react';
 import { teachersService, coursesService, usersService } from '../../services';
 import { showErrorToast } from '../../utils/errorHandler';
@@ -325,6 +325,7 @@ const TeacherClasses = ({ user }) => {
                 setShowStudentModal(false);
                 setSelectedClassForModal(null);
               }}
+              showAlert={showAlert}
             />
           )}
         </>
@@ -338,12 +339,22 @@ const TeacherClasses = ({ user }) => {
           currentUser={user}
         />
       )}
+
+      {/* Alert Dialog */}
+      <AlertDialog
+        isOpen={alertState.isOpen}
+        onClose={hideAlert}
+        title={alertState.title}
+        message={alertState.message}
+        type={alertState.type}
+        buttonText={alertState.buttonText}
+      />
     </div>
   );
 };
 
 // Student Modal Component
-const StudentModal = ({ classData, onClose }) => {
+const StudentModal = ({ classData, onClose, showAlert }) => {
   const [students, setStudents] = useState([]);
   const [loadingStudents, setLoadingStudents] = useState(true);
 
@@ -354,42 +365,67 @@ const StudentModal = ({ classData, onClose }) => {
     window.open(whatsappUrl, '_blank');
   };
 
-  useEffect(() => {
-    loadStudents();
-  }, [classData]);
-
-  const loadStudents = async () => {
+  const loadStudents = useCallback(async () => {
     try {
       setLoadingStudents(true);
+      console.log('🔍 Loading students for class:', classData.id, classData.name);
+      
       const studentsData = await teachersService.getClassStudents(classData.id);
       
-      console.log('Raw students data:', studentsData);
+      console.log('📊 Raw students data received:', studentsData);
+      console.log('📊 Data type:', typeof studentsData);
+      console.log('📊 Is array:', Array.isArray(studentsData));
       
       // The service already handles extracting students array from backend response
       let studentsArray = [];
       if (Array.isArray(studentsData)) {
         studentsArray = studentsData;
+        console.log('✅ Using studentsData as array');
       } else if (studentsData && typeof studentsData === 'object') {
         // If it's still an object, try to extract students property or convert to array
         if (studentsData.students && Array.isArray(studentsData.students)) {
           studentsArray = studentsData.students;
+          console.log('✅ Extracted students from studentsData.students');
         } else {
           studentsArray = Object.values(studentsData).filter(item => 
             item && typeof item === 'object' && item.id && !item._rateLimitInfo
           );
+          console.log('✅ Converted object values to array');
         }
+      } else {
+        console.log('❌ Unexpected data format:', studentsData);
+        studentsArray = [];
       }
       
-      console.log('Processed students array:', studentsArray);
+      console.log('📋 Final processed students array:', studentsArray);
+      console.log('📋 Students count:', studentsArray.length);
+      
       setStudents(studentsArray);
+      
+      if (studentsArray.length === 0) {
+        console.log('⚠️ No students found for class:', classData.name);
+      }
     } catch (error) {
-      console.error('Error loading students:', error);
+      console.error('❌ Error loading students:', error);
+      console.error('❌ Error details:', {
+        message: error.message,
+        status: error.response?.status,
+        data: error.response?.data
+      });
       setStudents([]);
       showErrorToast(error, 'Failed to load students. Please try again.');
     } finally {
+      console.log('🏁 Setting loading to false');
       setLoadingStudents(false);
     }
-  };
+  }, [classData?.id, showAlert]);
+
+  useEffect(() => {
+    console.log('🔄 useEffect triggered for classData:', classData?.id, classData?.name);
+    if (classData && classData.id) {
+      loadStudents();
+    }
+  }, [classData?.id, loadStudents]); // Depend on loadStudents function
 
   const getParentDetails = async (parentId) => {
     try {
@@ -518,6 +554,10 @@ const StudentModal = ({ classData, onClose }) => {
   useEffect(() => {
     if (students.length > 0) {
       loadGroupedStudents();
+    } else {
+      // When there are no students, set loading to false and clear grouped students
+      setLoadingGroupedStudents(false);
+      setGroupedStudents([]);
     }
   }, [students]);
 
@@ -706,16 +746,6 @@ const StudentModal = ({ classData, onClose }) => {
           </div>
         </div>
       </div>
-
-      {/* Alert Dialog */}
-      <AlertDialog
-        isOpen={alertState.isOpen}
-        onClose={hideAlert}
-        title={alertState.title}
-        message={alertState.message}
-        type={alertState.type}
-        buttonText={alertState.buttonText}
-      />
     </div>
   );
 };

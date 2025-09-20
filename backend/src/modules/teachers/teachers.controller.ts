@@ -204,7 +204,9 @@ export class TeachersController {
     description: 'Class not found'
   })
   async getClassStudents(@Param('classId') classId: string) {
+    console.log(`🚀 ENDPOINT HIT: /api/teachers/classes/${classId}/students`);
     const students = await this.teachersService.getClassStudents(classId);
+    console.log(`📤 Returning ${students.length} students to frontend`);
     return { students };
   }
 

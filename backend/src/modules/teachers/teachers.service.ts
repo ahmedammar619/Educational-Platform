@@ -145,14 +145,25 @@ export class TeachersService {
   }
 
   async getClassStudents(classId: string) {
+    console.log(`🔍 Getting students for class ID: ${classId}`);
+    
     // Get students from the Student entity where classId matches
     const students = await this.studentRepository.find({
       where: { classId },
       relations: ['user', 'parent']
     });
 
+    console.log(`📊 Found ${students.length} students for class ${classId}`);
+    console.log('📋 Students data:', students.map(s => ({
+      id: s.id,
+      classId: s.classId,
+      hasUser: !!s.user,
+      hasParent: !!s.parent,
+      userEmail: s.user?.email
+    })));
+
     // Transform students to include user data and parent information
-    return students.map(student => ({
+    const transformedStudents = students.map(student => ({
       id: student.id,
       birthDate: student.birthDate,
       parentId: student.parentId,
@@ -160,6 +171,9 @@ export class TeachersService {
       user: student.user,
       parent: student.parent
     }));
+
+    console.log(`✅ Returning ${transformedStudents.length} transformed students`);
+    return transformedStudents;
   }
 
   async createTeacher(teacherData: { id: string; courses: string[] }) {

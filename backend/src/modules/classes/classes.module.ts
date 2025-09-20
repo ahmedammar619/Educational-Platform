@@ -7,11 +7,13 @@ import { User } from '../users/entities/user.entity';
 import { Course } from '../courses/entities/course.entity';
 import { Student } from '../students/entities/student.entity';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { CoursesModule } from '../courses/courses.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Class, User, Course, Student]),
     forwardRef(() => NotificationsModule),
+    forwardRef(() => CoursesModule),
   ],
   controllers: [ClassesController],
   providers: [ClassesService],

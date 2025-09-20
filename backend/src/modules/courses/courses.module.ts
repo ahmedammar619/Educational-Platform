@@ -7,10 +7,31 @@ import { Class } from '../classes/entities/class.entity';
 import { User } from '../users/entities/user.entity';
 import { Teacher } from '../teachers/entities/teacher.entity';
 import { NotificationsModule } from '../notifications/notifications.module';
+// Import materials entities for cascading deletion
+import { Post } from '../materials/entities/post.entity';
+import { Folder } from '../materials/entities/folder.entity';
+import { File } from '../materials/entities/file.entity';
+import { Assignment } from '../materials/entities/assignment.entity';
+import { Attendance } from '../materials/entities/attendance.entity';
+import { AssignmentSubmission } from '../materials/entities/assignment-submission.entity';
+import { PostAttachment } from '../materials/entities/post-attachment.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Course, Class, User, Teacher]),
+    TypeOrmModule.forFeature([
+      Course, 
+      Class, 
+      User, 
+      Teacher,
+      // Materials entities for cascading deletion
+      Post,
+      Folder,
+      File,
+      Assignment,
+      Attendance,
+      AssignmentSubmission,
+      PostAttachment
+    ]),
     forwardRef(() => NotificationsModule),
   ],
   controllers: [CoursesController],

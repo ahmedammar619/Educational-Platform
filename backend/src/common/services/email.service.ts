@@ -132,9 +132,6 @@ export class EmailService {
         <div class="container">
           <div class="header">
             <div style="display: flex; align-items: center; justify-content: center; gap: 15px; margin-bottom: 10px;">
-              <div style="width: 50px; height: 50px; background: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; padding: 8px;">
-                <img src="${this.getLogoUrl()}" alt="Baraem Al Nour Logo" style="width: 100%; height: 100%; object-fit: contain;" />
-              </div>
               <div>
                 <h1 style="margin: 0; font-size: 24px;">Baraem Al Nour</h1>
                 <p style="margin: 5px 0 0 0; font-size: 16px; opacity: 0.9;">Educational Platform</p>
@@ -200,9 +197,6 @@ This is an automated message, please do not reply to this email.
         <div class="container">
           <div class="header">
             <div style="display: flex; align-items: center; justify-content: center; gap: 15px; margin-bottom: 10px;">
-              <div style="width: 50px; height: 50px; background: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; padding: 8px;">
-                <img src="${this.getLogoUrl()}" alt="Baraem Al Nour Logo" style="width: 100%; height: 100%; object-fit: contain;" />
-              </div>
               <div>
                 <h1 style="margin: 0; font-size: 24px;">Baraem Al Nour</h1>
                 <p style="margin: 5px 0 0 0; font-size: 16px; opacity: 0.9;">Educational Platform</p>
@@ -300,9 +294,6 @@ This is an automated message, please do not reply to this email.
         <div class="container">
           <div class="header">
             <div style="display: flex; align-items: center; justify-content: center; gap: 15px; margin-bottom: 10px;">
-              <div style="width: 50px; height: 50px; background: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; padding: 8px;">
-                <img src="${this.getLogoUrl()}" alt="Baraem Al Nour Logo" style="width: 100%; height: 100%; object-fit: contain;" />
-              </div>
               <div>
                 <h1 style="margin: 0; font-size: 24px;">Baraem Al Nour</h1>
                 <p style="margin: 5px 0 0 0; font-size: 16px; opacity: 0.9;">Educational Platform</p>

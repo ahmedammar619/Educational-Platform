@@ -10,6 +10,7 @@ import { UpdateClassDto } from './dto/update-class.dto';
 import { EnrollStudentsDto } from './dto/enroll-students.dto';
 import { Role } from '../../common/enums/role.enum';
 import { NotificationsService } from '../notifications/notifications.service';
+import { CoursesService } from '../courses/courses.service';
 
 @Injectable()
 export class ClassesService {
@@ -24,6 +25,8 @@ export class ClassesService {
     private readonly studentRepository: Repository<Student>,
     @Inject(forwardRef(() => NotificationsService))
     private readonly notificationsService: NotificationsService,
+    @Inject(forwardRef(() => CoursesService))
+    private readonly coursesService: CoursesService,
   ) {}
 
   async createClass(createClassDto: CreateClassDto): Promise<Class> {
@@ -114,17 +117,33 @@ export class ClassesService {
   async deleteClass(id: string): Promise<void> {
     const classEntity = await this.findClassById(id);
     
-    // First, remove all students from the class
-    if (classEntity.students && classEntity.students.length > 0) {
-      classEntity.students = [];
-      await this.classRepository.save(classEntity);
+    console.log(`🗑️ Starting cascading deletion for class: ${classEntity.name} (${id})`);
+    
+    try {
+      // Step 1: Remove all students from the class
+      if (classEntity.students && classEntity.students.length > 0) {
+        classEntity.students = [];
+        await this.classRepository.save(classEntity);
+        console.log('✅ Removed all students from class');
+      }
+      
+      // Step 2: Delete all courses associated with this class using cascading deletion
+      const courses = await this.courseRepository.find({ where: { classId: id } });
+      console.log(`Found ${courses.length} courses to delete for class: ${classEntity.name}`);
+      
+      for (const course of courses) {
+        await this.coursesService.deleteCourse(course.id);
+        console.log(`✅ Deleted course with cascading: ${course.name}`);
+      }
+      
+      // Step 3: Finally, delete the class itself
+      await this.classRepository.delete(id);
+      console.log(`✅ Successfully deleted class: ${classEntity.name}`);
+      
+    } catch (error) {
+      console.error(`❌ Error during cascading deletion for class ${id}:`, error);
+      throw new BadRequestException(`Failed to delete class and all related data: ${error.message}`);
     }
-    
-    // Delete all courses associated with this class first
-    await this.courseRepository.delete({ classId: id });
-    
-    // Now delete the class
-    await this.classRepository.delete(id);
   }
 
   async enrollStudents(classId: string, enrollDto: EnrollStudentsDto): Promise<void> {

@@ -829,6 +829,7 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
           title="Create New Class"
           onClose={() => setShowCreateClassModal(false)}
           onSubmit={handleCreateClass}
+          isCreatingClass={isCreatingClass}
         />
       )}
 
@@ -842,6 +843,7 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
             setSelectedClass(null);
           }}
           onSubmit={(classData) => handleUpdateClass(selectedClass.id, classData)}
+          isCreatingClass={false}
         />
       )}
 
@@ -916,14 +918,40 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
             setSelectedClass(null);
           }}
           onSubmit={(studentIds, toClassId) => handleLevelUpStudents(selectedClass.id, studentIds, toClassId)}
+          showConfirmation={showConfirmation}
+          showAlert={showAlert}
         />
       )}
+
+      {/* Confirmation Dialog */}
+      <ConfirmationDialog
+        isOpen={confirmationState.isOpen}
+        onClose={hideConfirmation}
+        onConfirm={handleConfirm}
+        title={confirmationState.title}
+        message={confirmationState.message}
+        type={confirmationState.type}
+        confirmText={confirmationState.confirmText}
+        cancelText={confirmationState.cancelText}
+        confirmButtonVariant={confirmationState.confirmButtonVariant}
+        isLoading={confirmationState.isLoading}
+      />
+
+      {/* Alert Dialog */}
+      <AlertDialog
+        isOpen={alertState.isOpen}
+        onClose={hideAlert}
+        title={alertState.title}
+        message={alertState.message}
+        type={alertState.type}
+        buttonText={alertState.buttonText}
+      />
     </div>
   );
 };
 
 // Class Modal Component
-const ClassModal = ({ title, classData, onClose, onSubmit }) => {
+const ClassModal = ({ title, classData, onClose, onSubmit, isCreatingClass = false }) => {
   const [formData, setFormData] = useState({
     name: classData?.name || '',
     startDate: classData?.startDate || '',
@@ -1868,7 +1896,7 @@ const RemoveStudentModal = ({ classData, onClose, onRemove }) => {
 };
 
 // Level Up Students Modal Component
-const LevelUpModal = ({ classData, onClose, onSubmit }) => {
+const LevelUpModal = ({ classData, onClose, onSubmit, showConfirmation, showAlert }) => {
   const [selectedStudents, setSelectedStudents] = useState([]);
   const [selectedTargetClass, setSelectedTargetClass] = useState('');
   const [enrolledStudents, setEnrolledStudents] = useState([]);
@@ -2113,7 +2141,7 @@ const LevelUpModal = ({ classData, onClose, onSubmit }) => {
                 <button
                   type="submit"
                   disabled={selectedStudents.length === 0 || !selectedTargetClass}
-                  className="px-3 sm:px-4 py-2 border-2 border-purple-600 text-purple-600 rounded-md hover:bg-purple-500 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 text-sm"
+                  className="px-3 sm:px-4 py-2 border-2 border-green-600 text-green-600 rounded-md hover:bg-purple-500 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 text-sm"
                 >
                   Level Up Students
                 </button>
@@ -2122,30 +2150,6 @@ const LevelUpModal = ({ classData, onClose, onSubmit }) => {
           </form>
         </div>
       </div>
-
-      {/* Confirmation Dialog */}
-      <ConfirmationDialog
-        isOpen={confirmationState.isOpen}
-        onClose={hideConfirmation}
-        onConfirm={handleConfirm}
-        title={confirmationState.title}
-        message={confirmationState.message}
-        type={confirmationState.type}
-        confirmText={confirmationState.confirmText}
-        cancelText={confirmationState.cancelText}
-        confirmButtonVariant={confirmationState.confirmButtonVariant}
-        isLoading={confirmationState.isLoading}
-      />
-
-      {/* Alert Dialog */}
-      <AlertDialog
-        isOpen={alertState.isOpen}
-        onClose={hideAlert}
-        title={alertState.title}
-        message={alertState.message}
-        type={alertState.type}
-        buttonText={alertState.buttonText}
-      />
     </div>
   );
 };

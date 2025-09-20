@@ -9,6 +9,14 @@ import { CreateCourseDto } from './dto/create-course.dto';
 import { UpdateCourseDto } from './dto/update-course.dto';
 import { NotificationsService } from '../notifications/notifications.service';
 import { Role } from '../../common/enums/role.enum';
+// Import materials entities for cascading deletion
+import { Post } from '../materials/entities/post.entity';
+import { Folder } from '../materials/entities/folder.entity';
+import { File } from '../materials/entities/file.entity';
+import { Assignment } from '../materials/entities/assignment.entity';
+import { Attendance } from '../materials/entities/attendance.entity';
+import { AssignmentSubmission } from '../materials/entities/assignment-submission.entity';
+import { PostAttachment } from '../materials/entities/post-attachment.entity';
 
 @Injectable()
 export class CoursesService {
@@ -25,6 +33,21 @@ export class CoursesService {
     private readonly teacherRepository: Repository<Teacher>,
     @Inject(forwardRef(() => NotificationsService))
     private readonly notificationsService: NotificationsService,
+    // Materials repositories for cascading deletion
+    @InjectRepository(Post)
+    private readonly postRepository: Repository<Post>,
+    @InjectRepository(Folder)
+    private readonly folderRepository: Repository<Folder>,
+    @InjectRepository(File)
+    private readonly fileRepository: Repository<File>,
+    @InjectRepository(Assignment)
+    private readonly assignmentRepository: Repository<Assignment>,
+    @InjectRepository(Attendance)
+    private readonly attendanceRepository: Repository<Attendance>,
+    @InjectRepository(AssignmentSubmission)
+    private readonly assignmentSubmissionRepository: Repository<AssignmentSubmission>,
+    @InjectRepository(PostAttachment)
+    private readonly postAttachmentRepository: Repository<PostAttachment>,
   ) {}
 
   async createCourse(createCourseDto: CreateCourseDto): Promise<Course> {
@@ -282,31 +305,78 @@ export class CoursesService {
   async deleteCourse(id: string): Promise<void> {
     const course = await this.findCourseById(id);
     
-    // Remove course ID from class's courseIds array
-    const targetClass = await this.classRepository.findOne({
-      where: { id: course.classId }
-    });
+    console.log(`🗑️ Starting cascading deletion for course: ${course.name} (${id})`);
     
-    if (targetClass && targetClass.courseIds) {
-      targetClass.courseIds = targetClass.courseIds.filter(courseId => courseId !== id);
-      await this.classRepository.save(targetClass);
-      console.log('Removed course ID from class courseIds array:', id);
-    }
-    
-    // Remove course ID from teacher's courses array if teacher is assigned
-    if (course.teacherId) {
-      const teacherEntity = await this.teacherRepository.findOne({
-        where: { id: course.teacherId }
-      });
-      if (teacherEntity) {
-        teacherEntity.courses = teacherEntity.courses.filter(courseId => courseId !== id);
-        await this.teacherRepository.save(teacherEntity);
-        console.log('Removed course ID from teacher courses array:', id);
+    try {
+      // Step 1: Delete assignment submissions first (they reference assignments)
+      const assignments = await this.assignmentRepository.find({ where: { courseId: id } });
+      for (const assignment of assignments) {
+        await this.assignmentSubmissionRepository.delete({ assignmentId: assignment.id });
+        console.log(`✅ Deleted submissions for assignment: ${assignment.name}`);
       }
+      
+      // Step 2: Delete post attachments (they reference posts)
+      const posts = await this.postRepository.find({ where: { courseId: id } });
+      for (const post of posts) {
+        await this.postAttachmentRepository.delete({ postId: post.id });
+        console.log(`✅ Deleted attachments for post: ${post.subject}`);
+      }
+      
+      // Step 3: Delete all materials that directly reference the course
+      await this.assignmentRepository.delete({ courseId: id });
+      console.log('✅ Deleted assignments');
+      
+      await this.postRepository.delete({ courseId: id });
+      console.log('✅ Deleted posts');
+      
+      await this.attendanceRepository.delete({ courseId: id });
+      console.log('✅ Deleted attendance records');
+      
+      // Step 4: Delete folders and files (folders might contain files)
+      const folders = await this.folderRepository.find({ where: { courseId: id } });
+      for (const folder of folders) {
+        // Delete files in this folder first
+        await this.fileRepository.delete({ folderId: folder.id });
+        console.log(`✅ Deleted files in folder: ${folder.name}`);
+      }
+      await this.folderRepository.delete({ courseId: id });
+      console.log('✅ Deleted folders');
+      
+      // Delete any remaining files that reference the course directly
+      await this.fileRepository.delete({ courseId: id });
+      console.log('✅ Deleted remaining files');
+      
+      // Step 5: Remove course ID from class's courseIds array
+      const targetClass = await this.classRepository.findOne({
+        where: { id: course.classId }
+      });
+      
+      if (targetClass && targetClass.courseIds) {
+        targetClass.courseIds = targetClass.courseIds.filter(courseId => courseId !== id);
+        await this.classRepository.save(targetClass);
+        console.log('✅ Removed course ID from class courseIds array');
+      }
+      
+      // Step 6: Remove course ID from teacher's courses array if teacher is assigned
+      if (course.teacherId) {
+        const teacherEntity = await this.teacherRepository.findOne({
+          where: { id: course.teacherId }
+        });
+        if (teacherEntity) {
+          teacherEntity.courses = teacherEntity.courses.filter(courseId => courseId !== id);
+          await this.teacherRepository.save(teacherEntity);
+          console.log('✅ Removed course ID from teacher courses array');
+        }
+      }
+      
+      // Step 7: Finally, delete the course itself
+      await this.courseRepository.delete(id);
+      console.log(`✅ Successfully deleted course: ${course.name}`);
+      
+    } catch (error) {
+      console.error(`❌ Error during cascading deletion for course ${id}:`, error);
+      throw new BadRequestException(`Failed to delete course and all related data: ${error.message}`);
     }
-    
-    // Delete the course (sessions are stored as JSON in the course, so they'll be deleted automatically)
-    await this.courseRepository.delete(id);
   }
 
   private async validateSessions(sessions: any[], classId: string, excludeCourseId?: string): Promise<{ isValid: boolean; errors: string[] }> {
