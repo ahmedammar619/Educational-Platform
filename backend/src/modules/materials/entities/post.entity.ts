@@ -20,7 +20,7 @@ export class Post {
   @Column('uuid')
   courseId: string;
 
-  @Column('uuid')
+  @Column('uuid', { nullable: true })
   authorId: string;
 
   @Column({ length: 255 })

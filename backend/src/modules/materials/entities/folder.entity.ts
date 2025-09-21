@@ -25,7 +25,7 @@ export class Folder {
   @Column({ length: 255 })
   name: string;
 
-  @Column('uuid')
+  @Column('uuid', { nullable: true })
   createdBy: string;
 
   @CreateDateColumn()

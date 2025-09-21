@@ -32,7 +32,7 @@ export class File {
   @Column({ length: 100 })
   mimeType: string;
 
-  @Column('uuid')
+  @Column('uuid', { nullable: true })
   uploadedBy: string;
 
   @CreateDateColumn()

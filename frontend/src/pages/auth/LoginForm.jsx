@@ -181,13 +181,42 @@ const LoginForm = React.memo(({ onLogin, onRegister, onProfileCompletion, onLogo
 
       // Extract error message from different possible error formats
       let errorMessage = 'An unexpected error occurred. Please try again.';
+      const statusCode = error.response?.status;
 
-      if (error.response?.data?.message) {
-        errorMessage = error.response.data.message;
+      if (error.response?.data) {
+        // Try multiple possible error message fields
+        errorMessage = error.response.data.message || 
+                      error.response.data.error || 
+                      error.response.data.details ||
+                      error.response.data.error_description ||
+                      'An unexpected error occurred. Please try again.';
       } else if (error.message) {
         errorMessage = error.message;
       } else if (typeof error === 'string') {
         errorMessage = error;
+      }
+
+      // Handle specific error cases with better user-friendly messages
+      if (statusCode === 409) {
+        // 409 Conflict - User already exists
+        if (errorMessage.toLowerCase().includes('email')) {
+          errorMessage = 'This email is already registered. Please use a different email address or try signing in instead.';
+        } else {
+          errorMessage = 'An account with this information already exists. Please check your details and try again.';
+        }
+      } else if (statusCode === 400) {
+        // 400 Bad Request - Validation errors
+        if (errorMessage.toLowerCase().includes('email')) {
+          errorMessage = errorMessage; // Keep the specific validation message
+        } else {
+          errorMessage = errorMessage; // Keep the specific validation message
+        }
+      } else if (statusCode === 422) {
+        // 422 Unprocessable Entity - Validation errors
+        errorMessage = errorMessage; // Keep the specific validation message
+      } else if (statusCode >= 500) {
+        // Server errors
+        errorMessage = 'Server error occurred. Please try again later or contact support.';
       }
 
       showErrorToast(errorMessage);

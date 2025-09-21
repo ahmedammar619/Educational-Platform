@@ -15,6 +15,7 @@ import { Assignment } from '../materials/entities/assignment.entity';
 import { Attendance } from '../materials/entities/attendance.entity';
 import { AssignmentSubmission } from '../materials/entities/assignment-submission.entity';
 import { PostAttachment } from '../materials/entities/post-attachment.entity';
+import { ZoomMeeting } from '../zoom/entities/zoom-meeting.entity';
 
 @Module({
   imports: [
@@ -30,7 +31,8 @@ import { PostAttachment } from '../materials/entities/post-attachment.entity';
       Assignment,
       Attendance,
       AssignmentSubmission,
-      PostAttachment
+      PostAttachment,
+      ZoomMeeting
     ]),
     forwardRef(() => NotificationsModule),
   ],

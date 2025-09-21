@@ -17,6 +17,7 @@ import { Assignment } from '../materials/entities/assignment.entity';
 import { Attendance } from '../materials/entities/attendance.entity';
 import { AssignmentSubmission } from '../materials/entities/assignment-submission.entity';
 import { PostAttachment } from '../materials/entities/post-attachment.entity';
+import { ZoomMeeting } from '../zoom/entities/zoom-meeting.entity';
 
 @Injectable()
 export class CoursesService {
@@ -48,6 +49,8 @@ export class CoursesService {
     private readonly assignmentSubmissionRepository: Repository<AssignmentSubmission>,
     @InjectRepository(PostAttachment)
     private readonly postAttachmentRepository: Repository<PostAttachment>,
+    @InjectRepository(ZoomMeeting)
+    private readonly zoomMeetingRepository: Repository<ZoomMeeting>,
   ) {}
 
   async createCourse(createCourseDto: CreateCourseDto): Promise<Course> {
@@ -346,7 +349,11 @@ export class CoursesService {
       await this.fileRepository.delete({ courseId: id });
       console.log('✅ Deleted remaining files');
       
-      // Step 5: Remove course ID from class's courseIds array
+      // Step 5: Delete zoom meetings that reference this course
+      await this.zoomMeetingRepository.delete({ courseId: id });
+      console.log('✅ Deleted zoom meetings');
+      
+      // Step 6: Remove course ID from class's courseIds array
       const targetClass = await this.classRepository.findOne({
         where: { id: course.classId }
       });
@@ -357,7 +364,7 @@ export class CoursesService {
         console.log('✅ Removed course ID from class courseIds array');
       }
       
-      // Step 6: Remove course ID from teacher's courses array if teacher is assigned
+      // Step 7: Remove course ID from teacher's courses array if teacher is assigned
       if (course.teacherId) {
         const teacherEntity = await this.teacherRepository.findOne({
           where: { id: course.teacherId }
@@ -369,7 +376,7 @@ export class CoursesService {
         }
       }
       
-      // Step 7: Finally, delete the course itself
+      // Step 8: Finally, delete the course itself
       await this.courseRepository.delete(id);
       console.log(`✅ Successfully deleted course: ${course.name}`);
       

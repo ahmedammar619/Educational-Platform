@@ -1167,7 +1167,7 @@ const UserModal = ({ title, user, onClose, onSubmit }) => {
       console.error('Error in UserModal submit:', error);
       
       // Handle different types of errors - extract the most detailed error message
-      let errorMessage = 'An error occurred';
+      let errorMessage = 'An unexpected error occurred. Please try again.';
       
       if (error.response?.data) {
         // Try multiple possible error message fields
@@ -1175,7 +1175,7 @@ const UserModal = ({ title, user, onClose, onSubmit }) => {
                       error.response.data.error || 
                       error.response.data.details ||
                       error.response.data.error_description ||
-                      JSON.stringify(error.response.data);
+                      'An unexpected error occurred. Please try again.';
       } else if (error.message) {
         errorMessage = error.message;
       }
@@ -1188,35 +1188,30 @@ const UserModal = ({ title, user, onClose, onSubmit }) => {
       console.log('Status code:', statusCode);
       console.log('Error message:', errorMessage);
       
-      // Show the actual error details from the server to the user
-      if (errorMessage.toLowerCase().includes('email') && 
-          (errorMessage.toLowerCase().includes('already') || 
-           errorMessage.toLowerCase().includes('exists') ||
-           errorMessage.toLowerCase().includes('duplicate') ||
-           errorMessage.toLowerCase().includes('taken') ||
-           errorMessage.toLowerCase().includes('used'))) {
-        setErrors({ email: errorMessage }); // Show the actual server message
-      } else if (statusCode === 400 || statusCode === 409) {
-        // Handle 400 Bad Request or 409 Conflict - show actual server message
-        console.log('Handling 400/409 error, message:', errorMessage);
-        if (errorMessage.toLowerCase().includes('email') || statusCode === 409) {
-          setErrors({ email: errorMessage }); // Show the actual server message
+      // Handle specific error cases with better user-friendly messages
+      if (statusCode === 409) {
+        // 409 Conflict - User already exists
+        if (errorMessage.toLowerCase().includes('email')) {
+          setErrors({ email: 'This email is already registered. Please use a different email address.' });
         } else {
-          setErrors({ general: errorMessage }); // Show the actual server message
+          setErrors({ general: 'A user with this information already exists. Please check your details and try again.' });
         }
-      } else if (error.response?.status === 422) {
-        // Handle validation errors - show actual server message
+      } else if (statusCode === 400) {
+        // 400 Bad Request - Validation errors
+        if (errorMessage.toLowerCase().includes('email')) {
+          setErrors({ email: errorMessage });
+        } else {
+          setErrors({ general: errorMessage });
+        }
+      } else if (statusCode === 422) {
+        // 422 Unprocessable Entity - Validation errors
         setErrors({ general: errorMessage });
+      } else if (statusCode >= 500) {
+        // Server errors
+        setErrors({ general: 'Server error occurred. Please try again later or contact support.' });
       } else {
-        // Show the actual error message from the server
-        let displayMessage = errorMessage;
-        
-        // If we still have a generic message, try to show more details
-        if (displayMessage === 'An error occurred' && error.response?.data) {
-          displayMessage = `Error ${statusCode}: ${JSON.stringify(error.response.data)}`;
-        }
-        
-        setErrors({ general: displayMessage || 'An unexpected error occurred. Please try again.' });
+        // Other errors - show the actual message from server
+        setErrors({ general: errorMessage });
       }
     } finally {
       setLoading(false);

@@ -41,7 +41,7 @@ export class Attendance {
   })
   status: 'present' | 'absent';
 
-  @Column('uuid')
+  @Column('uuid', { nullable: true })
   markedBy: string;
 
   @CreateDateColumn()

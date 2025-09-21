@@ -154,14 +154,45 @@ const ChildAccountCreation = ({ user, onSuccess, onCancel }) => {
       
       // Handle different types of errors
       let errorMessage = 'Failed to create child account. Please try again.';
-      if (err.message) {
+      const statusCode = err.response?.status;
+      
+      if (err.response?.data) {
+        // Try multiple possible error message fields
+        errorMessage = err.response.data.message || 
+                      err.response.data.error || 
+                      err.response.data.details ||
+                      err.response.data.error_description ||
+                      'Failed to create child account. Please try again.';
+      } else if (err.message) {
         errorMessage = err.message;
       } else if (err.error) {
         errorMessage = err.error;
-      } else if (err.response?.data?.message) {
-        errorMessage = err.response.data.message;
-      } else if (err.response?.data?.error) {
-        errorMessage = err.response.data.error;
+      }
+      
+      // Handle specific error cases with better user-friendly messages
+      if (statusCode === 409) {
+        // 409 Conflict - User already exists
+        if (errorMessage.toLowerCase().includes('email')) {
+          errorMessage = 'This email is already registered. Please use a different email address for your child.';
+        } else {
+          errorMessage = 'A child account with this information already exists. Please check your details and try again.';
+        }
+      } else if (statusCode === 400) {
+        // 400 Bad Request - Validation errors
+        if (errorMessage.toLowerCase().includes('email')) {
+          // Set field-specific error for email
+          setErrors({ email: errorMessage });
+          showErrorToast(errorMessage);
+          return;
+        } else {
+          errorMessage = errorMessage; // Keep the specific validation message
+        }
+      } else if (statusCode === 422) {
+        // 422 Unprocessable Entity - Validation errors
+        errorMessage = errorMessage; // Keep the specific validation message
+      } else if (statusCode >= 500) {
+        // Server errors
+        errorMessage = 'Server error occurred. Please try again later or contact support.';
       }
       
       setErrors({ submit: errorMessage });

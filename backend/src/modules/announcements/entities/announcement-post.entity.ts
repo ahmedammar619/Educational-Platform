@@ -16,7 +16,7 @@ export class AnnouncementPost {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column('uuid')
+  @Column('uuid', { nullable: true })
   authorId: string;
 
   @Column({ length: 255 })

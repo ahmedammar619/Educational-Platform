@@ -19,7 +19,7 @@ export class Assignment {
   @Column('uuid')
   courseId: string;
 
-  @Column('uuid')
+  @Column('uuid', { nullable: true })
   createdBy: string;
 
   @Column({ length: 255 })
