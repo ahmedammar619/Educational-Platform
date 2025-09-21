@@ -14,7 +14,12 @@ export class UniqueConstraintFilter implements ExceptionFilter {
       
       // Check if it's an email constraint violation
       if (exception.message.includes('users_email_key') || exception.message.includes('UQ_users_email')) {
-        message = 'This email address is already registered. Please use a different email address.';
+        message = 'This email address is already registered. Please use a different email address or try logging in.';
+      }
+      
+      // Check for phone number constraint violation
+      if (exception.message.includes('users_phone_key') || exception.message.includes('UQ_users_phone')) {
+        message = 'This phone number is already registered. Please use a different phone number.';
       }
       
       return response.status(HttpStatus.CONFLICT).json({

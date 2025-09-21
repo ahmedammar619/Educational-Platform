@@ -152,17 +152,21 @@ const ChildAccountCreation = ({ user, onSuccess, onCancel }) => {
       // Dismiss loading toast and show error toast
       dismissToast(loadingToast);
       
-      // Handle different types of errors
+      // Handle different types of errors - show the actual error message from backend
       let errorMessage = 'Failed to create child account. Please try again.';
       const statusCode = err.response?.status;
       
-      if (err.response?.data) {
-        // Try multiple possible error message fields
-        errorMessage = err.response.data.message || 
-                      err.response.data.error || 
-                      err.response.data.details ||
-                      err.response.data.error_description ||
-                      'Failed to create child account. Please try again.';
+      // Priority order for extracting the real error message
+      if (err.response?.data?.message) {
+        errorMessage = err.response.data.message;
+      } else if (err.response?.data?.error) {
+        errorMessage = err.response.data.error;
+      } else if (err.response?.data?.details) {
+        errorMessage = err.response.data.details;
+      } else if (err.response?.data?.error_description) {
+        errorMessage = err.response.data.error_description;
+      } else if (err.response?.message) {
+        errorMessage = err.response.message;
       } else if (err.message) {
         errorMessage = err.message;
       } else if (err.error) {

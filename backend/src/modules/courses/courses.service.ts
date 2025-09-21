@@ -74,14 +74,14 @@ export class CoursesService {
         where: { id: teacherId, role: Role.Teacher }
       });
       if (!teacher) {
-        throw new BadRequestException('Teacher not found or invalid role');
+        throw new BadRequestException('Selected teacher not found or does not have teacher role. Please select a valid teacher.');
       }
     }
 
     // Verify class exists
     const classEntity = await this.classRepository.findOne({ where: { id: classId } });
     if (!classEntity) {
-      throw new BadRequestException('Class not found');
+      throw new BadRequestException('Selected class not found. Please select a valid class.');
     }
 
       // Validate session times if provided
@@ -191,7 +191,7 @@ export class CoursesService {
     console.log('Course sessions length:', course?.sessions?.length);
 
     if (!course) {
-      throw new NotFoundException(`Course with ID ${id} not found`);
+      throw new NotFoundException('Course not found. It may have been deleted or moved.');
     }
 
     // Add teacherName to the course
@@ -227,7 +227,7 @@ export class CoursesService {
           where: { id: updateCourseDto.teacherId, role: Role.Teacher }
         });
         if (!newTeacher) {
-          throw new BadRequestException('Teacher not found or invalid role');
+          throw new BadRequestException('Selected teacher not found or does not have teacher role. Please select a valid teacher.');
         }
       }
     }
@@ -237,7 +237,7 @@ export class CoursesService {
         where: { id: updateCourseDto.classId } 
       });
       if (!classEntity) {
-        throw new BadRequestException('Class not found');
+        throw new BadRequestException('Selected class not found. Please select a valid class.');
       }
     }
 

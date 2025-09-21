@@ -31,7 +31,7 @@ export class TeachersService {
     });
 
     if (!teacher) {
-      throw new NotFoundException('Teacher not found');
+      throw new NotFoundException('Teacher not found. The teacher may have been deleted or moved.');
     }
 
     return {
@@ -51,7 +51,7 @@ export class TeachersService {
     });
 
     if (!teacher) {
-      throw new NotFoundException('Teacher not found');
+      throw new NotFoundException('Teacher not found. The teacher may have been deleted or moved.');
     }
 
     // Only allow updating courses array
@@ -73,7 +73,7 @@ export class TeachersService {
 
     if (!teacher) {
       console.log('❌ Teacher not found for ID:', teacherId);
-      throw new NotFoundException('Teacher not found');
+      throw new NotFoundException('Teacher not found. The teacher may have been deleted or moved.');
     }
 
     console.log('✅ Teacher found:', teacher.user.firstName, teacher.user.lastName);
@@ -198,7 +198,7 @@ export class TeachersService {
     });
 
     if (!teacher) {
-      throw new NotFoundException('Teacher not found');
+      throw new NotFoundException('Teacher not found. The teacher may have been deleted or moved.');
     }
 
     return teacher;
@@ -210,7 +210,7 @@ export class TeachersService {
     });
 
     if (!teacher) {
-      throw new NotFoundException('Teacher not found');
+      throw new NotFoundException('Teacher not found. The teacher may have been deleted or moved.');
     }
 
     // Comprehensive cleanup of all teacher references
@@ -331,7 +331,7 @@ export class TeachersService {
     });
 
     if (!teacher) {
-      throw new NotFoundException('Teacher not found');
+      throw new NotFoundException('Teacher not found. The teacher may have been deleted or moved.');
     }
 
     // Get all courses assigned to this teacher

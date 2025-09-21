@@ -92,7 +92,20 @@ const TeacherClasses = ({ user }) => {
     } catch (error) {
       console.error('Error loading classes:', error);
       setClasses([]);
-      showErrorToast(error, 'Failed to load classes. Please try again.');
+      
+      // Extract the actual error message from backend
+      let errorMessage = 'Failed to load classes. Please try again.';
+      if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error.response?.data?.error) {
+        errorMessage = error.response.data.error;
+      } else if (error.response?.message) {
+        errorMessage = error.response.message;
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      showErrorToast(errorMessage);
     } finally {
       setLoading(false);
     }

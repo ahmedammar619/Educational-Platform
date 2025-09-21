@@ -52,21 +52,21 @@ export class AuthService {
     });
 
     if (existingUser) {
-      throw new ConflictException('User already exists with this email');
+      throw new ConflictException('This email address is already registered. Please use a different email or try logging in.');
     }
 
     // Validate required fields based on role
     if (role === Role.Parent && !userData.phone) {
-      throw new BadRequestException('Phone number is required for parents');
+      throw new BadRequestException('Phone number is required for parent accounts. Please provide a valid phone number.');
     }
     
     if (role === Role.Student && !userData.birthDate) {
-      throw new BadRequestException('Birth date is required for students');
+      throw new BadRequestException('Birth date is required for student accounts. Please provide a valid birth date.');
     }
 
     // Phone number is required for students when signing up publicly
     if (role === Role.Student && !userData.phone) {
-      throw new BadRequestException('Phone number is required for students');
+      throw new BadRequestException('Phone number is required for student accounts. Please provide a valid phone number.');
     }
 
     // Hash password (optimized: 10 rounds for better performance while maintaining security)
@@ -204,7 +204,7 @@ export class AuthService {
     });
 
     if (existingUser) {
-      throw new ConflictException('User already exists with this email');
+      throw new ConflictException('This email address is already registered. Please use a different email or try logging in.');
     }
 
     // Create a temporary user with minimal data

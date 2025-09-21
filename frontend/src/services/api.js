@@ -90,12 +90,16 @@ api.interceptors.response.use(
         });
       }
     } else if (error.response?.status >= 500) {
-      // Show server error toast
+      // Show server error toast with actual error message
+      const errorMessage = error.response?.data?.message || 
+                          error.response?.data?.error || 
+                          'Server error occurred. Please try again later.';
+      
       if (window.toastManager) {
         window.toastManager.addToast({
           type: 'error',
           title: 'Server Error',
-          description: 'Something went wrong on our end. Please try again later.',
+          description: errorMessage,
           showLeftBar: true,
           showDescription: true,
           duration: 5000

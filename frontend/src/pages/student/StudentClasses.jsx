@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { BookOpen, Clock, User, MapPin, Calendar, CheckCircle, Users, Search, Filter, ChevronDown, ChevronRight, ExternalLink } from 'lucide-react';
 import studentsService from '../../services/studentsService';
-import { showErrorToast, showSuccessToast } from '../../utils/errorHandler';
+import { showErrorToast, showSuccessToast } from '../../utils/toast.js';
 
 
 
@@ -51,8 +51,21 @@ const StudentClasses = ({ user, onOpenMaterials }) => {
       setEnrolledClasses(response || []);
     } catch (error) {
       console.error('Error loading student classes:', error);
-      showErrorToast('Failed to load classes. Please try again.');
       setEnrolledClasses([]);
+      
+      // Extract the actual error message from backend
+      let errorMessage = 'Failed to load classes. Please try again.';
+      if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error.response?.data?.error) {
+        errorMessage = error.response.data.error;
+      } else if (error.response?.message) {
+        errorMessage = error.response.message;
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      showErrorToast(errorMessage);
     } finally {
       setLoading(false);
     }

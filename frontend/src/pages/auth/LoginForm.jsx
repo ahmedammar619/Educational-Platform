@@ -112,8 +112,13 @@ const LoginForm = React.memo(({ onLogin, onRegister, onProfileCompletion, onLogo
           // Extract error message from authentication error
           let errorMessage = 'Invalid credentials. Please check your email and password.';
 
+          // Priority order: response data message > response message > error message > string
           if (authError.response?.data?.message) {
             errorMessage = authError.response.data.message;
+          } else if (authError.response?.data?.error) {
+            errorMessage = authError.response.data.error;
+          } else if (authError.response?.message) {
+            errorMessage = authError.response.message;
           } else if (authError.message) {
             errorMessage = authError.message;
           } else if (typeof authError === 'string') {
@@ -182,6 +187,17 @@ const LoginForm = React.memo(({ onLogin, onRegister, onProfileCompletion, onLogo
       // Extract error message from different possible error formats
       let errorMessage = 'An unexpected error occurred. Please try again.';
       const statusCode = error.response?.status;
+
+      // Get the actual error message from the response
+      if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error.response?.data?.error) {
+        errorMessage = error.response.data.error;
+      } else if (error.response?.message) {
+        errorMessage = error.response.message;
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
 
       if (error.response?.data) {
         // Try multiple possible error message fields

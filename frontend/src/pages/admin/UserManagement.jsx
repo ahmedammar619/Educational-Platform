@@ -1166,16 +1166,20 @@ const UserModal = ({ title, user, onClose, onSubmit }) => {
     } catch (error) {
       console.error('Error in UserModal submit:', error);
       
-      // Handle different types of errors - extract the most detailed error message
+      // Handle different types of errors - extract the actual error message from backend
       let errorMessage = 'An unexpected error occurred. Please try again.';
       
-      if (error.response?.data) {
-        // Try multiple possible error message fields
-        errorMessage = error.response.data.message || 
-                      error.response.data.error || 
-                      error.response.data.details ||
-                      error.response.data.error_description ||
-                      'An unexpected error occurred. Please try again.';
+      // Priority order for extracting the real error message
+      if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error.response?.data?.error) {
+        errorMessage = error.response.data.error;
+      } else if (error.response?.data?.details) {
+        errorMessage = error.response.data.details;
+      } else if (error.response?.data?.error_description) {
+        errorMessage = error.response.data.error_description;
+      } else if (error.response?.message) {
+        errorMessage = error.response.message;
       } else if (error.message) {
         errorMessage = error.message;
       }
