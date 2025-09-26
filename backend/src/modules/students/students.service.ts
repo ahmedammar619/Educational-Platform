@@ -364,7 +364,6 @@ export class StudentsService {
       name: classEntity.name,
       startDate: classEntity.startDate,
       endDate: classEntity.endDate,
-      price: classEntity.price,
       numberOfStudents: studentCount,
       status: 'active', // Default status since Class entity doesn't have status field
       courses: classEntity.courses?.map(course => ({

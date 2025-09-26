@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Edit, Trash2, Users, Calendar, DollarSign, BookOpen, Search, Filter, User, X, ChevronDown, ChevronRight, UserMinus, ArrowUp } from 'lucide-react';
+import { Plus, Edit, Trash2, Users, Calendar, BookOpen, Search, Filter, User, X, ChevronDown, ChevronRight, UserMinus, ArrowUp } from 'lucide-react';
 import { classesService, usersService, coursesService } from '../../services';
 import { showErrorToast, showSuccessToast, getErrorMessage } from '../../utils/errorHandler';
 import { showWarningToast } from '../../utils/toast.js';
@@ -180,10 +180,8 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
 
     setIsCreatingClass(true);
     try {
-      // Convert price to number and ensure it's valid
       const processedClassData = {
-        ...classData,
-        price: parseFloat(classData.price) || 0
+        ...classData
       };
       
       const newClass = await classesService.createClass(processedClassData);
@@ -276,10 +274,8 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
 
   const handleUpdateClass = async (classId, classData) => {
     try {
-      // Convert price to number and ensure it's valid
       const processedClassData = {
-        ...classData,
-        price: parseFloat(classData.price) || 0
+        ...classData
       };
       
       const updatedClass = await classesService.updateClass(classId, processedClassData);
@@ -662,12 +658,6 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
                     </div>
                     <div className="text-center bg-gray-50 rounded-lg p-3">
                       <p className="text-xs text-gray-500 flex items-center justify-center gap-1 mb-1">
-                        <DollarSign className="h-3 w-3 text-gray-400" /> Price
-                      </p>
-                      <p className="font-medium text-gray-900 text-sm">${classItem.price || 0}</p>
-                    </div>
-                    <div className="text-center bg-gray-50 rounded-lg p-3">
-                      <p className="text-xs text-gray-500 flex items-center justify-center gap-1 mb-1">
                         <Users className="h-3 w-3 text-gray-400" /> Students
                       </p>
                       <p className="font-medium text-gray-900 text-sm">{classItem.numberOfStudents || 0}</p>
@@ -990,16 +980,14 @@ const ClassModal = ({ title, classData, onClose, onSubmit, isCreatingClass = fal
   const [formData, setFormData] = useState({
     name: classData?.name || '',
     startDate: classData?.startDate || '',
-    endDate: classData?.endDate || '',
-    price: classData?.price || ''
+    endDate: classData?.endDate || ''
   });
 
   useEffect(() => {
     setFormData({
       name: classData?.name || '',
       startDate: classData?.startDate || '',
-      endDate: classData?.endDate || '',
-      price: classData?.price || ''
+      endDate: classData?.endDate || ''
     });
   }, [classData]);
 
@@ -1031,24 +1019,7 @@ const ClassModal = ({ title, classData, onClose, onSubmit, isCreatingClass = fal
       return;
     }
     
-    // Validate price
-    const price = parseFloat(formData.price);
-    if (isNaN(price) || price < 0) {
-      showAlert({
-        title: 'Invalid Price',
-        message: 'Please enter a valid price (must be a number greater than or equal to 0)',
-        type: 'warning'
-      });
-      return;
-    }
-    
-    // Ensure price is a number in the form data
-    const validatedFormData = {
-      ...formData,
-      price: price
-    };
-    
-    onSubmit(validatedFormData);
+    onSubmit(formData);
   };
 
   return (
@@ -1100,19 +1071,6 @@ const ClassModal = ({ title, classData, onClose, onSubmit, isCreatingClass = fal
               />
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Price (USD)</label>
-              <input
-                type="number"
-                min="0"
-                step="0.01"
-                placeholder="0.00"
-                required
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                value={formData.price}
-                onChange={(e) => setFormData({ ...formData, price: e.target.value })}
-              />
-            </div>
 
             <div className="flex justify-end space-x-3 pt-4">
               <button
@@ -2097,7 +2055,7 @@ const LevelUpModal = ({ classData, onClose, onSubmit, showConfirmation, showAler
                   <option value="">Choose a class to move students to</option>
                   {availableClasses.map((classItem) => (
                     <option key={classItem.id} value={classItem.id}>
-                      {classItem.name} - {classItem.price || 0} USD
+                      {classItem.name}
                     </option>
                   ))}
                 </select>

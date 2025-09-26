@@ -15,9 +15,6 @@ export class ClassResponseDto {
   endDate: Date;
 
   @Expose()
-  price: number;
-
-  @Expose()
   courseIds?: string[];
 
   @Expose()

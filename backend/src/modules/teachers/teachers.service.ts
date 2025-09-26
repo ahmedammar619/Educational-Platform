@@ -113,7 +113,6 @@ export class TeachersService {
             name: classEntity.name,
             startDate: classEntity.startDate,
             endDate: classEntity.endDate,
-            price: classEntity.price,
             students: studentIds,
             studentCount: studentIds.length,
             numberOfStudents: studentIds.length, // For backward compatibility
