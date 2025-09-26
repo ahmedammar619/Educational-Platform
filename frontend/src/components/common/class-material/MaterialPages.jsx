@@ -4,6 +4,7 @@ import PostsTab from './PostsTab';
 import FilesTab from './FilesTab';
 import AttendanceTab from './AttendanceTab';
 import ZoomTab from './ZoomTab';
+import AgoraTab from './AgoraTab';
 import AssignmentsTab from './AssignmentsTab';
 import { materialsService } from '../../../services';
 
@@ -102,6 +103,10 @@ const MaterialPages = ({ courseData, onBack, currentUser }) => {
     return currentUser?.role === 'admin' || currentUser?.role === 'teacher' || currentUser?.role === 'student';
   };
 
+  const canViewAgora = () => {
+    return currentUser?.role === 'admin' || currentUser?.role === 'teacher' || currentUser?.role === 'student';
+  };
+
   const canViewAssignments = () => {
     return currentUser?.role === 'admin' || currentUser?.role === 'teacher' || currentUser?.role === 'student';
   };
@@ -112,6 +117,7 @@ const MaterialPages = ({ courseData, onBack, currentUser }) => {
     if (canViewFiles()) return 'files';
     if (canViewAssignments()) return 'assignments';
     if (canViewAttendance()) return 'attendance';
+    if (canViewAgora()) return 'agora';
     if (canViewZoom()) return 'zoom';
     return 'posts'; // fallback
   };
@@ -140,6 +146,7 @@ const MaterialPages = ({ courseData, onBack, currentUser }) => {
     if (canViewFiles()) tabs.push({ id: 'files', label: 'Files' });
     if (canViewAssignments()) tabs.push({ id: 'assignments', label: 'Assignments' });
     if (canViewAttendance()) tabs.push({ id: 'attendance', label: 'Attendance' });
+    if (canViewAgora()) tabs.push({ id: 'agora', label: 'Agora' });
     if (canViewZoom()) tabs.push({ id: 'zoom', label: 'Zoom' });
     return tabs;
   };
@@ -153,6 +160,7 @@ const MaterialPages = ({ courseData, onBack, currentUser }) => {
       case 'files': return canViewFiles();
       case 'assignments': return canViewAssignments();
       case 'attendance': return canViewAttendance();
+      case 'agora': return canViewAgora();
       case 'zoom': return canViewZoom();
       default: return false;
     }
@@ -212,6 +220,9 @@ const MaterialPages = ({ courseData, onBack, currentUser }) => {
           )}
           {activeTab === 'attendance' && (
             <AttendanceTab currentUser={currentUser} theme={theme} courseId={courseData?.id} />
+          )}
+          {activeTab === 'agora' && (
+            <AgoraTab currentUser={currentUser} theme={theme} courseId={courseData?.id} />
           )}
           {activeTab === 'zoom' && (
             <ZoomTab currentUser={currentUser} theme={theme} courseId={courseData?.id} />

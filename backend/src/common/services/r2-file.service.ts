@@ -151,6 +151,63 @@ export class R2FileService {
     }
   }
 
+  async uploadStream(stream: any, key: string, contentType: string): Promise<void> {
+    try {
+      // Convert stream to buffer
+      const chunks: Buffer[] = [];
+      
+      return new Promise((resolve, reject) => {
+        stream.on('data', (chunk: Buffer) => {
+          chunks.push(chunk);
+        });
+        
+        stream.on('end', async () => {
+          try {
+            const buffer = Buffer.concat(chunks);
+            
+            const uploadCommand = new PutObjectCommand({
+              Bucket: this.bucketName,
+              Key: key,
+              Body: buffer,
+              ContentType: contentType,
+              ContentLength: buffer.length,
+            });
+
+            await this.s3Client.send(uploadCommand);
+            this.logger.log(`Stream uploaded successfully: ${key}`);
+            resolve();
+          } catch (error) {
+            this.logger.error(`Stream upload failed: ${error.message}`, error.stack);
+            reject(error);
+          }
+        });
+        
+        stream.on('error', (error: Error) => {
+          this.logger.error(`Stream error: ${error.message}`, error.stack);
+          reject(error);
+        });
+      });
+    } catch (error) {
+      this.logger.error(`Stream upload failed: ${error.message}`, error.stack);
+      throw new InternalServerErrorException(`Stream upload failed: ${error.message}`);
+    }
+  }
+
+  async getSignedUrl(key: string, expiresIn: number = 3600): Promise<string> {
+    try {
+      const command = new GetObjectCommand({
+        Bucket: this.bucketName,
+        Key: key,
+      });
+
+      const signedUrl = await getSignedUrl(this.s3Client, command, { expiresIn });
+      return signedUrl;
+    } catch (error) {
+      this.logger.error(`Failed to generate signed URL: ${error.message}`, error.stack);
+      throw new InternalServerErrorException(`Failed to generate signed URL: ${error.message}`);
+    }
+  }
+
   private validateFile(file: Express.Multer.File): void {
     if (!file) {
       throw new BadRequestException('No file provided');

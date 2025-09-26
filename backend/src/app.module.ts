@@ -25,6 +25,7 @@ import { CoursesModule } from './modules/courses/courses.module';
 import { MaterialsModule } from './modules/materials/materials.module';
 import { PaymentsModule } from './modules/payments/payments.module';
 import { ZoomModule } from './modules/zoom/zoom.module';
+import { AgoraModule } from './modules/agora/agora.module';
 import { AnnouncementsModule } from './modules/announcements/announcements.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 
@@ -55,6 +56,7 @@ import { WebhookEvent } from './modules/payments/entities/webhook-event.entity';
 import { Invoice } from './modules/payments/entities/invoice.entity';
 import { Subscription } from './modules/payments/entities/subscription.entity';
 import { ZoomMeeting } from './modules/zoom/entities/zoom-meeting.entity';
+import { AgoraMeeting } from './modules/agora/entities/agora-meeting.entity';
 import { AppConfig } from './modules/admin/entities/app-config.entity';
 import { AnnouncementPost } from './modules/announcements/entities/announcement-post.entity';
 import { AnnouncementPostAttachment } from './modules/announcements/entities/announcement-post-attachment.entity';
@@ -97,6 +99,7 @@ import { Notification } from './modules/notifications/entities/notification.enti
           Invoice,
           Subscription,
           ZoomMeeting,
+          AgoraMeeting,
           AppConfig,
           AnnouncementPost,
           AnnouncementPostAttachment,
@@ -134,6 +137,7 @@ import { Notification } from './modules/notifications/entities/notification.enti
     MaterialsModule,
     PaymentsModule,
     ZoomModule,
+    AgoraModule,
     AnnouncementsModule,
     NotificationsModule,
   ],

@@ -202,6 +202,23 @@ class EnvironmentVariables {
   @IsString()
   ZOOM_CLIENT_SECRET?: string;
 
+  // Agora Configuration
+  @IsOptional()
+  @IsString()
+  AGORA_APP_ID?: string;
+
+  @IsOptional()
+  @IsString()
+  AGORA_APP_CERTIFICATE?: string;
+
+  @IsOptional()
+  @IsString()
+  AGORA_CUSTOMER_ID?: string;
+
+  @IsOptional()
+  @IsString()
+  AGORA_CUSTOMER_CERTIFICATE?: string;
+
   // Notifications Configuration
   @IsOptional()
   @IsBoolean()

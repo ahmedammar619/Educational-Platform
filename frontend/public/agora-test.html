@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agora SDK Test</title>
+    <script src="https://web-cdn.agora.io/agora-rtc-sdk-ng/latest/AgoraRTC_N-4.19.0.js"></script>
+</head>
+<body>
+    <h1>Agora SDK Test</h1>
+    <div id="local-video"></div>
+    <div id="remote-videos"></div>
+    
+    <button onclick="testAgora()">Test Agora SDK</button>
+    
+    <script>
+        function testAgora() {
+            if (window.AgoraRTC) {
+                console.log('✅ Agora SDK loaded successfully');
+                console.log('AgoraRTC version:', window.AgoraRTC.VERSION);
+                
+                // Test basic functionality
+                const client = AgoraRTC.createClient({ mode: 'rtc', codec: 'vp8' });
+                console.log('✅ Agora client created successfully');
+                
+                alert('Agora SDK is working correctly!');
+            } else {
+                console.error('❌ Agora SDK not loaded');
+                alert('Agora SDK failed to load');
+            }
+        }
+        
+        // Auto-test on load
+        window.addEventListener('load', () => {
+            setTimeout(testAgora, 1000);
+        });
+    </script>
+</body>
+</html>
