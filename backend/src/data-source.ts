@@ -23,7 +23,6 @@ import { WebhookEvent } from './modules/payments/entities/webhook-event.entity';
 import { Invoice } from './modules/payments/entities/invoice.entity';
 import { Subscription } from './modules/payments/entities/subscription.entity';
 import { ZoomMeeting } from './modules/zoom/entities/zoom-meeting.entity';
-import { AgoraMeeting } from './modules/agora/entities/agora-meeting.entity';
 import { AppConfig } from './modules/admin/entities/app-config.entity';
 import { Notification } from './modules/notifications/entities/notification.entity';
 
@@ -54,7 +53,6 @@ export const AppDataSource = new DataSource({
     Invoice,
     Subscription,
     ZoomMeeting,
-    AgoraMeeting,
     AppConfig,
     Notification
   ],

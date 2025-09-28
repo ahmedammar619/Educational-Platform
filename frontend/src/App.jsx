@@ -10,7 +10,6 @@ import { authService } from './services';
 import { NotificationProvider } from './contexts/NotificationContext';
 import ToastContainer from './components/ui/ToastContainer';
 import { showInfoToast } from './utils/toast.js';
-import AgoraTest from './components/meetings/AgoraTest';
 import './App.css';
 
 // Error Boundary Component
@@ -189,8 +188,6 @@ function App() {
               <Route path="/forgot-password" element={<ForgotPasswordPage />} />
               <Route path="/reset-password" element={<ResetPasswordPage />} />
               
-              {/* Agora SDK test route - always accessible */}
-              <Route path="/agora-test" element={<AgoraTest />} />
               
               {/* All other routes */}
               <Route path="*" element={
