@@ -27,9 +27,6 @@ export class Class {
   @Column({ type: 'simple-array', nullable: true, default: '' })
   courseIds: string[];
 
-  @Column({ type: 'simple-array', nullable: true, default: '' })
-  students: string[];
-
   @CreateDateColumn()
   createdAt: Date;
 
@@ -40,6 +37,6 @@ export class Class {
   @OneToMany('Course', 'class')
   courses: any[];
 
-  // Note: students are stored as an array of IDs in the students field above
-  // The ManyToMany relationship is not used in this implementation
+  // Note: students are now tracked in individual course.students arrays
+  // Class-level enrollment adds students to all course.students arrays
 }

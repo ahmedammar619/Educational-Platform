@@ -71,8 +71,12 @@ const UserManagement = ({ user }) => {
       // Create a map of students by their user ID for quick lookup
       const studentsMap = new Map();
       students.forEach(student => {
-        studentsMap.set(student.user.id, {
-          ...student.user,
+        // Students are now flattened by the backend service
+        studentsMap.set(student.id, {
+          id: student.id,
+          firstName: student.firstName,
+          lastName: student.lastName,
+          email: student.email,
           birthDate: student.birthDate,
           parentId: student.parentId,
           isStudent: true
@@ -90,7 +94,10 @@ const UserManagement = ({ user }) => {
         if (u.role === 'parent') {
           // For parents, find their children from the students data
           const children = students.filter(s => s.parentId === u.id).map(s => ({
-            ...s.user,
+            id: s.id,
+            firstName: s.firstName,
+            lastName: s.lastName,
+            email: s.email,
             birthDate: s.birthDate,
             parentId: s.parentId,
             isStudent: true

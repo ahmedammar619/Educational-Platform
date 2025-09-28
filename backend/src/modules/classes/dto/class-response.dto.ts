@@ -24,9 +24,5 @@ export class ClassResponseDto {
   updatedAt: Date;
 
   @Expose()
-  @Type(() => User)
-  students?: User[];
-
-  @Expose()
-  studentCount?: number;
+  numberOfStudents?: number;
 }

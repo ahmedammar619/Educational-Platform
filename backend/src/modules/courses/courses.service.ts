@@ -1,10 +1,11 @@
-import { Injectable, NotFoundException, BadRequestException, Inject, forwardRef } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Inject, forwardRef ,ConflictException} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, In } from 'typeorm';
 import { Course, SessionData } from './entities/course.entity';
 import { Class } from '../classes/entities/class.entity';
 import { User } from '../users/entities/user.entity';
 import { Teacher } from '../teachers/entities/teacher.entity';
+import { Student } from '../students/entities/student.entity';
 import { CreateCourseDto } from './dto/create-course.dto';
 import { UpdateCourseDto } from './dto/update-course.dto';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -32,6 +33,8 @@ export class CoursesService {
     private readonly userRepository: Repository<User>,
     @InjectRepository(Teacher)
     private readonly teacherRepository: Repository<Teacher>,
+    @InjectRepository(Student)
+    private readonly studentRepository: Repository<Student>,
     @Inject(forwardRef(() => NotificationsService))
     private readonly notificationsService: NotificationsService,
     // Materials repositories for cascading deletion
@@ -208,11 +211,69 @@ export class CoursesService {
       order: { createdAt: 'DESC' }
     });
     
-    // Add teacherName to each course
-    return courses.map(course => ({
-      ...course,
-      teacherName: course.teacher ? `${course.teacher.firstName} ${course.teacher.lastName}` : null
-    })) as any;
+    // Get enrolled students for each course
+    const coursesWithEnrollments = await Promise.all(courses.map(async (course) => {
+      // Get students enrolled in this course (both through class and individual enrollment)
+      const enrolledStudents = await this.getStudentsInCourse(course.id);
+      
+      console.log(`🔍 Course ${course.name} (${course.id}):`);
+      console.log(`  - Course.students array:`, course.students);
+      console.log(`  - Enrolled students found:`, enrolledStudents.length);
+      console.log(`  - Student details:`, enrolledStudents.map(s => `${s.firstName} ${s.lastName}`));
+      
+      return {
+        ...course,
+        teacherName: course.teacher ? `${course.teacher.firstName} ${course.teacher.lastName}` : null,
+        enrolledStudents: enrolledStudents
+      } as any;
+    }));
+
+    console.log('📋 Final courses with enrollments:', coursesWithEnrollments.map(c => ({
+      name: c.name,
+      enrolledStudentsCount: c.enrolledStudents?.length || 0
+    })));
+
+    return coursesWithEnrollments;
+  }
+
+  async enrollStudentInCourse(courseId: string, studentId: string): Promise<Course> {
+    const course = await this.courseRepository.findOne({ where: { id: courseId } });
+    if (!course) {
+      throw new NotFoundException('Course not found');
+    }
+
+    const existingStudents = course.students || [];
+    if (existingStudents.includes(studentId)) {
+      throw new ConflictException('Student is already enrolled in this course');
+    }
+
+    course.students = [...existingStudents, studentId];
+    return this.courseRepository.save(course);
+  }
+
+  async unenrollStudentFromCourse(courseId: string, studentId: string): Promise<Course> {
+    const course = await this.courseRepository.findOne({ where: { id: courseId } });
+    if (!course) {
+      throw new NotFoundException('Course not found');
+    }
+
+    const existingStudents = course.students || [];
+    if (!existingStudents.includes(studentId)) {
+      throw new NotFoundException('Student is not enrolled in this course');
+    }
+
+    course.students = existingStudents.filter(id => id !== studentId);
+    return this.courseRepository.save(course);
+  }
+
+  async isStudentEnrolledInCourse(courseId: string, studentId: string): Promise<boolean> {
+    const course = await this.courseRepository.findOne({ where: { id: courseId } });
+    if (!course) {
+      return false;
+    }
+
+    const students = course.students || [];
+    return students.includes(studentId);
   }
 
   async updateCourse(id: string, updateCourseDto: UpdateCourseDto): Promise<Course> {
@@ -503,5 +564,33 @@ export class CoursesService {
   private parseTime(timeString: string): number {
     const [hours, minutes] = timeString.split(':').map(Number);
     return hours * 60 + minutes; // Convert to minutes for comparison
+  }
+
+  // Helper method to get students in a course
+  async getStudentsInCourse(courseId: string): Promise<any[]> {
+    const course = await this.courseRepository.findOne({
+      where: { id: courseId },
+      relations: ['class']
+    });
+
+    if (!course) {
+      return [];
+    }
+
+    // Only get students from course.students array
+    // Class enrollment and individual enrollment both add students to this array
+    const studentIds = course.students || [];
+
+    if (studentIds.length === 0) {
+      return [];
+    }
+
+    // Get students with their parent information, similar to class students endpoint
+    const students = await this.studentRepository.find({
+      where: { id: In(studentIds) },
+      relations: ['user', 'parent']
+    });
+
+    return students;
   }
 }

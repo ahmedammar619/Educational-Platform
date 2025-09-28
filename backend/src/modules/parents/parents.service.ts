@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, ConflictException, Inject, forwardRef } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, In } from 'typeorm';
 import { Parent } from './entities/parent.entity';
 import { User } from '../users/entities/user.entity';
 import { Class } from '../classes/entities/class.entity';
@@ -612,21 +612,21 @@ export class ParentsService {
           email: childUser.email
         });
 
-        // Get child's class and all courses in that class
+        // Get child's enrolled courses and their details
         const student = await this.studentRepository.findOne({
           where: { id: childId },
           relations: ['class']
         });
 
-        if (student && student.class) {
-          // Get all courses in the child's class
-          const classCourses = await this.courseRepository.find({
-            where: { classId: student.class.id },
-            relations: ['teacher']
+        if (student && student.courseIds && student.courseIds.length > 0) {
+          // Get only the courses the student is actually enrolled in
+          const enrolledCourses = await this.courseRepository.find({
+            where: { id: In(student.courseIds) },
+            relations: ['teacher', 'class']
           });
 
-          // Process each course to get teacher information
-          for (const course of classCourses) {
+          // Process each enrolled course to get teacher information
+          for (const course of enrolledCourses) {
             if (course.teacher) {
               const teacherId = course.teacher.id;
               
@@ -649,7 +649,8 @@ export class ParentsService {
               if (!courseExists) {
                 teacher.courses.push({
                   id: course.id,
-                  name: course.name
+                  name: course.name,
+                  className: course.class ? course.class.name : 'Unknown Class'
                 });
               }
               
@@ -662,7 +663,8 @@ export class ParentsService {
                   lastName: childUser.lastName,
                   courses: [{
                     id: course.id,
-                    name: course.name
+                    name: course.name,
+                    className: course.class ? course.class.name : 'Unknown Class'
                   }]
                 });
               } else {
@@ -671,7 +673,8 @@ export class ParentsService {
                 if (!childCourseExists) {
                   childExists.courses.push({
                     id: course.id,
-                    name: course.name
+                    name: course.name,
+                    className: course.class ? course.class.name : 'Unknown Class'
                   });
                 }
               }

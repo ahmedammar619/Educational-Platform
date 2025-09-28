@@ -34,6 +34,9 @@ export class Course {
   @Column('json', { nullable: true })
   sessions: SessionData[];
 
+  @Column({ type: 'simple-array', nullable: true, default: '' })
+  students: string[];
+
   @CreateDateColumn()
   createdAt: Date;
 

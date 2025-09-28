@@ -1,4 +1,5 @@
-import { Expose } from 'class-transformer';
+import { Expose, Type } from 'class-transformer';
+import { User } from '../../users/entities/user.entity';
 
 export class CourseResponseDto {
   @Expose()
@@ -24,4 +25,8 @@ export class CourseResponseDto {
 
   @Expose()
   sessions?: any[];
+
+  @Expose()
+  @Type(() => User)
+  enrolledStudents?: User[];
 }

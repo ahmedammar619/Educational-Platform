@@ -28,6 +28,8 @@ export class CoursesController {
 
   @Post()
   @Roles(Role.Admin)
+  @ApiOperation({ summary: 'Create a new course (Admin only)' })
+  @ApiResponse({ status: 201, description: 'Course created successfully' })
   async createCourse(@Body() createCourseDto: CreateCourseDto): Promise<CourseResponseDto> {
     const course = await this.coursesService.createCourse(createCourseDto);
     return plainToClass(CourseResponseDto, course, { excludeExtraneousValues: true });
@@ -35,6 +37,8 @@ export class CoursesController {
 
   @Get()
   @Roles(Role.Admin, Role.Teacher)
+  @ApiOperation({ summary: 'Get all courses (Admin/Teacher only)' })
+  @ApiResponse({ status: 200, description: 'Courses retrieved successfully' })
   async findAllCourses(): Promise<CourseResponseDto[]> {
     const courses = await this.coursesService.findAllCourses();
     return courses.map(course => 
@@ -44,15 +48,35 @@ export class CoursesController {
 
   @Get('class/:classId')
   @Roles(Role.Admin, Role.Teacher)
+  @ApiOperation({ summary: 'Get all courses in a class with enrolled students (Admin/Teacher only)' })
+  @ApiResponse({ status: 200, description: 'Courses with enrolled students retrieved successfully' })
   async findCoursesByClass(@Param('classId') classId: string): Promise<CourseResponseDto[]> {
+    console.log('🎯 Controller: findCoursesByClass called for classId:', classId);
+    console.log('🎯 Controller: Request received at:', new Date().toISOString());
+    
     const courses = await this.coursesService.findCoursesByClass(classId);
-    return courses.map(course => 
+    console.log('📋 Controller: Raw courses from service:', courses.map((c: any) => ({
+      name: c.name,
+      enrolledStudentsCount: c.enrolledStudents?.length || 0,
+      enrolledStudents: c.enrolledStudents
+    })));
+    
+    const mappedCourses = courses.map(course => 
       plainToClass(CourseResponseDto, course, { excludeExtraneousValues: true })
     );
+    
+    console.log('📋 Controller: Mapped courses for response:', mappedCourses.map(c => ({
+      name: c.name,
+      enrolledStudentsCount: c.enrolledStudents?.length || 0
+    })));
+    
+    return mappedCourses;
   }
 
   @Get(':id')
   @Roles(Role.Admin, Role.Teacher, Role.Student)
+  @ApiOperation({ summary: 'Get course by ID with enrolled students (Protected)' })
+  @ApiResponse({ status: 200, description: 'Course with enrolled students retrieved successfully' })
   async findCourseById(@Param('id') id: string): Promise<CourseResponseDto> {
     const course = await this.coursesService.findCourseById(id);
     return plainToClass(CourseResponseDto, course, { excludeExtraneousValues: true });
@@ -60,6 +84,8 @@ export class CoursesController {
 
   @Patch(':id')
   @Roles(Role.Admin)
+  @ApiOperation({ summary: 'Update course information (Admin only)' })
+  @ApiResponse({ status: 200, description: 'Course updated successfully' })
   async updateCourse(
     @Param('id') id: string,
     @Body() updateCourseDto: UpdateCourseDto,
@@ -70,9 +96,19 @@ export class CoursesController {
 
   @Delete(':id')
   @Roles(Role.Admin)
+  @ApiOperation({ summary: 'Delete a course (Admin only)' })
+  @ApiResponse({ status: 200, description: 'Course deleted successfully' })
   async deleteCourse(@Param('id') id: string): Promise<void> {
     await this.coursesService.deleteCourse(id);
   }
 
+  @Get(':id/students')
+  @Roles(Role.Admin, Role.Teacher)
+  @ApiOperation({ summary: 'Get students enrolled in a course (Admin/Teacher only)' })
+  @ApiResponse({ status: 200, description: 'Course students retrieved successfully' })
+  async getCourseStudents(@Param('id') id: string) {
+    const students = await this.coursesService.getStudentsInCourse(id);
+    return { students };
+  }
 
 }

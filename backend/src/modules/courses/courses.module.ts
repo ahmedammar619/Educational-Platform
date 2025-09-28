@@ -6,6 +6,7 @@ import { Course } from './entities/course.entity';
 import { Class } from '../classes/entities/class.entity';
 import { User } from '../users/entities/user.entity';
 import { Teacher } from '../teachers/entities/teacher.entity';
+import { Student } from '../students/entities/student.entity';
 import { NotificationsModule } from '../notifications/notifications.module';
 // Import materials entities for cascading deletion
 import { Post } from '../materials/entities/post.entity';
@@ -24,6 +25,7 @@ import { ZoomMeeting } from '../zoom/entities/zoom-meeting.entity';
       Class, 
       User, 
       Teacher,
+      Student,
       // Materials entities for cascading deletion
       Post,
       Folder,

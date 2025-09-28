@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Edit, Trash2, Users, Calendar, BookOpen, Search, Filter, User, X, ChevronDown, ChevronRight, UserMinus, ArrowUp } from 'lucide-react';
-import { classesService, usersService, coursesService } from '../../services';
+import { Plus, Edit, Trash2, Users, Calendar, BookOpen, Search, Filter, User, X, ChevronDown, ChevronRight, UserMinus, ArrowUp, UserPlus, UserX } from 'lucide-react';
+import { classesService, usersService, coursesService, studentsService } from '../../services';
 import { showErrorToast, showSuccessToast, getErrorMessage } from '../../utils/errorHandler';
 import { showWarningToast } from '../../utils/toast.js';
 import { ConfirmationDialog, AlertDialog } from '../../components/ui';
@@ -32,17 +32,46 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
   const [showEnrollModal, setShowEnrollModal] = useState(false);
   const [showRemoveStudentModal, setShowRemoveStudentModal] = useState(false);
   const [showLevelUpModal, setShowLevelUpModal] = useState(false);
+  const [showCourseEnrollModal, setShowCourseEnrollModal] = useState(false);
+  const [showCourseUnenrollModal, setShowCourseUnenrollModal] = useState(false);
   const [selectedClass, setSelectedClass] = useState(null);
   const [selectedCourse, setSelectedCourse] = useState(null);
   const [isCreatingCourse, setIsCreatingCourse] = useState(false);
+  const [allStudents, setAllStudents] = useState([]);
+  const [courseEnrolledStudents, setCourseEnrolledStudents] = useState([]);
+  const [enrollingStudents, setEnrollingStudents] = useState(new Set());
+  const [unenrollingStudents, setUnenrollingStudents] = useState(new Set());
+  const [courseEnrollingStudents, setCourseEnrollingStudents] = useState(new Set());
+  const [courseUnenrollingStudents, setCourseUnenrollingStudents] = useState(new Set());
 
   useEffect(() => {
     loadClasses();
+    loadAllStudents();
   }, []);
 
   useEffect(() => {
     filterClasses();
   }, [filters, classes]);
+
+  const loadAllStudents = async () => {
+    try {
+      const studentsData = await studentsService.getAllStudents();
+      setAllStudents(studentsData.students || []);
+    } catch (error) {
+      console.error('Error loading students:', error);
+      showErrorToast('Failed to load students');
+    }
+  };
+
+  const loadCourseEnrolledStudents = async (courseId) => {
+    try {
+      // This would need to be implemented in the backend
+      // For now, we'll use a placeholder
+      setCourseEnrolledStudents([]);
+    } catch (error) {
+      console.error('Error loading course enrolled students:', error);
+    }
+  };
 
   const loadClasses = async () => {
     try {
@@ -98,10 +127,20 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
           }
         }
         
+        // Get all unique students across all courses in this class
+        const allStudents = new Set();
+        courses.forEach(course => {
+          if (course.enrolledStudents) {
+            course.enrolledStudents.forEach(student => {
+              allStudents.add(student.id);
+            });
+          }
+        });
+
         return {
           ...classItem,
           courses: courses,
-          numberOfStudents: classItem.students ? classItem.students.length : (classItem.studentCount || 0)
+          numberOfStudents: allStudents.size
         };
       }));
       
@@ -458,6 +497,25 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
   };
 
   const handleEnrollStudents = async (classId, studentIds) => {
+    // Prevent double-clicking
+    if (enrollingStudents.has(classId)) {
+      console.warn('🚫 Student enrollment already in progress, ignoring duplicate request');
+      return;
+    }
+
+    setEnrollingStudents(prev => new Set(prev).add(classId));
+
+    // Set up timeout to prevent infinite loading (30 seconds)
+    const timeoutId = setTimeout(() => {
+      console.warn('⏰ Student enrollment timeout reached, clearing loading state');
+      setEnrollingStudents(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(classId);
+        return newSet;
+      });
+      showErrorToast('Student enrollment timed out. Please try again.');
+    }, 30000);
+
     try {
       await classesService.enrollStudents(classId, studentIds);
       // Reload classes to get updated student count
@@ -468,10 +526,159 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
     } catch (error) {
       console.error('Error enrolling students:', error);
       showErrorToast(error, 'Failed to enroll students. Please try again.');
+    } finally {
+      // Clear timeout and loading state
+      clearTimeout(timeoutId);
+      setEnrollingStudents(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(classId);
+        return newSet;
+      });
+    }
+  };
+
+  const handleCourseEnroll = async (courseId, studentIds) => {
+    // Prevent double-clicking
+    if (courseEnrollingStudents.has(courseId)) {
+      console.warn('🚫 Course enrollment already in progress, ignoring duplicate request');
+      return;
+    }
+
+    setCourseEnrollingStudents(prev => new Set(prev).add(courseId));
+
+    // Set up timeout to prevent infinite loading (30 seconds)
+    const timeoutId = setTimeout(() => {
+      console.warn('⏰ Course enrollment timeout reached, clearing loading state');
+      setCourseEnrollingStudents(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(courseId);
+        return newSet;
+      });
+      showErrorToast('Course enrollment timed out. Please try again.');
+    }, 30000);
+
+    try {
+      for (const studentId of studentIds) {
+        await studentsService.enrollStudentInCourse(studentId, courseId);
+      }
+      await loadClasses();
+      showSuccessToast('Students enrolled in course successfully!');
+      setShowCourseEnrollModal(false);
+      setSelectedCourse(null);
+    } catch (error) {
+      console.error('Error enrolling students in course:', error);
+      showErrorToast(error, 'Failed to enroll students in course. Please try again.');
+    } finally {
+      // Clear timeout and loading state
+      clearTimeout(timeoutId);
+      setCourseEnrollingStudents(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(courseId);
+        return newSet;
+      });
+    }
+  };
+
+  const handleCourseUnenroll = async (courseId, studentId) => {
+    // Prevent double-clicking
+    if (courseUnenrollingStudents.has(courseId)) {
+      console.warn('🚫 Course unenrollment already in progress, ignoring duplicate request');
+      return;
+    }
+
+    setCourseUnenrollingStudents(prev => new Set(prev).add(courseId));
+
+    // Set up timeout to prevent infinite loading (30 seconds)
+    const timeoutId = setTimeout(() => {
+      console.warn('⏰ Course unenrollment timeout reached, clearing loading state');
+      setCourseUnenrollingStudents(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(courseId);
+        return newSet;
+      });
+      showErrorToast('Course unenrollment timed out. Please try again.');
+    }, 30000);
+
+    try {
+      await studentsService.unenrollStudentFromCourse(studentId, courseId);
+      await loadClasses();
+      showSuccessToast('Student unenrolled from course successfully!');
+    } catch (error) {
+      console.error('Error unenrolling student from course:', error);
+      showErrorToast(error, 'Failed to unenroll student from course. Please try again.');
+    } finally {
+      // Clear timeout and loading state
+      clearTimeout(timeoutId);
+      setCourseUnenrollingStudents(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(courseId);
+        return newSet;
+      });
+    }
+  };
+
+  const handleCourseUnenrollMultiple = async (courseId, studentIds) => {
+    // Prevent double-clicking
+    if (courseUnenrollingStudents.has(courseId)) {
+      console.warn('🚫 Course unenrollment already in progress, ignoring duplicate request');
+      return;
+    }
+
+    setCourseUnenrollingStudents(prev => new Set(prev).add(courseId));
+
+    // Set up timeout to prevent infinite loading (30 seconds)
+    const timeoutId = setTimeout(() => {
+      console.warn('⏰ Course unenrollment timeout reached, clearing loading state');
+      setCourseUnenrollingStudents(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(courseId);
+        return newSet;
+      });
+      showErrorToast('Course unenrollment timed out. Please try again.');
+    }, 30000);
+
+    try {
+      for (const studentId of studentIds) {
+        await studentsService.unenrollStudentFromCourse(studentId, courseId);
+      }
+      await loadClasses();
+      showSuccessToast('Students unenrolled from course successfully!');
+      setShowCourseUnenrollModal(false);
+      setSelectedCourse(null);
+    } catch (error) {
+      console.error('Error unenrolling students from course:', error);
+      showErrorToast(error, 'Failed to unenroll students from course. Please try again.');
+    } finally {
+      // Clear timeout and loading state
+      clearTimeout(timeoutId);
+      setCourseUnenrollingStudents(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(courseId);
+        return newSet;
+      });
     }
   };
 
   const handleRemoveStudent = async (classId, studentId) => {
+    // Prevent double-clicking
+    if (unenrollingStudents.has(classId)) {
+      console.warn('🚫 Student removal already in progress, ignoring duplicate request');
+      return;
+    }
+
+    setUnenrollingStudents(prev => new Set(prev).add(classId));
+
+    // Set up timeout to prevent infinite loading (30 seconds)
+    const timeoutId = setTimeout(() => {
+      console.warn('⏰ Student removal timeout reached, clearing loading state');
+      setUnenrollingStudents(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(classId);
+        return newSet;
+      });
+      showErrorToast('Student removal timed out. Please try again.');
+    }, 30000);
+
     try {
       await classesService.removeStudentFromClass(classId, studentId);
       // Reload classes to get updated student count
@@ -482,10 +689,43 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
     } catch (error) {
       console.error('Error removing student:', error);
       showErrorToast(error, 'Failed to remove student. Please try again.');
+    } finally {
+      // Clear timeout and loading state
+      clearTimeout(timeoutId);
+      setUnenrollingStudents(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(classId);
+        return newSet;
+      });
     }
   };
 
   const handleLevelUpStudents = async (fromClassId, studentIds, toClassId) => {
+    // Prevent double-clicking
+    if (enrollingStudents.has(fromClassId) || unenrollingStudents.has(fromClassId)) {
+      console.warn('🚫 Student level up already in progress, ignoring duplicate request');
+      return;
+    }
+
+    setEnrollingStudents(prev => new Set(prev).add(fromClassId));
+    setUnenrollingStudents(prev => new Set(prev).add(fromClassId));
+
+    // Set up timeout to prevent infinite loading (30 seconds)
+    const timeoutId = setTimeout(() => {
+      console.warn('⏰ Student level up timeout reached, clearing loading state');
+      setEnrollingStudents(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(fromClassId);
+        return newSet;
+      });
+      setUnenrollingStudents(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(fromClassId);
+        return newSet;
+      });
+      showErrorToast('Student level up timed out. Please try again.');
+    }, 30000);
+
     try {
       // First, remove students from the current class
       for (const studentId of studentIds) {
@@ -503,6 +743,19 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
     } catch (error) {
       console.error('Error leveling up students:', error);
       showErrorToast(error, 'Failed to move students. Please try again.');
+    } finally {
+      // Clear timeout and loading state
+      clearTimeout(timeoutId);
+      setEnrollingStudents(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(fromClassId);
+        return newSet;
+      });
+      setUnenrollingStudents(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(fromClassId);
+        return newSet;
+      });
     }
   };
 
@@ -580,10 +833,15 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
                           setSelectedClass(classItem);
                           setShowEnrollModal(true);
                         }}
-                        className="text-green-600 hover:text-green-800 p-2 rounded-lg hover:bg-green-50 transition-colors"
-                        title="Enroll Students"
+                        disabled={enrollingStudents.has(classItem.id)}
+                        className="text-green-600 hover:text-green-800 p-2 rounded-lg hover:bg-green-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        title={enrollingStudents.has(classItem.id) ? "Enrolling..." : "Enroll Students"}
                       >
-                        <Users className="h-4 w-4" />
+                        {enrollingStudents.has(classItem.id) ? (
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-600"></div>
+                        ) : (
+                        <UserPlus className="h-4 w-4" />
+                        )}
                       </button>
                       <button
                         onClick={() => {
@@ -591,10 +849,14 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
                           setShowRemoveStudentModal(true);
                         }}
                         className="text-orange-600 hover:text-orange-800 p-2 rounded-lg hover:bg-orange-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                        title="Remove Students"
-                        disabled={!classItem.students || classItem.students.length === 0}
+                        title={unenrollingStudents.has(classItem.id) ? "Removing..." : "Remove Students"}
+                        disabled={classItem.numberOfStudents === 0 || unenrollingStudents.has(classItem.id)}
                       >
+                        {unenrollingStudents.has(classItem.id) ? (
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-orange-600"></div>
+                        ) : (
                         <UserMinus className="h-4 w-4" />
+                        )}
                       </button>
                       <button
                         onClick={() => {
@@ -602,10 +864,14 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
                           setShowLevelUpModal(true);
                         }}
                         className="text-purple-600 hover:text-purple-800 p-2 rounded-lg hover:bg-purple-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                        title="Level Up Students"
-                        disabled={!classItem.students || classItem.students.length === 0}
+                        title={enrollingStudents.has(classItem.id) || unenrollingStudents.has(classItem.id) ? "Processing..." : "Level Up Students"}
+                        disabled={classItem.numberOfStudents === 0 || enrollingStudents.has(classItem.id) || unenrollingStudents.has(classItem.id)}
                       >
+                        {enrollingStudents.has(classItem.id) || unenrollingStudents.has(classItem.id) ? (
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-purple-600"></div>
+                        ) : (
                         <ArrowUp className="h-4 w-4" />
+                        )}
                       </button>
                       <button
                         onClick={() => {
@@ -643,7 +909,7 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
                   </div>
 
                   {/* Class Info */}
-                  <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+                  <div className="mt-4 grid grid-cols-2 sm:grid-cols-2 gap-3 sm:gap-4">
                     <div className="text-center bg-gray-50 rounded-lg p-3">
                       <p className="text-xs text-gray-500 flex items-center justify-center gap-1 mb-1">
                         <Calendar className="h-3 w-3 text-gray-400" /> Start Date
@@ -655,12 +921,6 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
                         <Calendar className="h-3 w-3 text-gray-400" /> End Date
                       </p>
                       <p className="font-medium text-gray-900 text-sm">{classItem.endDate || 'N/A'}</p>
-                    </div>
-                    <div className="text-center bg-gray-50 rounded-lg p-3">
-                      <p className="text-xs text-gray-500 flex items-center justify-center gap-1 mb-1">
-                        <Users className="h-3 w-3 text-gray-400" /> Students
-                      </p>
-                      <p className="font-medium text-gray-900 text-sm">{classItem.numberOfStudents || 0}</p>
                     </div>
                   </div>
                 </div>
@@ -689,8 +949,47 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
                                     <User className="h-3 w-3 md:h-4 md:w-4 text-gray-500" />
                                     <span className="text-xs md:text-sm text-gray-600">{course.teacherName}</span>
                                 </div>
+                                <span className="text-gray-400 hidden md:inline">|</span>
+                                <div className="flex items-center gap-1">
+                                    <Users className="h-3 w-3 md:h-4 md:w-4 text-gray-500" />
+                                    <span className="text-xs md:text-sm text-gray-600">
+                                      {course.enrolledStudents ? course.enrolledStudents.length : 0} enrolled
+                                    </span>
+                                </div>
                               </div>
                               <div className="flex items-center gap-2">
+                                <button
+                                  onClick={() => {
+                                    setSelectedClass(classItem);
+                                    setSelectedCourse(course);
+                                    setShowCourseEnrollModal(true);
+                                  }}
+                                  disabled={courseEnrollingStudents.has(course.id)}
+                                  className="text-green-600 hover:text-green-800 p-1 rounded hover:bg-green-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                  title={courseEnrollingStudents.has(course.id) ? "Enrolling..." : "Enroll Students in Course"}
+                                >
+                                  {courseEnrollingStudents.has(course.id) ? (
+                                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-600"></div>
+                                  ) : (
+                                  <UserPlus className="h-4 w-4" />
+                                  )}
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setSelectedClass(classItem);
+                                    setSelectedCourse(course);
+                                    setShowCourseUnenrollModal(true);
+                                  }}
+                                  className="text-red-600 hover:text-red-800 p-1 rounded hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                  title={courseUnenrollingStudents.has(course.id) ? "Unenrolling..." : "Unenroll Students from Course"}
+                                  disabled={!course.enrolledStudents || course.enrolledStudents.length === 0 || courseUnenrollingStudents.has(course.id)}
+                                >
+                                  {courseUnenrollingStudents.has(course.id) ? (
+                                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-600"></div>
+                                  ) : (
+                                  <UserMinus className="h-4 w-4" />
+                                  )}
+                                </button>
                                 <button
                                   onClick={() => {
                                     setSelectedClass(classItem);
@@ -919,6 +1218,7 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
             setSelectedClass(null);
           }}
           onSubmit={(studentIds) => handleEnrollStudents(selectedClass.id, studentIds)}
+          isEnrolling={enrollingStudents.has(selectedClass.id)}
         />
       )}
 
@@ -931,6 +1231,8 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
             setSelectedClass(null);
           }}
           onRemove={(studentId) => handleRemoveStudent(selectedClass.id, studentId)}
+          showConfirmation={showConfirmation}
+          isRemoving={unenrollingStudents.has(selectedClass.id)}
         />
       )}
 
@@ -945,6 +1247,34 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
           onSubmit={(studentIds, toClassId) => handleLevelUpStudents(selectedClass.id, studentIds, toClassId)}
           showConfirmation={showConfirmation}
           showAlert={showAlert}
+          isProcessing={enrollingStudents.has(selectedClass.id) || unenrollingStudents.has(selectedClass.id)}
+        />
+      )}
+
+      {/* Course Enroll Students Modal */}
+      {showCourseEnrollModal && selectedCourse && (
+        <CourseEnrollModal
+          courseData={selectedCourse}
+          allStudents={allStudents}
+          onClose={() => {
+            setShowCourseEnrollModal(false);
+            setSelectedCourse(null);
+          }}
+          onSubmit={(studentIds) => handleCourseEnroll(selectedCourse.id, studentIds)}
+          isEnrolling={courseEnrollingStudents.has(selectedCourse.id)}
+        />
+      )}
+
+      {/* Course Unenroll Students Modal */}
+      {showCourseUnenrollModal && selectedCourse && (
+        <CourseUnenrollModal
+          courseData={selectedCourse}
+          onClose={() => {
+            setShowCourseUnenrollModal(false);
+            setSelectedCourse(null);
+          }}
+          onSubmit={(studentIds) => handleCourseUnenrollMultiple(selectedCourse.id, studentIds)}
+          isUnenrolling={courseUnenrollingStudents.has(selectedCourse.id)}
         />
       )}
 
@@ -1499,10 +1829,11 @@ const CourseModal = ({ title, courseData, isUpdating = false, onClose, onSubmit 
 };
 
 // Enroll Students Modal Component
-const EnrollModal = ({ classData, onClose, onSubmit }) => {
+const EnrollModal = ({ classData, onClose, onSubmit, isEnrolling = false }) => {
   const [selectedStudents, setSelectedStudents] = useState([]);
   const [availableStudents, setAvailableStudents] = useState([]);
   const [loadingStudents, setLoadingStudents] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
     loadStudents();
@@ -1511,7 +1842,7 @@ const EnrollModal = ({ classData, onClose, onSubmit }) => {
   const loadStudents = async () => {
     try {
       setLoadingStudents(true);
-      const response = await usersService.getAllStudents();
+      const response = await studentsService.getAllStudents();
       
       // Handle different response formats - extract students array
       let studentsArray = [];
@@ -1523,20 +1854,8 @@ const EnrollModal = ({ classData, onClose, onSubmit }) => {
         studentsArray = response;
       }
       
-      // Map student data to include user properties at the top level
-      const mappedStudents = studentsArray.map(student => ({
-        id: student.id,
-        firstName: student.user?.firstName,
-        lastName: student.user?.lastName,
-        email: student.user?.email,
-        fullName: student.user?.fullName || (student.user?.firstName && student.user?.lastName ? `${student.user.firstName} ${student.user.lastName}` : null),
-        birthDate: student.birthDate,
-        parentId: student.parentId,
-        classId: student.classId,
-        role: student.user?.role
-      }));
-      
-      setAvailableStudents(mappedStudents);
+      // Students are already flattened by the backend service
+      setAvailableStudents(studentsArray);
     } catch (error) {
       console.error('Error loading students:', error);
       setAvailableStudents([]);
@@ -1547,10 +1866,12 @@ const EnrollModal = ({ classData, onClose, onSubmit }) => {
   };
 
   const handleStudentToggle = (studentId) => {
-    // Don't allow toggling if student is already enrolled
+    // Don't allow toggling if student is already enrolled in any course of this class
     const student = availableStudents.find(s => s.id === studentId);
-    if (student && student.classId === classData.id) {
-      return; // Student is already enrolled, don't allow selection
+    if (student && student.courseIds && student.courseIds.some(courseId => 
+      classData.courses && classData.courses.some(course => course.id === courseId)
+    )) {
+      return; // Student is already enrolled in a course, don't allow selection
     }
     
     setSelectedStudents(prev =>
@@ -1562,6 +1883,10 @@ const EnrollModal = ({ classData, onClose, onSubmit }) => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    if (isEnrolling) {
+      console.warn('🚫 Form submission prevented - enrollment already in progress');
+      return;
+    }
     if (selectedStudents.length === 0) {
       showAlert({
         title: 'No Students Selected',
@@ -1595,6 +1920,18 @@ const EnrollModal = ({ classData, onClose, onSubmit }) => {
               <p className="text-sm text-gray-600 mb-3">
                 Select students to enroll in this class:
               </p>
+              
+              {/* Search Bar */}
+              <div className="relative mb-3">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Search students..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
 
               {loadingStudents ? (
                 <p className="text-gray-500 text-center py-4 text-sm">
@@ -1604,10 +1941,26 @@ const EnrollModal = ({ classData, onClose, onSubmit }) => {
                 <p className="text-gray-500 text-center py-4 text-sm">
                   No available students to enroll
                 </p>
-              ) : (
-                <div className="max-h-60 overflow-y-auto border border-gray-200 rounded-md">
-                  {availableStudents.map((student) => {
-                    const isAlreadyEnrolled = student.classId === classData.id;
+              ) : (() => {
+                // Filter students based on search term
+                const filteredStudents = availableStudents.filter(student => {
+                  const fullName = `${student.firstName || ''} ${student.lastName || ''}`.toLowerCase();
+                  const email = (student.email || '').toLowerCase();
+                  const search = searchTerm.toLowerCase();
+                  return fullName.includes(search) || email.includes(search);
+                });
+
+                return filteredStudents.length === 0 ? (
+                  <p className="text-gray-500 text-center py-4 text-sm">
+                    No students found matching your search
+                  </p>
+                ) : (
+                  <div className="max-h-60 overflow-y-auto border border-gray-200 rounded-md">
+                    {filteredStudents.map((student) => {
+                    // Check if student is enrolled in any course within this class (course-level only)
+                    const isAlreadyEnrolled = student.courseIds && student.courseIds.some(courseId => 
+                      classData.courses && classData.courses.some(course => course.id === courseId)
+                    );
                     const isSelected = selectedStudents.includes(student.id);
                     
                     return (
@@ -1663,15 +2016,26 @@ const EnrollModal = ({ classData, onClose, onSubmit }) => {
                     );
                   })}
                 </div>
-              )}
+                );
+              })()}
             </div>
 
             <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
               <p className="text-xs sm:text-sm text-gray-600">
                 {selectedStudents.length} student(s) selected
-                {availableStudents.filter(s => s.classId === classData.id).length > 0 && (
+                {availableStudents.filter(s => {
+                  const isEnrolled = s.courseIds && s.courseIds.some(courseId => 
+                    classData.courses && classData.courses.some(course => course.id === courseId)
+                  );
+                  return isEnrolled;
+                }).length > 0 && (
                   <span className="ml-2 text-green-600">
-                    ({availableStudents.filter(s => s.classId === classData.id).length} already enrolled)
+                    ({availableStudents.filter(s => {
+                      const isEnrolled = s.courseIds && s.courseIds.some(courseId => 
+                        classData.courses && classData.courses.some(course => course.id === courseId)
+                      );
+                      return isEnrolled;
+                    }).length} already enrolled)
                   </span>
                 )}
               </p>
@@ -1685,10 +2049,13 @@ const EnrollModal = ({ classData, onClose, onSubmit }) => {
                 </button>
                 <button
                   type="submit"
-                  disabled={selectedStudents.length === 0}
-                  className="px-3 sm:px-4 py-2 border-2 border-green-600 text-green-600 rounded-md hover:bg-green-500 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 text-sm"
+                  disabled={selectedStudents.length === 0 || isEnrolling}
+                  className="px-3 sm:px-4 py-2 border-2 border-green-600 text-green-600 rounded-md hover:bg-green-500 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 text-sm flex items-center gap-2"
                 >
-                  Enroll Students
+                  {isEnrolling && (
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-600"></div>
+                  )}
+                  {isEnrolling ? 'Enrolling...' : 'Enroll Students'}
                 </button>
               </div>
             </div>
@@ -1700,7 +2067,7 @@ const EnrollModal = ({ classData, onClose, onSubmit }) => {
 };
 
 // Remove Student Modal Component
-const RemoveStudentModal = ({ classData, onClose, onRemove }) => {
+const RemoveStudentModal = ({ classData, onClose, onRemove, showConfirmation, isRemoving = false }) => {
   const [selectedStudents, setSelectedStudents] = useState([]);
   const [enrolledStudents, setEnrolledStudents] = useState([]);
   const [loadingStudents, setLoadingStudents] = useState(true);
@@ -1712,7 +2079,7 @@ const RemoveStudentModal = ({ classData, onClose, onRemove }) => {
   const loadEnrolledStudents = async () => {
     try {
       setLoadingStudents(true);
-      const response = await usersService.getAllStudents();
+      const response = await studentsService.getAllStudents();
       
       // Handle different response formats - extract students array
       let studentsArray = [];
@@ -1722,25 +2089,15 @@ const RemoveStudentModal = ({ classData, onClose, onRemove }) => {
         studentsArray = response;
       }
       
-      // Filter only students enrolled in this class
+      // Filter only students enrolled in any course of this class
       const enrolledInClass = studentsArray.filter(student => 
-        student.classId === classData.id
+        student.courseIds && student.courseIds.some(courseId => 
+          classData.courses && classData.courses.some(course => course.id === courseId)
+        )
       );
       
-      // Map student data to include user properties at the top level
-      const mappedStudents = enrolledInClass.map(student => ({
-        id: student.id,
-        firstName: student.user?.firstName,
-        lastName: student.user?.lastName,
-        email: student.user?.email,
-        fullName: student.user?.fullName || (student.user?.firstName && student.user?.lastName ? `${student.user.firstName} ${student.user.lastName}` : null),
-        birthDate: student.birthDate,
-        parentId: student.parentId,
-        classId: student.classId,
-        role: student.user?.role
-      }));
-      
-      setEnrolledStudents(mappedStudents);
+      // Students are already flattened by the backend service
+      setEnrolledStudents(enrolledInClass);
     } catch (error) {
       console.error('Error loading enrolled students:', error);
       setEnrolledStudents([]);
@@ -1760,6 +2117,10 @@ const RemoveStudentModal = ({ classData, onClose, onRemove }) => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    if (isRemoving) {
+      console.warn('🚫 Form submission prevented - removal already in progress');
+      return;
+    }
     if (selectedStudents.length === 0) {
       showAlert({
         title: 'No Students Selected',
@@ -1874,10 +2235,13 @@ const RemoveStudentModal = ({ classData, onClose, onRemove }) => {
                 </button>
                 <button
                   type="submit"
-                  disabled={selectedStudents.length === 0}
-                  className="px-3 sm:px-4 py-2 border-2 border-red-600 text-red-600 rounded-md hover:bg-red-500 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 text-sm"
+                  disabled={selectedStudents.length === 0 || isRemoving}
+                  className="px-3 sm:px-4 py-2 border-2 border-red-600 text-red-600 rounded-md hover:bg-red-500 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 text-sm flex items-center gap-2"
                 >
-                  Remove Students
+                  {isRemoving && (
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-600"></div>
+                  )}
+                  {isRemoving ? 'Removing...' : 'Remove Students'}
                 </button>
               </div>
             </div>
@@ -1889,7 +2253,7 @@ const RemoveStudentModal = ({ classData, onClose, onRemove }) => {
 };
 
 // Level Up Students Modal Component
-const LevelUpModal = ({ classData, onClose, onSubmit, showConfirmation, showAlert }) => {
+const LevelUpModal = ({ classData, onClose, onSubmit, showConfirmation, showAlert, isProcessing = false }) => {
   const [selectedStudents, setSelectedStudents] = useState([]);
   const [selectedTargetClass, setSelectedTargetClass] = useState('');
   const [enrolledStudents, setEnrolledStudents] = useState([]);
@@ -1915,9 +2279,11 @@ const LevelUpModal = ({ classData, onClose, onSubmit, showConfirmation, showAler
         studentsArray = response;
       }
       
-      // Filter only students enrolled in this class
+      // Filter only students enrolled in any course of this class
       const enrolledInClass = studentsArray.filter(student => 
-        student.classId === classData.id
+        student.courseIds && student.courseIds.some(courseId => 
+          classData.courses && classData.courses.some(course => course.id === courseId)
+        )
       );
       
       // Map student data to include user properties at the top level
@@ -1983,6 +2349,10 @@ const LevelUpModal = ({ classData, onClose, onSubmit, showConfirmation, showAler
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    if (isProcessing) {
+      console.warn('🚫 Form submission prevented - processing already in progress');
+      return;
+    }
     if (selectedStudents.length === 0) {
       showAlert({
         title: 'No Students Selected',
@@ -2133,10 +2503,368 @@ const LevelUpModal = ({ classData, onClose, onSubmit, showConfirmation, showAler
                 </button>
                 <button
                   type="submit"
-                  disabled={selectedStudents.length === 0 || !selectedTargetClass}
-                  className="px-3 sm:px-4 py-2 border-2 border-green-600 text-green-600 rounded-md hover:bg-purple-500 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 text-sm"
+                  disabled={selectedStudents.length === 0 || !selectedTargetClass || isProcessing}
+                  className="px-3 sm:px-4 py-2 border-2 border-green-600 text-green-600 rounded-md hover:bg-purple-500 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 text-sm flex items-center gap-2"
                 >
-                  Level Up Students
+                  {isProcessing && (
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-600"></div>
+                  )}
+                  {isProcessing ? 'Processing...' : 'Level Up Students'}
+                </button>
+              </div>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Course Enroll Students Modal Component
+const CourseEnrollModal = ({ courseData, allStudents, onClose, onSubmit, isEnrolling = false }) => {
+  const [selectedStudents, setSelectedStudents] = useState([]);
+  const [searchTerm, setSearchTerm] = useState('');
+
+  // Debug log to see what students are being passed
+  console.log('CourseEnrollModal - allStudents:', allStudents);
+  console.log('CourseEnrollModal - courseData:', courseData);
+
+  // Filter out students who are already enrolled in this course
+  // Check if student.courseIds contains the current course ID
+  const filteredStudents = allStudents.filter(student => {
+    // First, exclude students who are already enrolled in this course
+    const studentCourseIds = student.courseIds || [];
+    if (studentCourseIds.includes(courseData.id)) {
+      return false;
+    }
+
+    // Then apply search filter
+    const fullName = `${student.firstName || ''} ${student.lastName || ''}`.toLowerCase();
+    const email = (student.email || '').toLowerCase();
+    const search = searchTerm.toLowerCase();
+    return fullName.includes(search) || email.includes(search);
+  });
+
+  const handleStudentToggle = (studentId) => {
+    setSelectedStudents(prev => 
+      prev.includes(studentId) 
+        ? prev.filter(id => id !== studentId)
+        : [...prev, studentId]
+    );
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (isEnrolling) {
+      console.warn('🚫 Form submission prevented - enrollment already in progress');
+      return;
+    }
+    if (selectedStudents.length > 0) {
+      onSubmit(selectedStudents);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50" style={{margin: '0px'}}>
+      <div className="relative top-4 sm:top-20 mx-auto p-4 sm:p-5 border w-11/12 sm:w-2/3 max-w-2xl shadow-lg rounded-md bg-white">
+        <div className="mt-3">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-base sm:text-lg font-medium text-gray-900">
+              Enroll Students in {courseData.name}
+            </h3>
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100 transition-colors"
+            >
+              <span className="sr-only">Close</span>
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+
+          <form onSubmit={handleSubmit}>
+            <div className="mb-4">
+              <p className="text-sm text-gray-600 mb-3">
+                Select students to enroll in this course:
+              </p>
+              
+              {/* Search Bar */}
+              <div className="relative mb-3">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Search students..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+
+              {allStudents.length === 0 ? (
+                <p className="text-gray-500 text-center py-4 text-sm">
+                  Loading students...
+                </p>
+              ) : filteredStudents.length === 0 ? (
+                <p className="text-gray-500 text-center py-4 text-sm">
+                  {allStudents.some(student => (student.courseIds || []).includes(courseData.id))
+                    ? "All students are already enrolled in this course" 
+                    : "No students found"}
+                </p>
+              ) : (
+                <div className="max-h-60 overflow-y-auto border border-gray-200 rounded-md">
+                  {filteredStudents.map((student) => {
+                    const isSelected = selectedStudents.includes(student.id);
+                    
+                    return (
+                      <label
+                        key={student.id}
+                        className="flex items-center p-2 sm:p-3 border-b border-gray-100 last:border-b-0 hover:bg-gray-50 cursor-pointer"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => handleStudentToggle(student.id)}
+                          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                        />
+                        <div className="ml-3 flex items-center">
+                          <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full flex items-center justify-center flex-shrink-0 bg-red-600">
+                            <span className="text-start text-white text-xs sm:text-sm font-medium">
+                              {student.firstName ? student.firstName.charAt(0) : 
+                               (student.email ? student.email.charAt(0).toUpperCase() : 'S')}
+                            </span>
+                          </div>
+                          <div className="ml-2 sm:ml-3 min-w-0 flex-1">
+                            <p className="text-xs sm:text-sm font-medium truncate text-gray-900">
+                              {student.firstName && student.lastName
+                                ? `${student.firstName} ${student.lastName}`
+                                : (student.email || 'Unknown Student')}
+                            </p>
+                            <p className="text-xs truncate text-gray-500">
+                              {student.email}
+                            </p>
+                          </div>
+                        </div>
+                      </label>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
+              <p className="text-xs sm:text-sm text-gray-600">
+                {selectedStudents.length} student(s) selected for enrollment
+              </p>
+              <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="px-3 sm:px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 text-sm transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={selectedStudents.length === 0 || isEnrolling}
+                  className="px-3 sm:px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm transition-colors flex items-center gap-2"
+                >
+                  {isEnrolling && (
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  )}
+                  {isEnrolling ? 'Enrolling...' : 'Enroll Students'}
+                </button>
+              </div>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Course Unenroll Students Modal Component
+const CourseUnenrollModal = ({ courseData, onClose, onSubmit, isUnenrolling = false }) => {
+  const [selectedStudents, setSelectedStudents] = useState([]);
+  const [enrolledStudents, setEnrolledStudents] = useState([]);
+  const [loadingStudents, setLoadingStudents] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
+
+  useEffect(() => {
+    loadEnrolledStudents();
+  }, []);
+
+  const loadEnrolledStudents = async () => {
+    try {
+      setLoadingStudents(true);
+      const response = await studentsService.getAllStudents();
+      
+      // Handle different response formats - extract students array
+      let studentsArray = [];
+      if (response && response.students && Array.isArray(response.students)) {
+        studentsArray = response.students;
+      } else if (Array.isArray(response)) {
+        studentsArray = response;
+      }
+      
+      // Filter only students enrolled in this course
+      const enrolledInCourse = studentsArray.filter(student => 
+        (student.courseIds || []).includes(courseData.id)
+      );
+      
+      // Students are already flattened by the backend service
+      setEnrolledStudents(enrolledInCourse);
+    } catch (error) {
+      console.error('Error loading enrolled students:', error);
+      setEnrolledStudents([]);
+      showErrorToast(error, 'Failed to load enrolled students. Please try again.');
+    } finally {
+      setLoadingStudents(false);
+    }
+  };
+
+  const handleStudentToggle = (studentId) => {
+    setSelectedStudents(prev =>
+      prev.includes(studentId)
+        ? prev.filter(id => id !== studentId)
+        : [...prev, studentId]
+    );
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (isUnenrolling) {
+      console.warn('🚫 Form submission prevented - unenrollment already in progress');
+      return;
+    }
+    if (selectedStudents.length === 0) {
+      showAlert({
+        title: 'No Students Selected',
+        message: 'Please select at least one student',
+        type: 'warning'
+      });
+      return;
+    }
+    onSubmit(selectedStudents);
+  };
+
+  return (
+    <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50" style={{margin: '0px'}}>
+      <div className="relative top-4 sm:top-20 mx-auto p-4 sm:p-5 border w-11/12 sm:w-2/3 max-w-2xl shadow-lg rounded-md bg-white">
+        <div className="mt-3">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-base sm:text-lg font-medium text-gray-900">
+              Unenroll Students from {courseData.name}
+            </h3>
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100 transition-colors"
+            >
+              <span className="sr-only">Close</span>
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+
+          <form onSubmit={handleSubmit}>
+            <div className="mb-4">
+              <p className="text-sm text-gray-600 mb-3">
+                Select students to unenroll from this course:
+              </p>
+              
+              {/* Search Bar */}
+              <div className="relative mb-3">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Search students..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+
+              {loadingStudents ? (
+                <p className="text-gray-500 text-center py-4 text-sm">
+                  Loading students...
+                </p>
+              ) : enrolledStudents.length === 0 ? (
+                <p className="text-gray-500 text-center py-4 text-sm">
+                  No students enrolled in this course
+                </p>
+              ) : (() => {
+                // Filter students based on search term
+                const filteredStudents = enrolledStudents.filter(student => {
+                  const fullName = `${student.firstName || ''} ${student.lastName || ''}`.toLowerCase();
+                  const email = (student.email || '').toLowerCase();
+                  const search = searchTerm.toLowerCase();
+                  return fullName.includes(search) || email.includes(search);
+                });
+
+                return filteredStudents.length === 0 ? (
+                  <p className="text-gray-500 text-center py-4 text-sm">
+                    No students found matching your search
+                  </p>
+                ) : (
+                  <div className="max-h-60 overflow-y-auto border border-gray-200 rounded-md">
+                    {filteredStudents.map((student) => {
+                      const isSelected = selectedStudents.includes(student.id);
+                      
+                      return (
+                        <label
+                          key={student.id}
+                          className="flex items-center p-2 sm:p-3 border-b border-gray-100 last:border-b-0 hover:bg-gray-50 cursor-pointer"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => handleStudentToggle(student.id)}
+                            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                          />
+                          <div className="ml-3 flex items-center">
+                            <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full flex items-center justify-center flex-shrink-0 bg-red-600">
+                              <span className="text-start text-white text-xs sm:text-sm font-medium">
+                                {student.firstName ? student.firstName.charAt(0) : 
+                                 (student.email ? student.email.charAt(0).toUpperCase() : 'S')}
+                              </span>
+                            </div>
+                            <div className="ml-2 sm:ml-3 min-w-0 flex-1">
+                              <p className="text-xs sm:text-sm font-medium truncate text-gray-900">
+                                {student.firstName && student.lastName
+                                  ? `${student.firstName} ${student.lastName}`
+                                  : (student.email || 'Unknown Student')}
+                              </p>
+                              <p className="text-xs truncate text-gray-500">
+                                {student.email}
+                              </p>
+                            </div>
+                          </div>
+                        </label>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
+            </div>
+
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
+              <p className="text-xs sm:text-sm text-gray-600">
+                {selectedStudents.length} student(s) selected for unenrollment
+              </p>
+              <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="px-3 sm:px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 text-sm transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={selectedStudents.length === 0 || isUnenrolling}
+                  className="px-3 sm:px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm transition-colors flex items-center gap-2"
+                >
+                  {isUnenrolling && (
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  )}
+                  {isUnenrolling ? 'Unenrolling...' : 'Unenroll Students'}
                 </button>
               </div>
             </div>

@@ -52,14 +52,19 @@ export class ClassesService {
     // Get student count and students for each class from the Student entity
     const classesWithStudentData = await Promise.all(
       classes.map(async (classEntity) => {
-        const students = await this.studentRepository.find({
-          where: { classId: classEntity.id }
-        });
+    // Get students enrolled in any course within this class
+    const courseLevelStudents = await this.studentRepository
+      .createQueryBuilder('student')
+      .innerJoin('courses', 'course', 'course.id::text = ANY(string_to_array(student.courseIds, \',\'))')
+      .where('course.classId = :classId', { classId: classEntity.id })
+      .select('student.id')
+      .getMany();
+
+    // Use only course-level enrollments
+    const allStudentIds = new Set(courseLevelStudents.map(s => s.id));
         
-        const studentCount = students.length;
-        
-        // Return array of student IDs instead of full student objects
-        const studentIds = students.map(student => student.id);
+        const studentCount = allStudentIds.size;
+        const studentIds = Array.from(allStudentIds);
         
         return {
           ...classEntity,
@@ -166,20 +171,52 @@ export class ClassesService {
       where: { classId }
     });
 
-    // Filter out students who are already enrolled in this class
-    const existingStudents = classEntity.students || [];
+    // Check which students are already enrolled in this class by checking if they have any course from this class
+    const existingEnrolledStudents = await this.studentRepository
+      .createQueryBuilder('student')
+      .innerJoin('courses', 'course', 'course.id::text = ANY(string_to_array(student.courseIds, \',\'))')
+      .where('course.classId = :classId', { classId })
+      .andWhere('student.id = ANY(:studentIds)', { studentIds: enrollDto.studentIds })
+      .getMany();
+    
+    const existingStudentIds = existingEnrolledStudents.map(s => s.id);
     const newlyEnrolledStudentIds = enrollDto.studentIds.filter(
-      studentId => !existingStudents.includes(studentId)
+      studentId => !existingStudentIds.includes(studentId)
     );
 
-    // Update student records with classId
+    // Auto-enroll students in all class courses (no classId needed)
     for (const student of students) {
-      await this.studentRepository.update(student.id, { classId });
+      
+      // Auto-enroll student in all courses in this class
+      for (const course of classCourses) {
+        try {
+          const studentEntity = await this.studentRepository.findOne({
+            where: { id: student.id }
+          });
+          
+          if (studentEntity) {
+            const existingCourseIds = studentEntity.courseIds || [];
+            if (!existingCourseIds.includes(course.id)) {
+              studentEntity.courseIds = [...existingCourseIds, course.id];
+              await this.studentRepository.save(studentEntity);
+            }
+          }
+          
+          // Also add student to course.students array
+          const existingStudents = course.students || [];
+          if (!existingStudents.includes(student.id)) {
+            course.students = [...existingStudents, student.id];
+            await this.courseRepository.save(course);
+          }
+        } catch (error) {
+          console.error(`Failed to auto-enroll student ${student.id} in course ${course.id}:`, error);
+          // Continue with other enrollments even if one fails
+        }
+      }
     }
 
-    // Update the class's students array
-    const newStudents = [...new Set([...existingStudents, ...enrollDto.studentIds])];
-    await this.classRepository.update(classId, { students: newStudents });
+    // No need to update class.students array since we removed it
+    // Students are now tracked in individual course.students arrays
 
     // Send notifications for newly enrolled students only
     if (newlyEnrolledStudentIds.length > 0) {
@@ -187,7 +224,7 @@ export class ClassesService {
     }
 
     // Students are now automatically enrolled in all courses within the class
-    // No need for individual course enrollment - class enrollment gives access to all courses
+    // Both through classId (for access control) and courseIds (for individual tracking)
   }
 
   async removeStudentFromClass(classId: string, studentId: string): Promise<void> {
@@ -198,57 +235,57 @@ export class ClassesService {
       where: { classId }
     });
 
-    // Student is automatically removed from all courses when removed from class
-    // No need for individual course unenrollment
+    // Remove student from all class courses
+    const studentEntity = await this.studentRepository.findOne({
+      where: { id: studentId }
+    });
 
-    // Update student record to remove classId
-    await this.studentRepository.update(studentId, { classId: null });
+    if (studentEntity) {
+      const existingCourseIds = studentEntity.courseIds || [];
+      const classCourseIds = classCourses.map(course => course.id);
+      
+      // Remove only the courses that belong to this class
+      const updatedCourseIds = existingCourseIds.filter(courseId => !classCourseIds.includes(courseId));
+      studentEntity.courseIds = updatedCourseIds;
+      await this.studentRepository.save(studentEntity);
+    }
 
-    // Update the class's students array to remove the student
-    const existingStudents = classEntity.students || [];
-    const updatedStudents = existingStudents.filter(id => id !== studentId);
-    await this.classRepository.update(classId, { students: updatedStudents });
+    // Remove student from all class courses' students arrays
+    for (const course of classCourses) {
+      try {
+        const existingStudents = course.students || [];
+        course.students = existingStudents.filter(id => id !== studentId);
+        await this.courseRepository.save(course);
+      } catch (error) {
+        console.error(`Failed to remove student ${studentId} from course ${course.id}:`, error);
+      }
+    }
+
+    // No need to update classId since we're not using it anymore
+
+    // No need to update class.students array since we removed it
+    // Students are now tracked in individual course.students arrays
   }
 
   async getClassStudents(classId: string): Promise<Student[]> {
     console.log('🔍 Getting students for class:', classId);
     
-    // First, try to get students from the Student entity where classId matches
-    const studentsFromStudentEntity = await this.studentRepository.find({
-      where: { classId },
-      relations: ['user']
-    });
+    // Get students enrolled in any course within this class (no classId needed)
+    const studentsFromCourses = await this.studentRepository
+      .createQueryBuilder('student')
+      .innerJoin('courses', 'course', 'course.id::text = ANY(string_to_array(student.courseIds, \',\'))')
+      .leftJoinAndSelect('student.user', 'user')
+      .where('course.classId = :classId', { classId })
+      .getMany();
     
-    console.log('👥 Students from Student entity:', studentsFromStudentEntity.length);
+    console.log('👥 Students from courses:', studentsFromCourses.length);
     
-    if (studentsFromStudentEntity.length > 0) {
-      return studentsFromStudentEntity.filter(student => student.user !== null);
-    }
+    // Remove duplicates
+    const uniqueStudents = studentsFromCourses.filter((student, index, array) => 
+      array.findIndex(s => s.id === student.id) === index
+    );
     
-    // Fallback: Get student IDs from the Class entity's students array
-    const classEntity = await this.classRepository.findOne({
-      where: { id: classId }
-    });
-    
-    if (!classEntity || !classEntity.students || classEntity.students.length === 0) {
-      console.log('❌ No students found in class:', classId);
-      return [];
-    }
-    
-    console.log('👥 Students in class (raw):', classEntity.students);
-    console.log('👥 Students type:', typeof classEntity.students);
-    
-    // Get full student data for each ID
-    const studentIds = Array.isArray(classEntity.students) ? classEntity.students : [classEntity.students];
-    const students = await this.studentRepository.find({
-      where: { id: In(studentIds) },
-      relations: ['user']
-    });
-    
-    console.log('👥 Found students:', students.length);
-    
-    // Return the full student data with user information
-    return students.filter(student => student.user !== null);
+    return uniqueStudents.filter(student => student.user !== null);
   }
 
   // Helper method to send notifications (both student and parent) when students are enrolled in a class

@@ -307,6 +307,72 @@ export class StudentsController {
     return this.studentsService.resetFormCompletion(studentId);
   }
 
+  @Post(':id/enroll-course/:courseId')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.Admin, Role.Teacher)
+  @ApiOperation({ summary: 'Enroll student in individual course (Admin/Teacher only)' })
+  @ApiResponse({
+    status: 200,
+    description: 'Student enrolled in course successfully',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Student or course not found',
+  })
+  @ApiResponse({
+    status: 409,
+    description: 'Student already enrolled in this course',
+  })
+  async enrollStudentInCourse(
+    @Param('id') studentId: string,
+    @Param('courseId') courseId: string
+  ) {
+    const student = await this.studentsService.enrollStudentInCourse(studentId, courseId);
+    return { student, message: 'Student enrolled in course successfully' };
+  }
+
+  @Delete(':id/unenroll-course/:courseId')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.Admin, Role.Teacher)
+  @ApiOperation({ summary: 'Unenroll student from individual course (Admin/Teacher only)' })
+  @ApiResponse({
+    status: 200,
+    description: 'Student unenrolled from course successfully',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Student not enrolled in this course',
+  })
+  async unenrollStudentFromCourse(
+    @Param('id') studentId: string,
+    @Param('courseId') courseId: string
+  ) {
+    const student = await this.studentsService.unenrollStudentFromCourse(studentId, courseId);
+    return { student, message: 'Student unenrolled from course successfully' };
+  }
+
+  @Get(':id/course-enrollments')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @ApiOperation({ summary: 'Get student individual course enrollments (Protected)' })
+  @ApiResponse({
+    status: 200,
+    description: 'Student course enrollments retrieved successfully',
+  })
+  async getStudentCourseEnrollments(
+    @Param('id') studentId: string,
+    @CurrentUser() currentUser: any
+  ) {
+    // Allow students to view their own enrollments, parents to view their children's enrollments, or admins/teachers
+    if (currentUser.sub !== studentId && 
+        currentUser.role !== Role.Admin && 
+        currentUser.role !== Role.Teacher &&
+        !(currentUser.role === Role.Parent && await this.isParentOfStudent(currentUser.sub, studentId))) {
+      throw new ForbiddenException('You do not have permission to view this student\'s course enrollments');
+    }
+    const courses = await this.studentsService.getStudentCourseEnrollments(studentId);
+    return { courses };
+  }
+
   private async isParentOfStudent(parentId: string, studentId: string): Promise<boolean> {
     const student = await this.studentsService.findOne(studentId);
     return student.parentId === parentId;

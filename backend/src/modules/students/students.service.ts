@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, In } from 'typeorm';
 import { Student } from './entities/student.entity';
 import { User } from '../users/entities/user.entity';
 import { Parent } from '../parents/entities/parent.entity';
@@ -75,10 +75,27 @@ export class StudentsService {
     return this.studentRepository.save(student);
   }
 
-  async findAll(): Promise<Student[]> {
-    return this.studentRepository.find({
+  async findAll(): Promise<any[]> {
+    const students = await this.studentRepository.find({
       relations: ['user'],
     });
+    
+    // Transform to include user fields directly
+    return students.map(student => ({
+      id: student.id,
+      firstName: student.user?.firstName,
+      lastName: student.user?.lastName,
+      email: student.user?.email,
+      birthDate: student.birthDate,
+      parentId: student.parentId,
+      classId: student.classId,
+      courseIds: student.courseIds,
+      subscriptionStatus: student.subscriptionStatus,
+      subscriptionEndDate: student.subscriptionEndDate,
+      registrationFormCompleted: student.registrationFormCompleted,
+      formCompletionDate: student.formCompletionDate,
+      age: student.age
+    }));
   }
 
   async findOne(id: string): Promise<Student> {
@@ -336,52 +353,254 @@ export class StudentsService {
   }
 
   async getStudentClasses(studentId: string): Promise<any[]> {
-    // First, get the student to find their classId
+    // First, get the student to find their courseIds (no classId needed)
     const student = await this.findOne(studentId);
     
-    if (!student.classId) {
-      return []; // Student is not enrolled in any class
+    const classesMap = new Map();
+
+    // Get individual course enrollments (main enrollment method)
+    if (student.courseIds && student.courseIds.length > 0) {
+      const classEntity = await this.classRepository.findOne({
+        where: { id: student.classId },
+        relations: ['courses', 'courses.teacher']
+      });
+
+      if (classEntity) {
+        // Get all unique students enrolled in this class (both class-level and individual course enrollments)
+        const classLevelStudents = await this.studentRepository.find({
+          where: { classId: student.classId },
+          select: ['id']
+        });
+
+        // Get all students enrolled in any course within this class
+        const courseLevelStudents = await this.studentRepository
+          .createQueryBuilder('student')
+          .innerJoin('courses', 'course', 'course.id::text = ANY(string_to_array(student.courseIds, \',\'))')
+          .where('course.classId = :classId', { classId: student.classId })
+          .select('student.id')
+          .getMany();
+
+        // Combine and deduplicate student IDs
+        const allStudentIds = new Set([
+          ...classLevelStudents.map(s => s.id),
+          ...courseLevelStudents.map(s => s.id)
+        ]);
+
+        // Transform the data to match the frontend structure
+        const transformedClass = {
+          id: classEntity.id,
+          name: classEntity.name,
+          startDate: classEntity.startDate,
+          endDate: classEntity.endDate,
+          numberOfStudents: allStudentIds.size,
+          status: 'active', // Default status since Class entity doesn't have status field
+          courses: classEntity.courses?.map(course => ({
+            id: course.id,
+            name: course.name,
+            startDate: classEntity.startDate, // Use class dates since courses don't have their own dates
+            endDate: classEntity.endDate,
+            teacherName: course.teacher ? `${course.teacher.firstName} ${course.teacher.lastName}` : 'No Teacher Assigned',
+            courseMaterial: course.name || 'No description available',
+            sessionTime: course.sessions?.map(session => ({
+              day: session.day,
+              startTime: session.startTime,
+              endTime: session.endTime
+            })) || []
+          })) || []
+        };
+
+        classesMap.set(classEntity.id, transformedClass);
+      }
     }
 
-    // Get the class with its courses
-    const classEntity = await this.classRepository.findOne({
-      where: { id: student.classId },
-      relations: ['courses', 'courses.teacher']
+    // Get individual course enrollments (if any)
+    if (student.courseIds && student.courseIds.length > 0) {
+      const individualCourses = await this.courseRepository.find({
+        where: { id: In(student.courseIds) },
+        relations: ['teacher', 'class']
+      });
+
+      // Group individual courses by their class
+      const coursesByClass = {};
+      individualCourses.forEach(course => {
+        const classId = course.classId;
+        if (!coursesByClass[classId]) {
+          coursesByClass[classId] = {
+            class: course.class,
+            courses: []
+          };
+        }
+        coursesByClass[classId].courses.push(course);
+      });
+
+      // Create or update class objects for individual course enrollments
+      for (const classData of Object.values(coursesByClass) as any[]) {
+        const { class: classEntity, courses } = classData;
+        if (classesMap.has(classEntity.id)) {
+          // Class already exists from class enrollment, just update the courses
+          const existingClass = classesMap.get(classEntity.id);
+          // Add individual courses to the existing class
+          const individualCourseData = courses.map(course => ({
+            id: course.id,
+            name: course.name,
+            startDate: classEntity.startDate,
+            endDate: classEntity.endDate,
+            teacherName: course.teacher ? `${course.teacher.firstName} ${course.teacher.lastName}` : 'No Teacher Assigned',
+            courseMaterial: course.name || 'No description available',
+            sessionTime: course.sessions?.map(session => ({
+              day: session.day,
+              startTime: session.startTime,
+              endTime: session.endTime
+            })) || []
+          }));
+          
+          // Merge courses, avoiding duplicates
+          const existingCourseIds = existingClass.courses.map(c => c.id);
+          const newCourses = individualCourseData.filter(c => !existingCourseIds.includes(c.id));
+          existingClass.courses = [...existingClass.courses, ...newCourses];
+        } else {
+          // Create new class object for individual course enrollments
+          // Get all unique students enrolled in this class (both class-level and individual course enrollments)
+          const classLevelStudents = await this.studentRepository.find({
+            where: { classId: classEntity.id },
+            select: ['id']
+          });
+
+          // Get all students enrolled in any course within this class
+          const courseLevelStudents = await this.studentRepository
+            .createQueryBuilder('student')
+            .innerJoin('courses', 'course', 'course.id::text = ANY(string_to_array(student.courseIds, \',\'))')
+            .where('course.classId = :classId', { classId: classEntity.id })
+            .select('student.id')
+            .getMany();
+
+          // Combine and deduplicate student IDs
+          const allStudentIds = new Set([
+            ...classLevelStudents.map(s => s.id),
+            ...courseLevelStudents.map(s => s.id)
+          ]);
+
+          const transformedClass = {
+            id: classEntity.id,
+            name: classEntity.name,
+            startDate: classEntity.startDate,
+            endDate: classEntity.endDate,
+            numberOfStudents: allStudentIds.size,
+            status: 'active',
+            courses: courses.map(course => ({
+              id: course.id,
+              name: course.name,
+              startDate: classEntity.startDate,
+              endDate: classEntity.endDate,
+              teacherName: course.teacher ? `${course.teacher.firstName} ${course.teacher.lastName}` : 'No Teacher Assigned',
+              courseMaterial: course.name || 'No description available',
+              sessionTime: course.sessions?.map(session => ({
+                day: session.day,
+                startTime: session.startTime,
+                endTime: session.endTime
+              })) || []
+            }))
+          };
+
+          classesMap.set(classEntity.id, transformedClass);
+        }
+      }
+    }
+
+    return Array.from(classesMap.values());
+  }
+
+  // Individual course enrollment methods
+  async enrollStudentInCourse(studentId: string, courseId: string): Promise<Student> {
+    const student = await this.findOne(studentId);
+    const course = await this.courseRepository.findOne({
+      where: { id: courseId }
     });
 
-    if (!classEntity) {
+    if (!course) {
+      throw new NotFoundException('Course not found');
+    }
+
+    // Check if student is already enrolled in this course
+    const existingCourseIds = student.courseIds || [];
+    if (existingCourseIds.includes(courseId)) {
+      throw new ConflictException('Student is already enrolled in this course');
+    }
+
+    // Add course to student's courseIds
+    student.courseIds = [...existingCourseIds, courseId];
+    
+    // Also add student to course.students array
+    const existingStudents = course.students || [];
+    if (!existingStudents.includes(studentId)) {
+      course.students = [...existingStudents, studentId];
+      await this.courseRepository.save(course);
+    }
+    
+    return this.studentRepository.save(student);
+  }
+
+  async unenrollStudentFromCourse(studentId: string, courseId: string): Promise<Student> {
+    const student = await this.findOne(studentId);
+    const course = await this.courseRepository.findOne({ where: { id: courseId } });
+    
+    const existingCourseIds = student.courseIds || [];
+    if (!existingCourseIds.includes(courseId)) {
+      throw new NotFoundException('Student is not enrolled in this course');
+    }
+
+    // Remove course from student's courseIds
+    student.courseIds = existingCourseIds.filter(id => id !== courseId);
+    
+    // Also remove student from course.students array
+    if (course) {
+      const existingStudents = course.students || [];
+      course.students = existingStudents.filter(id => id !== studentId);
+      await this.courseRepository.save(course);
+    }
+
+    // No need to check classId since we're only using course-level enrollment
+    
+    return this.studentRepository.save(student);
+  }
+
+  async getStudentCourseEnrollments(studentId: string): Promise<Course[]> {
+    const student = await this.findOne(studentId);
+    
+    if (!student.courseIds || student.courseIds.length === 0) {
       return [];
     }
 
-    // Get the actual student count for this class
-    const studentCount = await this.studentRepository.count({
-      where: { classId: student.classId }
+    return this.courseRepository.find({
+      where: { id: In(student.courseIds) },
+      relations: ['teacher', 'class']
     });
+  }
 
-    // Transform the data to match the frontend structure
-    const transformedClass = {
-      id: classEntity.id,
-      name: classEntity.name,
-      startDate: classEntity.startDate,
-      endDate: classEntity.endDate,
-      numberOfStudents: studentCount,
-      status: 'active', // Default status since Class entity doesn't have status field
-      courses: classEntity.courses?.map(course => ({
-        id: course.id,
-        name: course.name,
-        startDate: classEntity.startDate, // Use class dates since courses don't have their own dates
-        endDate: classEntity.endDate,
-        teacherName: course.teacher ? `${course.teacher.firstName} ${course.teacher.lastName}` : 'No Teacher Assigned',
-        courseMaterial: course.name || 'No description available',
-        sessionTime: course.sessions?.map(session => ({
-          day: session.day,
-          startTime: session.startTime,
-          endTime: session.endTime
-        })) || []
-      })) || []
-    };
+  async isStudentEnrolledInCourse(studentId: string, courseId: string): Promise<boolean> {
+    const student = await this.findOne(studentId);
+    const course = await this.courseRepository.findOne({ where: { id: courseId } });
+    
+    if (!course) {
+      return false;
+    }
 
-    return [transformedClass];
+    // Check direct course enrollment (course.students array)
+    const courseStudents = course.students || [];
+    if (courseStudents.includes(studentId)) {
+      return true;
+    }
+    
+    // Check class enrollment
+    if (student.classId) {
+      if (course.classId === student.classId) {
+        return true; // Student has access through class enrollment
+      }
+    }
+
+    // Check individual course enrollment (student.courseIds)
+    const courseIds = student.courseIds || [];
+    return courseIds.includes(courseId);
   }
 
   async markFormCompleted(studentId: string) {

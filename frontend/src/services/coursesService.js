@@ -170,6 +170,17 @@ class CoursesService {
       throw error;
     }
   }
+
+  // Get students enrolled in a course
+  async getCourseStudents(courseId) {
+    try {
+      const response = await api.get(`/api/courses/${courseId}/students`);
+      // Backend returns {students: []} format, extract the students array
+      return response.data.students || response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  }
 }
 
 export default new CoursesService();

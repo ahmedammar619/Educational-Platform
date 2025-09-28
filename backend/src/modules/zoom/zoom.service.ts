@@ -746,17 +746,17 @@ export class ZoomService {
 
       console.log('✅ Course found:', course.name, 'Class ID:', course.classId);
       console.log('📚 Class relation:', course.class?.name);
-      console.log('👥 Students array in class:', course.class?.students?.length || 0);
-      console.log('👥 Student IDs in class:', course.class?.students);
+      console.log('👥 Students array in course:', course.students?.length || 0);
+      console.log('👥 Student IDs in course:', course.students);
       
-      // Get students from the class that contains this course
+      // Get students from the course.students array
       let students: User[] = [];
       
-      if (course.class?.students && course.class.students.length > 0) {
-        // Get students by their IDs from the students array
+      if (course.students && course.students.length > 0) {
+        // Get students by their IDs from the course.students array
         students = await this.userRepository.find({
           where: { 
-            id: In(course.class.students),
+            id: In(course.students),
             role: Role.Student 
           }
         });

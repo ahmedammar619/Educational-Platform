@@ -1054,8 +1054,8 @@ export class MaterialsService {
     } else {
       console.log('⚠️ No students found in class or class not found:', {
         hasClass: !!course.class,
-        hasStudents: !!course.class?.students,
-        studentsCount: course.class?.students?.length || 0
+        hasStudents: false, // Students are now tracked in course.students array
+        studentsCount: 0
       });
     }
 
@@ -1912,29 +1912,42 @@ export class MaterialsService {
       relations: ['class']
     });
 
-    if (!course?.classId) {
+    if (!course) {
       return [];
     }
 
-    // Get students from the classes.students field
-    const classData = await this.courseRepository.manager.query(`
-      SELECT c.students 
-      FROM classes c
-      WHERE c.id = $1
-    `, [course.classId]);
+    const studentIds = new Set<string>();
 
-    let studentIds: string[] = [];
-    if (classData.length > 0 && classData[0].students) {
-      const studentsString = classData[0].students;
-      studentIds = studentsString.split(',').map(id => id.trim()).filter(id => id.length > 0);
+    // Get students from class enrollment (if course belongs to a class)
+    if (course.classId) {
+      const classData = await this.courseRepository.manager.query(`
+        SELECT c.students 
+        FROM classes c
+        WHERE c.id = $1
+      `, [course.classId]);
+
+      if (classData.length > 0 && classData[0].students) {
+        const studentsString = classData[0].students;
+        const classStudentIds = studentsString.split(',').map(id => id.trim()).filter(id => id.length > 0);
+        classStudentIds.forEach(id => studentIds.add(id));
+      }
     }
 
-    if (studentIds.length === 0) {
+    // Get students from individual course enrollment
+    const individualEnrollments = await this.courseRepository.manager.query(`
+      SELECT s.id
+      FROM students s
+      WHERE $1 = ANY(s."courseIds")
+    `, [courseId]);
+
+    individualEnrollments.forEach(row => studentIds.add(row.id));
+
+    if (studentIds.size === 0) {
       return [];
     }
 
     return await this.userRepository.find({
-      where: { id: In(studentIds) },
+      where: { id: In(Array.from(studentIds)) },
       select: ['id', 'firstName', 'lastName', 'email']
     });
   }

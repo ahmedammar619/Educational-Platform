@@ -203,6 +203,27 @@ const ChildrenManagement = ({ user }) => {
     return childData ? childData.courses || [] : [];
   };
 
+  // Helper function to get all classes for a specific child
+  const getClassesForChild = (childId) => {
+    if (!teachers.length) return [];
+
+    const allCourses = [];
+    
+    // Get all courses for this child from all teachers
+    teachers.forEach(teacher => {
+      if (teacher.children) {
+        const childData = teacher.children.find(child => child.id === childId);
+        if (childData && childData.courses) {
+          allCourses.push(...childData.courses);
+        }
+      }
+    });
+
+    // Extract unique class names
+    const uniqueClasses = [...new Set(allCourses.map(course => course.className).filter(Boolean))];
+    return uniqueClasses;
+  };
+
   // Helper function to generate WhatsApp URL
   const generateWhatsAppUrl = (phoneNumber) => {
     console.log('Original phone number:', phoneNumber);
@@ -466,9 +487,18 @@ const ChildrenManagement = ({ user }) => {
           {children.map((child) => (
             <div
               key={child.id}
-              className="bg-white rounded-xl border border-gray-100 hover:border-purple-200 hover:shadow-lg transition-all duration-300 p-4 md:p-6 text-center group"
+              onClick={() => setSelectedChild(child)}
+              className={`bg-white rounded-xl border transition-all duration-300 p-4 md:p-6 text-center group cursor-pointer ${
+                selectedChild && selectedChild.id === child.id 
+                  ? 'border-purple-300 shadow-lg bg-purple-50' 
+                  : 'border-gray-100 hover:border-purple-200 hover:shadow-lg'
+              }`}
             >
-              <div className="w-12 h-12 md:w-16 md:h-16 bg-purple-500 rounded-full flex items-center justify-center mx-auto mb-3 md:mb-4 group-hover:bg-purple-600 transition-colors">
+              <div className={`w-12 h-12 md:w-16 md:h-16 rounded-full flex items-center justify-center mx-auto mb-3 md:mb-4 transition-colors ${
+                selectedChild && selectedChild.id === child.id 
+                  ? 'bg-purple-600' 
+                  : 'bg-purple-500 group-hover:bg-purple-600'
+              }`}>
                 <span className="text-white text-lg md:text-xl font-bold">
                   {child.firstName ? child.firstName.charAt(0) : 
                    child.name ? child.name.charAt(0) : 'U'}
@@ -483,7 +513,11 @@ const ChildrenManagement = ({ user }) => {
               </h3>
 
               <div className="text-xs md:text-sm text-gray-500 mb-3 md:mb-4">
-                {(child.class || 'Not specified')} • {child.age ? `${child.age} years` : 'Age not specified'}
+                {(() => {
+                  const classes = getClassesForChild(child.id);
+                  const classDisplay = classes.length > 0 ? classes.join(', ') : 'Not enrolled';
+                  return `${classDisplay} • ${child.age ? `${child.age} years` : 'Age not specified'}`;
+                })()}
               </div>
 
               <div className="space-y-2">
@@ -534,8 +568,15 @@ const ChildrenManagement = ({ user }) => {
             {/* Quick Stats */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6 md:mb-8">
               <div className="text-center lg:text-left">
-                <div className="text-xs md:text-sm text-gray-500 font-medium">Class</div>
-                <div className="text-lg md:text-2xl font-bold text-purple-600 mb-1">{selectedChild.class || 'Not specified'}</div>
+                <div className="text-xs md:text-sm text-gray-500 font-medium">Enrolled Courses</div>
+                <div className="text-lg md:text-2xl font-bold text-purple-600 mb-1">
+                  {(() => {
+                    const allCourses = getTeachersForSelectedChild().flatMap(teacher => 
+                      getCoursesForTeacherAndChild(teacher)
+                    );
+                    return allCourses.length || 0;
+                  })()}
+                </div>
               </div>
               <div className="text-center lg:text-left">
                 <div className="text-xs md:text-sm text-gray-500 font-medium">Age</div>
@@ -555,7 +596,9 @@ const ChildrenManagement = ({ user }) => {
 
             {/* Teachers Section */}
             <div className="mt-4 md:mt-6">
-              <h3 className="text-base md:text-lg font-semibold text-gray-900 mb-3 md:mb-4">Teachers</h3>
+              <h3 className="text-base md:text-lg font-semibold text-gray-900 mb-3 md:mb-4">
+                Teachers & Enrolled Courses
+              </h3>
 
               {teachersLoading ? (
                 <div className="flex items-center justify-center py-8">
@@ -587,16 +630,19 @@ const ChildrenManagement = ({ user }) => {
                                   <div className="text-xs md:text-sm text-gray-500">
                                     {courses.length > 0 ? (
                                       <>
-                                        <span className="font-medium">Courses:</span>{' '}
+                                        <span className="font-medium">Enrolled in:</span>{' '}
                                         {courses.map((course, courseIndex) => (
                                           <span key={course.id}>
                                             {course.name}
+                                            {course.className && (
+                                              <span className="text-gray-400"> ({course.className})</span>
+                                            )}
                                             {courseIndex < courses.length - 1 && ', '}
                                           </span>
                                         ))}
                                       </>
                                     ) : (
-                                      'Teacher'
+                                      'No enrolled courses'
                                     )}
                                   </div>
                                 </div>
@@ -628,7 +674,7 @@ const ChildrenManagement = ({ user }) => {
                         No teachers found for {selectedChild.firstName || selectedChild.name}
                       </p>
                       <p className="text-xs text-gray-500 mt-1">
-                        Teachers will appear here once your child is enrolled in courses
+                        Teachers will appear here once your child is enrolled in specific courses
                       </p>
                     </div>
                   )}

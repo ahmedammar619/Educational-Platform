@@ -210,6 +210,34 @@ class StudentsService {
       throw error.response?.data || error.message;
     }
   }
+
+  // Individual course enrollment methods
+  async enrollStudentInCourse(studentId, courseId) {
+    try {
+      const response = await api.post(`/api/students/${studentId}/enroll-course/${courseId}`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  }
+
+  async unenrollStudentFromCourse(studentId, courseId) {
+    try {
+      const response = await api.delete(`/api/students/${studentId}/unenroll-course/${courseId}`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  }
+
+  async getStudentCourseEnrollments(studentId) {
+    try {
+      const response = await api.get(`/api/students/${studentId}/course-enrollments`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  }
 }
 
 export default new StudentsService();

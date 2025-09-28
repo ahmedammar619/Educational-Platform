@@ -294,7 +294,7 @@ const StudentClasses = ({ user, onOpenMaterials }) => {
                       </div>
 
                       {/* Class Info */}
-                      <div className="mt-4 grid grid-cols-3 gap-4">
+                      <div className="mt-4 grid grid-cols-2 gap-4">
                         <div className="text-center bg-gray-50 rounded-lg p-3">
                           <p className="text-xs text-gray-500 flex items-center justify-center gap-1 mb-1">
                             <Calendar className="h-3 w-3 text-gray-400" /> Start Date
@@ -306,12 +306,6 @@ const StudentClasses = ({ user, onOpenMaterials }) => {
                             <Calendar className="h-3 w-3 text-gray-400" /> End Date
                           </p>
                           <p className="font-medium text-gray-900 text-sm">{classItem.endDate}</p>
-                        </div>
-                        <div className="text-center bg-gray-50 rounded-lg p-3">
-                          <p className="text-xs text-gray-500 flex items-center justify-center gap-1 mb-1">
-                            <Users className="h-3 w-3 text-gray-400" /> Students
-                          </p>
-                          <p className="font-medium text-gray-900 text-sm">{classItem.numberOfStudents}</p>
                         </div>
                       </div>
                     </div>

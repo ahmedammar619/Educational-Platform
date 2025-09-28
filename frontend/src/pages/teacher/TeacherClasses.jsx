@@ -209,21 +209,12 @@ const TeacherClasses = ({ user }) => {
 
                           {/* Class Actions */}
                           <div className="flex items-center gap-2">
-                            <button
-                              onClick={() => {
-                                setSelectedClassForModal(classItem);
-                                setShowStudentModal(true);
-                              }}
-                              className="text-green-600 hover:text-green-800 p-2 rounded-lg hover:bg-green-50 transition-colors"
-                              title="View Students"
-                            >
-                              <Users className="h-4 w-4" />
-                            </button>
+                            {/* View students button removed - now available at course level */}
                           </div>
                         </div>
 
                         {/* Class Info */}
-                        <div className="mt-4 grid grid-cols-3 gap-4">
+                        <div className="mt-4 grid grid-cols-2 gap-4">
                           <div className="text-center bg-gray-50 rounded-lg p-3">
                             <p className="text-xs text-gray-500 flex items-center justify-center gap-1 mb-1">
                               <Calendar className="h-3 w-3 text-gray-400" /> Start Date
@@ -235,22 +226,6 @@ const TeacherClasses = ({ user }) => {
                               <Calendar className="h-3 w-3 text-gray-400" /> End Date
                             </p>
                             <p className="font-medium text-gray-900 text-sm">{classItem.endDate}</p>
-                          </div>
-                          <div className="text-center bg-gray-50 rounded-lg p-3">
-                            <p className="text-xs text-gray-500 flex items-center justify-center gap-1 mb-1">
-                              <Users className="h-3 w-3 text-gray-400" /> Students
-                            </p>
-                            <p className="font-medium text-gray-900 text-sm">
-                              {classItem.numberOfStudents} 
-                              {/* Debug info */}
-                              {console.log('Rendering student count:', {
-                                id: classItem.id,
-                                name: classItem.name,
-                                numberOfStudents: classItem.numberOfStudents,
-                                studentsArray: classItem.students,
-                                studentsLength: classItem.students?.length
-                              })}
-                            </p>
                           </div>
                         </div>
                       </div>
@@ -267,10 +242,24 @@ const TeacherClasses = ({ user }) => {
                           ) : (
                             <div className="space-y-4">
                               {getTeacherCourses(classItem).map((course) => (
-                                <div key={course.id} className="bg-white rounded-lg border border-gray-200 p-3 md:p-4">
+                                <div key={course.id} className="bg-white rounded-lg border border-gray-200 p-3 md:p-4 relative">
                                   <div className="mb-3 md:mb-4">
-                                    <div className="flex items-center gap-2">
-                                      <h5 className="text-sm md:text-base font-semibold text-gray-900 leading-tight text-start">{course.name}</h5>
+                                    <div className="flex items-center justify-between">
+                                      <div className="flex items-center gap-2">
+                                        <h5 className="text-sm md:text-base font-semibold text-gray-900 leading-tight text-start">{course.name}</h5>
+                                      </div>
+                                      {/* View Students Icon */}
+                                      <button
+                                        onClick={() => {
+                                          console.log('🔍 Teacher clicking view students button for course:', course);
+                                          setSelectedClassForModal(course);
+                                          setShowStudentModal(true);
+                                        }}
+                                        className="text-green-600 hover:text-green-800 p-2 rounded-lg hover:bg-green-50 transition-colors"
+                                        title="View Students"
+                                      >
+                                        <Users className="h-4 w-4" />
+                                      </button>
                                     </div>
                                   </div>
 
@@ -381,9 +370,19 @@ const StudentModal = ({ classData, onClose, showAlert }) => {
   const loadStudents = useCallback(async () => {
     try {
       setLoadingStudents(true);
-      console.log('🔍 Loading students for class:', classData.id, classData.name);
+      console.log('🔍 Loading students for course:', classData.id, classData.name);
       
-      const studentsData = await teachersService.getClassStudents(classData.id);
+      // Check if this is course data (has courseId) or class data
+      const isCourse = classData.courseId || classData.teacherId;
+      let studentsData;
+      
+      if (isCourse) {
+        // This is course data, use course students endpoint
+        studentsData = await coursesService.getCourseStudents(classData.id);
+      } else {
+        // This is class data, use class students endpoint
+        studentsData = await teachersService.getClassStudents(classData.id);
+      }
       
       console.log('📊 Raw students data received:', studentsData);
       console.log('📊 Data type:', typeof studentsData);
@@ -416,7 +415,7 @@ const StudentModal = ({ classData, onClose, showAlert }) => {
       setStudents(studentsArray);
       
       if (studentsArray.length === 0) {
-        console.log('⚠️ No students found for class:', classData.name);
+        console.log('⚠️ No students found for course:', classData.name);
       }
     } catch (error) {
       console.error('❌ Error loading students:', error);
@@ -627,6 +626,7 @@ const StudentModal = ({ classData, onClose, showAlert }) => {
             <div>
               <h3 className="text-base sm:text-lg font-medium text-gray-900">
                 Students in {classData.name}
+                {classData.courseId && <span className="text-sm text-gray-500 ml-2">(Course)</span>}
               </h3>
             </div>
             <button
@@ -645,29 +645,31 @@ const StudentModal = ({ classData, onClose, showAlert }) => {
               </div>
             ) : groupedStudents.length === 0 ? (
               <div className="text-center py-8">
-                <p className="text-sm text-gray-600">No students enrolled in this class</p>
+                <p className="text-sm text-gray-600">
+                  No students enrolled in this {classData.courseId ? 'course' : 'class'}
+                </p>
               </div>
             ) : (
               groupedStudents.map((group, groupIndex) => (
               <div key={group.isIndividual ? `individual-${group.students[0].id}` : group.parent.id} className="border rounded-lg overflow-hidden">
                 {/* Parent Header - only show for groups with parents */}
                 {!group.isIndividual && (
-                  <div className="bg-blue-50 px-3 py-3 border-b">
+                  <div className="bg-purple-50 px-3 py-3 border-b">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-3">
-                        <div className="w-8 h-8 sm:w-10 sm:h-10 bg-blue-600 rounded-full flex items-center justify-center flex-shrink-0">
+                        <div className="w-8 h-8 sm:w-10 sm:h-10 bg-purple-600 rounded-full flex items-center justify-center flex-shrink-0">
                           <User className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
                         </div>
                         <div className="text-start min-w-0">
-                          <h4 className="font-semibold text-blue-900 text-sm sm:text-base">
+                          <h4 className="font-semibold text-purple-900 text-sm sm:text-base">
                             {group.parent.firstName} {group.parent.lastName}
                           </h4>
-                          <p className="text-xs sm:text-sm text-blue-700">{group.parent.email}</p>
+                          <p className="text-xs sm:text-sm text-purple-700">{group.parent.email}</p>
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
                         {group.students.length > 1 && (
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
                             {group.students.length} Student{group.students.length !== 1 ? 's' : ''}
                           </span>
                         )}
@@ -704,7 +706,7 @@ const StudentModal = ({ classData, onClose, showAlert }) => {
                             </span>
                           </div>
                           {!group.isIndividual && group.students.length > 1 && studentIndex === 0 && (
-                            <div className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-1 h-3 bg-blue-300 rounded-full"></div>
+                            <div className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-1 h-3 bg-purple-300 rounded-full"></div>
                           )}
                         </div>
                         <div className="text-start min-w-0 flex-1">
