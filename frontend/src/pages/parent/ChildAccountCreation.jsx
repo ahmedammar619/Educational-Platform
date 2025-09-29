@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { User, Mail, Lock, Calendar, Eye, EyeOff } from 'lucide-react';
+import { User, Mail, Lock, Calendar, Eye, EyeOff, BookOpen, DollarSign } from 'lucide-react';
 import { showSuccessToast, showErrorToast, showWarningToast, showLoadingToast, dismissToast } from '../../utils/toast.js';
 import parentsService from '../../services/parentsService';
+import programsService from '../../services/programsService';
 
 const ChildAccountCreation = ({ user, onSuccess, onCancel }) => {
   const [formData, setFormData] = useState({
@@ -10,7 +11,8 @@ const ChildAccountCreation = ({ user, onSuccess, onCancel }) => {
     email: '',
     password: '',
     confirmPassword: '',
-    birthDate: ''
+    birthDate: '',
+    programIds: []
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitStatus, setSubmitStatus] = useState(null);
@@ -18,6 +20,8 @@ const ChildAccountCreation = ({ user, onSuccess, onCancel }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [successData, setSuccessData] = useState(null); // New state to hold success data
+  const [availablePrograms, setAvailablePrograms] = useState([]);
+  const [loadingPrograms, setLoadingPrograms] = useState(false);
 
   // Add CSS to hide browser's default password visibility toggle
   useEffect(() => {
@@ -39,6 +43,24 @@ const ChildAccountCreation = ({ user, onSuccess, onCancel }) => {
     };
   }, []);
 
+  // Load available programs
+  useEffect(() => {
+    const loadPrograms = async () => {
+      setLoadingPrograms(true);
+      try {
+        const programs = await programsService.getAllPrograms();
+        setAvailablePrograms(programs);
+      } catch (error) {
+        console.error('Error loading programs:', error);
+        showErrorToast('Failed to load programs');
+      } finally {
+        setLoadingPrograms(false);
+      }
+    };
+
+    loadPrograms();
+  }, []);
+
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({
@@ -50,6 +72,35 @@ const ChildAccountCreation = ({ user, onSuccess, onCancel }) => {
       setErrors(prev => ({
         ...prev,
         [name]: ''
+      }));
+    }
+  };
+
+  const handleProgramChange = (programId) => {
+    setFormData(prev => {
+      const currentProgramIds = prev.programIds || [];
+      const isSelected = currentProgramIds.includes(programId);
+      
+      let newProgramIds;
+      if (isSelected) {
+        // Remove program if already selected
+        newProgramIds = currentProgramIds.filter(id => id !== programId);
+      } else {
+        // Add program if not selected
+        newProgramIds = [...currentProgramIds, programId];
+      }
+      
+      return {
+        ...prev,
+        programIds: newProgramIds
+      };
+    });
+    
+    // Clear program errors when user makes selection
+    if (errors.programIds) {
+      setErrors(prev => ({
+        ...prev,
+        programIds: ''
       }));
     }
   };
@@ -85,6 +136,10 @@ const ChildAccountCreation = ({ user, onSuccess, onCancel }) => {
       newErrors.birthDate = 'Date of birth is required';
     }
 
+    if (!formData.programIds || formData.programIds.length === 0) {
+      newErrors.programIds = 'Please select at least one program';
+    }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -116,7 +171,8 @@ const ChildAccountCreation = ({ user, onSuccess, onCancel }) => {
         lastName: formData.lastName,
         email: formData.email,
         password: formData.password,
-        birthDate: formData.birthDate
+        birthDate: formData.birthDate,
+        programIds: formData.programIds
       };
 
       console.log('Submitting child data:', childData);
@@ -135,7 +191,8 @@ const ChildAccountCreation = ({ user, onSuccess, onCancel }) => {
         email: '',
         password: '',
         confirmPassword: '',
-        birthDate: ''
+        birthDate: '',
+        programIds: []
       });
       
       // Call onSuccess callback after 2 seconds to show success message
@@ -399,21 +456,73 @@ const ChildAccountCreation = ({ user, onSuccess, onCancel }) => {
             <Calendar className="h-5 w-5 mr-2 text-purple-600" />
             Additional Information
           </h3>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Date of Birth *
-            </label>
-            <input
-              type="date"
-              name="birthDate"
-              value={formData.birthDate}
-              onChange={handleInputChange}
-              className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 ${errors.birthDate ? 'border-red-500' : 'border-gray-300'}`}
-            />
-            {errors.birthDate && (
-              <p className="text-red-500 text-sm mt-1">{errors.birthDate}</p>
-            )}
-            <p className="text-xs text-gray-500 mt-1">Required for student accounts</p>
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Date of Birth *
+              </label>
+              <input
+                type="date"
+                name="birthDate"
+                value={formData.birthDate}
+                onChange={handleInputChange}
+                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 ${errors.birthDate ? 'border-red-500' : 'border-gray-300'}`}
+              />
+              {errors.birthDate && (
+                <p className="text-red-500 text-sm mt-1">{errors.birthDate}</p>
+              )}
+              <p className="text-xs text-gray-500 mt-1">Required for student accounts</p>
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Select Programs *
+              </label>
+              {loadingPrograms ? (
+                <div className="flex items-center justify-center py-4">
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-purple-600"></div>
+                  <span className="ml-2 text-gray-600">Loading programs...</span>
+                </div>
+              ) : availablePrograms.length > 0 ? (
+                <div className="space-y-2 max-h-48 overflow-y-auto border border-gray-200 rounded-md p-3">
+                  {availablePrograms.map((program) => (
+                    <label key={program.id} className="flex items-center space-x-3 p-2 hover:bg-gray-100 rounded cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={formData.programIds?.includes(program.id) || false}
+                        onChange={() => handleProgramChange(program.id)}
+                        className="rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                      />
+                      <div className="flex-1">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-medium text-gray-900">
+                            {program.name}
+                          </span>
+                          <div className="flex items-center text-sm text-green-600">
+                            <DollarSign className="h-4 w-4 mr-1" />
+                            ${program.price}
+                          </div>
+                        </div>
+                        <p className="text-xs text-gray-500">
+                          {program.studentIds?.length || 0} students enrolled
+                        </p>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-4 text-gray-500">
+                  <BookOpen className="w-8 h-8 mx-auto mb-2 text-gray-300" />
+                  <p className="text-sm">No programs available</p>
+                </div>
+              )}
+              {errors.programIds && (
+                <p className="text-red-500 text-sm mt-1">{errors.programIds}</p>
+              )}
+              <p className="text-xs text-gray-500 mt-1">
+                Select at least one program for your child to enroll in
+              </p>
+            </div>
           </div>
         </div>
 

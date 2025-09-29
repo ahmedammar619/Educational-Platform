@@ -10,6 +10,7 @@ import { AssignmentSubmission } from '../materials/entities/assignment-submissio
 import { Attendance } from '../materials/entities/attendance.entity';
 import { Subscription } from '../payments/entities/subscription.entity';
 import { Invoice } from '../payments/entities/invoice.entity';
+import { Program } from '../programs/entities/program.entity';
 import { CreateStudentDto } from './dto/create-student.dto';
 import { UpdateStudentDto } from './dto/update-student.dto';
 import { Role } from '../../common/enums/role.enum';
@@ -36,10 +37,12 @@ export class StudentsService {
     private readonly subscriptionRepository: Repository<Subscription>,
     @InjectRepository(Invoice)
     private readonly invoiceRepository: Repository<Invoice>,
+    @InjectRepository(Program)
+    private readonly programRepository: Repository<Program>,
   ) {}
 
   async createStudent(createStudentDto: CreateStudentDto): Promise<Student> {
-    const { email, password, firstName, lastName, birthDate, parentId, ...rest } = createStudentDto;
+    const { email, password, firstName, lastName, birthDate, parentId, programIds, ...rest } = createStudentDto;
 
     // Check if user already exists
     const existingUser = await this.userRepository.findOne({
@@ -69,10 +72,77 @@ export class StudentsService {
       id: savedUser.id,
       birthDate: new Date(birthDate),
       parentId,
+      programIds: programIds,
       ...rest,
     });
 
-    return this.studentRepository.save(student);
+    const savedStudent = await this.studentRepository.save(student);
+
+    // Auto-enroll student in selected programs
+    await this.enrollStudentInPrograms(savedStudent.id, programIds);
+
+    return savedStudent;
+  }
+
+  async enrollStudentInPrograms(studentId: string, programIds: string[]): Promise<void> {
+    for (const programId of programIds) {
+      try {
+        const program = await this.programRepository.findOne({ where: { id: programId } });
+        if (program) {
+          // Add student to program's studentIds if not already enrolled
+          if (!program.studentIds.includes(studentId)) {
+            program.studentIds = [...program.studentIds, studentId];
+            await this.programRepository.save(program);
+          }
+        }
+      } catch (error) {
+        console.error(`Failed to enroll student ${studentId} in program ${programId}:`, error);
+        // Continue with other programs even if one fails
+      }
+    }
+  }
+
+  async updateStudentProgramEnrollments(studentId: string, newProgramIds: string[]): Promise<void> {
+    // Get current student to find existing program enrollments
+    const student = await this.findOne(studentId);
+    const currentProgramIds = student.programIds || [];
+
+    // Find programs to remove (in current but not in new)
+    const programsToRemove = currentProgramIds.filter(id => !newProgramIds.includes(id));
+    
+    // Find programs to add (in new but not in current)
+    const programsToAdd = newProgramIds.filter(id => !currentProgramIds.includes(id));
+
+    // Remove student from programs they're no longer enrolled in
+    for (const programId of programsToRemove) {
+      try {
+        const program = await this.programRepository.findOne({ where: { id: programId } });
+        if (program) {
+          program.studentIds = program.studentIds.filter(id => id !== studentId);
+          await this.programRepository.save(program);
+        }
+      } catch (error) {
+        console.error(`Failed to remove student ${studentId} from program ${programId}:`, error);
+      }
+    }
+
+    // Add student to new programs
+    for (const programId of programsToAdd) {
+      try {
+        const program = await this.programRepository.findOne({ where: { id: programId } });
+        if (program) {
+          if (!program.studentIds.includes(studentId)) {
+            program.studentIds = [...program.studentIds, studentId];
+            await this.programRepository.save(program);
+          }
+        }
+      } catch (error) {
+        console.error(`Failed to enroll student ${studentId} in program ${programId}:`, error);
+      }
+    }
+
+    // Update student's programIds
+    await this.studentRepository.update(studentId, { programIds: newProgramIds });
   }
 
   async findAll(): Promise<any[]> {
@@ -157,6 +227,13 @@ export class StudentsService {
       delete updateStudentDto.password;
     }
 
+    // Handle programIds separately to update program enrollments
+    let programIds = null;
+    if ('programIds' in updateStudentDto) {
+      programIds = updateStudentDto.programIds;
+      delete updateStudentDto.programIds;
+    }
+
     // Update user fields if provided
     const userFields = ['firstName', 'lastName', 'email'];
     const userUpdateData = {};
@@ -181,6 +258,11 @@ export class StudentsService {
         studentUpdateData.birthDate = new Date(birthDateValue);
       }
       await this.studentRepository.update(id, studentUpdateData);
+    }
+
+    // Handle program enrollment updates
+    if (programIds !== null) {
+      await this.updateStudentProgramEnrollments(id, programIds);
     }
 
     return this.findOne(id);

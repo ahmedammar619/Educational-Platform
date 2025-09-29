@@ -8,6 +8,7 @@ import MaterialPages from '../components/common/class-material/MaterialPages';
 // Lazy load individual page components
 const UserManagement = lazy(() => import('../pages/admin/UserManagement'));
 const ClassManagement = lazy(() => import('../pages/admin/ClassManagement'));
+const ProgramManagement = lazy(() => import('../pages/admin/ProgramManagement'));
 const AdminPayments = lazy(() => import('../pages/admin/AdminPayments'));
 const AdminForm = lazy(() => import('../pages/admin/AdminForm'));
 
@@ -108,7 +109,7 @@ const AppRouter = React.memo(({ user, onLogin, onLogout }) => {
               <MainLayout user={user} onLogout={onLogout} routes={[
                 { path: "/", element: <Navigate to="/admin/announcements" replace /> },
                 { path: "/users", element: <UserManagement user={user} /> },
-                { path: "/classes", element: <ClassManagement user={user} onOpenMaterials={handleOpenMaterials} /> },
+                { path: "/programs", element: <ProgramManagement user={user} /> },
                 { path: "/payments", element: <AdminPayments user={user} /> },
                 { path: "/form", element: <AdminForm user={user} /> },
                 { path: "/announcements", element: <AnnouncementsPage currentUser={user} theme={{ primary: 'green', primaryLight: 'green-50' }} /> },
@@ -118,7 +119,7 @@ const AppRouter = React.memo(({ user, onLogin, onLogout }) => {
                     onBack={handleCloseMaterials} 
                     currentUser={user} 
                   />
-                ) : <Navigate to="/admin/classes" replace /> },
+                ) : <Navigate to="/admin/programs" replace /> },
               ]} />
             ) : (
               <Navigate to={roleRoute} replace />

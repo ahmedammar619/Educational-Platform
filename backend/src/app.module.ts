@@ -21,6 +21,7 @@ import { TeachersModule } from './modules/teachers/teachers.module';
 import { ParentsModule } from './modules/parents/parents.module';
 import { StudentsModule } from './modules/students/students.module';
 import { ClassesModule } from './modules/classes/classes.module';
+import { ProgramsModule } from './modules/programs/programs.module';
 import { CoursesModule } from './modules/courses/courses.module';
 import { MaterialsModule } from './modules/materials/materials.module';
 import { PaymentsModule } from './modules/payments/payments.module';
@@ -42,6 +43,7 @@ import { Parent } from './modules/parents/entities/parent.entity';
 import { Student } from './modules/students/entities/student.entity';
 import { Teacher } from './modules/teachers/entities/teacher.entity';
 import { Class } from './modules/classes/entities/class.entity';
+import { Program } from './modules/programs/entities/program.entity';
 import { Course } from './modules/courses/entities/course.entity';
 
 import { Post } from './modules/materials/entities/post.entity';
@@ -85,6 +87,7 @@ import { Notification } from './modules/notifications/entities/notification.enti
           Student, 
           Teacher,
           Class,
+          Program,
           Course,
           Post,
           PostAttachment,
@@ -130,6 +133,7 @@ import { Notification } from './modules/notifications/entities/notification.enti
     ParentsModule,
     StudentsModule,
     ClassesModule,
+    ProgramsModule,
     CoursesModule,
     MaterialsModule,
     PaymentsModule,

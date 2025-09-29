@@ -9,6 +9,7 @@ export { default as teachersService } from './teachersService';
 export { default as studentsService } from './studentsService';
 export { default as parentsService } from './parentsService';
 export { default as adminService } from './adminService';
+export { default as programsService } from './programsService';
 export { default as announcementsService } from './announcementsService';
 
 // Export individual services as named exports
@@ -21,4 +22,5 @@ export { default as TeachersService } from './teachersService';
 export { default as StudentsService } from './studentsService';
 export { default as ParentsService } from './parentsService';
 export { default as AdminService } from './adminService';
+export { default as ProgramsService } from './programsService';
 export { default as AnnouncementsService } from './announcementsService';

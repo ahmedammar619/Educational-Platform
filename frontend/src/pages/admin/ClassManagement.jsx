@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Edit, Trash2, Users, Calendar, BookOpen, Search, Filter, User, X, ChevronDown, ChevronRight, UserMinus, ArrowUp, UserPlus, UserX } from 'lucide-react';
-import { classesService, usersService, coursesService, studentsService } from '../../services';
+import { Plus, Edit, Trash2, Users, Calendar, BookOpen, Search, Filter, User, X, ChevronDown, ChevronRight, UserMinus, ArrowUp, UserPlus, UserX, ArrowRight } from 'lucide-react';
+import { classesService, usersService, coursesService, studentsService, programsService } from '../../services';
 import { showErrorToast, showSuccessToast, getErrorMessage } from '../../utils/errorHandler';
 import { showWarningToast } from '../../utils/toast.js';
 import { ConfirmationDialog, AlertDialog } from '../../components/ui';
 import useConfirmation from '../../hooks/useConfirmation';
 import useAlert from '../../hooks/useAlert';
 
-const ClassManagement = ({ user, onOpenMaterials }) => {
+const ClassManagement = ({ user, onOpenMaterials, selectedProgram, onBackToPrograms }) => {
   const { confirmationState, showConfirmation, hideConfirmation, handleConfirm } = useConfirmation();
   const { alertState, showAlert, hideAlert } = useAlert();
   const [classes, setClasses] = useState([]);
@@ -16,6 +16,7 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
   const [expandedClasses, setExpandedClasses] = useState(new Set());
   const [filters, setFilters] = useState({
     search: '',
+    program: '',
     page: 1,
     limit: 10
   });
@@ -38,6 +39,7 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
   const [selectedCourse, setSelectedCourse] = useState(null);
   const [isCreatingCourse, setIsCreatingCourse] = useState(false);
   const [allStudents, setAllStudents] = useState([]);
+  const [allPrograms, setAllPrograms] = useState([]);
   const [courseEnrolledStudents, setCourseEnrolledStudents] = useState([]);
   const [enrollingStudents, setEnrollingStudents] = useState(new Set());
   const [unenrollingStudents, setUnenrollingStudents] = useState(new Set());
@@ -47,11 +49,12 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
   useEffect(() => {
     loadClasses();
     loadAllStudents();
+    loadAllPrograms();
   }, []);
 
   useEffect(() => {
     filterClasses();
-  }, [filters, classes]);
+  }, [filters, classes, selectedProgram]);
 
   const loadAllStudents = async () => {
     try {
@@ -60,6 +63,24 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
     } catch (error) {
       console.error('Error loading students:', error);
       showErrorToast('Failed to load students');
+    }
+  };
+
+  const loadAllPrograms = async () => {
+    try {
+      const programsData = await programsService.getAllPrograms();
+      let programsArray = [];
+      if (Array.isArray(programsData)) {
+        programsArray = programsData;
+      } else if (programsData && typeof programsData === 'object') {
+        programsArray = Object.values(programsData).filter(item =>
+          item && typeof item === 'object' && item.id && !item._rateLimitInfo
+        );
+      }
+      setAllPrograms(programsArray);
+    } catch (error) {
+      console.error('Error loading programs:', error);
+      showErrorToast('Failed to load programs');
     }
   };
 
@@ -75,41 +96,41 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
 
   const loadClasses = async () => {
     try {
-    setLoading(true);
+      setLoading(true);
       const classesData = await classesService.getAllClasses();
-      
+
       // Handle different response formats - convert object to array if needed
       let classesArray = [];
       if (Array.isArray(classesData)) {
         classesArray = classesData;
       } else if (classesData && typeof classesData === 'object') {
         // Convert object with numeric keys to array
-        classesArray = Object.values(classesData).filter(item => 
+        classesArray = Object.values(classesData).filter(item =>
           item && typeof item === 'object' && item.id && !item._rateLimitInfo
         );
       }
-      
+
       // Process classes and fetch course data for each class
       const processedClasses = await Promise.all(classesArray.map(async (classItem) => {
         console.log('Processing class:', classItem);
-        
+
         // Fetch course data using courseIds
         let courses = [];
         if (classItem.courseIds && classItem.courseIds.length > 0) {
           try {
             const coursesData = await coursesService.getCoursesByClass(classItem.id);
             console.log('Fetched courses for class:', classItem.id, coursesData);
-            
+
             // Handle different response formats for courses
             let coursesArray = [];
             if (Array.isArray(coursesData)) {
               coursesArray = coursesData;
             } else if (coursesData && typeof coursesData === 'object') {
-              coursesArray = Object.values(coursesData).filter(item => 
+              coursesArray = Object.values(coursesData).filter(item =>
                 item && typeof item === 'object' && item.id && !item._rateLimitInfo
               );
             }
-            
+
             courses = coursesArray.map(course => {
               console.log('Processing course:', course);
               console.log('Course sessions:', course.sessions);
@@ -126,7 +147,7 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
             courses = [];
           }
         }
-        
+
         // Get all unique students across all courses in this class
         const allStudents = new Set();
         courses.forEach(course => {
@@ -143,7 +164,7 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
           numberOfStudents: allStudents.size
         };
       }));
-      
+
       console.log('Processed classes with courses:', processedClasses);
       setClasses(processedClasses);
     } catch (error) {
@@ -162,7 +183,7 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
       }
       showErrorToast(errorMessage);
     } finally {
-    setLoading(false);
+      setLoading(false);
     }
   };
 
@@ -175,10 +196,25 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
 
     let filtered = [...classes];
 
+    // If a specific program is selected, filter by that program
+    if (selectedProgram) {
+      filtered = filtered.filter(classItem => {
+        return classItem.programId === selectedProgram.id ||
+          (classItem.program && classItem.program.id === selectedProgram.id);
+      });
+    }
+
     // Apply search filter
     if (filters.search) {
       filtered = filtered.filter(classItem => {
         return classItem.name && classItem.name.toLowerCase().includes(filters.search.toLowerCase());
+      });
+    }
+
+    // Apply program filter
+    if (filters.program) {
+      filtered = filtered.filter(classItem => {
+        return classItem.programId === filters.program;
       });
     }
 
@@ -222,10 +258,10 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
       const processedClassData = {
         ...classData
       };
-      
+
       const newClass = await classesService.createClass(processedClassData);
       setClasses(prev => [...(Array.isArray(prev) ? prev : []), newClass]);
-    setShowCreateClassModal(false);
+      setShowCreateClassModal(false);
       showSuccessToast('Class created successfully!');
     } catch (error) {
       console.error('Error creating class:', error);
@@ -246,9 +282,9 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
     }
   };
 
-    const handleCreateCourse = async (courseData) => {
+  const handleCreateCourse = async (courseData) => {
     if (!selectedClass) return;
-    
+
     // Prevent concurrent course creation
     if (isCreatingCourse) {
       console.warn('🚫 Course creation already in progress, ignoring duplicate request');
@@ -266,7 +302,7 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
 
     try {
       console.log('🔄 Creating course:', courseData);
-      
+
       // Create course with classId, teacherId, and sessions
       const coursePayload = {
         name: courseData.name,
@@ -276,10 +312,10 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
       };
 
       const createPromise = coursesService.createCourse(coursePayload);
-      
+
       const newCourse = await Promise.race([
         createPromise,
-        new Promise((_, reject) => 
+        new Promise((_, reject) =>
           setTimeout(() => reject(new Error('Request timeout')), 25000)
         )
       ]);
@@ -291,16 +327,16 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
 
       // Reload classes to get updated course data
       await loadClasses();
-      
+
       setShowCreateCourseModal(false);
       setSelectedClass(null);
       showSuccessToast('Course created successfully!');
     } catch (error) {
       // Clear timeout on error
       clearTimeout(timeoutId);
-      
+
       console.error('❌ Error creating course:', error);
-      
+
       if (error.message === 'Request timeout') {
         showErrorToast('Course creation timed out. Please check your connection and try again.');
       } else {
@@ -316,13 +352,13 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
       const processedClassData = {
         ...classData
       };
-      
+
       const updatedClass = await classesService.updateClass(classId, processedClassData);
-      setClasses(prev => (Array.isArray(prev) ? prev : []).map(classItem => 
+      setClasses(prev => (Array.isArray(prev) ? prev : []).map(classItem =>
         classItem.id === classId ? updatedClass : classItem
       ));
-    setShowEditClassModal(false);
-    setSelectedClass(null);
+      setShowEditClassModal(false);
+      setSelectedClass(null);
       showSuccessToast('Class updated successfully!');
     } catch (error) {
       console.error('Error updating class:', error);
@@ -362,7 +398,7 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
 
       const updatedCourse = await Promise.race([
         updatePromise,
-        new Promise((_, reject) => 
+        new Promise((_, reject) =>
           setTimeout(() => reject(new Error('Request timeout')), 25000)
         )
       ]);
@@ -377,7 +413,7 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
 
       // Reload classes to get updated course data
       await loadClasses();
-      
+
       setShowEditCourseModal(false);
       setSelectedClass(null);
       setSelectedCourse(null);
@@ -385,9 +421,9 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
     } catch (error) {
       // Clear timeout on error
       clearTimeout(timeoutId);
-      
+
       console.error('❌ Error updating course:', error);
-      
+
       if (error.message === 'Request timeout') {
         showErrorToast('Course update timed out. Please check your connection and try again.');
       } else {
@@ -426,7 +462,7 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
           showSuccessToast('Class deleted successfully!');
         } catch (error) {
           console.error('Error deleting class:', error);
-          
+
           // Extract the actual error message from backend
           let errorMessage = 'Failed to delete class. Please try again.';
           if (error.response?.data?.message) {
@@ -438,7 +474,7 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
           } else if (error.message) {
             errorMessage = error.message;
           }
-          
+
           showErrorToast(errorMessage);
         } finally {
           setDeletingClasses(prev => {
@@ -520,8 +556,8 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
       await classesService.enrollStudents(classId, studentIds);
       // Reload classes to get updated student count
       await loadClasses();
-    setShowEnrollModal(false);
-    setSelectedClass(null);
+      setShowEnrollModal(false);
+      setSelectedClass(null);
       showSuccessToast('Students enrolled successfully!');
     } catch (error) {
       console.error('Error enrolling students:', error);
@@ -731,10 +767,10 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
       for (const studentId of studentIds) {
         await classesService.removeStudentFromClass(fromClassId, studentId);
       }
-      
+
       // Then, enroll them in the new class
       await classesService.enrollStudents(toClassId, studentIds);
-      
+
       // Reload classes to get updated student counts
       await loadClasses();
       setShowLevelUpModal(false);
@@ -764,8 +800,21 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-lg sm:text-xl md:text-2xl font-bold text-gray-900">Class Management</h1>
-          <p className="text-sm sm:text-base text-gray-600">Manage classes and their courses</p>
+          <div className="flex items-center justify-center space-x-3">
+            {selectedProgram && (
+              <button
+                onClick={onBackToPrograms}
+                className="flex items-center justify-center w-8 h-8 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-full transition-colors"
+                title="Back to Programs"
+              >
+                <ArrowRight className="h-6 w-6 rotate-180" />
+              </button>
+            )}
+            <h1 className="text-lg sm:text-xl md:text-2xl font-bold text-gray-900">Class Management</h1>
+          </div>
+          <p className="text-sm sm:text-base text-gray-600">
+            Program: {selectedProgram.name}
+          </p>
         </div>
         <div className="flex items-center space-x-3">
           <button
@@ -799,273 +848,278 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
             </div>
           </div>
         </div>
-              ) : (
-          <>
-            <div className="bg-white rounded-xl shadow-sm border">
-              <div className="p-4 sm:p-6">
-                <div className="space-y-6">
-                  {filteredClasses.map((classItem) => (
-                    <div key={classItem.id} className="bg-white rounded-xl shadow-sm border hover:shadow-md transition-all">
-                {/* Class Header */}
-                <div className="p-4 sm:p-6 border-b border-gray-100">
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                    <div className="flex items-center gap-3">
-                      <button
-                        onClick={() => toggleClassExpansion(classItem.id)}
-                        className="text-gray-500 hover:text-gray-700 transition-colors p-1 rounded-lg hover:bg-gray-100"
-                      >
-                        {expandedClasses.has(classItem.id) ? (
-                          <ChevronDown className="h-5 w-5" />
-                        ) : (
-                          <ChevronRight className="h-5 w-5" />
-                        )}
-                      </button>
-                      <div className="flex items-center gap-2">
-                        <BookOpen className="h-5 w-5 text-blue-600" />
-                        <h3 className="text-lg sm:text-xl font-semibold text-gray-900">{classItem.name || 'Unnamed Class'}</h3>
+      ) : (
+        <>
+          <div className="bg-white rounded-xl shadow-sm border">
+            <div className="p-4 sm:p-6">
+              <div className="space-y-6">
+                {filteredClasses.map((classItem) => (
+                  <div key={classItem.id} className="bg-white rounded-xl shadow-sm border hover:shadow-md transition-all">
+                    {/* Class Header */}
+                    <div className="p-4 sm:p-6 border-b border-gray-100">
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                        <div className="flex items-center gap-3">
+                          <button
+                            onClick={() => toggleClassExpansion(classItem.id)}
+                            className="text-gray-500 hover:text-gray-700 transition-colors p-1 rounded-lg hover:bg-gray-100"
+                          >
+                            {expandedClasses.has(classItem.id) ? (
+                              <ChevronDown className="h-5 w-5" />
+                            ) : (
+                              <ChevronRight className="h-5 w-5" />
+                            )}
+                          </button>
+                          <div className="flex items-center gap-2">
+                            <BookOpen className="h-5 w-5 text-blue-600" />
+                            <div>
+                              <h3 className="text-lg sm:text-xl font-semibold text-gray-900">{classItem.name || 'Unnamed Class'}</h3>
+                              {classItem.program && (
+                                <p className="text-sm text-gray-500">Program: {classItem.program.name}</p>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Class Actions */}
+                        <div className="flex items-center gap-1 sm:gap-2 flex-wrap">
+                          <button
+                            onClick={() => {
+                              setSelectedClass(classItem);
+                              setShowEnrollModal(true);
+                            }}
+                            disabled={enrollingStudents.has(classItem.id)}
+                            className="text-green-600 hover:text-green-800 p-2 rounded-lg hover:bg-green-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            title={enrollingStudents.has(classItem.id) ? "Enrolling..." : "Enroll Students"}
+                          >
+                            {enrollingStudents.has(classItem.id) ? (
+                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-600"></div>
+                            ) : (
+                              <UserPlus className="h-4 w-4" />
+                            )}
+                          </button>
+                          <button
+                            onClick={() => {
+                              setSelectedClass(classItem);
+                              setShowRemoveStudentModal(true);
+                            }}
+                            className="text-orange-600 hover:text-orange-800 p-2 rounded-lg hover:bg-orange-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            title={unenrollingStudents.has(classItem.id) ? "Removing..." : "Remove Students"}
+                            disabled={classItem.numberOfStudents === 0 || unenrollingStudents.has(classItem.id)}
+                          >
+                            {unenrollingStudents.has(classItem.id) ? (
+                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-orange-600"></div>
+                            ) : (
+                              <UserMinus className="h-4 w-4" />
+                            )}
+                          </button>
+                          <button
+                            onClick={() => {
+                              setSelectedClass(classItem);
+                              setShowLevelUpModal(true);
+                            }}
+                            className="text-purple-600 hover:text-purple-800 p-2 rounded-lg hover:bg-purple-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            title={enrollingStudents.has(classItem.id) || unenrollingStudents.has(classItem.id) ? "Processing..." : "Level Up Students"}
+                            disabled={classItem.numberOfStudents === 0 || enrollingStudents.has(classItem.id) || unenrollingStudents.has(classItem.id)}
+                          >
+                            {enrollingStudents.has(classItem.id) || unenrollingStudents.has(classItem.id) ? (
+                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-purple-600"></div>
+                            ) : (
+                              <ArrowUp className="h-4 w-4" />
+                            )}
+                          </button>
+                          <button
+                            onClick={() => {
+                              setSelectedClass(classItem);
+                              setShowCreateCourseModal(true);
+                            }}
+                            className="text-blue-600 hover:text-blue-800 p-2 rounded-lg hover:bg-blue-50 transition-colors"
+                            title="Add Course"
+                          >
+                            <Plus className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={() => {
+                              setSelectedClass(classItem);
+                              setShowEditClassModal(true);
+                            }}
+                            className="text-blue-600 hover:text-blue-800 p-2 rounded-lg hover:bg-blue-50 transition-colors"
+                            title="Edit Class"
+                          >
+                            <Edit className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteClass(classItem.id)}
+                            disabled={deletingClasses.has(classItem.id)}
+                            className="text-red-600 hover:text-red-800 p-2 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            title="Delete Class"
+                          >
+                            {deletingClasses.has(classItem.id) ? (
+                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-600"></div>
+                            ) : (
+                              <Trash2 className="h-4 w-4" />
+                            )}
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Class Info */}
+                      <div className="mt-4 grid grid-cols-2 sm:grid-cols-2 gap-3 sm:gap-4">
+                        <div className="text-center bg-gray-50 rounded-lg p-3">
+                          <p className="text-xs text-gray-500 flex items-center justify-center gap-1 mb-1">
+                            <Calendar className="h-3 w-3 text-gray-400" /> Start Date
+                          </p>
+                          <p className="font-medium text-gray-900 text-sm">{classItem.startDate || 'N/A'}</p>
+                        </div>
+                        <div className="text-center bg-gray-50 rounded-lg p-3">
+                          <p className="text-xs text-gray-500 flex items-center justify-center gap-1 mb-1">
+                            <Calendar className="h-3 w-3 text-gray-400" /> End Date
+                          </p>
+                          <p className="font-medium text-gray-900 text-sm">{classItem.endDate || 'N/A'}</p>
+                        </div>
                       </div>
                     </div>
 
-                    {/* Class Actions */}
-                    <div className="flex items-center gap-1 sm:gap-2 flex-wrap">
-                      <button
-                        onClick={() => {
-                          setSelectedClass(classItem);
-                          setShowEnrollModal(true);
-                        }}
-                        disabled={enrollingStudents.has(classItem.id)}
-                        className="text-green-600 hover:text-green-800 p-2 rounded-lg hover:bg-green-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                        title={enrollingStudents.has(classItem.id) ? "Enrolling..." : "Enroll Students"}
-                      >
-                        {enrollingStudents.has(classItem.id) ? (
-                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-600"></div>
-                        ) : (
-                        <UserPlus className="h-4 w-4" />
-                        )}
-                      </button>
-                      <button
-                        onClick={() => {
-                          setSelectedClass(classItem);
-                          setShowRemoveStudentModal(true);
-                        }}
-                        className="text-orange-600 hover:text-orange-800 p-2 rounded-lg hover:bg-orange-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                        title={unenrollingStudents.has(classItem.id) ? "Removing..." : "Remove Students"}
-                        disabled={classItem.numberOfStudents === 0 || unenrollingStudents.has(classItem.id)}
-                      >
-                        {unenrollingStudents.has(classItem.id) ? (
-                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-orange-600"></div>
-                        ) : (
-                        <UserMinus className="h-4 w-4" />
-                        )}
-                      </button>
-                      <button
-                        onClick={() => {
-                          setSelectedClass(classItem);
-                          setShowLevelUpModal(true);
-                        }}
-                        className="text-purple-600 hover:text-purple-800 p-2 rounded-lg hover:bg-purple-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                        title={enrollingStudents.has(classItem.id) || unenrollingStudents.has(classItem.id) ? "Processing..." : "Level Up Students"}
-                        disabled={classItem.numberOfStudents === 0 || enrollingStudents.has(classItem.id) || unenrollingStudents.has(classItem.id)}
-                      >
-                        {enrollingStudents.has(classItem.id) || unenrollingStudents.has(classItem.id) ? (
-                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-purple-600"></div>
-                        ) : (
-                        <ArrowUp className="h-4 w-4" />
-                        )}
-                      </button>
-                      <button
-                        onClick={() => {
-                          setSelectedClass(classItem);
-                          setShowCreateCourseModal(true);
-                        }}
-                        className="text-blue-600 hover:text-blue-800 p-2 rounded-lg hover:bg-blue-50 transition-colors"
-                        title="Add Course"
-                      >
-                        <Plus className="h-4 w-4" />
-                      </button>
-                      <button
-                        onClick={() => {
-                          setSelectedClass(classItem);
-                          setShowEditClassModal(true);
-                        }}
-                        className="text-blue-600 hover:text-blue-800 p-2 rounded-lg hover:bg-blue-50 transition-colors"
-                        title="Edit Class"
-                      >
-                        <Edit className="h-4 w-4" />
-                      </button>
-                      <button
-                        onClick={() => handleDeleteClass(classItem.id)}
-                        disabled={deletingClasses.has(classItem.id)}
-                        className="text-red-600 hover:text-red-800 p-2 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                        title="Delete Class"
-                      >
-                        {deletingClasses.has(classItem.id) ? (
-                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-600"></div>
-                        ) : (
-                          <Trash2 className="h-4 w-4" />
-                        )}
-                      </button>
-                    </div>
-                  </div>
+                    {/* Courses Section */}
+                    {expandedClasses.has(classItem.id) && (
+                      <div className="p-4 sm:p-6 bg-gray-50">
+                        <div className="flex items-center justify-between mb-4">
+                          <h4 className="text-lg font-semibold text-gray-800">Courses ({(classItem.courses || []).length})</h4>
+                        </div>
 
-                  {/* Class Info */}
-                  <div className="mt-4 grid grid-cols-2 sm:grid-cols-2 gap-3 sm:gap-4">
-                    <div className="text-center bg-gray-50 rounded-lg p-3">
-                      <p className="text-xs text-gray-500 flex items-center justify-center gap-1 mb-1">
-                        <Calendar className="h-3 w-3 text-gray-400" /> Start Date
-                      </p>
-                      <p className="font-medium text-gray-900 text-sm">{classItem.startDate || 'N/A'}</p>
-                    </div>
-                    <div className="text-center bg-gray-50 rounded-lg p-3">
-                      <p className="text-xs text-gray-500 flex items-center justify-center gap-1 mb-1">
-                        <Calendar className="h-3 w-3 text-gray-400" /> End Date
-                      </p>
-                      <p className="font-medium text-gray-900 text-sm">{classItem.endDate || 'N/A'}</p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Courses Section */}
-                {expandedClasses.has(classItem.id) && (
-                  <div className="p-4 sm:p-6 bg-gray-50">
-                    <div className="flex items-center justify-between mb-4">
-                      <h4 className="text-lg font-semibold text-gray-800">Courses ({(classItem.courses || []).length})</h4>
-                    </div>
-
-                    {(classItem.courses || []).length === 0 ? (
-                      <p className="text-gray-500 text-center py-4">No courses added yet. Click the + button to add a course.</p>
-                    ) : (
-                      <div className="space-y-4">
-                        {(classItem.courses || []).map((course) => {
-                          console.log('Course object:', course);
-                          return (
-                          <div key={course.id} className="bg-white rounded-lg border border-gray-200 p-3 md:p-4">
-                            <div className="mb-3 md:mb-4">
-                              <div className="flex items-center justify-between gap-2">
-                              <div className="flex items-center gap-2">
-                                  <h5 className="text-sm md:text-base font-semibold text-gray-900 leading-tight text-start">{course.name}</h5>
-                                  <span className="text-gray-400 hidden md:inline">|</span>
-                                <div className="flex items-center gap-1">
-                                    <User className="h-3 w-3 md:h-4 md:w-4 text-gray-500" />
-                                    <span className="text-xs md:text-sm text-gray-600">{course.teacherName}</span>
-                                </div>
-                                <span className="text-gray-400 hidden md:inline">|</span>
-                                <div className="flex items-center gap-1">
-                                    <Users className="h-3 w-3 md:h-4 md:w-4 text-gray-500" />
-                                    <span className="text-xs md:text-sm text-gray-600">
-                                      {course.enrolledStudents ? course.enrolledStudents.length : 0} enrolled
-                                    </span>
-                                </div>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <button
-                                  onClick={() => {
-                                    setSelectedClass(classItem);
-                                    setSelectedCourse(course);
-                                    setShowCourseEnrollModal(true);
-                                  }}
-                                  disabled={courseEnrollingStudents.has(course.id)}
-                                  className="text-green-600 hover:text-green-800 p-1 rounded hover:bg-green-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                  title={courseEnrollingStudents.has(course.id) ? "Enrolling..." : "Enroll Students in Course"}
-                                >
-                                  {courseEnrollingStudents.has(course.id) ? (
-                                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-600"></div>
-                                  ) : (
-                                  <UserPlus className="h-4 w-4" />
-                                  )}
-                                </button>
-                                <button
-                                  onClick={() => {
-                                    setSelectedClass(classItem);
-                                    setSelectedCourse(course);
-                                    setShowCourseUnenrollModal(true);
-                                  }}
-                                  className="text-red-600 hover:text-red-800 p-1 rounded hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                  title={courseUnenrollingStudents.has(course.id) ? "Unenrolling..." : "Unenroll Students from Course"}
-                                  disabled={!course.enrolledStudents || course.enrolledStudents.length === 0 || courseUnenrollingStudents.has(course.id)}
-                                >
-                                  {courseUnenrollingStudents.has(course.id) ? (
-                                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-600"></div>
-                                  ) : (
-                                  <UserMinus className="h-4 w-4" />
-                                  )}
-                                </button>
-                                <button
-                                  onClick={() => {
-                                    setSelectedClass(classItem);
-                                    setSelectedCourse(course);
-                                    setShowEditCourseModal(true);
-                                  }}
-                                  disabled={updatingCourses.has(course.id)}
-                                  className="text-blue-600 hover:text-blue-800 p-1 rounded hover:bg-blue-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:text-gray-400"
-                                  title={updatingCourses.has(course.id) ? "Course is being updated..." : "Edit Course"}
-                                >
-                                  {updatingCourses.has(course.id) ? (
-                                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-                                  ) : (
-                                    <Edit className="h-4 w-4" />
-                                  )}
-                                </button>
-                                <button
-                                  onClick={() => handleDeleteCourse(classItem.id, course.id)}
-                                  disabled={deletingCourses.has(course.id)}
-                                  className="text-red-600 hover:text-red-800 p-1 rounded hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                  title="Delete Course"
-                                >
-                                  {deletingCourses.has(course.id) ? (
-                                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-600"></div>
-                                  ) : (
-                                    <Trash2 className="h-4 w-4" />
-                                  )}
-                                </button>
-                                </div>
-                              </div>
-                            </div>
-
-                            {/* Course Content */}
-                            <div className="space-y-4">
-                              {/* Sessions */}
-                              <div className="bg-gray-50 rounded-lg p-3">
-                                <div className="flex items-center gap-2 mb-2">
-                                  <Calendar className="h-4 w-4 text-gray-500" />
-                                  <p className="text-sm font-medium text-gray-700">Schedule</p>
-                              </div>
-                                <div className="space-y-1">
-                                  {course.sessionTime && course.sessionTime.length > 0 ? (
-                                    course.sessionTime.map((session, index) => (
-                                      <div key={index} className="flex items-center justify-between bg-white rounded-md px-3 py-2 border border-gray-200">
-                                        <span className="text-sm font-medium text-gray-900">{session.day}</span>
-                                        <span className="text-sm text-gray-600">{session.startTime} - {session.endTime}</span>
+                        {(classItem.courses || []).length === 0 ? (
+                          <p className="text-gray-500 text-center py-4">No courses added yet. Click the + button to add a course.</p>
+                        ) : (
+                          <div className="space-y-4">
+                            {(classItem.courses || []).map((course) => {
+                              console.log('Course object:', course);
+                              return (
+                                <div key={course.id} className="bg-white rounded-lg border border-gray-200 p-3 md:p-4">
+                                  <div className="mb-3 md:mb-4">
+                                    <div className="flex items-center justify-between gap-2">
+                                      <div className="flex items-center gap-2">
+                                        <h5 className="text-sm md:text-base font-semibold text-gray-900 leading-tight text-start">{course.name}</h5>
+                                        <span className="text-gray-400 hidden md:inline">|</span>
+                                        <div className="flex items-center gap-1">
+                                          <User className="h-3 w-3 md:h-4 md:w-4 text-gray-500" />
+                                          <span className="text-xs md:text-sm text-gray-600">{course.teacherName}</span>
+                                        </div>
+                                        <span className="text-gray-400 hidden md:inline">|</span>
+                                        <div className="flex items-center gap-1">
+                                          <Users className="h-3 w-3 md:h-4 md:w-4 text-gray-500" />
+                                          <span className="text-xs md:text-sm text-gray-600">
+                                            {course.enrolledStudents ? course.enrolledStudents.length : 0} enrolled
+                                          </span>
+                                        </div>
                                       </div>
-                                    ))
-                                  ) : (
-                                    <p className="text-sm text-gray-500 italic">No sessions scheduled</p>
-                                  )}
-                                </div>
-                              </div>
+                                      <div className="flex items-center gap-2">
+                                        <button
+                                          onClick={() => {
+                                            setSelectedClass(classItem);
+                                            setSelectedCourse(course);
+                                            setShowCourseEnrollModal(true);
+                                          }}
+                                          disabled={courseEnrollingStudents.has(course.id)}
+                                          className="text-green-600 hover:text-green-800 p-1 rounded hover:bg-green-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                          title={courseEnrollingStudents.has(course.id) ? "Enrolling..." : "Enroll Students in Course"}
+                                        >
+                                          {courseEnrollingStudents.has(course.id) ? (
+                                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-600"></div>
+                                          ) : (
+                                            <UserPlus className="h-4 w-4" />
+                                          )}
+                                        </button>
+                                        <button
+                                          onClick={() => {
+                                            setSelectedClass(classItem);
+                                            setSelectedCourse(course);
+                                            setShowCourseUnenrollModal(true);
+                                          }}
+                                          className="text-red-600 hover:text-red-800 p-1 rounded hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                          title={courseUnenrollingStudents.has(course.id) ? "Unenrolling..." : "Unenroll Students from Course"}
+                                          disabled={!course.enrolledStudents || course.enrolledStudents.length === 0 || courseUnenrollingStudents.has(course.id)}
+                                        >
+                                          {courseUnenrollingStudents.has(course.id) ? (
+                                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-600"></div>
+                                          ) : (
+                                            <UserMinus className="h-4 w-4" />
+                                          )}
+                                        </button>
+                                        <button
+                                          onClick={() => {
+                                            setSelectedClass(classItem);
+                                            setSelectedCourse(course);
+                                            setShowEditCourseModal(true);
+                                          }}
+                                          disabled={updatingCourses.has(course.id)}
+                                          className="text-blue-600 hover:text-blue-800 p-1 rounded hover:bg-blue-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:text-gray-400"
+                                          title={updatingCourses.has(course.id) ? "Course is being updated..." : "Edit Course"}
+                                        >
+                                          {updatingCourses.has(course.id) ? (
+                                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                                          ) : (
+                                            <Edit className="h-4 w-4" />
+                                          )}
+                                        </button>
+                                        <button
+                                          onClick={() => handleDeleteCourse(classItem.id, course.id)}
+                                          disabled={deletingCourses.has(course.id)}
+                                          className="text-red-600 hover:text-red-800 p-1 rounded hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                          title="Delete Course"
+                                        >
+                                          {deletingCourses.has(course.id) ? (
+                                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-600"></div>
+                                          ) : (
+                                            <Trash2 className="h-4 w-4" />
+                                          )}
+                                        </button>
+                                      </div>
+                                    </div>
+                                  </div>
 
-                              {/* Course Material Button */}
-                              <div className="flex justify-center sm:justify-end">
-                                <button
-                                  onClick={() => onOpenMaterials && onOpenMaterials(course)}
-                                  className="w-full md:w-auto px-4 py-2 border-2 border-green-600 text-green-600 font-semibold text-xs md:text-sm rounded-lg hover:bg-green-600 hover:text-white transition-all duration-200 uppercase tracking-wide"
-                                >
-                                  Course Material
-                                </button>
-                              </div>
-                            </div>
+                                  {/* Course Content */}
+                                  <div className="space-y-4">
+                                    {/* Sessions */}
+                                    <div className="bg-gray-50 rounded-lg p-3">
+                                      <div className="flex items-center gap-2 mb-2">
+                                        <Calendar className="h-4 w-4 text-gray-500" />
+                                        <p className="text-sm font-medium text-gray-700">Schedule</p>
+                                      </div>
+                                      <div className="space-y-1">
+                                        {course.sessionTime && course.sessionTime.length > 0 ? (
+                                          course.sessionTime.map((session, index) => (
+                                            <div key={index} className="flex items-center justify-between bg-white rounded-md px-3 py-2 border border-gray-200">
+                                              <span className="text-sm font-medium text-gray-900">{session.day}</span>
+                                              <span className="text-sm text-gray-600">{session.startTime} - {session.endTime}</span>
+                                            </div>
+                                          ))
+                                        ) : (
+                                          <p className="text-sm text-gray-500 italic">No sessions scheduled</p>
+                                        )}
+                                      </div>
+                                    </div>
+
+                                    {/* Course Material Button */}
+                                    <div className="flex justify-center sm:justify-end">
+                                      <button
+                                        onClick={() => onOpenMaterials && onOpenMaterials(course)}
+                                        className="w-full md:w-auto px-4 py-2 border-2 border-green-600 text-green-600 font-semibold text-xs md:text-sm rounded-lg hover:bg-green-600 hover:text-white transition-all duration-200 uppercase tracking-wide"
+                                      >
+                                        Course Material
+                                      </button>
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })}
                           </div>
-                          );
-                        })}
+                        )}
                       </div>
                     )}
                   </div>
-                )}
-              </div>
-            ))}
-                </div>
+                ))}
               </div>
             </div>
+          </div>
 
           {/* Pagination */}
           {pagination && pagination.pages > 1 && (
@@ -1103,7 +1157,7 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
                   >
                     Previous
                   </button>
-                  
+
                   <div className="flex items-center space-x-1">
                     {Array.from({ length: Math.min(5, pagination?.pages || 0) }, (_, i) => {
                       let page;
@@ -1116,23 +1170,22 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
                       } else {
                         page = filters.page - 2 + i;
                       }
-                      
+
                       return (
                         <button
                           key={page}
                           onClick={() => setFilters({ ...filters, page })}
-                          className={`px-3 py-2 text-sm rounded-lg transition-all duration-200 ${
-                            page === filters.page
+                          className={`px-3 py-2 text-sm rounded-lg transition-all duration-200 ${page === filters.page
                               ? 'bg-blue-600 text-white'
                               : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'
-                          }`}
+                            }`}
                         >
                           {page}
                         </button>
                       );
                     })}
                   </div>
-                  
+
                   <button
                     onClick={() => setFilters({ ...filters, page: Math.min(pagination?.pages || 1, filters.page + 1) })}
                     disabled={filters.page === (pagination?.pages || 1)}
@@ -1154,6 +1207,8 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
           onClose={() => setShowCreateClassModal(false)}
           onSubmit={handleCreateClass}
           isCreatingClass={isCreatingClass}
+          allPrograms={allPrograms}
+          selectedProgram={selectedProgram}
         />
       )}
 
@@ -1168,6 +1223,8 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
           }}
           onSubmit={(classData) => handleUpdateClass(selectedClass.id, classData)}
           isCreatingClass={false}
+          allPrograms={allPrograms}
+          selectedProgram={selectedProgram}
         />
       )}
 
@@ -1213,6 +1270,7 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
       {showEnrollModal && selectedClass && (
         <EnrollModal
           classData={selectedClass}
+          selectedProgram={selectedProgram}
           onClose={() => {
             setShowEnrollModal(false);
             setSelectedClass(null);
@@ -1240,6 +1298,7 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
       {showLevelUpModal && selectedClass && (
         <LevelUpModal
           classData={selectedClass}
+          selectedProgram={selectedProgram}
           onClose={() => {
             setShowLevelUpModal(false);
             setSelectedClass(null);
@@ -1255,7 +1314,11 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
       {showCourseEnrollModal && selectedCourse && (
         <CourseEnrollModal
           courseData={selectedCourse}
-          allStudents={allStudents}
+          allStudents={
+            selectedProgram && selectedProgram.studentIds 
+              ? allStudents.filter(student => selectedProgram.studentIds.includes(student.id))
+              : allStudents
+          }
           onClose={() => {
             setShowCourseEnrollModal(false);
             setSelectedCourse(null);
@@ -1306,31 +1369,33 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
 };
 
 // Class Modal Component
-const ClassModal = ({ title, classData, onClose, onSubmit, isCreatingClass = false }) => {
+const ClassModal = ({ title, classData, onClose, onSubmit, isCreatingClass = false, allPrograms = [], selectedProgram = null }) => {
   const [formData, setFormData] = useState({
     name: classData?.name || '',
     startDate: classData?.startDate || '',
-    endDate: classData?.endDate || ''
+    endDate: classData?.endDate || '',
+    programId: classData?.programId || (selectedProgram ? selectedProgram.id : '')
   });
 
   useEffect(() => {
     setFormData({
       name: classData?.name || '',
       startDate: classData?.startDate || '',
-      endDate: classData?.endDate || ''
+      endDate: classData?.endDate || '',
+      programId: classData?.programId || (selectedProgram ? selectedProgram.id : '')
     });
-  }, [classData]);
+  }, [classData, selectedProgram]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    
+
     // Validate dates
     const today = new Date();
     today.setHours(0, 0, 0, 0); // Reset time to start of day
-    
+
     const startDate = new Date(formData.startDate);
     const endDate = new Date(formData.endDate);
-    
+
     if (startDate < today) {
       showAlert({
         title: 'Invalid Date',
@@ -1339,7 +1404,7 @@ const ClassModal = ({ title, classData, onClose, onSubmit, isCreatingClass = fal
       });
       return;
     }
-    
+
     if (endDate < startDate) {
       showAlert({
         title: 'Invalid Date',
@@ -1348,12 +1413,12 @@ const ClassModal = ({ title, classData, onClose, onSubmit, isCreatingClass = fal
       });
       return;
     }
-    
+
     onSubmit(formData);
   };
 
   return (
-    <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50" style={{margin: '0px'}}>
+    <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50" style={{ margin: '0px' }}>
       <div className="relative top-10 mx-auto p-5 border w-11/12 sm:w-96 shadow-lg rounded-md bg-white">
         <div className="mt-3">
           <h3 className="text-lg font-medium text-gray-900 mb-4">{title}</h3>
@@ -1379,8 +1444,8 @@ const ClassModal = ({ title, classData, onClose, onSubmit, isCreatingClass = fal
                 value={formData.startDate}
                 onChange={(e) => {
                   const newStartDate = e.target.value;
-                  setFormData({ 
-                    ...formData, 
+                  setFormData({
+                    ...formData,
                     startDate: newStartDate,
                     // Reset end date if it's before the new start date
                     endDate: formData.endDate && formData.endDate < newStartDate ? '' : formData.endDate
@@ -1400,6 +1465,7 @@ const ClassModal = ({ title, classData, onClose, onSubmit, isCreatingClass = fal
                 onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
               />
             </div>
+
 
 
             <div className="flex justify-end space-x-3 pt-4">
@@ -1463,7 +1529,7 @@ const CourseModal = ({ title, courseData, isUpdating = false, onClose, onSubmit 
     try {
       setLoadingTeachers(true);
       const response = await usersService.getUsersByRole('teacher');
-      
+
       // Handle the response format - extract users array and filter for teachers
       let teachersArray = [];
       if (response && response.users && Array.isArray(response.users)) {
@@ -1473,7 +1539,7 @@ const CourseModal = ({ title, courseData, isUpdating = false, onClose, onSubmit 
         // If response is directly an array, filter for teachers
         teachersArray = response.filter(user => user.role === 'teacher');
       }
-      
+
       console.log('Teachers data:', teachersArray);
       setAvailableTeachers(teachersArray);
     } catch (error) {
@@ -1486,7 +1552,7 @@ const CourseModal = ({ title, courseData, isUpdating = false, onClose, onSubmit 
   };
 
   const handleTeacherChange = (teacherId) => {
-    const selectedTeacher = Array.isArray(availableTeachers) ? 
+    const selectedTeacher = Array.isArray(availableTeachers) ?
       availableTeachers.find(teacher => teacher.id === teacherId) : null;
     setFormData({
       ...formData,
@@ -1572,10 +1638,10 @@ const CourseModal = ({ title, courseData, isUpdating = false, onClose, onSubmit 
 
   // Helper function to validate session conflicts
   const validateSessionConflicts = (sessions) => {
-    const validSessions = sessions.filter(session => 
-      session && 
-      session.day && 
-      session.startTime && 
+    const validSessions = sessions.filter(session =>
+      session &&
+      session.day &&
+      session.startTime &&
       session.endTime &&
       session.day.trim() !== '' &&
       session.startTime.trim() !== '' &&
@@ -1595,7 +1661,7 @@ const CourseModal = ({ title, courseData, isUpdating = false, onClose, onSubmit 
       // Check for conflicts with other sessions in the same array
       for (let j = i + 1; j < validSessions.length; j++) {
         const session2 = validSessions[j];
-        
+
         if (session1.day === session2.day) {
           const startTime2 = parseTime(session2.startTime);
           const endTime2 = parseTime(session2.endTime);
@@ -1620,10 +1686,10 @@ const CourseModal = ({ title, courseData, isUpdating = false, onClose, onSubmit 
     }
 
     // Filter out empty or invalid sessions
-    const validSessions = formData.sessions.filter(session => 
-      session && 
-      session.day && 
-      session.startTime && 
+    const validSessions = formData.sessions.filter(session =>
+      session &&
+      session.day &&
+      session.startTime &&
       session.endTime &&
       session.day.trim() !== '' &&
       session.startTime.trim() !== '' &&
@@ -1658,7 +1724,7 @@ const CourseModal = ({ title, courseData, isUpdating = false, onClose, onSubmit 
   };
 
   return (
-    <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50" style={{margin: '0px'}}>
+    <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50" style={{ margin: '0px' }}>
       <div className="relative top-4 sm:top-10 mx-auto p-4 sm:p-5 border w-11/12 sm:w-96 shadow-lg rounded-md bg-white">
         <div className="mt-1">
           <h3 className="text-base sm:text-lg font-medium text-gray-900 mb-4">{title}</h3>
@@ -1683,9 +1749,9 @@ const CourseModal = ({ title, courseData, isUpdating = false, onClose, onSubmit 
                 </div>
               ) : (
                 <select
-                required
-                disabled={isUpdating}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
+                  required
+                  disabled={isUpdating}
+                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
                   value={formData.teacherId}
                   onChange={(e) => handleTeacherChange(e.target.value)}
                 >
@@ -1829,7 +1895,7 @@ const CourseModal = ({ title, courseData, isUpdating = false, onClose, onSubmit 
 };
 
 // Enroll Students Modal Component
-const EnrollModal = ({ classData, onClose, onSubmit, isEnrolling = false }) => {
+const EnrollModal = ({ classData, selectedProgram, onClose, onSubmit, isEnrolling = false }) => {
   const [selectedStudents, setSelectedStudents] = useState([]);
   const [availableStudents, setAvailableStudents] = useState([]);
   const [loadingStudents, setLoadingStudents] = useState(true);
@@ -1837,13 +1903,13 @@ const EnrollModal = ({ classData, onClose, onSubmit, isEnrolling = false }) => {
 
   useEffect(() => {
     loadStudents();
-  }, []);
+  }, [selectedProgram]);
 
   const loadStudents = async () => {
     try {
       setLoadingStudents(true);
       const response = await studentsService.getAllStudents();
-      
+
       // Handle different response formats - extract students array
       let studentsArray = [];
       if (response && response.students && Array.isArray(response.students)) {
@@ -1853,7 +1919,14 @@ const EnrollModal = ({ classData, onClose, onSubmit, isEnrolling = false }) => {
         // If response is directly an array
         studentsArray = response;
       }
-      
+
+      // Filter students by program if selectedProgram is available
+      if (selectedProgram && selectedProgram.studentIds) {
+        studentsArray = studentsArray.filter(student => 
+          selectedProgram.studentIds.includes(student.id)
+        );
+      }
+
       // Students are already flattened by the backend service
       setAvailableStudents(studentsArray);
     } catch (error) {
@@ -1868,12 +1941,12 @@ const EnrollModal = ({ classData, onClose, onSubmit, isEnrolling = false }) => {
   const handleStudentToggle = (studentId) => {
     // Don't allow toggling if student is already enrolled in any course of this class
     const student = availableStudents.find(s => s.id === studentId);
-    if (student && student.courseIds && student.courseIds.some(courseId => 
+    if (student && student.courseIds && student.courseIds.some(courseId =>
       classData.courses && classData.courses.some(course => course.id === courseId)
     )) {
       return; // Student is already enrolled in a course, don't allow selection
     }
-    
+
     setSelectedStudents(prev =>
       prev.includes(studentId)
         ? prev.filter(id => id !== studentId)
@@ -1899,7 +1972,7 @@ const EnrollModal = ({ classData, onClose, onSubmit, isEnrolling = false }) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50" style={{margin: '0px'}}>
+    <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50" style={{ margin: '0px' }}>
       <div className="relative top-4 sm:top-20 mx-auto p-4 sm:p-5 border w-11/12 sm:w-2/3 max-w-2xl shadow-lg rounded-md bg-white">
         <div className="mt-3">
           <div className="flex justify-between items-center mb-4">
@@ -1920,7 +1993,7 @@ const EnrollModal = ({ classData, onClose, onSubmit, isEnrolling = false }) => {
               <p className="text-sm text-gray-600 mb-3">
                 Select students to enroll in this class:
               </p>
-              
+
               {/* Search Bar */}
               <div className="relative mb-3">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -1957,65 +2030,60 @@ const EnrollModal = ({ classData, onClose, onSubmit, isEnrolling = false }) => {
                 ) : (
                   <div className="max-h-60 overflow-y-auto border border-gray-200 rounded-md">
                     {filteredStudents.map((student) => {
-                    // Check if student is enrolled in any course within this class (course-level only)
-                    const isAlreadyEnrolled = student.courseIds && student.courseIds.some(courseId => 
-                      classData.courses && classData.courses.some(course => course.id === courseId)
-                    );
-                    const isSelected = selectedStudents.includes(student.id);
-                    
-                    return (
-                      <label
-                        key={student.id}
-                        className={`flex items-center p-2 sm:p-3 border-b border-gray-100 last:border-b-0 ${
-                          isAlreadyEnrolled 
-                            ? 'bg-gray-50 opacity-60 cursor-not-allowed' 
-                            : 'hover:bg-gray-50 cursor-pointer'
-                        }`}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={isSelected}
-                          onChange={() => handleStudentToggle(student.id)}
-                          disabled={isAlreadyEnrolled}
-                          className={`h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded ${
-                            isAlreadyEnrolled ? 'opacity-50 cursor-not-allowed' : ''
-                          }`}
-                        />
-                        <div className="ml-3 flex items-center">
-                          <div className={`w-6 h-6 sm:w-8 sm:h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
-                            isAlreadyEnrolled ? 'bg-gray-400' : 'bg-red-600'
-                          }`}>
-                            <span className="text-start text-white text-xs sm:text-sm font-medium">
-                              {student.firstName ? student.firstName.charAt(0) : 
-                               (student.fullName ? student.fullName.charAt(0) : 
-                                (student.email ? student.email.charAt(0).toUpperCase() : 'S'))}
-                            </span>
+                      // Check if student is enrolled in any course within this class (course-level only)
+                      const isAlreadyEnrolled = student.courseIds && student.courseIds.some(courseId =>
+                        classData.courses && classData.courses.some(course => course.id === courseId)
+                      );
+                      const isSelected = selectedStudents.includes(student.id);
+
+                      return (
+                        <label
+                          key={student.id}
+                          className={`flex items-center p-2 sm:p-3 border-b border-gray-100 last:border-b-0 ${isAlreadyEnrolled
+                              ? 'bg-gray-50 opacity-60 cursor-not-allowed'
+                              : 'hover:bg-gray-50 cursor-pointer'
+                            }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => handleStudentToggle(student.id)}
+                            disabled={isAlreadyEnrolled}
+                            className={`h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded ${isAlreadyEnrolled ? 'opacity-50 cursor-not-allowed' : ''
+                              }`}
+                          />
+                          <div className="ml-3 flex items-center">
+                            <div className={`w-6 h-6 sm:w-8 sm:h-8 rounded-full flex items-center justify-center flex-shrink-0 ${isAlreadyEnrolled ? 'bg-gray-400' : 'bg-red-600'
+                              }`}>
+                              <span className="text-start text-white text-xs sm:text-sm font-medium">
+                                {student.firstName ? student.firstName.charAt(0) :
+                                  (student.fullName ? student.fullName.charAt(0) :
+                                    (student.email ? student.email.charAt(0).toUpperCase() : 'S'))}
+                              </span>
+                            </div>
+                            <div className="ml-2 sm:ml-3 min-w-0 flex-1">
+                              <p className={`text-xs sm:text-sm font-medium truncate ${isAlreadyEnrolled ? 'text-gray-500' : 'text-gray-900'
+                                }`}>
+                                {student.firstName && student.lastName
+                                  ? `${student.firstName} ${student.lastName}`
+                                  : (student.fullName || student.email || 'Unknown Student')
+                                }
+                                {isAlreadyEnrolled && (
+                                  <span className="ml-2 text-xs text-green-600 font-normal">
+                                    (Already Enrolled)
+                                  </span>
+                                )}
+                              </p>
+                              <p className={`text-xs truncate ${isAlreadyEnrolled ? 'text-gray-400' : 'text-gray-500'
+                                }`}>
+                                {student.email}
+                              </p>
+                            </div>
                           </div>
-                          <div className="ml-2 sm:ml-3 min-w-0 flex-1">
-                            <p className={`text-xs sm:text-sm font-medium truncate ${
-                              isAlreadyEnrolled ? 'text-gray-500' : 'text-gray-900'
-                            }`}>
-                              {student.firstName && student.lastName
-                                ? `${student.firstName} ${student.lastName}`
-                                : (student.fullName || student.email || 'Unknown Student')
-                              }
-                              {isAlreadyEnrolled && (
-                                <span className="ml-2 text-xs text-green-600 font-normal">
-                                  (Already Enrolled)
-                                </span>
-                              )}
-                            </p>
-                            <p className={`text-xs truncate ${
-                              isAlreadyEnrolled ? 'text-gray-400' : 'text-gray-500'
-                            }`}>
-                              {student.email}
-                            </p>
-                          </div>
-                        </div>
-                      </label>
-                    );
-                  })}
-                </div>
+                        </label>
+                      );
+                    })}
+                  </div>
                 );
               })()}
             </div>
@@ -2024,20 +2092,20 @@ const EnrollModal = ({ classData, onClose, onSubmit, isEnrolling = false }) => {
               <p className="text-xs sm:text-sm text-gray-600">
                 {selectedStudents.length} student(s) selected
                 {availableStudents.filter(s => {
-                  const isEnrolled = s.courseIds && s.courseIds.some(courseId => 
+                  const isEnrolled = s.courseIds && s.courseIds.some(courseId =>
                     classData.courses && classData.courses.some(course => course.id === courseId)
                   );
                   return isEnrolled;
                 }).length > 0 && (
-                  <span className="ml-2 text-green-600">
-                    ({availableStudents.filter(s => {
-                      const isEnrolled = s.courseIds && s.courseIds.some(courseId => 
-                        classData.courses && classData.courses.some(course => course.id === courseId)
-                      );
-                      return isEnrolled;
-                    }).length} already enrolled)
-                  </span>
-                )}
+                    <span className="ml-2 text-green-600">
+                      ({availableStudents.filter(s => {
+                        const isEnrolled = s.courseIds && s.courseIds.some(courseId =>
+                          classData.courses && classData.courses.some(course => course.id === courseId)
+                        );
+                        return isEnrolled;
+                      }).length} already enrolled)
+                    </span>
+                  )}
               </p>
               <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
                 <button
@@ -2080,7 +2148,7 @@ const RemoveStudentModal = ({ classData, onClose, onRemove, showConfirmation, is
     try {
       setLoadingStudents(true);
       const response = await studentsService.getAllStudents();
-      
+
       // Handle different response formats - extract students array
       let studentsArray = [];
       if (response && response.students && Array.isArray(response.students)) {
@@ -2088,14 +2156,14 @@ const RemoveStudentModal = ({ classData, onClose, onRemove, showConfirmation, is
       } else if (Array.isArray(response)) {
         studentsArray = response;
       }
-      
+
       // Filter only students enrolled in any course of this class
-      const enrolledInClass = studentsArray.filter(student => 
-        student.courseIds && student.courseIds.some(courseId => 
+      const enrolledInClass = studentsArray.filter(student =>
+        student.courseIds && student.courseIds.some(courseId =>
           classData.courses && classData.courses.some(course => course.id === courseId)
         )
       );
-      
+
       // Students are already flattened by the backend service
       setEnrolledStudents(enrolledInClass);
     } catch (error) {
@@ -2129,7 +2197,7 @@ const RemoveStudentModal = ({ classData, onClose, onRemove, showConfirmation, is
       });
       return;
     }
-    
+
     // Confirm removal
     const confirmMessage = `Are you sure you want to remove ${selectedStudents.length} student(s) from this class?`;
     showConfirmation({
@@ -2148,7 +2216,7 @@ const RemoveStudentModal = ({ classData, onClose, onRemove, showConfirmation, is
   };
 
   return (
-    <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50" style={{margin: '0px'}}>
+    <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50" style={{ margin: '0px' }}>
       <div className="relative top-4 sm:top-20 mx-auto p-4 sm:p-5 border w-11/12 sm:w-2/3 max-w-2xl shadow-lg rounded-md bg-white">
         <div className="mt-3">
           <div className="flex justify-between items-center mb-4">
@@ -2182,39 +2250,39 @@ const RemoveStudentModal = ({ classData, onClose, onRemove, showConfirmation, is
                 <div className="max-h-60 overflow-y-auto border border-gray-200 rounded-md">
                   {enrolledStudents.map((student) => {
                     const isSelected = selectedStudents.includes(student.id);
-                    
+
                     return (
-                    <label
-                      key={student.id}
-                      className="flex items-center p-2 sm:p-3 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0"
-                    >
-                      <input
-                        type="checkbox"
+                      <label
+                        key={student.id}
+                        className="flex items-center p-2 sm:p-3 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0"
+                      >
+                        <input
+                          type="checkbox"
                           checked={isSelected}
-                        onChange={() => handleStudentToggle(student.id)}
+                          onChange={() => handleStudentToggle(student.id)}
                           className="h-4 w-4 text-red-600 focus:ring-red-500 border-gray-300 rounded"
-                      />
-                      <div className="ml-3 flex items-center">
-                        <div className="w-6 h-6 sm:w-8 sm:h-8 bg-red-600 rounded-full flex items-center justify-center flex-shrink-0">
-                          <span className="text-start text-white text-xs sm:text-sm font-medium">
-                            {student.firstName ? student.firstName.charAt(0) : 
-                             (student.fullName ? student.fullName.charAt(0) : 
-                              (student.email ? student.email.charAt(0).toUpperCase() : 'S'))}
-                          </span>
+                        />
+                        <div className="ml-3 flex items-center">
+                          <div className="w-6 h-6 sm:w-8 sm:h-8 bg-red-600 rounded-full flex items-center justify-center flex-shrink-0">
+                            <span className="text-start text-white text-xs sm:text-sm font-medium">
+                              {student.firstName ? student.firstName.charAt(0) :
+                                (student.fullName ? student.fullName.charAt(0) :
+                                  (student.email ? student.email.charAt(0).toUpperCase() : 'S'))}
+                            </span>
+                          </div>
+                          <div className="ml-2 sm:ml-3 min-w-0 flex-1">
+                            <p className="text-xs sm:text-sm font-medium text-gray-900 truncate">
+                              {student.firstName && student.lastName
+                                ? `${student.firstName} ${student.lastName}`
+                                : (student.fullName || student.email || 'Unknown Student')
+                              }
+                            </p>
+                            <p className="text-xs text-gray-500 truncate">
+                              {student.email}
+                            </p>
+                          </div>
                         </div>
-                        <div className="ml-2 sm:ml-3 min-w-0 flex-1">
-                          <p className="text-xs sm:text-sm font-medium text-gray-900 truncate">
-                            {student.firstName && student.lastName
-                              ? `${student.firstName} ${student.lastName}`
-                              : (student.fullName || student.email || 'Unknown Student')
-                            }
-                          </p>
-                          <p className="text-xs text-gray-500 truncate">
-                            {student.email}
-                          </p>
-                        </div>
-                      </div>
-                    </label>
+                      </label>
                     );
                   })}
                 </div>
@@ -2253,7 +2321,7 @@ const RemoveStudentModal = ({ classData, onClose, onRemove, showConfirmation, is
 };
 
 // Level Up Students Modal Component
-const LevelUpModal = ({ classData, onClose, onSubmit, showConfirmation, showAlert, isProcessing = false }) => {
+const LevelUpModal = ({ classData, selectedProgram, onClose, onSubmit, showConfirmation, showAlert, isProcessing = false }) => {
   const [selectedStudents, setSelectedStudents] = useState([]);
   const [selectedTargetClass, setSelectedTargetClass] = useState('');
   const [enrolledStudents, setEnrolledStudents] = useState([]);
@@ -2264,13 +2332,13 @@ const LevelUpModal = ({ classData, onClose, onSubmit, showConfirmation, showAler
   useEffect(() => {
     loadEnrolledStudents();
     loadAvailableClasses();
-  }, []);
+  }, [selectedProgram]);
 
   const loadEnrolledStudents = async () => {
     try {
       setLoadingStudents(true);
       const response = await usersService.getAllStudents();
-      
+
       // Handle different response formats - extract students array
       let studentsArray = [];
       if (response && response.students && Array.isArray(response.students)) {
@@ -2278,14 +2346,21 @@ const LevelUpModal = ({ classData, onClose, onSubmit, showConfirmation, showAler
       } else if (Array.isArray(response)) {
         studentsArray = response;
       }
-      
+
+      // Filter students by program if selectedProgram is available
+      if (selectedProgram && selectedProgram.studentIds) {
+        studentsArray = studentsArray.filter(student => 
+          selectedProgram.studentIds.includes(student.id)
+        );
+      }
+
       // Filter only students enrolled in any course of this class
-      const enrolledInClass = studentsArray.filter(student => 
-        student.courseIds && student.courseIds.some(courseId => 
+      const enrolledInClass = studentsArray.filter(student =>
+        student.courseIds && student.courseIds.some(courseId =>
           classData.courses && classData.courses.some(course => course.id === courseId)
         )
       );
-      
+
       // Map student data to include user properties at the top level
       const mappedStudents = enrolledInClass.map(student => ({
         id: student.id,
@@ -2298,7 +2373,7 @@ const LevelUpModal = ({ classData, onClose, onSubmit, showConfirmation, showAler
         classId: student.classId,
         role: student.user?.role
       }));
-      
+
       setEnrolledStudents(mappedStudents);
     } catch (error) {
       console.error('Error loading enrolled students:', error);
@@ -2313,22 +2388,22 @@ const LevelUpModal = ({ classData, onClose, onSubmit, showConfirmation, showAler
     try {
       setLoadingClasses(true);
       const classesData = await classesService.getAllClasses();
-      
+
       // Handle different response formats - convert object to array if needed
       let classesArray = [];
       if (Array.isArray(classesData)) {
         classesArray = classesData;
       } else if (classesData && typeof classesData === 'object') {
-        classesArray = Object.values(classesData).filter(item => 
+        classesArray = Object.values(classesData).filter(item =>
           item && typeof item === 'object' && item.id && !item._rateLimitInfo
         );
       }
-      
+
       // Filter out the current class and sort by name
       const availableClasses = classesArray
         .filter(classItem => classItem.id !== classData.id)
         .sort((a, b) => a.name.localeCompare(b.name));
-      
+
       setAvailableClasses(availableClasses);
     } catch (error) {
       console.error('Error loading classes:', error);
@@ -2369,7 +2444,7 @@ const LevelUpModal = ({ classData, onClose, onSubmit, showConfirmation, showAler
       });
       return;
     }
-    
+
     // Confirm level up
     const confirmMessage = `Are you sure you want to move ${selectedStudents.length} student(s) from "${classData.name}" to the selected class?`;
     showConfirmation({
@@ -2385,7 +2460,7 @@ const LevelUpModal = ({ classData, onClose, onSubmit, showConfirmation, showAler
   };
 
   return (
-    <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50" style={{margin: '0px'}}>
+    <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50" style={{ margin: '0px' }}>
       <div className="relative top-4 sm:top-20 mx-auto p-4 sm:p-5 border w-11/12 sm:w-2/3 max-w-2xl shadow-lg rounded-md bg-white">
         <div className="mt-3">
           <div className="flex justify-between items-center mb-4">
@@ -2450,7 +2525,7 @@ const LevelUpModal = ({ classData, onClose, onSubmit, showConfirmation, showAler
                 <div className="max-h-60 overflow-y-auto border border-gray-200 rounded-md">
                   {enrolledStudents.map((student) => {
                     const isSelected = selectedStudents.includes(student.id);
-                    
+
                     return (
                       <label
                         key={student.id}
@@ -2465,9 +2540,9 @@ const LevelUpModal = ({ classData, onClose, onSubmit, showConfirmation, showAler
                         <div className="ml-3 flex items-center">
                           <div className="w-6 h-6 sm:w-8 sm:h-8 bg-purple-600 rounded-full flex items-center justify-center flex-shrink-0">
                             <span className="text-start text-white text-xs sm:text-sm font-medium">
-                              {student.firstName ? student.firstName.charAt(0) : 
-                               (student.fullName ? student.fullName.charAt(0) : 
-                                (student.email ? student.email.charAt(0).toUpperCase() : 'S'))}
+                              {student.firstName ? student.firstName.charAt(0) :
+                                (student.fullName ? student.fullName.charAt(0) :
+                                  (student.email ? student.email.charAt(0).toUpperCase() : 'S'))}
                             </span>
                           </div>
                           <div className="ml-2 sm:ml-3 min-w-0 flex-1">
@@ -2546,8 +2621,8 @@ const CourseEnrollModal = ({ courseData, allStudents, onClose, onSubmit, isEnrol
   });
 
   const handleStudentToggle = (studentId) => {
-    setSelectedStudents(prev => 
-      prev.includes(studentId) 
+    setSelectedStudents(prev =>
+      prev.includes(studentId)
         ? prev.filter(id => id !== studentId)
         : [...prev, studentId]
     );
@@ -2565,7 +2640,7 @@ const CourseEnrollModal = ({ courseData, allStudents, onClose, onSubmit, isEnrol
   };
 
   return (
-    <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50" style={{margin: '0px'}}>
+    <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50" style={{ margin: '0px' }}>
       <div className="relative top-4 sm:top-20 mx-auto p-4 sm:p-5 border w-11/12 sm:w-2/3 max-w-2xl shadow-lg rounded-md bg-white">
         <div className="mt-3">
           <div className="flex justify-between items-center mb-4">
@@ -2586,7 +2661,7 @@ const CourseEnrollModal = ({ courseData, allStudents, onClose, onSubmit, isEnrol
               <p className="text-sm text-gray-600 mb-3">
                 Select students to enroll in this course:
               </p>
-              
+
               {/* Search Bar */}
               <div className="relative mb-3">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -2606,14 +2681,14 @@ const CourseEnrollModal = ({ courseData, allStudents, onClose, onSubmit, isEnrol
               ) : filteredStudents.length === 0 ? (
                 <p className="text-gray-500 text-center py-4 text-sm">
                   {allStudents.some(student => (student.courseIds || []).includes(courseData.id))
-                    ? "All students are already enrolled in this course" 
+                    ? "All students are already enrolled in this course"
                     : "No students found"}
                 </p>
               ) : (
                 <div className="max-h-60 overflow-y-auto border border-gray-200 rounded-md">
                   {filteredStudents.map((student) => {
                     const isSelected = selectedStudents.includes(student.id);
-                    
+
                     return (
                       <label
                         key={student.id}
@@ -2628,8 +2703,8 @@ const CourseEnrollModal = ({ courseData, allStudents, onClose, onSubmit, isEnrol
                         <div className="ml-3 flex items-center">
                           <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full flex items-center justify-center flex-shrink-0 bg-red-600">
                             <span className="text-start text-white text-xs sm:text-sm font-medium">
-                              {student.firstName ? student.firstName.charAt(0) : 
-                               (student.email ? student.email.charAt(0).toUpperCase() : 'S')}
+                              {student.firstName ? student.firstName.charAt(0) :
+                                (student.email ? student.email.charAt(0).toUpperCase() : 'S')}
                             </span>
                           </div>
                           <div className="ml-2 sm:ml-3 min-w-0 flex-1">
@@ -2696,7 +2771,7 @@ const CourseUnenrollModal = ({ courseData, onClose, onSubmit, isUnenrolling = fa
     try {
       setLoadingStudents(true);
       const response = await studentsService.getAllStudents();
-      
+
       // Handle different response formats - extract students array
       let studentsArray = [];
       if (response && response.students && Array.isArray(response.students)) {
@@ -2704,12 +2779,12 @@ const CourseUnenrollModal = ({ courseData, onClose, onSubmit, isUnenrolling = fa
       } else if (Array.isArray(response)) {
         studentsArray = response;
       }
-      
+
       // Filter only students enrolled in this course
-      const enrolledInCourse = studentsArray.filter(student => 
+      const enrolledInCourse = studentsArray.filter(student =>
         (student.courseIds || []).includes(courseData.id)
       );
-      
+
       // Students are already flattened by the backend service
       setEnrolledStudents(enrolledInCourse);
     } catch (error) {
@@ -2747,7 +2822,7 @@ const CourseUnenrollModal = ({ courseData, onClose, onSubmit, isUnenrolling = fa
   };
 
   return (
-    <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50" style={{margin: '0px'}}>
+    <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50" style={{ margin: '0px' }}>
       <div className="relative top-4 sm:top-20 mx-auto p-4 sm:p-5 border w-11/12 sm:w-2/3 max-w-2xl shadow-lg rounded-md bg-white">
         <div className="mt-3">
           <div className="flex justify-between items-center mb-4">
@@ -2768,7 +2843,7 @@ const CourseUnenrollModal = ({ courseData, onClose, onSubmit, isUnenrolling = fa
               <p className="text-sm text-gray-600 mb-3">
                 Select students to unenroll from this course:
               </p>
-              
+
               {/* Search Bar */}
               <div className="relative mb-3">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -2806,7 +2881,7 @@ const CourseUnenrollModal = ({ courseData, onClose, onSubmit, isUnenrolling = fa
                   <div className="max-h-60 overflow-y-auto border border-gray-200 rounded-md">
                     {filteredStudents.map((student) => {
                       const isSelected = selectedStudents.includes(student.id);
-                      
+
                       return (
                         <label
                           key={student.id}
@@ -2821,8 +2896,8 @@ const CourseUnenrollModal = ({ courseData, onClose, onSubmit, isUnenrolling = fa
                           <div className="ml-3 flex items-center">
                             <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full flex items-center justify-center flex-shrink-0 bg-red-600">
                               <span className="text-start text-white text-xs sm:text-sm font-medium">
-                                {student.firstName ? student.firstName.charAt(0) : 
-                                 (student.email ? student.email.charAt(0).toUpperCase() : 'S')}
+                                {student.firstName ? student.firstName.charAt(0) :
+                                  (student.email ? student.email.charAt(0).toUpperCase() : 'S')}
                               </span>
                             </div>
                             <div className="ml-2 sm:ml-3 min-w-0 flex-1">

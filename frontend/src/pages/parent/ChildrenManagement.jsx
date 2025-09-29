@@ -1,8 +1,11 @@
 import { useState, useEffect } from 'react';
-import { Users, Plus, ArrowLeft, MessageCircle, Lock, Eye, EyeOff, Key } from 'lucide-react';
+import { Users, Plus, ArrowLeft, MessageCircle, Lock, Eye, EyeOff, Key, Edit, Trash2 } from 'lucide-react';
 import ChildAccountCreation from './ChildAccountCreation';
 import parentsService from '../../services/parentsService';
 import authService from '../../services/authService';
+import studentsService from '../../services/studentsService';
+import programsService from '../../services/programsService';
+import { showSuccessToast, showErrorToast, showWarningToast } from '../../utils/toast.js';
 
 const ChildrenManagement = ({ user }) => {
   const [children, setChildren] = useState([]);
@@ -26,10 +29,39 @@ const ChildrenManagement = ({ user }) => {
   const [passwordLoading, setPasswordLoading] = useState(false);
   const [passwordError, setPasswordError] = useState('');
 
+  // Edit child modal state
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingChild, setEditingChild] = useState(null);
+  const [editFormData, setEditFormData] = useState({
+    firstName: '',
+    lastName: '',
+    email: '',
+    birthDate: '',
+    programIds: []
+  });
+  const [availablePrograms, setAvailablePrograms] = useState([]);
+  const [editLoading, setEditLoading] = useState(false);
+  const [editErrors, setEditErrors] = useState({});
+
+  // Delete confirmation state
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deletingChild, setDeletingChild] = useState(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+
   useEffect(() => {
     fetchChildren();
     fetchTeachers();
+    fetchPrograms();
   }, []);
+
+  const fetchPrograms = async () => {
+    try {
+      const programs = await programsService.getAllPrograms();
+      setAvailablePrograms(programs);
+    } catch (error) {
+      console.error('Error loading programs:', error);
+    }
+  };
 
   // Remove this useEffect as fetchTeachers() doesn't depend on selectedChild
   // The filtering happens in getTeachersForSelectedChild() which runs on every render
@@ -76,12 +108,14 @@ const ChildrenManagement = ({ user }) => {
           firstName: child.firstName,
           lastName: child.lastName,
           email: child.email,
+          birthDate: child.birthDate,
           parentId: child.parentId,
           age: child.age,
           class: child.className || 'Not specified',
           accountType: child.accountType || 'Student',
           relationship_type: 'child',
-          studentData: null
+          studentData: null,
+          programs: child.programs || []
         };
       }).filter(child => child !== null); // Remove null entries
 
@@ -300,13 +334,172 @@ const ChildrenManagement = ({ user }) => {
     try {
       await authService.updateStudentPassword(passwordModalChild.id, passwordData.newPassword);
       closePasswordModal();
-      // You could add a success toast here
-      alert('Password updated successfully!');
+      showSuccessToast('Password updated successfully!');
     } catch (error) {
       console.error('Password update error:', error);
       setPasswordError(error.response?.data?.message || 'Failed to update password. Please try again.');
+      showErrorToast('Failed to update password');
     } finally {
       setPasswordLoading(false);
+    }
+  };
+
+  // Edit child functions
+  const openEditModal = (child) => {
+    console.log('Opening edit modal for child:', child);
+    console.log('Child birthDate:', child.birthDate);
+    console.log('Child birthDate type:', typeof child.birthDate);
+    
+    // Format birthDate for input field
+    let formattedBirthDate = '';
+    if (child.birthDate) {
+      try {
+        // Handle different date formats
+        const date = new Date(child.birthDate);
+        if (!isNaN(date.getTime())) {
+          formattedBirthDate = date.toISOString().split('T')[0];
+        }
+      } catch (error) {
+        console.error('Error formatting birthDate:', error);
+      }
+    }
+    
+    console.log('Formatted birthDate:', formattedBirthDate);
+    
+    setEditingChild(child);
+    setEditFormData({
+      firstName: child.firstName || '',
+      lastName: child.lastName || '',
+      email: child.email || '',
+      birthDate: formattedBirthDate,
+      programIds: child.programs ? child.programs.map(p => p.id) : []
+    });
+    setEditErrors({});
+    setShowEditModal(true);
+  };
+
+  const closeEditModal = () => {
+    setShowEditModal(false);
+    setEditingChild(null);
+    setEditFormData({
+      firstName: '',
+      lastName: '',
+      email: '',
+      birthDate: '',
+      programIds: []
+    });
+    setEditErrors({});
+  };
+
+  const handleEditInputChange = (e) => {
+    const { name, value } = e.target;
+    setEditFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+    if (editErrors[name]) {
+      setEditErrors(prev => ({
+        ...prev,
+        [name]: ''
+      }));
+    }
+  };
+
+  const handleEditProgramChange = (programId) => {
+    setEditFormData(prev => {
+      const currentProgramIds = prev.programIds || [];
+      const isSelected = currentProgramIds.includes(programId);
+      
+      let newProgramIds;
+      if (isSelected) {
+        newProgramIds = currentProgramIds.filter(id => id !== programId);
+      } else {
+        newProgramIds = [...currentProgramIds, programId];
+      }
+      
+      return {
+        ...prev,
+        programIds: newProgramIds
+      };
+    });
+  };
+
+  const validateEditForm = () => {
+    const newErrors = {};
+
+    if (!editFormData.firstName.trim()) {
+      newErrors.firstName = 'First name is required';
+    }
+
+    if (!editFormData.lastName.trim()) {
+      newErrors.lastName = 'Last name is required';
+    }
+
+    if (!editFormData.email) {
+      newErrors.email = 'Email is required';
+    }
+
+    if (!editFormData.birthDate) {
+      newErrors.birthDate = 'Date of birth is required';
+    }
+
+    if (!editFormData.programIds || editFormData.programIds.length === 0) {
+      newErrors.programIds = 'Please select at least one program';
+    }
+
+    setEditErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleEditSubmit = async (e) => {
+    e.preventDefault();
+
+    if (!validateEditForm()) {
+      return;
+    }
+
+    setEditLoading(true);
+
+    try {
+      await studentsService.updateStudent(editingChild.id, editFormData);
+      closeEditModal();
+      fetchChildren(); // Refresh the children list
+      showSuccessToast('Child information updated successfully!');
+    } catch (error) {
+      console.error('Edit child error:', error);
+      setEditErrors({ submit: error.response?.data?.message || 'Failed to update child information. Please try again.' });
+      showErrorToast('Failed to update child information');
+    } finally {
+      setEditLoading(false);
+    }
+  };
+
+  // Delete child functions
+  const openDeleteModal = (child) => {
+    setDeletingChild(child);
+    setShowDeleteModal(true);
+  };
+
+  const closeDeleteModal = () => {
+    setShowDeleteModal(false);
+    setDeletingChild(null);
+  };
+
+  const handleDeleteChild = async () => {
+    if (!deletingChild) return;
+
+    setDeleteLoading(true);
+
+    try {
+      await parentsService.removeChild(deletingChild.id, user.id);
+      closeDeleteModal();
+      fetchChildren(); // Refresh the children list
+      showSuccessToast('Child account deleted successfully!');
+    } catch (error) {
+      console.error('Delete child error:', error);
+      showErrorToast('Failed to delete child account');
+    } finally {
+      setDeleteLoading(false);
     }
   };
 
@@ -516,7 +709,9 @@ const ChildrenManagement = ({ user }) => {
                 {(() => {
                   const classes = getClassesForChild(child.id);
                   const classDisplay = classes.length > 0 ? classes.join(', ') : 'Not enrolled';
-                  return `${classDisplay} • ${child.age ? `${child.age} years` : 'Age not specified'}`;
+                  const programs = child.programs || [];
+                  const programDisplay = programs.length > 0 ? programs.map(p => p.name).join(', ') : 'No programs';
+                  return `${classDisplay} • ${programDisplay} • ${child.age ? `${child.age} years` : 'Age not specified'}`;
                 })()}
               </div>
 
@@ -531,6 +726,28 @@ const ChildrenManagement = ({ user }) => {
                   <Key className="h-3 w-3" />
                   <span>Change Password</span>
                 </button>
+                <div className="flex space-x-1">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      openEditModal(child);
+                    }}
+                    className="flex-1 flex items-center justify-center space-x-1 bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors py-2 px-2 rounded-lg text-xs font-medium"
+                  >
+                    <Edit className="h-3 w-3" />
+                    <span>Edit</span>
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      openDeleteModal(child);
+                    }}
+                    className="flex-1 flex items-center justify-center space-x-1 bg-red-50 text-red-600 hover:bg-red-100 transition-colors py-2 px-2 rounded-lg text-xs font-medium"
+                  >
+                    <Trash2 className="h-3 w-3" />
+                    <span>Delete</span>
+                  </button>
+                </div>
               </div>
             </div>
           ))}
@@ -557,7 +774,11 @@ const ChildrenManagement = ({ user }) => {
                   }
                 </h2>
                 <p className="text-gray-600 text-sm md:text-lg">
-                  {(selectedChild.class || 'Not specified')} • {selectedChild.age ? `${selectedChild.age} years old` : 'Age not specified'}
+                  {(selectedChild.class || 'Not specified')} • {(() => {
+                    const programs = selectedChild.programs || [];
+                    const programDisplay = programs.length > 0 ? programs.map(p => p.name).join(', ') : 'No programs';
+                    return programDisplay;
+                  })()} • {selectedChild.age ? `${selectedChild.age} years old` : 'Age not specified'}
                 </p>
               </div>
             </div>
@@ -585,8 +806,13 @@ const ChildrenManagement = ({ user }) => {
                 </div>
               </div>
               <div className="text-center lg:text-left">
-                <div className="text-xs md:text-sm text-gray-500 font-medium">Account Type</div>
-                <div className="text-sm md:text-lg font-semibold text-gray-700 mb-1">{selectedChild.accountType || 'Student'}</div>
+                <div className="text-xs md:text-sm text-gray-500 font-medium">Programs</div>
+                <div className="text-sm md:text-lg font-semibold text-gray-700 mb-1">
+                  {(() => {
+                    const programs = selectedChild.programs || [];
+                    return programs.length > 0 ? programs.length : 0;
+                  })()}
+                </div>
               </div>
               <div className="text-center lg:text-left">
                 <div className="text-xs md:text-sm text-gray-500 font-medium">Student ID</div>
@@ -797,6 +1023,217 @@ const ChildrenManagement = ({ user }) => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Child Modal */}
+      {showEditModal && editingChild && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50" style={{ margin: '0px' }}>
+          <div className="bg-white rounded-xl shadow-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-xl font-semibold text-gray-900">Edit Child Information</h3>
+                <button
+                  onClick={closeEditModal}
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              <form onSubmit={handleEditSubmit} className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      First Name *
+                    </label>
+                    <input
+                      type="text"
+                      name="firstName"
+                      value={editFormData.firstName}
+                      onChange={handleEditInputChange}
+                      className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 ${editErrors.firstName ? 'border-red-500' : 'border-gray-300'}`}
+                      placeholder="Enter first name"
+                    />
+                    {editErrors.firstName && (
+                      <p className="text-red-500 text-sm mt-1">{editErrors.firstName}</p>
+                    )}
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Last Name *
+                    </label>
+                    <input
+                      type="text"
+                      name="lastName"
+                      value={editFormData.lastName}
+                      onChange={handleEditInputChange}
+                      className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 ${editErrors.lastName ? 'border-red-500' : 'border-gray-300'}`}
+                      placeholder="Enter last name"
+                    />
+                    {editErrors.lastName && (
+                      <p className="text-red-500 text-sm mt-1">{editErrors.lastName}</p>
+                    )}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Email or Username *
+                  </label>
+                  <input
+                    type="text"
+                    name="email"
+                    value={editFormData.email}
+                    onChange={handleEditInputChange}
+                    className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 ${editErrors.email ? 'border-red-500' : 'border-gray-300'}`}
+                    placeholder="Enter email address or username"
+                  />
+                  {editErrors.email && (
+                    <p className="text-red-500 text-sm mt-1">{editErrors.email}</p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Date of Birth *
+                  </label>
+                  <input
+                    type="date"
+                    name="birthDate"
+                    value={editFormData.birthDate}
+                    onChange={handleEditInputChange}
+                    className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 ${editErrors.birthDate ? 'border-red-500' : 'border-gray-300'}`}
+                  />
+                  {editErrors.birthDate && (
+                    <p className="text-red-500 text-sm mt-1">{editErrors.birthDate}</p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Select Programs *
+                  </label>
+                  <div className="space-y-2 max-h-48 overflow-y-auto border border-gray-200 rounded-md p-3">
+                    {availablePrograms.map((program) => (
+                      <label key={program.id} className="flex items-center space-x-3 p-2 hover:bg-gray-100 rounded cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={editFormData.programIds?.includes(program.id) || false}
+                          onChange={() => handleEditProgramChange(program.id)}
+                          className="rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                        />
+                        <div className="flex-1">
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm font-medium text-gray-900">
+                              {program.name}
+                            </span>
+                            <span className="text-sm text-green-600">
+                              ${program.price}
+                            </span>
+                          </div>
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                  {editErrors.programIds && (
+                    <p className="text-red-500 text-sm mt-1">{editErrors.programIds}</p>
+                  )}
+                </div>
+
+                {editErrors.submit && (
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                    <p className="text-sm text-red-600">{editErrors.submit}</p>
+                  </div>
+                )}
+
+                <div className="flex space-x-3 pt-4">
+                  <button
+                    type="button"
+                    onClick={closeEditModal}
+                    disabled={editLoading}
+                    className="flex-1 bg-gray-100 text-gray-700 py-3 px-4 rounded-lg hover:bg-gray-200 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={editLoading}
+                    className="flex-1 bg-purple-600 text-white py-3 px-4 rounded-lg hover:bg-purple-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
+                  >
+                    {editLoading ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                        <span>Updating...</span>
+                      </>
+                    ) : (
+                      <span>Update Child</span>
+                    )}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && deletingChild && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl shadow-lg max-w-md w-full p-6">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-xl font-semibold text-gray-900">Delete Child Account</h3>
+              <button
+                onClick={closeDeleteModal}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="mb-6">
+              <p className="text-gray-600 mb-4">
+                Are you sure you want to delete the account for{' '}
+                <span className="font-semibold">
+                  {deletingChild.firstName && deletingChild.lastName
+                    ? `${deletingChild.firstName} ${deletingChild.lastName}`
+                    : deletingChild.name
+                  }
+                </span>?
+              </p>
+              <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg p-3">
+                <strong>Warning:</strong> This action cannot be undone. All data associated with this child account will be permanently deleted.
+              </p>
+            </div>
+
+            <div className="flex space-x-3">
+              <button
+                onClick={closeDeleteModal}
+                disabled={deleteLoading}
+                className="flex-1 bg-gray-100 text-gray-700 py-3 px-4 rounded-lg hover:bg-gray-200 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteChild}
+                disabled={deleteLoading}
+                className="flex-1 bg-red-600 text-white py-3 px-4 rounded-lg hover:bg-red-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
+              >
+                {deleteLoading ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    <span>Deleting...</span>
+                  </>
+                ) : (
+                  <span>Delete Account</span>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       )}

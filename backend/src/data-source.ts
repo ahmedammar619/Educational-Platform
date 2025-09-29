@@ -10,6 +10,7 @@ import { Parent } from './modules/parents/entities/parent.entity';
 import { Student } from './modules/students/entities/student.entity';
 import { Teacher } from './modules/teachers/entities/teacher.entity';
 import { Class } from './modules/classes/entities/class.entity';
+import { Program } from './modules/programs/entities/program.entity';
 import { Course } from './modules/courses/entities/course.entity';
 
 import { Post } from './modules/materials/entities/post.entity';
@@ -41,6 +42,7 @@ export const AppDataSource = new DataSource({
     Student, 
     Teacher,
     Class,
+    Program,
     Course,
     Post,
     PostAttachment,

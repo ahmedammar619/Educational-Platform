@@ -10,6 +10,7 @@ class ToastService {
     const checkManager = () => {
       if (window.toastManager) {
         this.toastManager = window.toastManager;
+        console.log('✅ Toast manager initialized successfully');
         return true;
       }
       return false;
@@ -19,7 +20,7 @@ class ToastService {
       // Retry after a short delay
       setTimeout(() => {
         if (!checkManager()) {
-          console.warn('Toast manager not available');
+          console.warn('❌ Toast manager not available after retry');
         }
       }, 100);
     }
@@ -30,7 +31,8 @@ class ToastService {
     if (!this.toastManager) {
       this.init();
       if (!this.toastManager) {
-        console.warn('Toast manager not available');
+        console.warn('❌ Toast manager not available, falling back to alert');
+        alert(`${options.title}: ${options.description || ''}`);
         return null;
       }
     }
@@ -45,6 +47,7 @@ class ToastService {
       position: 'top-right'
     };
 
+    console.log('📢 Showing toast:', { ...defaultOptions, ...options });
     return this.toastManager.addToast({ ...defaultOptions, ...options });
   }
 

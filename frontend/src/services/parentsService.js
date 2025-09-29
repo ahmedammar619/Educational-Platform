@@ -57,7 +57,7 @@ class ParentsService {
   // Remove child account
   async removeChild(childId, parentId) {
     try {
-      const response = await api.delete(`/api/parents/children/${childId}?parentId=${parentId}`);
+      const response = await api.delete(`/api/parents/${parentId}/children/${childId}`);
       showSuccessToast('Child account removed successfully!', 'The child account has been removed from your profile.');
       return response.data;
     } catch (error) {

@@ -29,6 +29,9 @@ export class Student {
   @Column({ type: 'simple-array', nullable: true, default: '' })
   courseIds: string[];
 
+  @Column({ type: 'simple-array', nullable: true, default: '' })
+  programIds: string[];
+
   // One-to-one relationship with User (no embedded object)
   @OneToOne(() => User, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'id' })

@@ -29,6 +29,24 @@ export class ClassesController {
 
   @Post()
   @Roles(Role.Admin)
+  @ApiOperation({ summary: 'Create a new class (Admin only)' })
+  @ApiResponse({ 
+    status: 201, 
+    description: 'Class created successfully',
+    type: ClassResponseDto
+  })
+  @ApiResponse({ 
+    status: 400, 
+    description: 'Bad request - Invalid input data' 
+  })
+  @ApiResponse({ 
+    status: 401, 
+    description: 'Unauthorized' 
+  })
+  @ApiResponse({ 
+    status: 403, 
+    description: 'Forbidden - Admin role required' 
+  })
   async createClass(@Body() createClassDto: CreateClassDto): Promise<ClassResponseDto> {
     const classEntity = await this.classesService.createClass(createClassDto);
     return plainToClass(ClassResponseDto, classEntity, { excludeExtraneousValues: true });
@@ -36,6 +54,20 @@ export class ClassesController {
 
   @Get()
   @Roles(Role.Admin, Role.Teacher)
+  @ApiOperation({ summary: 'Get all classes (Admin and Teacher)' })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'List of all classes',
+    type: [ClassResponseDto]
+  })
+  @ApiResponse({ 
+    status: 401, 
+    description: 'Unauthorized' 
+  })
+  @ApiResponse({ 
+    status: 403, 
+    description: 'Forbidden - Admin or Teacher role required' 
+  })
   async findAllClasses(): Promise<ClassResponseDto[]> {
     const classes = await this.classesService.findAllClasses();
     return classes.map(classEntity => 

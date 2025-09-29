@@ -31,7 +31,7 @@ const getNavigationConfig = (role) => {
     admin: [
       { id: 'announcements', name: 'Announcements', icon: Megaphone, path: '/admin/announcements' },
       { id: 'users', name: 'User Management', icon: Users, path: '/admin/users' },
-      { id: 'classes', name: 'Class Management', icon: BookOpen, path: '/admin/classes' },
+      { id: 'programs', name: 'Program Management', icon: BookOpen, path: '/admin/programs' },
       { id: 'payments', name: 'Payments', icon: CreditCard, path: '/admin/payments' },
       { id: 'form', name: 'Form', icon: Newspaper, path: '/admin/form' },
     ],
@@ -160,9 +160,9 @@ const MainLayout = ({ user, onLogout, children, routes }) => {
       }
     }
 
-    // Special case: materials routes should keep classes active
+    // Special case: materials routes should keep programs active for admin, classes for others
     if (path.includes('/materials')) {
-      return 'classes';
+      return userRole === 'admin' ? 'programs' : 'classes';
     }
 
     return navigation[0]?.id || 'announcements';

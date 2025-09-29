@@ -1,4 +1,4 @@
-import { IsString, IsDateString, MinLength } from 'class-validator';
+import { IsString, IsDateString, MinLength, IsOptional } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class CreateChildAccountDto {
@@ -22,4 +22,12 @@ export class CreateChildAccountDto {
   @ApiProperty({ description: 'Child birth date (YYYY-MM-DD)' })
   @IsDateString()
   birthDate: string;
+
+  @ApiProperty({ 
+    description: 'Array of program IDs to enroll the child in (required)', 
+    type: [String],
+    required: true 
+  })
+  @IsString({ each: true })
+  programIds: string[];
 }

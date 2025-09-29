@@ -6,6 +6,7 @@ import { User } from '../users/entities/user.entity';
 import { Class } from '../classes/entities/class.entity';
 import { Course } from '../courses/entities/course.entity';
 import { Student } from '../students/entities/student.entity';
+import { Program } from '../programs/entities/program.entity';
 import { CreateParentDto } from './dto/create-parent.dto';
 import { UpdateParentDto } from './dto/update-parent.dto';
 import { AddChildDto } from './dto/add-child.dto';
@@ -28,6 +29,8 @@ export class ParentsService {
     private readonly courseRepository: Repository<Course>,
     @InjectRepository(Student)
     private readonly studentRepository: Repository<Student>,
+    @InjectRepository(Program)
+    private readonly programRepository: Repository<Program>,
     private readonly studentsService: StudentsService,
     @Inject(forwardRef(() => NotificationsService))
     private readonly notificationsService: NotificationsService,
@@ -385,6 +388,20 @@ export class ParentsService {
               }
             }
 
+            // Get program information if programIds exist
+            let programInfo = [];
+            if (student.programIds && student.programIds.length > 0) {
+              try {
+                const programs = await this.programRepository.find({
+                  where: { id: In(student.programIds) },
+                  select: ['id', 'name', 'price']
+                });
+                programInfo = programs || [];
+              } catch (error) {
+                console.error(`Failed to fetch program info for programIds ${student.programIds}:`, error);
+              }
+            }
+
             return {
               id: student.id,
               firstName: student.user.firstName,
@@ -396,7 +413,8 @@ export class ParentsService {
                              className: classInfo?.name || 'Not specified',
               parentId: student.parentId,
               accountType: student.parentId ? 'Linked to Parent Account' : 'Individual Student Account',
-              createdAt: student.user.createdAt
+              createdAt: student.user.createdAt,
+              programs: programInfo
             };
           } catch (error) {
             console.error(`Failed to fetch detailed info for student ${studentId}:`, error);

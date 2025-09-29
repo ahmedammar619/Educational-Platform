@@ -41,6 +41,16 @@ class StudentsService {
     }
   }
 
+  // Update student by ID
+  async updateStudent(studentId, studentData) {
+    try {
+      const response = await api.put(`/api/students/${studentId}`, studentData);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  }
+
   // Get student classes
   async getStudentClasses(studentId) {
     try {

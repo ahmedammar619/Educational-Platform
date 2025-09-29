@@ -6,6 +6,7 @@ import { User } from '../users/entities/user.entity';
 import { Class } from '../classes/entities/class.entity';
 import { Course } from '../courses/entities/course.entity';
 import { Student } from '../students/entities/student.entity';
+import { Program } from '../programs/entities/program.entity';
 import { Role } from '../../common/enums/role.enum';
 import { UpdateTeacherDto } from './dto/update-teacher.dto';
 
@@ -21,7 +22,9 @@ export class TeachersService {
     @InjectRepository(Course)
     private readonly courseRepository: Repository<Course>,
     @InjectRepository(Student)
-    private readonly studentRepository: Repository<Student>
+    private readonly studentRepository: Repository<Student>,
+    @InjectRepository(Program)
+    private readonly programRepository: Repository<Program>
   ) {}
 
   async getTeacherProfile(teacherId: string) {
@@ -63,84 +66,107 @@ export class TeachersService {
   }
 
   async getTeacherClasses(teacherId: string) {
-    console.log('🔍 Getting classes for teacher ID:', teacherId);
-    
-    // First, verify the teacher exists
-    const teacher = await this.teacherRepository.findOne({
-      where: { id: teacherId },
-      relations: ['user'],
-    });
-
-    if (!teacher) {
-      console.log('❌ Teacher not found for ID:', teacherId);
-      throw new NotFoundException('Teacher not found. The teacher may have been deleted or moved.');
-    }
-
-    console.log('✅ Teacher found:', teacher.user.firstName, teacher.user.lastName);
-
-    // Get all courses taught by this teacher
-    const courses = await this.courseRepository.find({
-      where: { teacherId },
-      relations: ['class', 'teacher'],
-    });
-
-    console.log('📚 Found courses for teacher:', courses.length);
-    console.log('📚 Courses data:', courses.map(c => ({ id: c.id, name: c.name, teacherId: c.teacherId, classId: c.classId })));
-
-    // Group courses by class
-    const classMap = new Map<string, any>();
-    
-    for (const course of courses) {
-      const classId = course.classId;
+    try {
+      console.log('🔍 Getting classes for teacher ID:', teacherId);
       
-      if (!classMap.has(classId)) {
-        // Get class details
-        const classEntity = await this.classRepository.findOne({
-          where: { id: classId },
-        });
-        
-        if (classEntity) {
-          // Get students from Student entity where classId matches
-          const students = await this.studentRepository.find({
-            where: { classId: classEntity.id }
-          });
+      // First, verify the teacher exists
+      const teacher = await this.teacherRepository.findOne({
+        where: { id: teacherId },
+        relations: ['user'],
+      });
+
+      if (!teacher) {
+        console.log('❌ Teacher not found for ID:', teacherId);
+        throw new NotFoundException('Teacher not found. The teacher may have been deleted or moved.');
+      }
+
+      console.log('✅ Teacher found:', teacher.user.firstName, teacher.user.lastName);
+
+      // Get all courses taught by this teacher
+      const courses = await this.courseRepository.find({
+        where: { teacherId },
+        relations: ['class', 'teacher'],
+      });
+
+      console.log('📚 Found courses for teacher:', courses.length);
+      console.log('📚 Courses data:', courses.map(c => ({ id: c.id, name: c.name, teacherId: c.teacherId, classId: c.classId })));
+
+      // If no courses found, return empty array
+      if (!courses || courses.length === 0) {
+        console.log('📚 No courses found for teacher, returning empty array');
+        return [];
+      }
+
+      // Group courses by class
+      const classMap = new Map<string, any>();
+      
+      for (const course of courses) {
+        try {
+          const classId = course.classId;
           
-          // Get student IDs
-          const studentIds = students.map(student => student.id);
+          if (!classId) {
+            console.log('⚠️ Course has no classId:', course.id);
+            continue;
+          }
           
-          classMap.set(classId, {
-            id: classEntity.id,
-            name: classEntity.name,
-            startDate: classEntity.startDate,
-            endDate: classEntity.endDate,
-            students: studentIds,
-            studentCount: studentIds.length,
-            numberOfStudents: studentIds.length, // For backward compatibility
-            courseIds: classEntity.courseIds || [],
-            courses: []
-          });
+          if (!classMap.has(classId)) {
+            // Get class details
+            const classEntity = await this.classRepository.findOne({
+              where: { id: classId },
+            });
+            
+            if (classEntity) {
+              // Get students from Student entity where classId matches
+              const students = await this.studentRepository.find({
+                where: { classId: classEntity.id }
+              });
+              
+              // Get student IDs
+              const studentIds = students.map(student => student.id);
+              
+              classMap.set(classId, {
+                id: classEntity.id,
+                name: classEntity.name,
+                startDate: classEntity.startDate,
+                endDate: classEntity.endDate,
+                students: studentIds,
+                studentCount: studentIds.length,
+                numberOfStudents: studentIds.length, // For backward compatibility
+                courseIds: classEntity.courseIds || [],
+                courses: []
+              });
+            } else {
+              console.log('⚠️ Class not found for classId:', classId);
+            }
+          }
+          
+          // Add course to the class
+          const classData = classMap.get(classId);
+          if (classData) {
+            classData.courses.push({
+              id: course.id,
+              name: course.name,
+              teacherId: course.teacherId,
+              teacherName: course.teacher ? `${course.teacher.firstName} ${course.teacher.lastName}` : 'Unknown Teacher',
+              sessionTime: course.sessions || [],
+              sessions: course.sessions || []
+            });
+          }
+        } catch (courseError) {
+          console.error('❌ Error processing course:', course.id, courseError);
+          // Continue with next course
         }
       }
-      
-      // Add course to the class
-      const classData = classMap.get(classId);
-      if (classData) {
-        classData.courses.push({
-          id: course.id,
-          name: course.name,
-          teacherId: course.teacherId,
-          teacherName: course.teacher ? `${course.teacher.firstName} ${course.teacher.lastName}` : 'Unknown Teacher',
-          sessionTime: course.sessions || [],
-          sessions: course.sessions || []
-        });
-      }
-    }
 
-    const result = Array.from(classMap.values());
-    console.log('🏫 Final classes result:', result.length, 'classes');
-    console.log('🏫 Classes data:', result.map(c => ({ id: c.id, name: c.name, coursesCount: c.courses.length })));
-    
-    return result;
+      const result = Array.from(classMap.values());
+      console.log('🏫 Final classes result:', result.length, 'classes');
+      console.log('🏫 Classes data:', result.map(c => ({ id: c.id, name: c.name, coursesCount: c.courses.length })));
+      
+      return result;
+    } catch (error) {
+      console.error('❌ Error in getTeacherClasses:', error);
+      throw error;
+    }
   }
 
   async getClassStudents(classId: string) {
