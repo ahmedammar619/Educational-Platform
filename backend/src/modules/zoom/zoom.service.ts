@@ -5,6 +5,7 @@ import { ZoomMeeting } from './entities/zoom-meeting.entity';
 import { CreateZoomMeetingDto } from './dto/create-zoom-meeting.dto';
 import { UpdateZoomMeetingDto } from './dto/update-zoom-meeting.dto';
 import { User } from '../users/entities/user.entity';
+import { Teacher } from '../teachers/entities/teacher.entity';
 import { Attendance } from '../materials/entities/attendance.entity';
 import { Course } from '../courses/entities/course.entity';
 import { Parent } from '../parents/entities/parent.entity';
@@ -19,6 +20,8 @@ export class ZoomService {
     private readonly zoomMeetingRepository: Repository<ZoomMeeting>,
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
+    @InjectRepository(Teacher)
+    private readonly teacherRepository: Repository<Teacher>,
     @InjectRepository(Attendance)
     private readonly attendanceRepository: Repository<Attendance>,
     @InjectRepository(Course)
@@ -42,6 +45,13 @@ export class ZoomService {
       throw new NotFoundException('Course not found');
     }
 
+    // Use teacher's email as Zoom host email if user is a teacher
+    let hostEmail: string | undefined;
+    if (user.role === Role.Teacher) {
+      hostEmail = user.email;
+      console.log(`Using teacher's email as Zoom account: ${hostEmail}`);
+    }
+
     try {
       // Create Zoom meeting via API
       const zoomMeetingData = {
@@ -52,6 +62,7 @@ export class ZoomService {
           : undefined,
         duration: 120, // 120 minutes as requested
         password: undefined, // Let Zoom generate password
+        hostEmail: hostEmail, // Pass the teacher's Zoom email
       };
 
       const zoomMeeting = await this.zoomApiService.createZoomMeeting(zoomMeetingData);

@@ -9,6 +9,7 @@ import { ZoomWebhookService } from './webhooks/zoom-webhook.service';
 import { RecordingTestController } from './controllers/recording-test.controller';
 import { ZoomMeeting } from './entities/zoom-meeting.entity';
 import { User } from '../users/entities/user.entity';
+import { Teacher } from '../teachers/entities/teacher.entity';
 import { Attendance } from '../materials/entities/attendance.entity';
 import { Course } from '../courses/entities/course.entity';
 import { Class } from '../classes/entities/class.entity';
@@ -19,7 +20,7 @@ import { YouTubeModule } from '../youtube/youtube.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([ZoomMeeting, User, Attendance, Course, Class, Parent]),
+    TypeOrmModule.forFeature([ZoomMeeting, User, Teacher, Attendance, Course, Class, Parent]),
     forwardRef(() => NotificationsModule),
     StorageModule,
     YouTubeModule,

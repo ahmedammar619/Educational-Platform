@@ -108,6 +108,7 @@ export class ZoomApiService {
     duration?: number;
     password?: string;
     settings?: any;
+    hostEmail?: string; // Add host email parameter
   }): Promise<{
     id: string;
     join_url: string;
@@ -148,6 +149,8 @@ export class ZoomApiService {
           // Meeting control settings
           auto_recording: 'cloud', // Automatically start recording when meeting begins
           recording_authentication: false, // Allow recording without authentication
+          // Ensure recording starts automatically
+          recording_auto_start: true, // Start recording automatically when meeting starts
           // Prevent automatic meeting termination
           close_registration: false, // Keep registration open
           enforce_login: false, // Don't enforce login
@@ -173,6 +176,9 @@ export class ZoomApiService {
           cloud_recording_download_participant_report: true,
           cloud_recording_download_qa_report: true,
           cloud_recording_download_survey_report: true,
+          // Additional recording settings for automatic start
+          recording_auto_start_cloud: true, // Auto-start cloud recording
+          recording_auto_start_local: false, // Don't auto-start local recording
           ...meetingData.settings,
         },
         start_time: meetingData.startTime || new Date().toISOString(),
@@ -180,17 +186,19 @@ export class ZoomApiService {
         type: 2, // Scheduled meeting
       };
 
-      const response = await fetch(
-        'https://api.zoom.us/v2/users/me/meetings',
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${zoomAccessToken}`,
-          },
-          body: JSON.stringify(meetingPayload),
-        }
-      );
+      // Use specific host email if provided, otherwise use 'me'
+      const endpoint = meetingData.hostEmail 
+        ? `https://api.zoom.us/v2/users/${meetingData.hostEmail}/meetings`
+        : 'https://api.zoom.us/v2/users/me/meetings';
+
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${zoomAccessToken}`,
+        },
+        body: JSON.stringify(meetingPayload),
+      });
 
       if (!response.ok) {
         const errorText = await response.text();
