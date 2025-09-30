@@ -6,6 +6,8 @@ import { Student } from '../students/entities/student.entity';
 import { Role } from '../../common/enums/role.enum';
 import { WebhookEvent } from './entities/webhook-event.entity';
 import { Subscription } from './entities/subscription.entity';
+import { StudentSubscription } from './entities/student-subscription.entity';
+import { Payment } from './entities/payment.entity';
 import { Invoice } from './entities/invoice.entity';
 import { StripeService } from '../../common/services/stripe.service';
 
@@ -20,6 +22,10 @@ export class PaymentsService {
     private webhookEventRepository: Repository<WebhookEvent>,
     @InjectRepository(Subscription)
     private subscriptionRepository: Repository<Subscription>,
+    @InjectRepository(StudentSubscription)
+    private studentSubscriptionRepository: Repository<StudentSubscription>,
+    @InjectRepository(Payment)
+    private paymentRepository: Repository<Payment>,
     @InjectRepository(Invoice)
     private invoiceRepository: Repository<Invoice>,
     private stripeService: StripeService,
@@ -360,70 +366,74 @@ export class PaymentsService {
 
       console.log(`📋 Processing successful payment for parent: ${parentId}, student: ${studentId}`);
 
-      // Find the incomplete subscription record
-      const subscription = await this.subscriptionRepository.findOne({
-        where: { userId: parentId, studentId: studentId, status: 'incomplete' }
+      // Get subscription ID from metadata
+      const subscriptionId = session.metadata?.subscriptionId;
+
+      if (!subscriptionId) {
+        console.error(`❌ Missing subscriptionId in metadata: ${JSON.stringify(session.metadata)}`);
+        throw new BadRequestException('Missing subscriptionId in session metadata');
+      }
+
+      // Find the subscription record by ID (use StudentSubscription for new system)
+      const subscription = await this.studentSubscriptionRepository.findOne({
+        where: { id: subscriptionId }
       });
 
       if (!subscription) {
-        throw new BadRequestException('No incomplete subscription found');
+        throw new BadRequestException(`Subscription ${subscriptionId} not found`);
       }
 
-      // Get the subscription from Stripe
-      const stripeSubscription = session.subscription as any;
-      
-      if (!stripeSubscription) {
-        throw new BadRequestException('No subscription found in session');
-      }
-
-      // Update the subscription record
+      // Update the subscription record based on session mode
       const updateData: any = {
-        stripeSubscriptionId: stripeSubscription.id,
         stripeCustomerId: session.customer as string,
-        studentName: stripeSubscription.metadata?.studentName || session.metadata?.studentName || 'Unknown Student',
-        status: stripeSubscription.status,
-        amount: stripeSubscription.items?.data[0]?.price?.unit_amount || 0,
-        currency: stripeSubscription.items?.data[0]?.price?.currency || 'usd'
+        studentName: session.metadata?.studentName || 'Unknown Student',
       };
 
-      // Only set dates if they exist and are valid
-      if (stripeSubscription.current_period_start) {
-        updateData.currentPeriodStart = new Date(stripeSubscription.current_period_start * 1000);
-      }
-      if (stripeSubscription.current_period_end) {
-        updateData.currentPeriodEnd = new Date(stripeSubscription.current_period_end * 1000);
-      }
+      if (session.mode === 'subscription') {
+        // Recurring subscription
+        const stripeSubscription = session.subscription as any;
 
-      await this.subscriptionRepository.update(subscription.id, updateData);
+        if (stripeSubscription) {
+          updateData.stripeSubscriptionId = stripeSubscription.id;
+          updateData.status = stripeSubscription.status;
+          updateData.amount = stripeSubscription.items?.data[0]?.price?.unit_amount || subscription.amount;
+          updateData.currency = stripeSubscription.items?.data[0]?.price?.currency || subscription.currency;
 
-      // Create invoice record
-      if (stripeSubscription.latest_invoice) {
-        try {
-          const invoice = await this.stripeService.getInvoice(stripeSubscription.latest_invoice);
-          
-          const invoiceData: any = {
-            userId: parentId,
-            studentId: studentId,
-            studentName: stripeSubscription.metadata?.studentName || session.metadata?.studentName || 'Unknown Student',
-            subscriptionId: subscription.id,
-            stripeInvoiceId: invoice.id,
-            stripeSubscriptionId: stripeSubscription.id,
-            amountPaid: invoice.amount_paid || 0,
-            currency: invoice.currency || 'usd',
-            status: 'paid',
-          };
-
-          // Only set paidAt if it exists and is valid
-          if (invoice.status_transitions?.paid_at) {
-            invoiceData.paidAt = new Date(invoice.status_transitions.paid_at * 1000);
+          if (stripeSubscription.current_period_start) {
+            updateData.currentPeriodStart = new Date(stripeSubscription.current_period_start * 1000);
           }
-
-          await this.invoiceRepository.save(invoiceData);
-          console.log(`📄 Created invoice record for subscription: ${stripeSubscription.id}`);
-        } catch (invoiceError) {
-          console.error('⚠️ Error creating invoice record:', invoiceError.message);
-          // Don't fail the whole process if invoice creation fails
+          if (stripeSubscription.current_period_end) {
+            updateData.currentPeriodEnd = new Date(stripeSubscription.current_period_end * 1000);
+          }
         }
+      } else if (session.mode === 'payment') {
+        // One-time payment
+        updateData.status = 'active';
+        updateData.isPaid = true;
+        updateData.paidAt = new Date();
+      }
+
+      await this.studentSubscriptionRepository.update(subscription.id, updateData);
+
+      // Create payment record
+      if (session.payment_intent) {
+        const payment = this.paymentRepository.create({
+          userId: parentId,
+          studentId: studentId,
+          studentName: session.metadata?.studentName || 'Unknown Student',
+          planId: session.metadata?.planId,
+          planName: subscription.planName,
+          studentSubscriptionId: subscription.id,
+          stripePaymentIntentId: session.payment_intent as string,
+          paymentType: session.mode === 'subscription' ? 'subscription' : 'one_time',
+          status: 'succeeded',
+          amountPaid: session.amount_total || subscription.amount,
+          currency: session.currency || subscription.currency,
+          paidAt: new Date(),
+        });
+
+        await this.paymentRepository.save(payment);
+        console.log(`💳 Created payment record for session: ${sessionId}`);
       }
 
       // Store webhook event for audit
@@ -434,12 +444,12 @@ export class PaymentsService {
       });
 
       console.log(`✅ Successfully processed checkout session: ${sessionId}`);
-      
+
       return {
         success: true,
         message: 'Payment processed successfully',
-        subscriptionId: stripeSubscription.id,
-        status: stripeSubscription.status
+        subscriptionId: subscription.id,
+        status: updateData.status || 'active'
       };
 
     } catch (error) {

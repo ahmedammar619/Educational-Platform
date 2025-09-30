@@ -56,6 +56,9 @@ import { Attendance } from './modules/materials/entities/attendance.entity';
 import { WebhookEvent } from './modules/payments/entities/webhook-event.entity';
 import { Invoice } from './modules/payments/entities/invoice.entity';
 import { Subscription } from './modules/payments/entities/subscription.entity';
+import { SubscriptionPlan } from './modules/payments/entities/subscription-plan.entity';
+import { StudentSubscription } from './modules/payments/entities/student-subscription.entity';
+import { Payment } from './modules/payments/entities/payment.entity';
 import { ZoomMeeting } from './modules/zoom/entities/zoom-meeting.entity';
 import { AppConfig } from './modules/admin/entities/app-config.entity';
 import { AnnouncementPost } from './modules/announcements/entities/announcement-post.entity';
@@ -82,9 +85,9 @@ import { Notification } from './modules/notifications/entities/notification.enti
         password: process.env.DB_PASSWORD || 'password',
         database: process.env.DB_DATABASE || 'education_dev_db',
         entities: [
-          User, 
-          Parent, 
-          Student, 
+          User,
+          Parent,
+          Student,
           Teacher,
           Class,
           Program,
@@ -99,6 +102,9 @@ import { Notification } from './modules/notifications/entities/notification.enti
           WebhookEvent,
           Invoice,
           Subscription,
+          SubscriptionPlan,
+          StudentSubscription,
+          Payment,
           ZoomMeeting,
           AppConfig,
           AnnouncementPost,

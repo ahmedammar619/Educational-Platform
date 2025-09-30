@@ -1,11 +1,11 @@
-import { 
-  Controller, 
-  Get, 
-  Post, 
+import {
+  Controller,
+  Get,
+  Post,
   Delete,
-  Body, 
-  Param, 
-  UseGuards, 
+  Body,
+  Param,
+  UseGuards,
   Request,
   Headers,
   RawBody,
@@ -14,6 +14,7 @@ import {
   Query
 } from '@nestjs/common';
 import { PaymentsService } from './payments.service';
+import { WebhookHandlerService } from './webhook-handler.service';
 import { StripeService } from '../../common/services/stripe.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
@@ -25,6 +26,7 @@ import { Role } from '../../common/enums/role.enum';
 export class PaymentsController {
   constructor(
     private readonly paymentsService: PaymentsService,
+    private readonly webhookHandlerService: WebhookHandlerService,
     private readonly stripeService: StripeService,
   ) {}
 
@@ -114,7 +116,35 @@ export class PaymentsController {
     return this.paymentsService.getParentInvoices(req.user.sub);
   }
 
-  // Stripe Webhook (public endpoint)
+  // Stripe Webhook (public endpoint) - New system
+  @Public()
+  @Post('webhook/v2')
+  @HttpCode(HttpStatus.OK)
+  async handleWebhookV2(
+    @RawBody() rawBody: Buffer,
+    @Body() body: any,
+    @Headers('stripe-signature') signature: string,
+  ) {
+    try {
+      const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+
+      let event;
+      if (webhookSecret && rawBody) {
+        event = this.stripeService.constructWebhookEvent(rawBody, signature);
+      } else {
+        console.log('⚠️ Development mode: Skipping webhook signature verification');
+        event = body || {};
+      }
+
+      await this.webhookHandlerService.handleStripeWebhook(event);
+      return { received: true };
+    } catch (error) {
+      console.error('Webhook error:', error.message);
+      throw error;
+    }
+  }
+
+  // Stripe Webhook (public endpoint) - Legacy system
   @Public()
   @Post('webhook')
   @HttpCode(HttpStatus.OK)
@@ -126,7 +156,7 @@ export class PaymentsController {
     try {
       // For development: Skip signature verification if no webhook secret is configured
       const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
-      
+
       let event;
       if (webhookSecret && rawBody) {
         // Production: Verify webhook signature
@@ -136,7 +166,7 @@ export class PaymentsController {
         console.log('⚠️ Development mode: Skipping webhook signature verification');
         event = body || {};
       }
-      
+
       await this.paymentsService.handleStripeWebhook(event);
       return { received: true };
     } catch (error) {

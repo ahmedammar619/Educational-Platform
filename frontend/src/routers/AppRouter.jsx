@@ -11,6 +11,7 @@ const ClassManagement = lazy(() => import('../pages/admin/ClassManagement'));
 const ProgramManagement = lazy(() => import('../pages/admin/ProgramManagement'));
 const AdminPayments = lazy(() => import('../pages/admin/AdminPayments'));
 const AdminForm = lazy(() => import('../pages/admin/AdminForm'));
+const SubscriptionPlans = lazy(() => import('../pages/admin/SubscriptionPlans'));
 
 const StudentClasses = lazy(() => import('../pages/student/StudentClasses'));
 const StudentSchedule = lazy(() => import('../pages/student/StudentSchedule'));
@@ -18,6 +19,7 @@ const StudentSchedule = lazy(() => import('../pages/student/StudentSchedule'));
 const ChildrenManagement = lazy(() => import('../pages/parent/ChildrenManagement'));
 const ParentSchedule = lazy(() => import('../pages/parent/ParentSchedule'));
 const ParentPayments = lazy(() => import('../pages/parent/ParentPayments'));
+const SubscriptionSelection = lazy(() => import('../pages/parent/SubscriptionSelection'));
 
 const TeacherClasses = lazy(() => import('../pages/teacher/TeacherClasses'));
 const TeacherSchedule = lazy(() => import('../pages/teacher/TeacherSchedule'));
@@ -111,13 +113,14 @@ const AppRouter = React.memo(({ user, onLogin, onLogout }) => {
                 { path: "/users", element: <UserManagement user={user} /> },
                 { path: "/programs", element: <ProgramManagement user={user} /> },
                 { path: "/payments", element: <AdminPayments user={user} /> },
+                { path: "/subscriptions", element: <SubscriptionPlans user={user} /> },
                 { path: "/form", element: <AdminForm user={user} /> },
                 { path: "/announcements", element: <AnnouncementsPage currentUser={user} theme={{ primary: 'green', primaryLight: 'green-50' }} /> },
                 { path: "/materials", element: showMaterialPage && materialPageData ? (
-                  <MaterialPages 
-                    courseData={materialPageData} 
-                    onBack={handleCloseMaterials} 
-                    currentUser={user} 
+                  <MaterialPages
+                    courseData={materialPageData}
+                    onBack={handleCloseMaterials}
+                    currentUser={user}
                   />
                 ) : <Navigate to="/admin/programs" replace /> },
               ]} />
@@ -161,6 +164,7 @@ const AppRouter = React.memo(({ user, onLogin, onLogout }) => {
                 { path: "/children", element: <ChildrenManagement user={user} /> },
                 { path: "/schedule", element: <ParentSchedule user={user} /> },
                 { path: "/payments", element: <ParentPayments user={user} /> },
+                { path: "/subscriptions", element: <SubscriptionSelection user={user} /> },
                 { path: "/announcements", element: <AnnouncementsPage currentUser={user} theme={{ primary: 'purple', primaryLight: 'purple-50' }} /> },
               ]} />
             ) : (

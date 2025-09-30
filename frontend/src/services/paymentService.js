@@ -265,6 +265,191 @@ class PaymentService {
       throw error;
     }
   }
+
+  // ============ NEW SUBSCRIPTION PLANS SYSTEM ============
+
+  // ADMIN: Subscription Plan Management
+  async getAllPlans(includeInactive = false) {
+    try {
+      const response = await api.get('/api/subscription-plans/admin/plans', {
+        params: { includeInactive }
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error getting all plans:', error);
+      throw error;
+    }
+  }
+
+  async createPlan(planData) {
+    try {
+      const response = await api.post('/api/subscription-plans/admin/plans', planData);
+      return response.data;
+    } catch (error) {
+      console.error('Error creating plan:', error);
+      throw error;
+    }
+  }
+
+  async updatePlan(planId, planData) {
+    try {
+      const response = await api.put(`/api/subscription-plans/admin/plans/${planId}`, planData);
+      return response.data;
+    } catch (error) {
+      console.error('Error updating plan:', error);
+      throw error;
+    }
+  }
+
+  async deletePlan(planId) {
+    try {
+      const response = await api.delete(`/api/subscription-plans/admin/plans/${planId}`);
+      return response.data;
+    } catch (error) {
+      console.error('Error deleting plan:', error);
+      throw error;
+    }
+  }
+
+  async togglePlanStatus(planId) {
+    try {
+      const response = await api.post(`/api/subscription-plans/admin/plans/${planId}/toggle-status`);
+      return response.data;
+    } catch (error) {
+      console.error('Error toggling plan status:', error);
+      throw error;
+    }
+  }
+
+  // ADMIN: Student Subscription Management
+  async getAllStudentSubscriptions(filters = {}) {
+    try {
+      const response = await api.get('/api/subscription-plans/admin/subscriptions', {
+        params: filters
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error getting student subscriptions:', error);
+      throw error;
+    }
+  }
+
+  async getStudentSubscriptionById(subscriptionId) {
+    try {
+      const response = await api.get(`/api/subscription-plans/admin/subscriptions/${subscriptionId}`);
+      return response.data;
+    } catch (error) {
+      console.error('Error getting subscription details:', error);
+      throw error;
+    }
+  }
+
+  async updateStudentSubscription(subscriptionId, data) {
+    try {
+      const response = await api.put(`/api/subscription-plans/admin/subscriptions/${subscriptionId}`, data);
+      return response.data;
+    } catch (error) {
+      console.error('Error updating subscription:', error);
+      throw error;
+    }
+  }
+
+  async cancelStudentSubscriptionAdmin(subscriptionId, cancelAtPeriodEnd = true) {
+    try {
+      const response = await api.post(`/api/subscription-plans/admin/subscriptions/${subscriptionId}/cancel`, null, {
+        params: { cancelAtPeriodEnd }
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error canceling subscription:', error);
+      throw error;
+    }
+  }
+
+  async createManualPayment(paymentData) {
+    try {
+      const response = await api.post('/api/subscription-plans/admin/payments/manual', paymentData);
+      return response.data;
+    } catch (error) {
+      console.error('Error creating manual payment:', error);
+      throw error;
+    }
+  }
+
+  async getPaymentStats() {
+    try {
+      const response = await api.get('/api/subscription-plans/admin/stats');
+      return response.data;
+    } catch (error) {
+      console.error('Error getting payment stats:', error);
+      throw error;
+    }
+  }
+
+  // PARENT: Browse and Subscribe
+  async getAvailablePlans() {
+    try {
+      const response = await api.get('/api/subscription-plans/available');
+      return response.data;
+    } catch (error) {
+      console.error('Error getting available plans:', error);
+      throw error;
+    }
+  }
+
+  async subscribeStudentToPlan(studentId, planId, notes = null) {
+    try {
+      const response = await api.post('/api/subscription-plans/subscribe', {
+        studentId,
+        planId,
+        notes
+      });
+
+      // If we get a checkout URL, redirect to Stripe
+      if (response.data.checkoutUrl) {
+        window.location.href = response.data.checkoutUrl;
+      }
+
+      return response.data;
+    } catch (error) {
+      console.error('Error subscribing to plan:', error);
+      throw error;
+    }
+  }
+
+  async bulkSubscribeStudent(studentId, planIds, notes = null) {
+    try {
+      const response = await api.post('/api/subscription-plans/bulk-subscribe', {
+        studentId,
+        planIds,
+        notes
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error bulk subscribing:', error);
+      throw error;
+    }
+  }
+
+  async getMySubscriptions() {
+    try {
+      const response = await api.get('/api/subscription-plans/my-subscriptions');
+      return response.data;
+    } catch (error) {
+      console.error('Error getting my subscriptions:', error);
+      throw error;
+    }
+  }
+
+  async getMyPayments() {
+    try {
+      const response = await api.get('/api/subscription-plans/my-payments');
+      return response.data;
+    } catch (error) {
+      console.error('Error getting my payments:', error);
+      throw error;
+    }
+  }
 }
 
 export default new PaymentService();

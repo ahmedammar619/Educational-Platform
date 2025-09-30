@@ -1,0 +1,578 @@
+import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository, In } from 'typeorm';
+import { SubscriptionPlan, PlanType, BillingInterval } from './entities/subscription-plan.entity';
+import { StudentSubscription, SubscriptionStatus } from './entities/student-subscription.entity';
+import { Payment, PaymentStatus, PaymentType } from './entities/payment.entity';
+import { User } from '../users/entities/user.entity';
+import { Student } from '../students/entities/student.entity';
+import { StripeService } from '../../common/services/stripe.service';
+import { CreateSubscriptionPlanDto } from './dto/create-subscription-plan.dto';
+import { UpdateSubscriptionPlanDto } from './dto/update-subscription-plan.dto';
+import { CreateStudentSubscriptionDto, BulkSubscribeDto } from './dto/create-student-subscription.dto';
+import { CreateManualPaymentDto, UpdateStudentSubscriptionDto } from './dto/admin-payment.dto';
+
+@Injectable()
+export class SubscriptionPlansService {
+  private readonly logger = new Logger(SubscriptionPlansService.name);
+
+  constructor(
+    @InjectRepository(SubscriptionPlan)
+    private subscriptionPlanRepository: Repository<SubscriptionPlan>,
+    @InjectRepository(StudentSubscription)
+    private studentSubscriptionRepository: Repository<StudentSubscription>,
+    @InjectRepository(Payment)
+    private paymentRepository: Repository<Payment>,
+    @InjectRepository(User)
+    private userRepository: Repository<User>,
+    @InjectRepository(Student)
+    private studentRepository: Repository<Student>,
+    private stripeService: StripeService,
+  ) {}
+
+  // ============ ADMIN: Subscription Plan Management ============
+
+  async createPlan(dto: CreateSubscriptionPlanDto): Promise<SubscriptionPlan> {
+    this.logger.log(`Creating new subscription plan: ${dto.name}`);
+
+    // Create Stripe product and price if Stripe is configured
+    let stripeProductId: string;
+    let stripePriceId: string;
+
+    if (this.stripeService.isConfigured()) {
+      try {
+        // Create Stripe product
+        const stripeProduct = await this.stripeService['stripe'].products.create({
+          name: dto.name,
+          description: dto.description || '',
+          metadata: {
+            planType: dto.planType,
+            category: dto.category || '',
+          }
+        });
+        stripeProductId = stripeProduct.id;
+
+        // Create Stripe price
+        const priceData: any = {
+          product: stripeProductId,
+          currency: dto.currency || 'usd',
+          unit_amount: dto.price,
+        };
+
+        // Set recurring or one-time based on plan type
+        if (dto.planType === PlanType.RECURRING || dto.planType === PlanType.ADD_ON) {
+          if (dto.billingInterval !== BillingInterval.ONE_TIME) {
+            priceData.recurring = {
+              interval: dto.billingInterval,
+            };
+          }
+        }
+
+        const stripePrice = await this.stripeService['stripe'].prices.create(priceData);
+        stripePriceId = stripePrice.id;
+
+        this.logger.log(`Created Stripe product ${stripeProductId} and price ${stripePriceId}`);
+      } catch (error) {
+        this.logger.error(`Failed to create Stripe product/price: ${error.message}`);
+        // Continue without Stripe IDs in development
+      }
+    }
+
+    const plan = this.subscriptionPlanRepository.create({
+      ...dto,
+      stripeProductId,
+      stripePriceId,
+    });
+
+    return this.subscriptionPlanRepository.save(plan);
+  }
+
+  async getAllPlans(includeInactive = false): Promise<SubscriptionPlan[]> {
+    const where = includeInactive ? {} : { isActive: true };
+    return this.subscriptionPlanRepository.find({
+      where,
+      order: { displayOrder: 'ASC', createdAt: 'DESC' }
+    });
+  }
+
+  async getPlansByType(planType: PlanType): Promise<SubscriptionPlan[]> {
+    return this.subscriptionPlanRepository.find({
+      where: { planType, isActive: true },
+      order: { displayOrder: 'ASC' }
+    });
+  }
+
+  async getPlansByCategory(category: string): Promise<SubscriptionPlan[]> {
+    return this.subscriptionPlanRepository.find({
+      where: { category, isActive: true },
+      order: { displayOrder: 'ASC' }
+    });
+  }
+
+  async getPlanById(id: string): Promise<SubscriptionPlan> {
+    const plan = await this.subscriptionPlanRepository.findOne({ where: { id } });
+    if (!plan) {
+      throw new NotFoundException(`Subscription plan with ID ${id} not found`);
+    }
+    return plan;
+  }
+
+  async updatePlan(id: string, dto: UpdateSubscriptionPlanDto): Promise<SubscriptionPlan> {
+    const plan = await this.getPlanById(id);
+
+    // Update Stripe product/price if price or name changed
+    if (this.stripeService.isConfigured() && plan.stripeProductId) {
+      try {
+        if (dto.name || dto.description) {
+          await this.stripeService['stripe'].products.update(plan.stripeProductId, {
+            name: dto.name || plan.name,
+            description: dto.description !== undefined ? dto.description : plan.description,
+          });
+        }
+
+        // If price changed, create new Stripe price (prices are immutable in Stripe)
+        if (dto.price && dto.price !== plan.price) {
+          const priceData: any = {
+            product: plan.stripeProductId,
+            currency: dto.currency || plan.currency,
+            unit_amount: dto.price,
+          };
+
+          if (plan.planType === PlanType.RECURRING && plan.billingInterval !== BillingInterval.ONE_TIME) {
+            priceData.recurring = {
+              interval: dto.billingInterval || plan.billingInterval,
+            };
+          }
+
+          const newStripePrice = await this.stripeService['stripe'].prices.create(priceData);
+          dto['stripePriceId'] = newStripePrice.id;
+
+          // Archive old price
+          if (plan.stripePriceId) {
+            await this.stripeService['stripe'].prices.update(plan.stripePriceId, { active: false });
+          }
+        }
+      } catch (error) {
+        this.logger.error(`Failed to update Stripe product/price: ${error.message}`);
+      }
+    }
+
+    Object.assign(plan, dto);
+    return this.subscriptionPlanRepository.save(plan);
+  }
+
+  async deletePlan(id: string): Promise<void> {
+    const plan = await this.getPlanById(id);
+
+    // Check if plan has active subscriptions
+    const activeSubscriptions = await this.studentSubscriptionRepository.count({
+      where: { planId: id, status: In([SubscriptionStatus.ACTIVE, SubscriptionStatus.TRIALING]) }
+    });
+
+    if (activeSubscriptions > 0) {
+      throw new BadRequestException(`Cannot delete plan with ${activeSubscriptions} active subscriptions. Deactivate it instead.`);
+    }
+
+    // Archive Stripe product if exists
+    if (this.stripeService.isConfigured() && plan.stripeProductId) {
+      try {
+        await this.stripeService['stripe'].products.update(plan.stripeProductId, { active: false });
+      } catch (error) {
+        this.logger.error(`Failed to archive Stripe product: ${error.message}`);
+      }
+    }
+
+    await this.subscriptionPlanRepository.remove(plan);
+  }
+
+  async togglePlanStatus(id: string): Promise<SubscriptionPlan> {
+    const plan = await this.getPlanById(id);
+    plan.isActive = !plan.isActive;
+    return this.subscriptionPlanRepository.save(plan);
+  }
+
+  // ============ PARENT: Browse and Subscribe to Plans ============
+
+  async getAvailablePlansForParent(): Promise<any> {
+    const allPlans = await this.subscriptionPlanRepository.find({
+      where: { isActive: true },
+      order: { displayOrder: 'ASC', category: 'ASC' }
+    });
+
+    // Group by category and type
+    const grouped = {
+      basePlans: [] as SubscriptionPlan[],
+      addOns: [] as SubscriptionPlan[],
+      events: [] as SubscriptionPlan[],
+      byCategory: {} as Record<string, SubscriptionPlan[]>
+    };
+
+    for (const plan of allPlans) {
+      // Check if event is still available
+      if (plan.endDate && new Date(plan.endDate) < new Date()) {
+        continue; // Skip expired events
+      }
+
+      if (plan.maxEnrollments && plan.currentEnrollments >= plan.maxEnrollments) {
+        continue; // Skip full events
+      }
+
+      if (plan.isBasePlan) {
+        grouped.basePlans.push(plan);
+      } else if (plan.planType === PlanType.ONE_TIME) {
+        grouped.events.push(plan);
+      } else if (plan.planType === PlanType.ADD_ON) {
+        grouped.addOns.push(plan);
+      }
+
+      // Group by category
+      if (plan.category) {
+        if (!grouped.byCategory[plan.category]) {
+          grouped.byCategory[plan.category] = [];
+        }
+        grouped.byCategory[plan.category].push(plan);
+      }
+    }
+
+    return grouped;
+  }
+
+  async subscribeStudentToPlan(
+    parentId: string,
+    studentId: string,
+    planId: string,
+    notes?: string
+  ): Promise<{ checkoutUrl?: string; subscription: StudentSubscription }> {
+    const [parent, student, plan] = await Promise.all([
+      this.userRepository.findOne({ where: { id: parentId } }),
+      this.userRepository.findOne({ where: { id: studentId } }),
+      this.getPlanById(planId)
+    ]);
+
+    if (!parent || !student) {
+      throw new NotFoundException('Parent or student not found');
+    }
+
+    // Check if already subscribed to this plan (only block for active/trialing, allow retry for incomplete)
+    const existing = await this.studentSubscriptionRepository.findOne({
+      where: {
+        userId: parentId,
+        studentId,
+        planId,
+        status: In([SubscriptionStatus.ACTIVE, SubscriptionStatus.TRIALING])
+      }
+    });
+
+    if (existing) {
+      throw new BadRequestException('Student is already subscribed to this plan');
+    }
+
+    // Check for incomplete subscription - if exists, delete it before creating new one
+    const incompleteSubscription = await this.studentSubscriptionRepository.findOne({
+      where: {
+        userId: parentId,
+        studentId,
+        planId,
+        status: SubscriptionStatus.INCOMPLETE
+      }
+    });
+
+    if (incompleteSubscription) {
+      this.logger.log(`Deleting previous incomplete subscription ${incompleteSubscription.id}`);
+      await this.studentSubscriptionRepository.delete(incompleteSubscription.id);
+    }
+
+    // Check enrollment limits for events
+    if (plan.maxEnrollments && plan.currentEnrollments >= plan.maxEnrollments) {
+      throw new BadRequestException('This event is fully booked');
+    }
+
+    // Create or get Stripe customer
+    let stripeCustomerId = parent.stripe_customer_id;
+    if (!stripeCustomerId && this.stripeService.isConfigured()) {
+      const stripeCustomer = await this.stripeService.createCustomer(
+        parent.email,
+        `${parent.firstName} ${parent.lastName}`,
+        { userId: parentId }
+      );
+      stripeCustomerId = stripeCustomer.id;
+      await this.userRepository.update(parentId, { stripe_customer_id: stripeCustomerId });
+    }
+
+    // Create subscription record
+    const subscription = this.studentSubscriptionRepository.create({
+      userId: parentId,
+      studentId,
+      planId,
+      studentName: `${student.firstName} ${student.lastName}`,
+      planName: plan.name,
+      stripeCustomerId,
+      status: SubscriptionStatus.INCOMPLETE,
+      amount: plan.price,
+      currency: plan.currency,
+      notes
+    });
+
+    await this.studentSubscriptionRepository.save(subscription);
+
+    // Increment enrollment for events
+    if (plan.planType === PlanType.ONE_TIME) {
+      await this.subscriptionPlanRepository.update(planId, {
+        currentEnrollments: plan.currentEnrollments + 1
+      });
+    }
+
+    // Create Stripe checkout session
+    let checkoutUrl: string;
+    if (this.stripeService.isConfigured() && plan.stripePriceId) {
+      try {
+        const session = await this.stripeService['stripe'].checkout.sessions.create({
+          customer: stripeCustomerId,
+          payment_method_types: ['card'],
+          mode: plan.planType === PlanType.ONE_TIME ? 'payment' : 'subscription',
+          line_items: [{
+            price: plan.stripePriceId,
+            quantity: 1,
+          }],
+          success_url: `${process.env.FRONTEND_URL || 'http://localhost:3001'}/parent/subscriptions?session_id={CHECKOUT_SESSION_ID}&success=true`,
+          cancel_url: `${process.env.FRONTEND_URL || 'http://localhost:3001'}/parent/subscriptions?canceled=true`,
+          metadata: {
+            parentId,
+            studentId,
+            planId,
+            subscriptionId: subscription.id,
+            studentName: subscription.studentName,
+          },
+          ...(plan.planType !== PlanType.ONE_TIME && {
+            subscription_data: {
+              metadata: {
+                parentId,
+                studentId,
+                planId,
+                subscriptionId: subscription.id,
+                studentName: subscription.studentName,
+              }
+            }
+          })
+        });
+
+        checkoutUrl = session.url;
+      } catch (error) {
+        this.logger.error(`Failed to create checkout session: ${error.message}`);
+        throw new BadRequestException(`Failed to create checkout session: ${error.message}`);
+      }
+    }
+
+    return { checkoutUrl, subscription };
+  }
+
+  async bulkSubscribeStudent(parentId: string, dto: BulkSubscribeDto): Promise<any> {
+    const results = [];
+
+    for (const planId of dto.planIds) {
+      try {
+        const result = await this.subscribeStudentToPlan(parentId, dto.studentId, planId, dto.notes);
+        results.push({
+          planId,
+          success: true,
+          checkoutUrl: result.checkoutUrl,
+          subscription: result.subscription
+        });
+      } catch (error) {
+        results.push({
+          planId,
+          success: false,
+          error: error.message
+        });
+      }
+    }
+
+    return results;
+  }
+
+  // ============ ADMIN: Student Subscription Management ============
+
+  async getAllStudentSubscriptions(filters?: any): Promise<StudentSubscription[]> {
+    const query = this.studentSubscriptionRepository
+      .createQueryBuilder('sub')
+      .leftJoinAndSelect('sub.user', 'parent')
+      .leftJoinAndSelect('sub.student', 'studentRel')
+      .leftJoinAndSelect('studentRel.user', 'studentUser')
+      .leftJoinAndSelect('sub.plan', 'plan')
+      .orderBy('sub.createdAt', 'DESC');
+
+    if (filters?.status && filters.status !== 'all') {
+      query.andWhere('sub.status = :status', { status: filters.status });
+    }
+
+    if (filters?.planId) {
+      query.andWhere('sub.planId = :planId', { planId: filters.planId });
+    }
+
+    if (filters?.studentId) {
+      query.andWhere('sub.studentId = :studentId', { studentId: filters.studentId });
+    }
+
+    if (filters?.search) {
+      query.andWhere(
+        '(parent.firstName ILIKE :search OR parent.lastName ILIKE :search OR parent.email ILIKE :search OR sub.studentName ILIKE :search OR sub.planName ILIKE :search)',
+        { search: `%${filters.search}%` }
+      );
+    }
+
+    return query.getMany();
+  }
+
+  async getStudentSubscriptionById(id: string): Promise<StudentSubscription> {
+    const subscription = await this.studentSubscriptionRepository.findOne({
+      where: { id },
+      relations: ['user', 'student', 'student.user', 'plan', 'payments']
+    });
+
+    if (!subscription) {
+      throw new NotFoundException(`Subscription with ID ${id} not found`);
+    }
+
+    return subscription;
+  }
+
+  async updateStudentSubscription(id: string, dto: UpdateStudentSubscriptionDto): Promise<StudentSubscription> {
+    const subscription = await this.getStudentSubscriptionById(id);
+    Object.assign(subscription, dto);
+    return this.studentSubscriptionRepository.save(subscription);
+  }
+
+  async cancelStudentSubscription(id: string, cancelAtPeriodEnd = true): Promise<StudentSubscription> {
+    const subscription = await this.getStudentSubscriptionById(id);
+
+    if (subscription.stripeSubscriptionId && this.stripeService.isConfigured()) {
+      try {
+        await this.stripeService.cancelSubscription(subscription.stripeSubscriptionId, cancelAtPeriodEnd);
+      } catch (error) {
+        this.logger.error(`Failed to cancel Stripe subscription: ${error.message}`);
+      }
+    }
+
+    subscription.status = SubscriptionStatus.CANCELED;
+    subscription.canceledAt = new Date();
+    return this.studentSubscriptionRepository.save(subscription);
+  }
+
+  // ============ ADMIN: Manual Payment Recording ============
+
+  async createManualPayment(parentId: string, dto: CreateManualPaymentDto): Promise<Payment> {
+    const [student, plan] = await Promise.all([
+      this.userRepository.findOne({ where: { id: dto.studentId } }),
+      this.getPlanById(dto.planId)
+    ]);
+
+    if (!student) {
+      throw new NotFoundException('Student not found');
+    }
+
+    // Find or create subscription
+    let subscription = await this.studentSubscriptionRepository.findOne({
+      where: {
+        userId: parentId,
+        studentId: dto.studentId,
+        planId: dto.planId
+      }
+    });
+
+    if (!subscription) {
+      subscription = await this.studentSubscriptionRepository.save({
+        userId: parentId,
+        studentId: dto.studentId,
+        planId: dto.planId,
+        studentName: `${student.firstName} ${student.lastName}`,
+        planName: plan.name,
+        status: SubscriptionStatus.ACTIVE,
+        amount: dto.amountPaid,
+        currency: dto.currency || 'usd',
+        isPaid: true,
+        paidAt: dto.paidAt ? new Date(dto.paidAt) : new Date(),
+        notes: dto.notes
+      });
+    } else {
+      subscription.isPaid = true;
+      subscription.paidAt = dto.paidAt ? new Date(dto.paidAt) : new Date();
+      subscription.status = SubscriptionStatus.ACTIVE;
+      await this.studentSubscriptionRepository.save(subscription);
+    }
+
+    // Create payment record
+    const payment = this.paymentRepository.create({
+      userId: parentId,
+      studentId: dto.studentId,
+      studentName: `${student.firstName} ${student.lastName}`,
+      planId: dto.planId,
+      planName: plan.name,
+      studentSubscriptionId: subscription.id,
+      paymentType: plan.planType === PlanType.ONE_TIME ? PaymentType.ONE_TIME : PaymentType.SUBSCRIPTION,
+      status: PaymentStatus.SUCCEEDED,
+      amountPaid: dto.amountPaid,
+      currency: dto.currency || 'usd',
+      paidAt: dto.paidAt ? new Date(dto.paidAt) : new Date(),
+      notes: dto.notes
+    });
+
+    return this.paymentRepository.save(payment);
+  }
+
+  // ============ REPORTING & ANALYTICS ============
+
+  async getPaymentStats(): Promise<any> {
+    const [totalRevenue, monthlyRevenue, activeSubscriptions, totalPayments] = await Promise.all([
+      this.paymentRepository
+        .createQueryBuilder('payment')
+        .select('SUM(payment.amountPaid)', 'total')
+        .where('payment.status = :status', { status: PaymentStatus.SUCCEEDED })
+        .getRawOne(),
+      this.paymentRepository
+        .createQueryBuilder('payment')
+        .select('SUM(payment.amountPaid)', 'total')
+        .where('payment.status = :status', { status: PaymentStatus.SUCCEEDED })
+        .andWhere('payment.paidAt >= :date', { date: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) })
+        .getRawOne(),
+      this.studentSubscriptionRepository.count({
+        where: { status: In([SubscriptionStatus.ACTIVE, SubscriptionStatus.TRIALING]) }
+      }),
+      this.paymentRepository.count()
+    ]);
+
+    // Revenue by plan
+    const revenueByPlan = await this.paymentRepository
+      .createQueryBuilder('payment')
+      .select('payment.planName', 'planName')
+      .addSelect('SUM(payment.amountPaid)', 'revenue')
+      .addSelect('COUNT(*)', 'count')
+      .where('payment.status = :status', { status: PaymentStatus.SUCCEEDED })
+      .groupBy('payment.planName')
+      .orderBy('revenue', 'DESC')
+      .getRawMany();
+
+    return {
+      totalRevenue: parseInt(totalRevenue?.total || '0'),
+      monthlyRevenue: parseInt(monthlyRevenue?.total || '0'),
+      activeSubscriptions,
+      totalPayments,
+      revenueByPlan
+    };
+  }
+
+  async getParentSubscriptions(parentId: string): Promise<StudentSubscription[]> {
+    return this.studentSubscriptionRepository.find({
+      where: { userId: parentId },
+      relations: ['student', 'student.user', 'plan'],
+      order: { createdAt: 'DESC' }
+    });
+  }
+
+  async getParentPayments(parentId: string): Promise<Payment[]> {
+    return this.paymentRepository.find({
+      where: { userId: parentId },
+      relations: ['student', 'plan', 'studentSubscription'],
+      order: { createdAt: 'DESC' }
+    });
+  }
+}

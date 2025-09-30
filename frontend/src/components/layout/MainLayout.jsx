@@ -16,7 +16,8 @@ import {
   Menu,
   X,
   Newspaper,
-  Megaphone
+  Megaphone,
+  Tag
 } from 'lucide-react';
 import baraemLogo from '../../assets/baraem.svg';
 import UserProfilePopup from '../ui/UserProfilePopup';
@@ -32,7 +33,8 @@ const getNavigationConfig = (role) => {
       { id: 'announcements', name: 'Announcements', icon: Megaphone, path: '/admin/announcements' },
       { id: 'users', name: 'User Management', icon: Users, path: '/admin/users' },
       { id: 'programs', name: 'Program Management', icon: BookOpen, path: '/admin/programs' },
-      { id: 'payments', name: 'Payments', icon: CreditCard, path: '/admin/payments' },
+      { id: 'subscriptions', name: 'Subscription Plans', icon: Tag, path: '/admin/subscriptions' },
+      { id: 'payments', name: 'Payments & Activity', icon: CreditCard, path: '/admin/payments' },
       { id: 'form', name: 'Form', icon: Newspaper, path: '/admin/form' },
     ],
     teacher: [
@@ -44,7 +46,7 @@ const getNavigationConfig = (role) => {
       { id: 'announcements', name: 'Announcements', icon: Megaphone, path: '/parent/announcements' },
       { id: 'children', name: 'Children', icon: Users, path: '/parent/children' },
       { id: 'schedule', name: 'Schedule', icon: Calendar, path: '/parent/schedule' },
-      { id: 'payments', name: 'Payments', icon: CreditCard, path: '/parent/payments' },
+      { id: 'subscriptions', name: 'Subscriptions', icon: Tag, path: '/parent/subscriptions' },
     ],
     student: [
       { id: 'announcements', name: 'Announcements', icon: Megaphone, path: '/student/announcements' },

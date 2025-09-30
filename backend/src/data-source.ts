@@ -23,6 +23,9 @@ import { Attendance } from './modules/materials/entities/attendance.entity';
 import { WebhookEvent } from './modules/payments/entities/webhook-event.entity';
 import { Invoice } from './modules/payments/entities/invoice.entity';
 import { Subscription } from './modules/payments/entities/subscription.entity';
+import { SubscriptionPlan } from './modules/payments/entities/subscription-plan.entity';
+import { StudentSubscription } from './modules/payments/entities/student-subscription.entity';
+import { Payment } from './modules/payments/entities/payment.entity';
 import { ZoomMeeting } from './modules/zoom/entities/zoom-meeting.entity';
 import { AppConfig } from './modules/admin/entities/app-config.entity';
 import { Notification } from './modules/notifications/entities/notification.entity';
@@ -37,9 +40,9 @@ export const AppDataSource = new DataSource({
   synchronize: process.env.NODE_ENV !== 'production' || process.env.DB_SYNC === 'true',
   logging: process.env.DB_LOGGING === 'true',
   entities: [
-    User, 
-    Parent, 
-    Student, 
+    User,
+    Parent,
+    Student,
     Teacher,
     Class,
     Program,
@@ -54,6 +57,9 @@ export const AppDataSource = new DataSource({
     WebhookEvent,
     Invoice,
     Subscription,
+    SubscriptionPlan,
+    StudentSubscription,
+    Payment,
     ZoomMeeting,
     AppConfig,
     Notification
