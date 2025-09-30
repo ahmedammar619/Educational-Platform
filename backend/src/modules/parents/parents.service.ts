@@ -332,9 +332,29 @@ export class ParentsService {
   async removeChild(parentId: string, studentId: string): Promise<Parent> {
     const parent = await this.findOne(parentId);
     
+    // Verify the student exists and belongs to this parent
+    if (!parent.studentIds.includes(studentId)) {
+      throw new NotFoundException('Student not found in parent\'s children list');
+    }
+
+    // Check if student exists in users table
+    const studentUser = await this.userRepository.findOne({
+      where: { id: studentId, role: Role.Student }
+    });
+
+    if (!studentUser) {
+      throw new NotFoundException('Student user not found');
+    }
+
     // Remove student ID from parent's studentIds array
     parent.studentIds = parent.studentIds.filter(id => id !== studentId);
-    return this.parentRepository.save(parent);
+    await this.parentRepository.save(parent);
+
+    // Delete the student user from users table
+    // This will cascade delete the student record due to the CASCADE relationship
+    await this.userRepository.delete(studentId);
+
+    return parent;
   }
 
   async getChildren(parentId: string): Promise<any[]> {

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Users, Plus, ArrowLeft, MessageCircle, Lock, Eye, EyeOff, Key, Edit, Trash2 } from 'lucide-react';
 import ChildAccountCreation from './ChildAccountCreation';
+import ConfirmationDialog from '../../components/ui/ConfirmationDialog';
 import parentsService from '../../services/parentsService';
 import authService from '../../services/authService';
 import studentsService from '../../services/studentsService';
@@ -1180,63 +1181,23 @@ const ChildrenManagement = ({ user }) => {
         </div>
       )}
 
-      {/* Delete Confirmation Modal */}
-      {showDeleteModal && deletingChild && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-xl shadow-lg max-w-md w-full p-6">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-xl font-semibold text-gray-900">Delete Child Account</h3>
-              <button
-                onClick={closeDeleteModal}
-                className="text-gray-400 hover:text-gray-600 transition-colors"
-              >
-                <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
+      {/* Delete Confirmation Dialog */}
+      <ConfirmationDialog
+        isOpen={showDeleteModal}
+        onClose={closeDeleteModal}
+        onConfirm={handleDeleteChild}
+        title="Delete Child Account"
+        message={`Are you sure you want to delete the account for ${deletingChild?.firstName && deletingChild?.lastName
+          ? `${deletingChild.firstName} ${deletingChild.lastName}`
+          : deletingChild?.name || 'this child'}?
 
-            <div className="mb-6">
-              <p className="text-gray-600 mb-4">
-                Are you sure you want to delete the account for{' '}
-                <span className="font-semibold">
-                  {deletingChild.firstName && deletingChild.lastName
-                    ? `${deletingChild.firstName} ${deletingChild.lastName}`
-                    : deletingChild.name
-                  }
-                </span>?
-              </p>
-              <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg p-3">
-                <strong>Warning:</strong> This action cannot be undone. All data associated with this child account will be permanently deleted.
-              </p>
-            </div>
-
-            <div className="flex space-x-3">
-              <button
-                onClick={closeDeleteModal}
-                disabled={deleteLoading}
-                className="flex-1 bg-gray-100 text-gray-700 py-3 px-4 rounded-lg hover:bg-gray-200 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleDeleteChild}
-                disabled={deleteLoading}
-                className="flex-1 bg-red-600 text-white py-3 px-4 rounded-lg hover:bg-red-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
-              >
-                {deleteLoading ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                    <span>Deleting...</span>
-                  </>
-                ) : (
-                  <span>Delete Account</span>
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+Warning: This action cannot be undone. All data associated with this child account will be permanently deleted.`}
+        confirmText="Delete Account"
+        cancelText="Cancel"
+        type="danger"
+        isLoading={deleteLoading}
+        confirmButtonVariant="danger"
+      />
     </div>
   );
 };
