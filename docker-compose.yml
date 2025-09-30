@@ -30,8 +30,8 @@ services:
     volumes:
       - ./frontend:/app
       - /app/node_modules
-    depends_on:
-      - backend
+    # Allow running frontend standalone by not hard-requiring backend
+    # depends_on removed to let `frontend` start independently
     networks:
       - app-network
 
