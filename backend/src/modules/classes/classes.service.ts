@@ -11,6 +11,7 @@ import { EnrollStudentsDto } from './dto/enroll-students.dto';
 import { Role } from '../../common/enums/role.enum';
 import { NotificationsService } from '../notifications/notifications.service';
 import { CoursesService } from '../courses/courses.service';
+import { StudentsService } from '../students/students.service';
 
 @Injectable()
 export class ClassesService {
@@ -27,6 +28,8 @@ export class ClassesService {
     private readonly notificationsService: NotificationsService,
     @Inject(forwardRef(() => CoursesService))
     private readonly coursesService: CoursesService,
+    @Inject(forwardRef(() => StudentsService))
+    private readonly studentsService: StudentsService,
   ) {}
 
   async createClass(createClassDto: CreateClassDto): Promise<Class> {
@@ -221,6 +224,16 @@ export class ClassesService {
     // Send notifications for newly enrolled students only
     if (newlyEnrolledStudentIds.length > 0) {
       await this.sendNotificationsForEnrollment(newlyEnrolledStudentIds, classEntity.name);
+    }
+
+    // Auto-remove form completion records for newly enrolled students
+    for (const studentId of newlyEnrolledStudentIds) {
+      try {
+        await this.studentsService.autoRemoveFormCompletionOnEnrollment(studentId);
+      } catch (error) {
+        console.error(`Failed to auto-remove form completion for student ${studentId}:`, error);
+        // Continue with other students even if one fails
+      }
     }
 
     // Students are now automatically enrolled in all courses within the class

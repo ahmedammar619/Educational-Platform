@@ -265,7 +265,14 @@ export class StudentsService {
       await this.updateStudentProgramEnrollments(id, programIds);
     }
 
-    return this.findOne(id);
+    const updatedStudent = await this.findOne(id);
+    
+    // Auto-remove form completion record when student is enrolled in a class
+    if ('classId' in studentUpdateData && studentUpdateData.classId) {
+      await this.autoRemoveFormCompletionOnEnrollment(id);
+    }
+    
+    return updatedStudent;
   }
 
   async deleteStudent(id: string): Promise<void> {
@@ -619,7 +626,12 @@ export class StudentsService {
       await this.courseRepository.save(course);
     }
     
-    return this.studentRepository.save(student);
+    const savedStudent = await this.studentRepository.save(student);
+    
+    // Auto-remove form completion record when student is enrolled
+    await this.autoRemoveFormCompletionOnEnrollment(studentId);
+    
+    return savedStudent;
   }
 
   async unenrollStudentFromCourse(studentId: string, courseId: string): Promise<Student> {
@@ -765,5 +777,28 @@ export class StudentsService {
       studentName: `${student.user.firstName} ${student.user.lastName}`,
       resetAt: new Date(),
     };
+  }
+
+  /**
+   * Automatically removes form completion record when a student is enrolled in a class or course
+   * This ensures that pending form completions are cleared once the student is enrolled
+   */
+  async autoRemoveFormCompletionOnEnrollment(studentId: string): Promise<void> {
+    try {
+      const student = await this.findOne(studentId);
+      
+      // Only remove form completion if the student has completed the form and is now enrolled
+      if (student.registrationFormCompleted && (student.classId || (student.courseIds && student.courseIds.length > 0))) {
+        student.registrationFormCompleted = false;
+        student.formCompletionDate = null;
+        
+        await this.studentRepository.save(student);
+        
+        console.log(`✅ Auto-removed form completion for student ${studentId} (${student.user.firstName} ${student.user.lastName}) - now enrolled in class/course`);
+      }
+    } catch (error) {
+      console.error(`❌ Error auto-removing form completion for student ${studentId}:`, error);
+      // Don't throw error to avoid breaking the enrollment process
+    }
   }
 }
