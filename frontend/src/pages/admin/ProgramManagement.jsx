@@ -328,7 +328,7 @@ const ProgramManagement = ({ user }) => {
 
                       {/* Program Actions */}
                       <div className="flex items-center gap-1 sm:gap-2 flex-wrap">
-                        <button
+                        {/* <button
                           onClick={(e) => {
                             e.stopPropagation();
                             setSelectedProgram(program);
@@ -338,7 +338,7 @@ const ProgramManagement = ({ user }) => {
                           title={`View ${program.studentIds?.length || 0} enrolled students`}
                         >
                           <Users className="w-4 h-4" />
-                        </button>
+                        </button> */}
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
@@ -367,18 +367,12 @@ const ProgramManagement = ({ user }) => {
                     </div>
 
                     {/* Program Info */}
-                    <div className="mt-4 grid grid-cols-2 sm:grid-cols-2 gap-3 sm:gap-4">
+                    <div className="mt-4 grid grid-cols-1 sm:grid-cols-1 gap-3 sm:gap-1">
                       <div className="text-center bg-gray-50 rounded-lg p-3">
                         <p className="text-xs text-gray-500 flex items-center justify-center gap-1 mb-1">
                           <DollarSign className="h-3 w-3 text-gray-400" /> Price
                         </p>
                         <p className="font-medium text-gray-900 text-sm">${program.price}</p>
-                      </div>
-                      <div className="text-center bg-gray-50 rounded-lg p-3">
-                        <p className="text-xs text-gray-500 flex items-center justify-center gap-1 mb-1">
-                          <Users className="h-3 w-3 text-gray-400" /> Students
-                        </p>
-                        <p className="font-medium text-gray-900 text-sm">{program.studentIds?.length || 0}</p>
                       </div>
                     </div>
                   </div>
