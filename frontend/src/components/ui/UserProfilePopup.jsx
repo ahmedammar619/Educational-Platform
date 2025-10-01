@@ -172,7 +172,7 @@ const UserProfilePopup = ({ user, isOpen, onClose, onEdit, onLogout }) => {
             <div className="flex items-center space-x-3">
               <Mail className={`h-5 w-5 ${colors.icon}`} />
               <div className="flex-1 text-start">
-                <p className="text-xs text-gray-500">Email</p>
+                <p className="text-xs text-gray-500">Email or Username</p>
                 <p className="text-sm text-gray-900">{user.email || 'Not provided'}</p>
               </div>
             </div>
@@ -202,17 +202,6 @@ const UserProfilePopup = ({ user, isOpen, onClose, onEdit, onLogout }) => {
             </div>
           )}
 
-          {user.createdAt && (
-            <div className="px-4 py-3 border-b border-gray-100">
-              <div className="flex items-center space-x-3">
-                <Calendar className={`h-5 w-5 ${colors.icon}`} />
-                <div className="flex-1 text-start">
-                  <p className="text-xs text-gray-500">Member Since</p>
-                  <p className="text-sm text-gray-900">{formatDate(user.createdAt)}</p>
-                </div>
-              </div>
-            </div>
-          )}
 
           {/* Additional Info for Students */}
           {/* {user.role === 'student' && (
