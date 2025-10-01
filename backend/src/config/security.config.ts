@@ -16,7 +16,7 @@ export const securityConfig = {
     requireLowercase: true,
     requireNumbers: true,
     requireSpecialChars: true,
-    maxAge: 90 * 24 * 60 * 60 * 1000, // 90 days
+    maxAge: null, // No expiration - passwords last forever
   },
 
   // JWT Configuration
@@ -28,7 +28,7 @@ export const securityConfig = {
       console.warn('⚠️  Using default JWT secret for development. Change this in production!');
       return 'dev-jwt-secret-change-in-production-at-least-32-characters-long';
     })(),
-    expiresIn: '24h', // 24 hours
+    expiresIn: '30d', // 30 days
     refreshExpiresIn: '7d', // 7 days
     issuer: 'educational-platform',
     audience: 'educational-platform-users',

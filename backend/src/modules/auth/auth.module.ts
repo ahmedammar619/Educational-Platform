@@ -29,7 +29,7 @@ import { EmailService } from '../../common/services/email.service';
         return {
           secret: jwtSecret,
           signOptions: { 
-            expiresIn: '24h',
+            expiresIn: '30d',
             issuer: 'educational-platform',
             audience: 'educational-platform-users',
             algorithm: 'HS256'

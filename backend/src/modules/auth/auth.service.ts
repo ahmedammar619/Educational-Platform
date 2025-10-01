@@ -531,7 +531,7 @@ export class AuthService {
     };
 
     return this.jwtService.sign(payload, {
-      expiresIn: '24h',
+      expiresIn: '30d',
       issuer: 'educational-platform',
       audience: 'educational-platform-users',
     });
@@ -646,7 +646,7 @@ export class AuthService {
         emailVerified: updatedUser.emailVerified,
       },
       {
-        expiresIn: '24h',
+        expiresIn: '30d',
         issuer: 'educational-platform',
         audience: 'educational-platform-users',
       }
