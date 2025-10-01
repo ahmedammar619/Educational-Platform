@@ -894,6 +894,50 @@ export class SubscriptionPlansService {
       }
     }
 
+    // Check if Stripe subscription still exists and is just scheduled for cancellation
+    if (subscription.stripeSubscriptionId && this.stripeService.isConfigured() && plan.planType !== PlanType.ONE_TIME) {
+      try {
+        const stripeSub: any = await this.stripeService['stripe'].subscriptions.retrieve(subscription.stripeSubscriptionId);
+
+        // If subscription is still active in Stripe (just scheduled to cancel), remove the cancellation
+        if ((stripeSub.status === 'active' || stripeSub.status === 'trialing') && stripeSub.cancel_at_period_end) {
+          this.logger.log(`Removing cancellation from existing Stripe subscription ${subscription.stripeSubscriptionId}`);
+
+          // Remove the cancellation by updating the subscription
+          await this.stripeService['stripe'].subscriptions.update(subscription.stripeSubscriptionId, {
+            cancel_at_period_end: false
+          });
+
+          // Update our database
+          subscription.status = SubscriptionStatus.ACTIVE;
+          subscription.canceledAt = null;
+          subscription.cancelAt = null;
+          await this.studentSubscriptionRepository.save(subscription);
+
+          this.logger.log(`Successfully reactivated subscription ${subscription.id} without creating duplicate`);
+
+          // Return without checkout URL - subscription is already active
+          return { subscription };
+        } else {
+          this.logger.log(`Stripe subscription ${subscription.stripeSubscriptionId} is truly canceled (status: ${stripeSub.status}), will create new subscription`);
+        }
+      } catch (error) {
+        // If subscription not found in Stripe (404), proceed to create new one
+        if (error.statusCode === 404 || error.code === 'resource_missing') {
+          this.logger.log(`Stripe subscription ${subscription.stripeSubscriptionId} not found, will create new subscription`);
+        } else {
+          this.logger.warn(`Error retrieving Stripe subscription: ${error.message}`);
+          // For other errors, proceed to create new subscription
+        }
+      }
+    }
+
+    // Only reach here if:
+    // 1. No Stripe subscription ID exists
+    // 2. Stripe subscription is truly canceled (not just scheduled)
+    // 3. It's a one-time payment
+    // 4. Stripe API error occurred
+
     // Get or create Stripe customer
     const parent = await this.userRepository.findOne({ where: { id: parentId } });
     let stripeCustomerId = parent.stripe_customer_id;

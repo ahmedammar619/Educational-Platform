@@ -141,9 +141,11 @@ Subscription Details:
 - Parent Email: ${item.user?.email || 'N/A'}
 - Status: ${item.status}
 - Amount: ${formatCurrency(item.amount, item.currency)}
-- Stripe Subscription ID: ${item.stripeSubscriptionId || 'N/A'}
+- Stripe Subscription ID: ${item.stripeSubscriptionId || item.id || 'N/A'}
 - Created: ${formatDate(item.createdAt)}
 - Current Period: ${item.currentPeriodStart ? formatDate(item.currentPeriodStart) : 'N/A'} - ${item.currentPeriodEnd ? formatDate(item.currentPeriodEnd) : 'N/A'}
+${item.cancelAtPeriodEnd ? '- ⚠️ SCHEDULED FOR CANCELLATION' : ''}
+${item.cancelAt ? `- Cancellation Date: ${formatDate(item.cancelAt)}` : ''}
       `;
     } else if (type === 'invoice') {
       const studentName = item.studentName || `${item.student?.user?.firstName || ''} ${item.student?.user?.lastName || ''}`.trim() || 'Unknown Student';
@@ -515,11 +517,23 @@ Webhook Event Details:
                             )}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="flex items-center">
-                              {getStatusIcon(subscription.status)}
-                              <span className={`ml-2 inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(subscription.status)}`}>
-                                {subscription.status}
-                              </span>
+                            <div className="flex flex-col space-y-1">
+                              <div className="flex items-center">
+                                {getStatusIcon(subscription.status)}
+                                <span className={`ml-2 inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(subscription.status)}`}>
+                                  {subscription.status}
+                                </span>
+                              </div>
+                              {subscription.cancelAtPeriodEnd && (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-orange-100 text-orange-800">
+                                  ⚠️ Scheduled for cancellation
+                                </span>
+                              )}
+                              {subscription.cancelAt && (
+                                <span className="text-xs text-gray-500">
+                                  Cancels: {new Date(subscription.cancelAt).toLocaleDateString()}
+                                </span>
+                              )}
                             </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">

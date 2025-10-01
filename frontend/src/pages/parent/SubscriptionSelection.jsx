@@ -233,8 +233,14 @@ const SubscriptionSelection = ({ user }) => {
 
   const handleReactivateSubscription = async (subscriptionId) => {
     try {
-      await paymentService.reactivateMySubscription(subscriptionId);
-      // The service will redirect to Stripe checkout
+      const result = await paymentService.reactivateMySubscription(subscriptionId);
+      // If no checkout URL, subscription was reactivated without payment
+      if (!result.checkoutUrl) {
+        showSuccessToast('Subscription reactivated successfully!');
+        // Reload data to show updated subscription
+        await loadData();
+      }
+      // Otherwise, service will redirect to Stripe checkout
     } catch (error) {
       showErrorToast(error.response?.data?.message || 'Failed to reactivate subscription');
     }
