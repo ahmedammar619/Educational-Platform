@@ -450,6 +450,32 @@ class PaymentService {
       throw error;
     }
   }
+
+  async cancelMySubscription(subscriptionId) {
+    try {
+      const response = await api.post(`/api/subscription-plans/cancel-subscription/${subscriptionId}`);
+      return response.data;
+    } catch (error) {
+      console.error('Error canceling subscription:', error);
+      throw error;
+    }
+  }
+
+  async reactivateMySubscription(subscriptionId) {
+    try {
+      const response = await api.post(`/api/subscription-plans/reactivate-subscription/${subscriptionId}`);
+
+      // If we get a checkout URL, redirect to Stripe
+      if (response.data.checkoutUrl) {
+        window.location.href = response.data.checkoutUrl;
+      }
+
+      return response.data;
+    } catch (error) {
+      console.error('Error reactivating subscription:', error);
+      throw error;
+    }
+  }
 }
 
 export default new PaymentService();

@@ -196,4 +196,24 @@ export class SubscriptionPlansController {
   async getMyPayments(@Request() req) {
     return this.subscriptionPlansService.getParentPayments(req.user.sub);
   }
+
+  @Post('cancel-subscription/:id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.Parent)
+  async cancelSubscription(
+    @Request() req,
+    @Param('id', ParseUUIDPipe) id: string
+  ) {
+    return this.subscriptionPlansService.cancelParentSubscription(req.user.sub, id);
+  }
+
+  @Post('reactivate-subscription/:id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.Parent)
+  async reactivateSubscription(
+    @Request() req,
+    @Param('id', ParseUUIDPipe) id: string
+  ) {
+    return this.subscriptionPlansService.reactivateParentSubscription(req.user.sub, id);
+  }
 }

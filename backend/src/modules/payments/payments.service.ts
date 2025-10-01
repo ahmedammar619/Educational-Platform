@@ -7,7 +7,7 @@ import { Role } from '../../common/enums/role.enum';
 import { WebhookEvent } from './entities/webhook-event.entity';
 import { Subscription } from './entities/subscription.entity';
 import { StudentSubscription } from './entities/student-subscription.entity';
-import { Payment } from './entities/payment.entity';
+import { Payment, PaymentStatus, PaymentType } from './entities/payment.entity';
 import { Invoice } from './entities/invoice.entity';
 import { StripeService } from '../../common/services/stripe.service';
 
@@ -415,25 +415,33 @@ export class PaymentsService {
 
       await this.studentSubscriptionRepository.update(subscription.id, updateData);
 
-      // Create payment record
+      // Create payment record (check if already exists from webhook)
       if (session.payment_intent) {
-        const payment = this.paymentRepository.create({
-          userId: parentId,
-          studentId: studentId,
-          studentName: session.metadata?.studentName || 'Unknown Student',
-          planId: session.metadata?.planId,
-          planName: subscription.planName,
-          studentSubscriptionId: subscription.id,
-          stripePaymentIntentId: session.payment_intent as string,
-          paymentType: session.mode === 'subscription' ? 'subscription' : 'one_time',
-          status: 'succeeded',
-          amountPaid: session.amount_total || subscription.amount,
-          currency: session.currency || subscription.currency,
-          paidAt: new Date(),
+        const existingPayment = await this.paymentRepository.findOne({
+          where: { stripePaymentIntentId: session.payment_intent as string }
         });
 
-        await this.paymentRepository.save(payment);
-        console.log(`💳 Created payment record for session: ${sessionId}`);
+        if (!existingPayment) {
+          const payment = this.paymentRepository.create({
+            userId: parentId,
+            studentId: studentId,
+            studentName: session.metadata?.studentName || 'Unknown Student',
+            planId: session.metadata?.planId,
+            planName: subscription.planName,
+            studentSubscriptionId: subscription.id,
+            stripePaymentIntentId: session.payment_intent as string,
+            paymentType: session.mode === 'subscription' ? PaymentType.SUBSCRIPTION : PaymentType.ONE_TIME,
+            status: PaymentStatus.SUCCEEDED,
+            amountPaid: session.amount_total || subscription.amount,
+            currency: session.currency || subscription.currency,
+            paidAt: new Date(),
+          });
+
+          await this.paymentRepository.save(payment);
+          console.log(`💳 Created payment record for session: ${sessionId}`);
+        } else {
+          console.log(`⚠️ Payment record already exists for payment intent: ${session.payment_intent}, skipping creation`);
+        }
       }
 
       // Store webhook event for audit
@@ -971,7 +979,7 @@ export class PaymentsService {
   private async storeWebhookEvent(event: any): Promise<void> {
     try {
       console.log(`📝 Storing webhook event: ${event.type} (${event.id})`);
-      
+
       // Check if event already exists
       const existingEvent = await this.webhookEventRepository.findOne({
         where: { stripeEventId: event.id }
@@ -988,9 +996,14 @@ export class PaymentsService {
         console.log(`⚠️ Webhook event already exists: ${event.type} (${event.id})`);
       }
     } catch (error) {
+      // Ignore duplicate key errors (race condition)
+      if (error.code === '23505' || error.message?.includes('duplicate key')) {
+        console.log(`⚠️ Webhook event ${event.id} already processed (duplicate), skipping`);
+        return;
+      }
       console.error('❌ Failed to store webhook event:', error);
       console.error('Event details:', { id: event.id, type: event.type });
-      throw error; // Re-throw to ensure webhook processing fails if storage fails
+      // Don't throw error - webhook event storage is for audit, shouldn't fail the main operation
     }
   }
 

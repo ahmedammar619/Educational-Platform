@@ -9,7 +9,9 @@ import {
   Clock,
   Star,
   ArrowRight,
-  ShoppingCart
+  ShoppingCart,
+  X,
+  RefreshCw
 } from 'lucide-react';
 import paymentService from '../../services/paymentService';
 import parentsService from '../../services/parentsService';
@@ -66,6 +68,8 @@ const SubscriptionSelection = ({ user }) => {
       // Handle students data - backend returns { children: [...] }
       const studentsData = studentsResponse?.children || studentsResponse || [];
 
+      console.log('Loaded subscriptions from API:', subscriptionsData);
+
       setPlans(plansData);
       setStudents(Array.isArray(studentsData) ? studentsData : []);
       setMySubscriptions(Array.isArray(subscriptionsData) ? subscriptionsData : []);
@@ -79,10 +83,11 @@ const SubscriptionSelection = ({ user }) => {
   };
 
   const handleSelectPlan = (planId) => {
+    // Only allow selecting one plan at a time
     if (selectedPlans.includes(planId)) {
-      setSelectedPlans(selectedPlans.filter(id => id !== planId));
+      setSelectedPlans([]);
     } else {
-      setSelectedPlans([...selectedPlans, planId]);
+      setSelectedPlans([planId]);
     }
   };
 
@@ -93,53 +98,25 @@ const SubscriptionSelection = ({ user }) => {
     }
 
     if (selectedPlans.length === 0) {
-      showErrorToast('Please select at least one plan');
+      showErrorToast('Please select a plan');
       return;
     }
 
-    // Filter out already subscribed plans (only active/trialing, not incomplete)
-    const subscribedPlanIds = mySubscriptions
-      .filter(sub => sub.studentId === selectedStudent &&
-        (sub.status === 'active' || sub.status === 'trialing'))
-      .map(sub => sub.planId);
+    // Check if student is already subscribed to the selected plan
+    const selectedPlanId = selectedPlans[0];
+    const isAlreadySubscribed = mySubscriptions.some(
+      sub => sub.planId === selectedPlanId && sub.studentId === selectedStudent &&
+      (sub.status === 'active' || sub.status === 'trialing')
+    );
 
-    const plansToSubscribe = selectedPlans.filter(planId => !subscribedPlanIds.includes(planId));
-
-    if (plansToSubscribe.length === 0) {
-      showErrorToast('This student is already subscribed to all selected plans');
+    if (isAlreadySubscribed) {
+      showErrorToast('This student is already subscribed to this plan');
       return;
-    }
-
-    if (plansToSubscribe.length < selectedPlans.length) {
-      const skippedCount = selectedPlans.length - plansToSubscribe.length;
-      showSuccessToast(`Skipping ${skippedCount} already subscribed plan(s)`);
     }
 
     try {
-      if (plansToSubscribe.length === 1) {
-        // Single plan subscription - redirects automatically in service
-        await paymentService.subscribeStudentToPlan(selectedStudent, plansToSubscribe[0]);
-      } else {
-        // Multiple plans - get results array
-        const results = await paymentService.bulkSubscribeStudent(selectedStudent, plansToSubscribe);
-
-        console.log('Bulk subscribe results:', results);
-
-        // Find first successful checkout URL
-        const successResult = results.find(r => r.success && r.checkoutUrl);
-        if (successResult) {
-          console.log('Redirecting to:', successResult.checkoutUrl);
-          window.location.href = successResult.checkoutUrl;
-        } else {
-          // Check if any failed
-          const failed = results.filter(r => !r.success);
-          if (failed.length > 0) {
-            showErrorToast(`Failed to subscribe to ${failed.length} plan(s). Please try again.`);
-          } else {
-            showErrorToast('No checkout URL available. Please try again.');
-          }
-        }
-      }
+      // Single plan subscription - redirects automatically in service
+      await paymentService.subscribeStudentToPlan(selectedStudent, selectedPlanId);
     } catch (error) {
       console.error('Subscribe error:', error);
       const errorMsg = error.response?.data?.message || error.message || 'Failed to subscribe';
@@ -235,6 +212,34 @@ const SubscriptionSelection = ({ user }) => {
     );
   };
 
+  const handleCancelSubscription = async (subscriptionId) => {
+    // Find the subscription to get more info
+    const subscription = mySubscriptions.find(s => s.id === subscriptionId);
+    console.log('Attempting to cancel subscription:', subscription);
+
+    if (!window.confirm('Are you sure you want to cancel this subscription? It will remain active until the end of the current billing period.')) {
+      return;
+    }
+
+    try {
+      await paymentService.cancelMySubscription(subscriptionId);
+      showSuccessToast('Subscription canceled successfully');
+      loadData();
+    } catch (error) {
+      console.error('Cancel error:', error);
+      showErrorToast(error.response?.data?.message || 'Failed to cancel subscription');
+    }
+  };
+
+  const handleReactivateSubscription = async (subscriptionId) => {
+    try {
+      await paymentService.reactivateMySubscription(subscriptionId);
+      // The service will redirect to Stripe checkout
+    } catch (error) {
+      showErrorToast(error.response?.data?.message || 'Failed to reactivate subscription');
+    }
+  };
+
   const renderMySubscriptions = () => {
     // Filter out incomplete subscriptions - don't show them at all
     const activeSubscriptions = mySubscriptions.filter(sub => sub.status !== 'incomplete');
@@ -259,33 +264,68 @@ const SubscriptionSelection = ({ user }) => {
                 sub.status === 'active' ? 'bg-green-100 text-green-800' :
                 sub.status === 'trialing' ? 'bg-blue-100 text-blue-800' :
                 sub.status === 'past_due' ? 'bg-red-100 text-red-800' :
+                sub.status === 'canceled' ? 'bg-gray-100 text-gray-800' :
                 'bg-gray-100 text-gray-800'
               }`}>
                 {sub.status === 'active' ? 'Active' :
                  sub.status === 'trialing' ? 'Trial' :
                  sub.status === 'past_due' ? 'Past Due' :
+                 sub.status === 'canceled' ? 'Canceled' :
                  sub.status}
               </span>
             </div>
 
-            <div className="grid grid-cols-2 gap-4 text-sm">
+            <div className="grid grid-cols-2 gap-4 text-sm mb-4">
               <div>
                 <span className="text-gray-600">Amount:</span>
                 <span className="font-semibold ml-2">${(sub.amount / 100).toFixed(2)}</span>
               </div>
               {sub.currentPeriodEnd && (
                 <div>
-                  <span className="text-gray-600">Renews:</span>
+                  <span className="text-gray-600">
+                    {sub.status === 'canceled' ? 'Available until:' :
+                     sub.cancelAtPeriodEnd ? 'Cancels on:' :
+                     'Renews:'}
+                  </span>
                   <span className="font-semibold ml-2">
                     {new Date(sub.currentPeriodEnd).toLocaleDateString()}
                   </span>
                 </div>
               )}
             </div>
+
+            {/* Only show cancel/reactivate for recurring subscriptions (not one-time payments) */}
+            {sub.plan && sub.plan.planType !== 'one_time' && (
+              <div className="flex flex-col gap-2">
+                {sub.status === 'canceled' ? (
+                  <button
+                    onClick={() => handleReactivateSubscription(sub.id)}
+                    className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                  >
+                    <RefreshCw className="w-4 h-4" />
+                    Resubscribe
+                  </button>
+                ) : sub.cancelAtPeriodEnd ? (
+                  <div className="px-4 py-2 bg-orange-50 border border-orange-200 rounded-lg text-orange-800 text-sm">
+                    {sub.currentPeriodEnd
+                      ? `⚠️ Subscription will cancel on ${new Date(sub.currentPeriodEnd).toLocaleDateString()}`
+                      : '⚠️ Subscription scheduled for cancellation'}
+                  </div>
+                ) : (sub.status === 'active' || sub.status === 'trialing') ? (
+                  <button
+                    onClick={() => handleCancelSubscription(sub.id)}
+                    className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                  >
+                    <X className="w-4 h-4" />
+                    Cancel Subscription
+                  </button>
+                ) : null}
+              </div>
+            )}
           </div>
         ))
-      )}
-    </div>
+        )}
+      </div>
     );
   };
 
@@ -472,7 +512,7 @@ const SubscriptionSelection = ({ user }) => {
             <div className="fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg p-4">
               <div className="max-w-7xl mx-auto flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600">{selectedPlans.length} plan(s) selected</p>
+                  <p className="text-sm text-gray-600">1 plan selected</p>
                   <p className="text-2xl font-bold text-gray-900">
                     ${(totalSelected / 100).toFixed(2)}
                   </p>

@@ -561,11 +561,87 @@ export class SubscriptionPlansService {
   }
 
   async getParentSubscriptions(parentId: string): Promise<StudentSubscription[]> {
-    return this.studentSubscriptionRepository.find({
+    const subscriptions = await this.studentSubscriptionRepository.find({
       where: { userId: parentId },
       relations: ['student', 'student.user', 'plan'],
       order: { createdAt: 'DESC' }
     });
+
+    // Enrich with real-time Stripe data for recurring subscriptions
+    if (this.stripeService.isConfigured()) {
+      for (const sub of subscriptions) {
+        // Log database values before Stripe enrichment
+        this.logger.log(`DB subscription ${sub.id}: stripeSubId=${sub.stripeSubscriptionId}, status=${sub.status}, periodStart=${sub.currentPeriodStart}, periodEnd=${sub.currentPeriodEnd}, cancelAt=${sub.cancelAt}`);
+
+        if (sub.stripeSubscriptionId) {
+          try {
+            const stripeSub: any = await this.stripeService['stripe'].subscriptions.retrieve(sub.stripeSubscriptionId);
+
+            if (!stripeSub) {
+              this.logger.warn(`Stripe subscription ${sub.stripeSubscriptionId} not found`);
+              continue;
+            }
+
+            // Debug: Log full Stripe object to see what fields are available
+            this.logger.log(`Full Stripe subscription object keys: ${Object.keys(stripeSub).join(', ')}`);
+            this.logger.log(`Stripe subscription ${sub.stripeSubscriptionId} raw data: ${JSON.stringify({
+              status: stripeSub.status,
+              current_period_start: stripeSub.current_period_start,
+              current_period_end: stripeSub.current_period_end,
+              cancel_at: stripeSub.cancel_at,
+              cancel_at_period_end: stripeSub.cancel_at_period_end,
+              canceled_at: stripeSub.canceled_at
+            })}`);
+
+            // Update with fresh Stripe data
+            const updatedData: any = {};
+
+            // Only update status if not scheduled for cancellation
+            // If cancel_at_period_end is true, keep our CANCELED status, don't use Stripe's "active"
+            if (!stripeSub.cancel_at_period_end) {
+              updatedData.status = stripeSub.status as SubscriptionStatus;
+            } else {
+              // If scheduled for cancellation, ensure it's marked as CANCELED in our DB
+              if (sub.status !== SubscriptionStatus.CANCELED) {
+                updatedData.status = SubscriptionStatus.CANCELED;
+                updatedData.canceledAt = new Date();
+              }
+            }
+
+            // Only set dates if they exist
+            if (stripeSub.current_period_start) {
+              updatedData.currentPeriodStart = new Date(stripeSub.current_period_start * 1000);
+            }
+            if (stripeSub.current_period_end) {
+              updatedData.currentPeriodEnd = new Date(stripeSub.current_period_end * 1000);
+            }
+            if (stripeSub.cancel_at) {
+              updatedData.cancelAt = new Date(stripeSub.cancel_at * 1000);
+            }
+            if (stripeSub.canceled_at) {
+              updatedData.canceledAt = new Date(stripeSub.canceled_at * 1000);
+            }
+
+            // Update in memory for response
+            Object.assign(sub, updatedData);
+
+            // Add cancel_at_period_end flag (not stored in DB, just for response)
+            (sub as any).cancelAtPeriodEnd = stripeSub.cancel_at_period_end;
+
+            // Save to database to keep in sync (only if we have updates)
+            if (Object.keys(updatedData).length > 0) {
+              await this.studentSubscriptionRepository.update(sub.id, updatedData);
+            }
+
+            this.logger.log(`Enriched subscription ${sub.id} - Status: ${sub.status}, cancel_at_period_end: ${stripeSub.cancel_at_period_end}, Period end: ${sub.currentPeriodEnd}`);
+          } catch (error) {
+            this.logger.warn(`Failed to fetch Stripe data for subscription ${sub.stripeSubscriptionId}: ${error.message}`);
+          }
+        }
+      }
+    }
+
+    return subscriptions;
   }
 
   async getParentPayments(parentId: string): Promise<Payment[]> {
@@ -574,5 +650,156 @@ export class SubscriptionPlansService {
       relations: ['student', 'plan', 'studentSubscription'],
       order: { createdAt: 'DESC' }
     });
+  }
+
+  // ============ PARENT: Subscription Management ============
+
+  async cancelParentSubscription(parentId: string, subscriptionId: string): Promise<StudentSubscription> {
+    const subscription = await this.studentSubscriptionRepository.findOne({
+      where: { id: subscriptionId, userId: parentId }
+    });
+
+    if (!subscription) {
+      throw new NotFoundException('Subscription not found or does not belong to this parent');
+    }
+
+    // Check Stripe status first if subscription has Stripe ID
+    if (subscription.stripeSubscriptionId && this.stripeService.isConfigured()) {
+      try {
+        const stripeSub: any = await this.stripeService['stripe'].subscriptions.retrieve(subscription.stripeSubscriptionId);
+
+        this.logger.log(`Stripe status: ${stripeSub.status}, cancel_at_period_end: ${stripeSub.cancel_at_period_end}`);
+
+        // If already canceled in Stripe
+        if (stripeSub.status === 'canceled') {
+          // Update our DB to match
+          subscription.status = SubscriptionStatus.CANCELED;
+          subscription.canceledAt = stripeSub.canceled_at ? new Date(stripeSub.canceled_at * 1000) : new Date();
+          await this.studentSubscriptionRepository.save(subscription);
+          throw new BadRequestException('Subscription is already canceled');
+        }
+
+        // If already scheduled for cancellation
+        if (stripeSub.cancel_at_period_end) {
+          throw new BadRequestException('Subscription is already scheduled for cancellation at the end of the period');
+        }
+
+        // Cancel the subscription in Stripe (schedules for end of period)
+        await this.stripeService.cancelSubscription(subscription.stripeSubscriptionId, true);
+        this.logger.log(`Scheduled cancellation for Stripe subscription ${subscription.stripeSubscriptionId}`);
+
+        // Mark as canceled in our database immediately
+        subscription.status = SubscriptionStatus.CANCELED;
+        subscription.canceledAt = new Date();
+        if (stripeSub.current_period_end) {
+          subscription.currentPeriodEnd = new Date(stripeSub.current_period_end * 1000);
+        }
+        await this.studentSubscriptionRepository.save(subscription);
+
+        return subscription;
+
+      } catch (error) {
+        // If it's our BadRequestException, re-throw it
+        if (error instanceof BadRequestException) {
+          throw error;
+        }
+        this.logger.error(`Failed to cancel Stripe subscription: ${error.message}`);
+        throw new BadRequestException(`Failed to cancel subscription: ${error.message}`);
+      }
+    }
+
+    // For subscriptions without Stripe ID, just mark as canceled
+    subscription.status = SubscriptionStatus.CANCELED;
+    subscription.canceledAt = new Date();
+    return this.studentSubscriptionRepository.save(subscription);
+  }
+
+  async reactivateParentSubscription(parentId: string, subscriptionId: string): Promise<{ checkoutUrl?: string; subscription: StudentSubscription }> {
+    const subscription = await this.studentSubscriptionRepository.findOne({
+      where: { id: subscriptionId, userId: parentId },
+      relations: ['plan', 'student']
+    });
+
+    if (!subscription) {
+      throw new NotFoundException('Subscription not found or does not belong to this parent');
+    }
+
+    if (subscription.status !== SubscriptionStatus.CANCELED) {
+      throw new BadRequestException('Can only reactivate canceled subscriptions');
+    }
+
+    const plan = subscription.plan;
+
+    // For one-time events, check if still available
+    if (plan.planType === PlanType.ONE_TIME) {
+      if (plan.endDate && new Date(plan.endDate) < new Date()) {
+        throw new BadRequestException('This event has already ended');
+      }
+      if (plan.maxEnrollments && plan.currentEnrollments >= plan.maxEnrollments) {
+        throw new BadRequestException('This event is fully booked');
+      }
+    }
+
+    // Get or create Stripe customer
+    const parent = await this.userRepository.findOne({ where: { id: parentId } });
+    let stripeCustomerId = parent.stripe_customer_id;
+    if (!stripeCustomerId && this.stripeService.isConfigured()) {
+      const stripeCustomer = await this.stripeService.createCustomer(
+        parent.email,
+        `${parent.firstName} ${parent.lastName}`,
+        { userId: parentId }
+      );
+      stripeCustomerId = stripeCustomer.id;
+      await this.userRepository.update(parentId, { stripe_customer_id: stripeCustomerId });
+    }
+
+    // Update subscription status
+    subscription.status = SubscriptionStatus.INCOMPLETE;
+    subscription.canceledAt = null;
+    subscription.stripeCustomerId = stripeCustomerId;
+    await this.studentSubscriptionRepository.save(subscription);
+
+    // Create Stripe checkout session
+    let checkoutUrl: string;
+    if (this.stripeService.isConfigured() && plan.stripePriceId) {
+      try {
+        const session = await this.stripeService['stripe'].checkout.sessions.create({
+          customer: stripeCustomerId,
+          payment_method_types: ['card'],
+          mode: plan.planType === PlanType.ONE_TIME ? 'payment' : 'subscription',
+          line_items: [{
+            price: plan.stripePriceId,
+            quantity: 1,
+          }],
+          success_url: `${process.env.FRONTEND_URL || 'http://localhost:3001'}/parent/subscriptions?session_id={CHECKOUT_SESSION_ID}&success=true`,
+          cancel_url: `${process.env.FRONTEND_URL || 'http://localhost:3001'}/parent/subscriptions?canceled=true`,
+          metadata: {
+            parentId,
+            studentId: subscription.studentId,
+            planId: plan.id,
+            subscriptionId: subscription.id,
+            studentName: subscription.studentName,
+          },
+          ...(plan.planType !== PlanType.ONE_TIME && {
+            subscription_data: {
+              metadata: {
+                parentId,
+                studentId: subscription.studentId,
+                planId: plan.id,
+                subscriptionId: subscription.id,
+                studentName: subscription.studentName,
+              }
+            }
+          })
+        });
+
+        checkoutUrl = session.url;
+      } catch (error) {
+        this.logger.error(`Failed to create checkout session: ${error.message}`);
+        throw new BadRequestException(`Failed to create checkout session: ${error.message}`);
+      }
+    }
+
+    return { checkoutUrl, subscription };
   }
 }

@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import { StudentSubscription, SubscriptionStatus } from './entities/student-subscription.entity';
 import { Payment, PaymentStatus, PaymentType } from './entities/payment.entity';
 import { WebhookEvent } from './entities/webhook-event.entity';
+import { StripeService } from '../../common/services/stripe.service';
 import Stripe from 'stripe';
 
 @Injectable()
@@ -17,6 +18,7 @@ export class WebhookHandlerService {
     private paymentRepository: Repository<Payment>,
     @InjectRepository(WebhookEvent)
     private webhookEventRepository: Repository<WebhookEvent>,
+    private stripeService: StripeService,
   ) {}
 
   async handleStripeWebhook(event: Stripe.Event): Promise<void> {
@@ -88,10 +90,25 @@ export class WebhookHandlerService {
 
     // Update subscription with Stripe data
     if (session.mode === 'subscription' && session.subscription) {
-      subscription.stripeSubscriptionId = session.subscription as string;
-      subscription.status = SubscriptionStatus.ACTIVE;
-      subscription.currentPeriodStart = new Date();
-      subscription.currentPeriodEnd = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days
+      const stripeSubscriptionId = typeof session.subscription === 'string' ? session.subscription : session.subscription.id;
+      subscription.stripeSubscriptionId = stripeSubscriptionId;
+
+      // Retrieve full subscription object from Stripe to get accurate dates
+      try {
+        const stripeSubscription: any = await this.stripeService['stripe'].subscriptions.retrieve(stripeSubscriptionId);
+
+        subscription.status = stripeSubscription.status as SubscriptionStatus;
+        subscription.currentPeriodStart = new Date(stripeSubscription.current_period_start * 1000);
+        subscription.currentPeriodEnd = new Date(stripeSubscription.current_period_end * 1000);
+
+        this.logger.log(`Set subscription dates from Stripe: periodStart=${subscription.currentPeriodStart}, periodEnd=${subscription.currentPeriodEnd}`);
+      } catch (error) {
+        this.logger.error(`Failed to retrieve Stripe subscription ${stripeSubscriptionId}: ${error.message}`);
+        // Fallback to basic dates if Stripe retrieve fails
+        subscription.status = SubscriptionStatus.ACTIVE;
+        subscription.currentPeriodStart = new Date();
+        subscription.currentPeriodEnd = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+      }
     } else if (session.mode === 'payment') {
       // One-time payment
       subscription.isPaid = true;
@@ -329,6 +346,11 @@ export class WebhookHandlerService {
         });
       }
     } catch (error) {
+      // Ignore duplicate key errors (race condition when Stripe sends events quickly)
+      if (error.code === '23505' || error.message?.includes('duplicate key')) {
+        this.logger.log(`Webhook event ${event.id} already processed (duplicate), skipping`);
+        return;
+      }
       this.logger.error(`Failed to store webhook event: ${error.message}`);
     }
   }
