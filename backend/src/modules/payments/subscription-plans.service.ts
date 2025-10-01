@@ -582,16 +582,36 @@ export class SubscriptionPlansService {
               continue;
             }
 
-            // Debug: Log full Stripe object to see what fields are available
-            this.logger.log(`Full Stripe subscription object keys: ${Object.keys(stripeSub).join(', ')}`);
-            this.logger.log(`Stripe subscription ${sub.stripeSubscriptionId} raw data: ${JSON.stringify({
-              status: stripeSub.status,
-              current_period_start: stripeSub.current_period_start,
-              current_period_end: stripeSub.current_period_end,
-              cancel_at: stripeSub.cancel_at,
-              cancel_at_period_end: stripeSub.cancel_at_period_end,
-              canceled_at: stripeSub.canceled_at
-            })}`);
+            // Stripe uses billing_cycle_anchor to calculate periods
+            const billingCycleAnchor = stripeSub.billing_cycle_anchor;
+            const planInterval = stripeSub.items?.data?.[0]?.plan?.interval || 'month';
+            const intervalCount = stripeSub.items?.data?.[0]?.plan?.interval_count || 1;
+
+            // Calculate current period start and end from billing cycle anchor
+            const now = Math.floor(Date.now() / 1000);
+            const anchorDate = new Date(billingCycleAnchor * 1000);
+            let currentPeriodStart = billingCycleAnchor;
+            let currentPeriodEnd = billingCycleAnchor;
+
+            // Calculate how many intervals have passed since the anchor
+            const timeDiff = now - billingCycleAnchor;
+            let intervalSeconds: number;
+
+            if (planInterval === 'year') {
+              intervalSeconds = 365 * 24 * 60 * 60 * intervalCount;
+            } else if (planInterval === 'month') {
+              intervalSeconds = 30 * 24 * 60 * 60 * intervalCount; // Approximate
+            } else if (planInterval === 'week') {
+              intervalSeconds = 7 * 24 * 60 * 60 * intervalCount;
+            } else {
+              intervalSeconds = 24 * 60 * 60 * intervalCount; // day
+            }
+
+            const intervalsPassed = Math.floor(timeDiff / intervalSeconds);
+            currentPeriodStart = billingCycleAnchor + (intervalsPassed * intervalSeconds);
+            currentPeriodEnd = currentPeriodStart + intervalSeconds;
+
+            this.logger.log(`Calculated dates for ${sub.stripeSubscriptionId}: periodStart=${new Date(currentPeriodStart * 1000).toISOString()}, periodEnd=${new Date(currentPeriodEnd * 1000).toISOString()}`);
 
             // Update with fresh Stripe data
             const updatedData: any = {};
@@ -608,13 +628,9 @@ export class SubscriptionPlansService {
               }
             }
 
-            // Only set dates if they exist
-            if (stripeSub.current_period_start) {
-              updatedData.currentPeriodStart = new Date(stripeSub.current_period_start * 1000);
-            }
-            if (stripeSub.current_period_end) {
-              updatedData.currentPeriodEnd = new Date(stripeSub.current_period_end * 1000);
-            }
+            // Set the calculated period dates
+            updatedData.currentPeriodStart = new Date(currentPeriodStart * 1000);
+            updatedData.currentPeriodEnd = new Date(currentPeriodEnd * 1000);
             if (stripeSub.cancel_at) {
               updatedData.cancelAt = new Date(stripeSub.cancel_at * 1000);
             }
