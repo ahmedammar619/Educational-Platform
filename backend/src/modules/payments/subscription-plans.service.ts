@@ -660,12 +660,150 @@ export class SubscriptionPlansService {
     return subscriptions;
   }
 
-  async getParentPayments(parentId: string): Promise<Payment[]> {
-    return this.paymentRepository.find({
-      where: { userId: parentId },
-      relations: ['student', 'plan', 'studentSubscription'],
-      order: { createdAt: 'DESC' }
-    });
+  async getParentPayments(parentId: string): Promise<any[]> {
+    // Get parent's Stripe customer ID
+    const parent = await this.userRepository.findOne({ where: { id: parentId } });
+
+    if (!parent || !parent.stripe_customer_id) {
+      this.logger.warn(`No Stripe customer ID found for parent ${parentId}`);
+      return [];
+    }
+
+    if (!this.stripeService.isConfigured()) {
+      return [];
+    }
+
+    const stripeCustomerId = parent.stripe_customer_id;
+    this.logger.log(`Fetching Stripe payments for customer ${stripeCustomerId}`);
+
+    try {
+      const payments: any[] = [];
+
+      // Fetch all charges for this customer
+      const charges = await this.stripeService['stripe'].charges.list({
+        customer: stripeCustomerId,
+        limit: 100
+      });
+
+      this.logger.log(`Found ${charges.data.length} charges from Stripe`);
+
+      // Get all subscriptions to map student names
+      const subscriptions = await this.studentSubscriptionRepository.find({
+        where: { userId: parentId },
+        relations: ['student', 'plan']
+      });
+
+      for (const chargeData of charges.data) {
+        const charge: any = chargeData;
+        // Find associated subscription from metadata or invoice
+        let studentName = 'Unknown';
+        let planName = 'Unknown';
+
+        // Try to get metadata from payment intent
+        if (charge.payment_intent) {
+          try {
+            const paymentIntent: any = await this.stripeService['stripe'].paymentIntents.retrieve(charge.payment_intent as string);
+            if (paymentIntent.metadata) {
+              studentName = paymentIntent.metadata.studentName || studentName;
+              planName = paymentIntent.metadata.planName || planName;
+            }
+          } catch (error) {
+            this.logger.warn(`Failed to fetch payment intent metadata: ${error.message}`);
+          }
+        }
+
+        // Try to get from invoice
+        if (charge.invoice) {
+          try {
+            const invoice: any = await this.stripeService['stripe'].invoices.retrieve(charge.invoice as string);
+            if (invoice.subscription) {
+              const subscription = subscriptions.find(s => s.stripeSubscriptionId === invoice.subscription);
+              if (subscription) {
+                studentName = subscription.studentName || studentName;
+                planName = subscription.planName || planName;
+              }
+            }
+            // Use invoice metadata if available
+            if (invoice.metadata) {
+              studentName = invoice.metadata.studentName || studentName;
+              planName = invoice.metadata.planName || planName;
+            }
+          } catch (error) {
+            this.logger.warn(`Failed to fetch invoice metadata: ${error.message}`);
+          }
+        }
+
+        payments.push({
+          id: charge.id,
+          studentName,
+          planName,
+          amountPaid: charge.amount,
+          currency: charge.currency,
+          status: charge.status === 'succeeded' ? 'succeeded' : charge.status === 'failed' ? 'failed' : 'pending',
+          paidAt: new Date(charge.created * 1000),
+          createdAt: new Date(charge.created * 1000),
+          receiptUrl: charge.receipt_url,
+          stripeChargeId: charge.id
+        });
+      }
+
+      // Also fetch invoices (for subscription payments)
+      const invoices = await this.stripeService['stripe'].invoices.list({
+        customer: stripeCustomerId,
+        limit: 100
+      });
+
+      this.logger.log(`Found ${invoices.data.length} invoices from Stripe`);
+
+      for (const invoiceData of invoices.data) {
+        const invoice: any = invoiceData;
+        // Skip if we already have this charge
+        if (invoice.charge && payments.some(p => p.stripeChargeId === invoice.charge)) {
+          continue;
+        }
+
+        let studentName = 'Unknown';
+        let planName = 'Unknown';
+
+        // Try to find subscription
+        if (invoice.subscription) {
+          const subscription = subscriptions.find(s => s.stripeSubscriptionId === invoice.subscription);
+          if (subscription) {
+            studentName = subscription.studentName || studentName;
+            planName = subscription.planName || planName;
+          }
+        }
+
+        // Use invoice metadata
+        if (invoice.metadata) {
+          studentName = invoice.metadata.studentName || studentName;
+          planName = invoice.metadata.planName || planName;
+        }
+
+        payments.push({
+          id: invoice.id,
+          studentName,
+          planName,
+          amountPaid: invoice.amount_paid,
+          currency: invoice.currency,
+          status: invoice.status === 'paid' ? 'succeeded' : invoice.status === 'open' ? 'pending' : 'failed',
+          paidAt: invoice.status_transitions?.paid_at ? new Date(invoice.status_transitions.paid_at * 1000) : new Date(invoice.created * 1000),
+          createdAt: new Date(invoice.created * 1000),
+          receiptUrl: invoice.hosted_invoice_url,
+          stripeInvoiceId: invoice.id
+        });
+      }
+
+      // Sort by date descending
+      payments.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+
+      this.logger.log(`Returning ${payments.length} total payments`);
+
+      return payments;
+    } catch (error) {
+      this.logger.error(`Failed to fetch Stripe payments: ${error.message}`);
+      return [];
+    }
   }
 
   // ============ PARENT: Subscription Management ============
