@@ -2,13 +2,13 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Bell, Check } from 'lucide-react';
 import { useNotifications } from '../../contexts/NotificationContext';
 import NotificationItem from './NotificationItem';
+import NotificationStatusIndicator from './NotificationStatusIndicator';
 
 const NotificationDropdown = ({ isOpen, onClose }) => {
   const {
     notifications,
     unreadCount,
     isLoading,
-    error,
     markAsRead,
     markAllAsRead,
     deleteNotification,
@@ -55,6 +55,7 @@ const NotificationDropdown = ({ isOpen, onClose }) => {
     setFilter(newFilter);
   };
 
+
   if (!isOpen) return null;
 
   return (
@@ -75,16 +76,21 @@ const NotificationDropdown = ({ isOpen, onClose }) => {
             )}
           </h3>
           
-          {unreadCount > 0 && (
-            <button
-              onClick={handleClearAll}
-              className="flex items-center space-x-1 text-sm text-red-600 hover:text-red-800 transition-colors font-medium"
-              title="Delete all notifications"
-            >
-              <Check className="h-4 w-4" />
-              <span>Clear all</span>
-            </button>
-          )}
+          <div className="flex items-center space-x-2">
+            {/* Connection Status */}
+            <NotificationStatusIndicator showDetails={false} />
+            
+            {unreadCount > 0 && (
+              <button
+                onClick={handleClearAll}
+                className="flex items-center space-x-1 text-sm text-red-600 hover:text-red-800 transition-colors font-medium"
+                title="Delete all notifications"
+              >
+                <Check className="h-4 w-4" />
+                <span>Clear all</span>
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -94,10 +100,6 @@ const NotificationDropdown = ({ isOpen, onClose }) => {
           <div className="p-6 text-center text-gray-500">
             <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500 mx-auto"></div>
             <p className="mt-2 text-sm">Loading notifications...</p>
-          </div>
-        ) : error ? (
-          <div className="p-6 text-center text-red-500">
-            <p className="text-sm">Failed to load notifications</p>
           </div>
         ) : sortedNotifications.length === 0 ? (
           <div className="p-6 text-center text-gray-500">

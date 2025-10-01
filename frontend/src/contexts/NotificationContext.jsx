@@ -195,11 +195,23 @@ export const NotificationProvider = ({ children, user }) => {
 
   const setupSocketConnection = () => {
     notificationService.on('connect', () => {
+      console.log('🔔 NotificationContext: WebSocket connected');
       dispatch({ type: ActionTypes.SET_CONNECTION_STATUS, payload: true });
+      dispatch({ type: ActionTypes.SET_ERROR, payload: null });
     });
 
-    notificationService.on('disconnect', () => {
+    notificationService.on('disconnect', (data) => {
+      console.log('🔔 NotificationContext: WebSocket disconnected:', data?.reason);
       dispatch({ type: ActionTypes.SET_CONNECTION_STATUS, payload: false });
+    });
+
+    notificationService.on('reconnect', (data) => {
+      console.log('🔔 NotificationContext: WebSocket reconnected after', data?.attemptNumber, 'attempts');
+      dispatch({ type: ActionTypes.SET_CONNECTION_STATUS, payload: true });
+      dispatch({ type: ActionTypes.SET_ERROR, payload: null });
+      
+      // Refresh notifications after reconnection
+      loadNotifications({ limit: 20 }, true);
     });
 
     notificationService.on('new_notification', (notification) => {
@@ -212,7 +224,16 @@ export const NotificationProvider = ({ children, user }) => {
     });
 
     notificationService.on('error', (error) => {
-      dispatch({ type: ActionTypes.SET_ERROR, payload: error.message });
+      console.error('🔔 NotificationContext: Error received:', error);
+      dispatch({ type: ActionTypes.SET_ERROR, payload: error.message || 'Connection error' });
+      
+      // Attempt to recover from errors
+      if (error.message?.includes('Connection failed') || error.message?.includes('Reconnection failed')) {
+        console.log('🔄 NotificationContext: Attempting to recover from connection error...');
+        setTimeout(() => {
+          notificationService.forceReconnect();
+        }, 2000);
+      }
     });
   };
 
@@ -266,9 +287,27 @@ export const NotificationProvider = ({ children, user }) => {
         console.log(`Loaded ${response.notifications?.length || 0} notifications:`, response.notifications);
         
       } catch (error) {
-        console.error('Error loading notifications:', error);
-        dispatch({ type: ActionTypes.SET_ERROR, payload: error.message });
-        throw error;
+        console.error('❌ Error loading notifications:', error);
+        
+        // Enhanced error handling
+        let errorMessage = 'Failed to load notifications';
+        if (error.response?.status === 401) {
+          errorMessage = 'Authentication failed. Please log in again.';
+        } else if (error.response?.status === 403) {
+          errorMessage = 'Access denied. Please check your permissions.';
+        } else if (error.response?.status >= 500) {
+          errorMessage = 'Server error. Please try again later.';
+        } else if (error.code === 'NETWORK_ERROR' || !error.response) {
+          errorMessage = 'Network error. Please check your connection.';
+        } else if (error.message) {
+          errorMessage = error.message;
+        }
+        
+        dispatch({ type: ActionTypes.SET_ERROR, payload: errorMessage });
+        
+        // Don't throw error to prevent unhandled promise rejection
+        // The error is already handled by the dispatch
+        console.log('🔔 NotificationContext: Error handled, not throwing');
       } finally {
         // Clear global loading state
         globalLoadingState.isRequestInProgress = false;
@@ -325,6 +364,34 @@ export const NotificationProvider = ({ children, user }) => {
     loadNotifications({ limit: 20 }, true); // Force refresh
   };
 
+  // Connection recovery methods
+  const forceReconnect = () => {
+    console.log('🔄 NotificationContext: Force reconnecting...');
+    notificationService.forceReconnect();
+  };
+
+  const getConnectionStatus = () => {
+    return notificationService.getConnectionStatus();
+  };
+
+  const getConnectionHealth = () => {
+    return notificationService.getConnectionHealth();
+  };
+
+  // Enhanced error recovery
+  const recoverFromError = () => {
+    console.log('🔄 NotificationContext: Attempting error recovery...');
+    dispatch({ type: ActionTypes.SET_ERROR, payload: null });
+    
+    // Try to reconnect
+    notificationService.forceReconnect();
+    
+    // Refresh notifications after a short delay
+    setTimeout(() => {
+      loadNotifications({ limit: 20 }, true);
+    }, 3000);
+  };
+
   const value = {
     ...state,
     loadNotifications,
@@ -333,6 +400,10 @@ export const NotificationProvider = ({ children, user }) => {
     markAllAsRead,
     deleteNotification,
     archiveNotification,
+    forceReconnect,
+    getConnectionStatus,
+    getConnectionHealth,
+    recoverFromError,
   };
 
   return (
