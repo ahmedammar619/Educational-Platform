@@ -29,13 +29,4 @@ export class CreateClassDto {
   @IsDateString()
   endDate: string;
 
-  @ApiProperty({
-    description: 'ID of the program this class belongs to (optional)',
-    example: '123e4567-e89b-12d3-a456-426614174000',
-    required: false,
-    format: 'uuid'
-  })
-  @IsOptional()
-  @IsUUID()
-  programId?: string;
 }

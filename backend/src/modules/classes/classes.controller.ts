@@ -80,6 +80,16 @@ export class ClassesController {
 
   @Get(':id')
   @Roles(Role.Admin, Role.Teacher)
+  @ApiOperation({ summary: 'Get a specific class by ID (Admin and Teacher)' })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'Class retrieved successfully',
+    type: ClassResponseDto
+  })
+  @ApiResponse({ 
+    status: 404, 
+    description: 'Class not found' 
+  })
   async findClassById(@Param('id') id: string): Promise<ClassResponseDto> {
     const classEntity = await this.classesService.findClassById(id);
     return plainToClass(ClassResponseDto, {
@@ -98,6 +108,16 @@ export class ClassesController {
 
   @Patch(':id')
   @Roles(Role.Admin)
+  @ApiOperation({ summary: 'Update a class (Admin only)' })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'Class updated successfully',
+    type: ClassResponseDto
+  })
+  @ApiResponse({ 
+    status: 404, 
+    description: 'Class not found' 
+  })
   async updateClass(
     @Param('id') id: string,
     @Body() updateClassDto: UpdateClassDto,
@@ -108,12 +128,34 @@ export class ClassesController {
 
   @Delete(':id')
   @Roles(Role.Admin)
+  @ApiOperation({ summary: 'Delete a class (Admin only)' })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'Class deleted successfully' 
+  })
+  @ApiResponse({ 
+    status: 404, 
+    description: 'Class not found' 
+  })
   async deleteClass(@Param('id') id: string): Promise<void> {
     await this.classesService.deleteClass(id);
   }
 
   @Post(':id/enroll')
   @Roles(Role.Admin)
+  @ApiOperation({ summary: 'Enroll students in a class (Admin only)' })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'Students enrolled successfully' 
+  })
+  @ApiResponse({ 
+    status: 404, 
+    description: 'Class not found' 
+  })
+  @ApiResponse({ 
+    status: 400, 
+    description: 'Invalid student IDs provided' 
+  })
   async enrollStudents(
     @Param('id') classId: string,
     @Body() enrollDto: EnrollStudentsDto,
@@ -123,6 +165,15 @@ export class ClassesController {
 
   @Delete(':id/students/:studentId')
   @Roles(Role.Admin)
+  @ApiOperation({ summary: 'Remove a student from a class (Admin only)' })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'Student removed from class successfully' 
+  })
+  @ApiResponse({ 
+    status: 404, 
+    description: 'Class or student not found' 
+  })
   async removeStudentFromClass(
     @Param('id') classId: string,
     @Param('studentId') studentId: string,

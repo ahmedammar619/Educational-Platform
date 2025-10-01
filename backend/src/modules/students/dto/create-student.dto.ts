@@ -35,11 +35,4 @@ export class CreateStudentDto {
   @IsString()
   parentId?: string;
 
-  @ApiProperty({ 
-    description: 'Array of program IDs to enroll the student in (required)', 
-    type: [String],
-    required: true 
-  })
-  @IsString({ each: true })
-  programIds: string[];
 }

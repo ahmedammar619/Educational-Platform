@@ -5,7 +5,6 @@ import ConfirmationDialog from '../../components/ui/ConfirmationDialog';
 import parentsService from '../../services/parentsService';
 import authService from '../../services/authService';
 import studentsService from '../../services/studentsService';
-import programsService from '../../services/programsService';
 import { showSuccessToast, showErrorToast, showWarningToast } from '../../utils/toast.js';
 
 const ChildrenManagement = ({ user }) => {
@@ -37,10 +36,8 @@ const ChildrenManagement = ({ user }) => {
     firstName: '',
     lastName: '',
     email: '',
-    birthDate: '',
-    programIds: []
+    birthDate: ''
   });
-  const [availablePrograms, setAvailablePrograms] = useState([]);
   const [editLoading, setEditLoading] = useState(false);
   const [editErrors, setEditErrors] = useState({});
 
@@ -52,17 +49,8 @@ const ChildrenManagement = ({ user }) => {
   useEffect(() => {
     fetchChildren();
     fetchTeachers();
-    fetchPrograms();
   }, []);
 
-  const fetchPrograms = async () => {
-    try {
-      const programs = await programsService.getAllPrograms();
-      setAvailablePrograms(programs);
-    } catch (error) {
-      console.error('Error loading programs:', error);
-    }
-  };
 
   // Remove this useEffect as fetchTeachers() doesn't depend on selectedChild
   // The filtering happens in getTeachersForSelectedChild() which runs on every render
@@ -116,7 +104,6 @@ const ChildrenManagement = ({ user }) => {
           accountType: child.accountType || 'Student',
           relationship_type: 'child',
           studentData: null,
-          programs: child.programs || []
         };
       }).filter(child => child !== null); // Remove null entries
 
@@ -373,7 +360,6 @@ const ChildrenManagement = ({ user }) => {
       lastName: child.lastName || '',
       email: child.email || '',
       birthDate: formattedBirthDate,
-      programIds: child.programs ? child.programs.map(p => p.id) : []
     });
     setEditErrors({});
     setShowEditModal(true);
@@ -387,7 +373,6 @@ const ChildrenManagement = ({ user }) => {
       lastName: '',
       email: '',
       birthDate: '',
-      programIds: []
     });
     setEditErrors({});
   };
@@ -406,24 +391,6 @@ const ChildrenManagement = ({ user }) => {
     }
   };
 
-  const handleEditProgramChange = (programId) => {
-    setEditFormData(prev => {
-      const currentProgramIds = prev.programIds || [];
-      const isSelected = currentProgramIds.includes(programId);
-      
-      let newProgramIds;
-      if (isSelected) {
-        newProgramIds = currentProgramIds.filter(id => id !== programId);
-      } else {
-        newProgramIds = [...currentProgramIds, programId];
-      }
-      
-      return {
-        ...prev,
-        programIds: newProgramIds
-      };
-    });
-  };
 
   const validateEditForm = () => {
     const newErrors = {};
@@ -444,9 +411,6 @@ const ChildrenManagement = ({ user }) => {
       newErrors.birthDate = 'Date of birth is required';
     }
 
-    if (!editFormData.programIds || editFormData.programIds.length === 0) {
-      newErrors.programIds = 'Please select at least one program';
-    }
 
     setEditErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -547,7 +511,7 @@ const ChildrenManagement = ({ user }) => {
             </button>
             <div>
               <h1 className="text-xl md:text-2xl font-bold text-gray-900">Create Child Account</h1>
-              <p className="text-sm md:text-base text-gray-600">Register your child for Baraem Al-Nour Islamic education programs</p>
+              <p className="text-sm md:text-base text-gray-600">Register your child for Baraem Al-Nour Islamic education</p>
             </div>
           </div>
         </div>
@@ -710,9 +674,7 @@ const ChildrenManagement = ({ user }) => {
                 {(() => {
                   const classes = getClassesForChild(child.id);
                   const classDisplay = classes.length > 0 ? classes.join(', ') : 'Not enrolled';
-                  const programs = child.programs || [];
-                  const programDisplay = programs.length > 0 ? programs.map(p => p.name).join(', ') : 'No programs';
-                  return `${classDisplay} • ${programDisplay} • ${child.age ? `${child.age} years` : 'Age not specified'}`;
+                  return `${classDisplay} • ${child.age ? `${child.age} years` : 'Age not specified'}`;
                 })()}
               </div>
 
@@ -775,11 +737,7 @@ const ChildrenManagement = ({ user }) => {
                   }
                 </h2>
                 <p className="text-gray-600 text-sm md:text-lg">
-                  {(selectedChild.class || 'Not specified')} • {(() => {
-                    const programs = selectedChild.programs || [];
-                    const programDisplay = programs.length > 0 ? programs.map(p => p.name).join(', ') : 'No programs';
-                    return programDisplay;
-                  })()} • {selectedChild.age ? `${selectedChild.age} years old` : 'Age not specified'}
+                  {(selectedChild.class || 'Not specified')} • {selectedChild.age ? `${selectedChild.age} years old` : 'Age not specified'}
                 </p>
               </div>
             </div>
@@ -804,15 +762,6 @@ const ChildrenManagement = ({ user }) => {
                 <div className="text-xs md:text-sm text-gray-500 font-medium">Age</div>
                 <div className="text-lg md:text-2xl font-bold text-purple-600 mb-1">
                   {selectedChild.age || 'N/A'}
-                </div>
-              </div>
-              <div className="text-center lg:text-left">
-                <div className="text-xs md:text-sm text-gray-500 font-medium">Programs</div>
-                <div className="text-sm md:text-lg font-semibold text-gray-700 mb-1">
-                  {(() => {
-                    const programs = selectedChild.programs || [];
-                    return programs.length > 0 ? programs.length : 0;
-                  })()}
                 </div>
               </div>
               <div className="text-center lg:text-left">
@@ -1114,36 +1063,6 @@ const ChildrenManagement = ({ user }) => {
                   )}
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Select Programs *
-                  </label>
-                  <div className="space-y-2 max-h-48 overflow-y-auto border border-gray-200 rounded-md p-3">
-                    {availablePrograms.map((program) => (
-                      <label key={program.id} className="flex items-center space-x-3 p-2 hover:bg-gray-100 rounded cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={editFormData.programIds?.includes(program.id) || false}
-                          onChange={() => handleEditProgramChange(program.id)}
-                          className="rounded border-gray-300 text-purple-600 focus:ring-purple-500"
-                        />
-                        <div className="flex-1">
-                          <div className="flex items-center justify-between">
-                            <span className="text-sm font-medium text-gray-900">
-                              {program.name}
-                            </span>
-                            <span className="text-sm text-green-600">
-                              ${program.price}
-                            </span>
-                          </div>
-                        </div>
-                      </label>
-                    ))}
-                  </div>
-                  {editErrors.programIds && (
-                    <p className="text-red-500 text-sm mt-1">{editErrors.programIds}</p>
-                  )}
-                </div>
 
                 {editErrors.submit && (
                   <div className="bg-red-50 border border-red-200 rounded-lg p-3">

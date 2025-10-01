@@ -43,14 +43,6 @@ export class ClassResponseDto {
   @Expose()
   courseIds?: string[];
 
-  @ApiProperty({
-    description: 'ID of the program this class belongs to',
-    example: '123e4567-e89b-12d3-a456-426614174000',
-    format: 'uuid',
-    required: false
-  })
-  @Expose()
-  programId?: string;
 
   @ApiProperty({
     description: 'Date when the class was created',

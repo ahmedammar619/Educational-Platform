@@ -13,7 +13,6 @@ import { Subscription } from '../payments/entities/subscription.entity';
 import { Invoice } from '../payments/entities/invoice.entity';
 import { AppConfig } from '../admin/entities/app-config.entity';
 import { ConfigService } from '../admin/config.service';
-import { Program } from '../programs/entities/program.entity';
 
 @Module({
   imports: [
@@ -28,7 +27,6 @@ import { Program } from '../programs/entities/program.entity';
       Subscription,
       Invoice,
       AppConfig,
-      Program
     ])
   ],
   controllers: [StudentsController],

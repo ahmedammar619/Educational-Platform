@@ -108,8 +108,13 @@ async function bootstrap() {
       - POST /api/users
       
       All other endpoints require authentication.
+      
+      ## Recent Updates
+      - Removed program layer - classes now work directly without programs
+      - Simplified student enrollment process
+      - Updated class management to work without program dependencies
     `)
-    .setVersion('1.0')
+    .setVersion('2.0')
     .addServer(
       `http://localhost:${configService.get('PORT', 3000)}`,
       'Development server'

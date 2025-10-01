@@ -6,7 +6,6 @@ import { User } from '../users/entities/user.entity';
 import { Class } from '../classes/entities/class.entity';
 import { Course } from '../courses/entities/course.entity';
 import { Student } from '../students/entities/student.entity';
-import { Program } from '../programs/entities/program.entity';
 import { Role } from '../../common/enums/role.enum';
 import { UpdateTeacherDto } from './dto/update-teacher.dto';
 
@@ -23,8 +22,6 @@ export class TeachersService {
     private readonly courseRepository: Repository<Course>,
     @InjectRepository(Student)
     private readonly studentRepository: Repository<Student>,
-    @InjectRepository(Program)
-    private readonly programRepository: Repository<Program>
   ) {}
 
   async getTeacherProfile(teacherId: string) {

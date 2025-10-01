@@ -9,7 +9,6 @@ import {
   JoinColumn,
 } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
-import { Program } from '../../programs/entities/program.entity';
 
 @Entity('classes')
 export class Class {
@@ -28,8 +27,6 @@ export class Class {
   @Column({ type: 'simple-array', nullable: true, default: '' })
   courseIds: string[];
 
-  @Column('uuid', { nullable: true })
-  programId: string | null;
 
   @CreateDateColumn()
   createdAt: Date;
@@ -41,9 +38,6 @@ export class Class {
   @OneToMany('Course', 'class')
   courses: any[];
 
-  @ManyToOne(() => Program, program => program.classes, { nullable: true })
-  @JoinColumn({ name: 'programId' })
-  program: Program | null;
 
   // Note: students are now tracked in individual course.students arrays
   // Class-level enrollment adds students to all course.students arrays

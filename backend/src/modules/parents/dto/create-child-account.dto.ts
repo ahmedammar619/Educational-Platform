@@ -23,11 +23,4 @@ export class CreateChildAccountDto {
   @IsDateString()
   birthDate: string;
 
-  @ApiProperty({ 
-    description: 'Array of program IDs to enroll the child in (required)', 
-    type: [String],
-    required: true 
-  })
-  @IsString({ each: true })
-  programIds: string[];
 }

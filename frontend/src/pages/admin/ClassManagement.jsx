@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Edit, Trash2, Users, Calendar, BookOpen, Search, Filter, User, X, ChevronDown, ChevronRight, UserMinus, ArrowUp, UserPlus, UserX, ArrowRight } from 'lucide-react';
-import { classesService, usersService, coursesService, studentsService, programsService } from '../../services';
+import { classesService, usersService, coursesService, studentsService } from '../../services';
 import { showErrorToast, showSuccessToast, getErrorMessage } from '../../utils/errorHandler';
 import { showWarningToast } from '../../utils/toast.js';
 import { ConfirmationDialog, AlertDialog } from '../../components/ui';
 import useConfirmation from '../../hooks/useConfirmation';
 import useAlert from '../../hooks/useAlert';
 
-const ClassManagement = ({ user, onOpenMaterials, selectedProgram, onBackToPrograms }) => {
+const ClassManagement = ({ user, onOpenMaterials }) => {
   const { confirmationState, showConfirmation, hideConfirmation, handleConfirm } = useConfirmation();
   const { alertState, showAlert, hideAlert } = useAlert();
   const [classes, setClasses] = useState([]);
@@ -16,7 +16,6 @@ const ClassManagement = ({ user, onOpenMaterials, selectedProgram, onBackToProgr
   const [expandedClasses, setExpandedClasses] = useState(new Set());
   const [filters, setFilters] = useState({
     search: '',
-    program: '',
     page: 1,
     limit: 10
   });
@@ -39,7 +38,6 @@ const ClassManagement = ({ user, onOpenMaterials, selectedProgram, onBackToProgr
   const [selectedCourse, setSelectedCourse] = useState(null);
   const [isCreatingCourse, setIsCreatingCourse] = useState(false);
   const [allStudents, setAllStudents] = useState([]);
-  const [allPrograms, setAllPrograms] = useState([]);
   const [courseEnrolledStudents, setCourseEnrolledStudents] = useState([]);
   const [enrollingStudents, setEnrollingStudents] = useState(new Set());
   const [unenrollingStudents, setUnenrollingStudents] = useState(new Set());
@@ -49,12 +47,11 @@ const ClassManagement = ({ user, onOpenMaterials, selectedProgram, onBackToProgr
   useEffect(() => {
     loadClasses();
     loadAllStudents();
-    loadAllPrograms();
   }, []);
 
   useEffect(() => {
     filterClasses();
-  }, [filters, classes, selectedProgram]);
+  }, [filters, classes]);
 
   const loadAllStudents = async () => {
     try {
@@ -66,23 +63,6 @@ const ClassManagement = ({ user, onOpenMaterials, selectedProgram, onBackToProgr
     }
   };
 
-  const loadAllPrograms = async () => {
-    try {
-      const programsData = await programsService.getAllPrograms();
-      let programsArray = [];
-      if (Array.isArray(programsData)) {
-        programsArray = programsData;
-      } else if (programsData && typeof programsData === 'object') {
-        programsArray = Object.values(programsData).filter(item =>
-          item && typeof item === 'object' && item.id && !item._rateLimitInfo
-        );
-      }
-      setAllPrograms(programsArray);
-    } catch (error) {
-      console.error('Error loading programs:', error);
-      showErrorToast('Failed to load programs');
-    }
-  };
 
   const loadCourseEnrolledStudents = async (courseId) => {
     try {
@@ -196,25 +176,10 @@ const ClassManagement = ({ user, onOpenMaterials, selectedProgram, onBackToProgr
 
     let filtered = [...classes];
 
-    // If a specific program is selected, filter by that program
-    if (selectedProgram) {
-      filtered = filtered.filter(classItem => {
-        return classItem.programId === selectedProgram.id ||
-          (classItem.program && classItem.program.id === selectedProgram.id);
-      });
-    }
-
     // Apply search filter
     if (filters.search) {
       filtered = filtered.filter(classItem => {
         return classItem.name && classItem.name.toLowerCase().includes(filters.search.toLowerCase());
-      });
-    }
-
-    // Apply program filter
-    if (filters.program) {
-      filtered = filtered.filter(classItem => {
-        return classItem.programId === filters.program;
       });
     }
 
@@ -800,21 +765,7 @@ const ClassManagement = ({ user, onOpenMaterials, selectedProgram, onBackToProgr
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <div className="flex items-center justify-center space-x-3">
-            {selectedProgram && (
-              <button
-                onClick={onBackToPrograms}
-                className="flex items-center justify-center w-8 h-8 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-full transition-colors"
-                title="Back to Programs"
-              >
-                <ArrowRight className="h-6 w-6 rotate-180" />
-              </button>
-            )}
-            <h1 className="text-lg sm:text-xl md:text-2xl font-bold text-gray-900">Class Management</h1>
-          </div>
-          <p className="text-sm sm:text-base text-gray-600">
-            Program: {selectedProgram.name}
-          </p>
+          <h1 className="text-lg sm:text-xl md:text-2xl font-bold text-gray-900">Class Management</h1>
         </div>
         <div className="flex items-center space-x-3">
           <button
@@ -873,9 +824,6 @@ const ClassManagement = ({ user, onOpenMaterials, selectedProgram, onBackToProgr
                             <BookOpen className="h-5 w-5 text-blue-600" />
                             <div>
                               <h3 className="text-lg sm:text-xl font-semibold text-gray-900">{classItem.name || 'Unnamed Class'}</h3>
-                              {classItem.program && (
-                                <p className="text-sm text-gray-500">Program: {classItem.program.name}</p>
-                              )}
                             </div>
                           </div>
                         </div>
@@ -1207,8 +1155,6 @@ const ClassManagement = ({ user, onOpenMaterials, selectedProgram, onBackToProgr
           onClose={() => setShowCreateClassModal(false)}
           onSubmit={handleCreateClass}
           isCreatingClass={isCreatingClass}
-          allPrograms={allPrograms}
-          selectedProgram={selectedProgram}
         />
       )}
 
@@ -1223,8 +1169,6 @@ const ClassManagement = ({ user, onOpenMaterials, selectedProgram, onBackToProgr
           }}
           onSubmit={(classData) => handleUpdateClass(selectedClass.id, classData)}
           isCreatingClass={false}
-          allPrograms={allPrograms}
-          selectedProgram={selectedProgram}
         />
       )}
 
@@ -1270,7 +1214,6 @@ const ClassManagement = ({ user, onOpenMaterials, selectedProgram, onBackToProgr
       {showEnrollModal && selectedClass && (
         <EnrollModal
           classData={selectedClass}
-          selectedProgram={selectedProgram}
           onClose={() => {
             setShowEnrollModal(false);
             setSelectedClass(null);
@@ -1298,7 +1241,6 @@ const ClassManagement = ({ user, onOpenMaterials, selectedProgram, onBackToProgr
       {showLevelUpModal && selectedClass && (
         <LevelUpModal
           classData={selectedClass}
-          selectedProgram={selectedProgram}
           onClose={() => {
             setShowLevelUpModal(false);
             setSelectedClass(null);
@@ -1314,11 +1256,7 @@ const ClassManagement = ({ user, onOpenMaterials, selectedProgram, onBackToProgr
       {showCourseEnrollModal && selectedCourse && (
         <CourseEnrollModal
           courseData={selectedCourse}
-          allStudents={
-            selectedProgram && selectedProgram.studentIds 
-              ? allStudents.filter(student => selectedProgram.studentIds.includes(student.id))
-              : allStudents
-          }
+          allStudents={allStudents}
           onClose={() => {
             setShowCourseEnrollModal(false);
             setSelectedCourse(null);
@@ -1369,22 +1307,20 @@ const ClassManagement = ({ user, onOpenMaterials, selectedProgram, onBackToProgr
 };
 
 // Class Modal Component
-const ClassModal = ({ title, classData, onClose, onSubmit, isCreatingClass = false, allPrograms = [], selectedProgram = null }) => {
+const ClassModal = ({ title, classData, onClose, onSubmit, isCreatingClass = false }) => {
   const [formData, setFormData] = useState({
     name: classData?.name || '',
     startDate: classData?.startDate || '',
-    endDate: classData?.endDate || '',
-    programId: classData?.programId || (selectedProgram ? selectedProgram.id : '')
+    endDate: classData?.endDate || ''
   });
 
   useEffect(() => {
     setFormData({
       name: classData?.name || '',
       startDate: classData?.startDate || '',
-      endDate: classData?.endDate || '',
-      programId: classData?.programId || (selectedProgram ? selectedProgram.id : '')
+      endDate: classData?.endDate || ''
     });
-  }, [classData, selectedProgram]);
+  }, [classData]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -1895,7 +1831,7 @@ const CourseModal = ({ title, courseData, isUpdating = false, onClose, onSubmit 
 };
 
 // Enroll Students Modal Component
-const EnrollModal = ({ classData, selectedProgram, onClose, onSubmit, isEnrolling = false }) => {
+const EnrollModal = ({ classData, onClose, onSubmit, isEnrolling = false }) => {
   const [selectedStudents, setSelectedStudents] = useState([]);
   const [availableStudents, setAvailableStudents] = useState([]);
   const [loadingStudents, setLoadingStudents] = useState(true);
@@ -1903,7 +1839,7 @@ const EnrollModal = ({ classData, selectedProgram, onClose, onSubmit, isEnrollin
 
   useEffect(() => {
     loadStudents();
-  }, [selectedProgram]);
+  }, []);
 
   const loadStudents = async () => {
     try {
@@ -1918,13 +1854,6 @@ const EnrollModal = ({ classData, selectedProgram, onClose, onSubmit, isEnrollin
       } else if (Array.isArray(response)) {
         // If response is directly an array
         studentsArray = response;
-      }
-
-      // Filter students by program if selectedProgram is available
-      if (selectedProgram && selectedProgram.studentIds) {
-        studentsArray = studentsArray.filter(student => 
-          selectedProgram.studentIds.includes(student.id)
-        );
       }
 
       // Students are already flattened by the backend service
@@ -2321,7 +2250,7 @@ const RemoveStudentModal = ({ classData, onClose, onRemove, showConfirmation, is
 };
 
 // Level Up Students Modal Component
-const LevelUpModal = ({ classData, selectedProgram, onClose, onSubmit, showConfirmation, showAlert, isProcessing = false }) => {
+const LevelUpModal = ({ classData, onClose, onSubmit, showConfirmation, showAlert, isProcessing = false }) => {
   const [selectedStudents, setSelectedStudents] = useState([]);
   const [selectedTargetClass, setSelectedTargetClass] = useState('');
   const [enrolledStudents, setEnrolledStudents] = useState([]);
@@ -2332,7 +2261,7 @@ const LevelUpModal = ({ classData, selectedProgram, onClose, onSubmit, showConfi
   useEffect(() => {
     loadEnrolledStudents();
     loadAvailableClasses();
-  }, [selectedProgram]);
+  }, []);
 
   const loadEnrolledStudents = async () => {
     try {
@@ -2347,12 +2276,6 @@ const LevelUpModal = ({ classData, selectedProgram, onClose, onSubmit, showConfi
         studentsArray = response;
       }
 
-      // Filter students by program if selectedProgram is available
-      if (selectedProgram && selectedProgram.studentIds) {
-        studentsArray = studentsArray.filter(student => 
-          selectedProgram.studentIds.includes(student.id)
-        );
-      }
 
       // Filter only students enrolled in any course of this class
       const enrolledInClass = studentsArray.filter(student =>

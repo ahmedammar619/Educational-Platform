@@ -7,10 +7,9 @@ import { User } from '../users/entities/user.entity';
 import { Class } from '../classes/entities/class.entity';
 import { Course } from '../courses/entities/course.entity';
 import { Student } from '../students/entities/student.entity';
-import { Program } from '../programs/entities/program.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Teacher, User, Class, Course, Student, Program])],
+  imports: [TypeOrmModule.forFeature([Teacher, User, Class, Course, Student])],
   controllers: [TeachersController],
   providers: [TeachersService],
   exports: [TeachersService],
