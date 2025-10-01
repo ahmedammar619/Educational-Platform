@@ -18,7 +18,6 @@ const StudentSchedule = lazy(() => import('../pages/student/StudentSchedule'));
 
 const ChildrenManagement = lazy(() => import('../pages/parent/ChildrenManagement'));
 const ParentSchedule = lazy(() => import('../pages/parent/ParentSchedule'));
-const ParentPayments = lazy(() => import('../pages/parent/ParentPayments'));
 const SubscriptionSelection = lazy(() => import('../pages/parent/SubscriptionSelection'));
 
 const TeacherClasses = lazy(() => import('../pages/teacher/TeacherClasses'));
@@ -163,7 +162,6 @@ const AppRouter = React.memo(({ user, onLogin, onLogout }) => {
                 { path: "/", element: <Navigate to="/parent/announcements" replace /> },
                 { path: "/children", element: <ChildrenManagement user={user} /> },
                 { path: "/schedule", element: <ParentSchedule user={user} /> },
-                { path: "/payments", element: <ParentPayments user={user} /> },
                 { path: "/subscriptions", element: <SubscriptionSelection user={user} /> },
                 { path: "/announcements", element: <AnnouncementsPage currentUser={user} theme={{ primary: 'purple', primaryLight: 'purple-50' }} /> },
               ]} />
