@@ -26,17 +26,30 @@ const StudentClasses = ({ user, onOpenMaterials }) => {
   });
 
   useEffect(() => {
-    loadStudentClasses();
-    loadGoogleFormUrl();
-    loadFormStatus();
+    loadAllData();
   }, [user]);
 
   useEffect(() => {
     filterClasses();
   }, [filters, enrolledClasses]);
 
-  const loadStudentClasses = async () => {
+  const loadAllData = async () => {
     setLoading(true);
+    try {
+      // Run all async operations in parallel
+      await Promise.all([
+        loadStudentClasses(),
+        loadGoogleFormUrl(),
+        loadFormStatus()
+      ]);
+    } catch (error) {
+      console.error('Error loading data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadStudentClasses = async () => {
     try {
       if (!user?.id) {
         console.error('No user ID available');
@@ -66,8 +79,6 @@ const StudentClasses = ({ user, onOpenMaterials }) => {
       }
       
       showErrorToast(errorMessage);
-    } finally {
-      setLoading(false);
     }
   };
 

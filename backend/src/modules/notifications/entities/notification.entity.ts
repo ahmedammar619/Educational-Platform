@@ -17,15 +17,17 @@ export enum NotificationType {
   ZOOM_SESSION_STARTED = 'zoom_session_started',
   NEW_POST = 'new_post',
   ADDED_TO_CLASS = 'added_to_class',
+  ADDED_TO_COURSE = 'added_to_course',
   MARKED_ABSENT = 'marked_absent',
 
   // Parent notifications
   CHILD_ABSENT = 'child_absent',
   CHILD_ADDED_TO_CLASS = 'child_added_to_class',
+  CHILD_ADDED_TO_COURSE = 'child_added_to_course',
 
   // Teacher notifications
   ASSIGNMENT_SUBMITTED = 'assignment_submitted',
-  ADDED_TO_COURSE = 'added_to_course',
+  TEACHER_ADDED_TO_COURSE = 'teacher_added_to_course',
 
   // Admin notifications
   NEW_USER_JOINED = 'new_user_joined',

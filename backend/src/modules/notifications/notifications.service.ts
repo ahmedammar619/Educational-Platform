@@ -465,11 +465,58 @@ export class NotificationsService {
 
     await this.create({
       userId: teacherId,
-      type: NotificationType.ADDED_TO_COURSE,
+      type: NotificationType.TEACHER_ADDED_TO_COURSE,
       priority: NotificationPriority.MEDIUM,
       title: 'Added to Course',
       message: `You have been added as a teacher to the course "${courseName}" in class "${className}"`,
       metadata: { courseName, className, ...metadata },
+    });
+  }
+
+  async createStudentAddedToCourseNotification(
+    studentId: string,
+    courseName: string,
+    className: string,
+    metadata?: Record<string, any>
+  ): Promise<void> {
+    // Check if notifications are disabled
+    const notificationsDisabled = this.configService.get<boolean>('DISABLE_NOTIFICATIONS', false);
+    if (notificationsDisabled) {
+      this.logger.log('Notifications are disabled - skipping student added to course notification');
+      return;
+    }
+
+    await this.create({
+      userId: studentId,
+      type: NotificationType.ADDED_TO_COURSE,
+      priority: NotificationPriority.MEDIUM,
+      title: 'Added to Course',
+      message: `You have been enrolled in the course "${courseName}" in class "${className}"`,
+      metadata: { courseName, className, ...metadata },
+    });
+  }
+
+  async createChildAddedToCourseNotification(
+    parentId: string,
+    childName: string,
+    courseName: string,
+    className: string,
+    metadata?: Record<string, any>
+  ): Promise<void> {
+    // Check if notifications are disabled
+    const notificationsDisabled = this.configService.get<boolean>('DISABLE_NOTIFICATIONS', false);
+    if (notificationsDisabled) {
+      this.logger.log('Notifications are disabled - skipping child added to course notification');
+      return;
+    }
+
+    await this.create({
+      userId: parentId,
+      type: NotificationType.CHILD_ADDED_TO_COURSE,
+      priority: NotificationPriority.MEDIUM,
+      title: 'Child Added to Course',
+      message: `Your child ${childName} has been enrolled in the course "${courseName}" in class "${className}"`,
+      metadata: { childName, courseName, className, ...metadata },
     });
   }
 

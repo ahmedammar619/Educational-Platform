@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException, Inject, forwardRef } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
 import { Student } from './entities/student.entity';
@@ -13,6 +13,7 @@ import { Invoice } from '../payments/entities/invoice.entity';
 import { CreateStudentDto } from './dto/create-student.dto';
 import { UpdateStudentDto } from './dto/update-student.dto';
 import { Role } from '../../common/enums/role.enum';
+import { NotificationsService } from '../notifications/notifications.service';
 import * as bcrypt from 'bcryptjs';
 
 @Injectable()
@@ -36,6 +37,8 @@ export class StudentsService {
     private readonly subscriptionRepository: Repository<Subscription>,
     @InjectRepository(Invoice)
     private readonly invoiceRepository: Repository<Invoice>,
+    @Inject(forwardRef(() => NotificationsService))
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   async createStudent(createStudentDto: CreateStudentDto): Promise<Student> {
@@ -400,6 +403,11 @@ export class StudentsService {
           ...courseLevelStudents.map(s => s.id)
         ]);
 
+        // Filter courses to only include the ones the student is enrolled in
+        const enrolledCourses = classEntity.courses?.filter(course => 
+          student.courseIds.includes(course.id)
+        ) || [];
+
         // Transform the data to match the frontend structure
         const transformedClass = {
           id: classEntity.id,
@@ -408,22 +416,26 @@ export class StudentsService {
           endDate: classEntity.endDate,
           numberOfStudents: allStudentIds.size,
           status: 'active', // Default status since Class entity doesn't have status field
-          courses: classEntity.courses?.map(course => ({
+          courses: enrolledCourses.map(course => ({
             id: course.id,
             name: course.name,
             startDate: classEntity.startDate, // Use class dates since courses don't have their own dates
             endDate: classEntity.endDate,
             teacherName: course.teacher ? `${course.teacher.firstName} ${course.teacher.lastName}` : 'No Teacher Assigned',
             courseMaterial: course.name || 'No description available',
+            sessions: course.sessions || [],
             sessionTime: course.sessions?.map(session => ({
               day: session.day,
               startTime: session.startTime,
               endTime: session.endTime
             })) || []
-          })) || []
+          }))
         };
 
-        classesMap.set(classEntity.id, transformedClass);
+        // Only add the class if the student has enrolled courses in it
+        if (enrolledCourses.length > 0) {
+          classesMap.set(classEntity.id, transformedClass);
+        }
       }
     }
 
@@ -508,6 +520,7 @@ export class StudentsService {
               endDate: classEntity.endDate,
               teacherName: course.teacher ? `${course.teacher.firstName} ${course.teacher.lastName}` : 'No Teacher Assigned',
               courseMaterial: course.name || 'No description available',
+              sessions: course.sessions || [],
               sessionTime: course.sessions?.map(session => ({
                 day: session.day,
                 startTime: session.startTime,
@@ -528,7 +541,8 @@ export class StudentsService {
   async enrollStudentInCourse(studentId: string, courseId: string): Promise<Student> {
     const student = await this.findOne(studentId);
     const course = await this.courseRepository.findOne({
-      where: { id: courseId }
+      where: { id: courseId },
+      relations: ['class']
     });
 
     if (!course) {
@@ -555,6 +569,9 @@ export class StudentsService {
     
     // Auto-remove form completion record when student is enrolled
     await this.autoRemoveFormCompletionOnEnrollment(studentId);
+    
+    // Send notifications to student and parents
+    await this.sendCourseEnrollmentNotifications(studentId, course);
     
     return savedStudent;
   }
@@ -724,6 +741,107 @@ export class StudentsService {
     } catch (error) {
       console.error(`❌ Error auto-removing form completion for student ${studentId}:`, error);
       // Don't throw error to avoid breaking the enrollment process
+    }
+  }
+
+  /**
+   * Send notifications to student and parents when student is enrolled in a course
+   */
+  private async sendCourseEnrollmentNotifications(studentId: string, course: any): Promise<void> {
+    try {
+      console.log(`📢 Sending course enrollment notifications for student ${studentId} in course: ${course.name}`);
+      
+      // Get student information
+      const student = await this.userRepository.findOne({
+        where: { id: studentId },
+        select: ['id', 'firstName', 'lastName']
+      });
+
+      if (!student) {
+        console.warn(`Student not found for notification: ${studentId}`);
+        return;
+      }
+
+      const childName = `${student.firstName} ${student.lastName}`;
+      const courseName = course.name;
+      const className = course.class?.name || 'Unknown Class';
+
+      // 1. Send notification to the student
+      try {
+        await this.notificationsService.createStudentAddedToCourseNotification(
+          studentId,
+          courseName,
+          className,
+          {
+            courseId: course.id,
+            classId: course.classId,
+            enrollmentDate: new Date().toISOString()
+          }
+        );
+        console.log(`✅ Sent course enrollment notification to student: ${childName}`);
+      } catch (error) {
+        console.error(`❌ Failed to send notification to student ${childName}:`, error);
+      }
+
+      // 2. Send notification to parents
+      try {
+        const parents = await this.getParentsOfStudent(studentId);
+        
+        if (parents.length > 0) {
+          // Send notification to each parent
+          for (const parent of parents) {
+            await this.notificationsService.createChildAddedToCourseNotification(
+              parent.id,
+              childName,
+              courseName,
+              className,
+              {
+                studentId: studentId,
+                courseId: course.id,
+                classId: course.classId,
+                enrollmentDate: new Date().toISOString()
+              }
+            );
+          }
+          
+          console.log(`✅ Sent course enrollment notifications to ${parents.length} parents for student: ${childName}`);
+        } else {
+          console.log(`ℹ️ No parents found for student: ${childName}`);
+        }
+      } catch (error) {
+        console.error(`❌ Failed to send parent notifications for student ${childName}:`, error);
+      }
+    } catch (error) {
+      console.error('❌ Failed to send notifications for course enrollment:', error);
+      // Don't throw error - notification failure shouldn't break the main enrollment operation
+    }
+  }
+
+  /**
+   * Helper method to get parents of a student
+   */
+  private async getParentsOfStudent(studentId: string): Promise<any[]> {
+    try {
+      // Get parent IDs from the parents table where studentId is in the studentIds array
+      const parentData = await this.userRepository.manager.query(`
+        SELECT p.id 
+        FROM parents p
+        WHERE $1 = ANY(p."studentIds")
+      `, [studentId]);
+
+      const parentIds = parentData.map(row => row.id);
+
+      if (parentIds.length === 0) {
+        return [];
+      }
+
+      return await this.userRepository.find({
+        where: { id: In(parentIds) },
+        select: ['id', 'firstName', 'lastName', 'email']
+      });
+    } catch (error) {
+      console.error('Error getting parents of student:', error);
+      return [];
     }
   }
 }

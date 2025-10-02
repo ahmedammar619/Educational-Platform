@@ -237,7 +237,10 @@ export class CoursesService {
   }
 
   async enrollStudentInCourse(courseId: string, studentId: string): Promise<Course> {
-    const course = await this.courseRepository.findOne({ where: { id: courseId } });
+    const course = await this.courseRepository.findOne({ 
+      where: { id: courseId },
+      relations: ['class']
+    });
     if (!course) {
       throw new NotFoundException('Course not found');
     }
@@ -248,7 +251,12 @@ export class CoursesService {
     }
 
     course.students = [...existingStudents, studentId];
-    return this.courseRepository.save(course);
+    const savedCourse = await this.courseRepository.save(course);
+    
+    // Send notifications to student and parents
+    await this.sendCourseEnrollmentNotifications(studentId, course);
+    
+    return savedCourse;
   }
 
   async unenrollStudentFromCourse(courseId: string, studentId: string): Promise<Course> {
@@ -592,5 +600,106 @@ export class CoursesService {
     });
 
     return students;
+  }
+
+  /**
+   * Send notifications to student and parents when student is enrolled in a course
+   */
+  private async sendCourseEnrollmentNotifications(studentId: string, course: any): Promise<void> {
+    try {
+      console.log(`📢 Sending course enrollment notifications for student ${studentId} in course: ${course.name}`);
+      
+      // Get student information
+      const student = await this.userRepository.findOne({
+        where: { id: studentId },
+        select: ['id', 'firstName', 'lastName']
+      });
+
+      if (!student) {
+        console.warn(`Student not found for notification: ${studentId}`);
+        return;
+      }
+
+      const childName = `${student.firstName} ${student.lastName}`;
+      const courseName = course.name;
+      const className = course.class?.name || 'Unknown Class';
+
+      // 1. Send notification to the student
+      try {
+        await this.notificationsService.createStudentAddedToCourseNotification(
+          studentId,
+          courseName,
+          className,
+          {
+            courseId: course.id,
+            classId: course.classId,
+            enrollmentDate: new Date().toISOString()
+          }
+        );
+        console.log(`✅ Sent course enrollment notification to student: ${childName}`);
+      } catch (error) {
+        console.error(`❌ Failed to send notification to student ${childName}:`, error);
+      }
+
+      // 2. Send notification to parents
+      try {
+        const parents = await this.getParentsOfStudent(studentId);
+        
+        if (parents.length > 0) {
+          // Send notification to each parent
+          for (const parent of parents) {
+            await this.notificationsService.createChildAddedToCourseNotification(
+              parent.id,
+              childName,
+              courseName,
+              className,
+              {
+                studentId: studentId,
+                courseId: course.id,
+                classId: course.classId,
+                enrollmentDate: new Date().toISOString()
+              }
+            );
+          }
+          
+          console.log(`✅ Sent course enrollment notifications to ${parents.length} parents for student: ${childName}`);
+        } else {
+          console.log(`ℹ️ No parents found for student: ${childName}`);
+        }
+      } catch (error) {
+        console.error(`❌ Failed to send parent notifications for student ${childName}:`, error);
+      }
+    } catch (error) {
+      console.error('❌ Failed to send notifications for course enrollment:', error);
+      // Don't throw error - notification failure shouldn't break the main enrollment operation
+    }
+  }
+
+  /**
+   * Helper method to get parents of a student
+   */
+  private async getParentsOfStudent(studentId: string): Promise<any[]> {
+    try {
+      // Get parent IDs from the parents table where studentId is in the studentIds array
+      const parentData = await this.userRepository.manager.query(`
+        SELECT p.id 
+        FROM parents p
+        WHERE $1 = ANY(p."studentIds")
+      `, [studentId]);
+
+      const parentIds = parentData.map(row => row.id);
+
+      if (parentIds.length === 0) {
+        return [];
+      }
+
+      return await this.userRepository.find({
+        where: { id: In(parentIds) },
+        select: ['id', 'firstName', 'lastName', 'email']
+      });
+    } catch (error) {
+      console.error('Error getting parents of student:', error);
+      return [];
+    }
   }
 }
