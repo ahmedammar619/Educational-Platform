@@ -1,12 +1,20 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { User, Mail, Phone, Calendar, Shield, Edit, LogOut, ChevronRight } from 'lucide-react';
+import { User, Mail, Phone, Calendar, Shield, Edit, LogOut, ChevronRight, Globe, Clock } from 'lucide-react';
 import { parentsService, studentsService } from '../../services';
+import { useTimezone } from '../../hooks/useTimezone';
 
 const UserProfilePopup = ({ user, isOpen, onClose, onEdit, onLogout }) => {
   const popupRef = useRef(null);
   const [parentData, setParentData] = useState(null);
   const [childrenData, setChildrenData] = useState([]);
   const [loadingRelationships, setLoadingRelationships] = useState(false);
+  const { timezoneInfo, isLoading: timezoneLoading, toLocalTime } = useTimezone();
+  
+  // Add safety checks for timezoneInfo
+  const isTimezoneReady = timezoneInfo && timezoneInfo.isInitialized;
+  const timezoneDisplay = timezoneInfo?.timezone || 'Unknown';
+  const timezoneOffset = timezoneInfo?.offset || 0;
+  
 
   // Close popup when clicking outside
   useEffect(() => {
@@ -197,6 +205,40 @@ const UserProfilePopup = ({ user, isOpen, onClose, onEdit, onLogout }) => {
                 <div className="flex-1 text-start">
                   <p className="text-xs text-gray-500">Birth Date</p>
                   <p className="text-sm text-gray-900">{formatDate(user.birthDate)}</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Timezone Information */}
+          {isTimezoneReady && (
+            <div className="px-4 py-3 border-b border-gray-100">
+              <div className="flex items-center space-x-3">
+                <Globe className={`h-5 w-5 ${colors.icon}`} />
+                <div className="flex-1 text-start">
+                  <p className="text-xs text-gray-500">Your Timezone</p>
+                  <p className="text-sm text-gray-900">{timezoneDisplay}</p>
+                  <p className="text-xs text-gray-600">
+                    UTC{timezoneOffset >= 0 ? '-' : '+'}{Math.abs(timezoneOffset) / 60}:00
+                  </p>
+                </div>
+                <div className="flex items-center gap-1">
+                  <Clock className="h-4 w-4 text-gray-400" />
+                  <span className="text-xs text-gray-500">
+                    {toLocalTime ? toLocalTime(new Date(), 'time') : new Date().toLocaleTimeString()}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {(timezoneLoading || !isTimezoneReady) && (
+            <div className="px-4 py-3 border-b border-gray-100">
+              <div className="flex items-center space-x-3">
+                <Globe className={`h-5 w-5 ${colors.icon} animate-pulse`} />
+                <div className="flex-1 text-start">
+                  <p className="text-xs text-gray-500">Your Timezone</p>
+                  <p className="text-sm text-gray-900">Detecting timezone...</p>
                 </div>
               </div>
             </div>

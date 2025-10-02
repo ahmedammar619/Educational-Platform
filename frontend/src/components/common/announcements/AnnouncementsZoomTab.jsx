@@ -1,13 +1,16 @@
 import { useState, useEffect } from 'react';
 import { announcementsService, zoomService } from '../../../services';
-import { Edit, Trash2, Calendar, User, Users, Play, Square, X } from 'lucide-react';
+import { Edit, Trash2, Calendar, User, Users, Play, Square, X, Clock, Globe } from 'lucide-react';
 import { ConfirmationDialog, AlertDialog } from '../../ui';
+import { TimezoneIndicator } from '../../ui/TimezoneDisplay';
 import useConfirmation from '../../../hooks/useConfirmation';
 import useAlert from '../../../hooks/useAlert';
+import useTimezone from '../../../hooks/useTimezone';
 
 const AnnouncementsZoomTab = ({ currentUser, theme }) => {
   const { confirmationState, showConfirmation, hideConfirmation, handleConfirm } = useConfirmation();
   const { alertState, showAlert, hideAlert } = useAlert();
+  const { timezoneInfo, formatMeetingDateTime, getRelativeTime, isMeetingNow, toLocalTime } = useTimezone();
   const [meetings, setMeetings] = useState([]);
   const [loading, setLoading] = useState(false);
   const [showCreateForm, setShowCreateForm] = useState(false);
@@ -46,13 +49,18 @@ const AnnouncementsZoomTab = ({ currentUser, theme }) => {
     return times;
   };
 
-  // Meeting status calculation
+  // Meeting status calculation with timezone awareness
   const getMeetingStatus = (meeting) => {
     if (!meeting.date || !meeting.time || !meeting.period) return 'scheduled';
     
     // If meeting was manually ended or cancelled, keep it as is
     if (meeting.status === 'ended') return 'ended';
     if (meeting.status === 'cancelled') return 'cancelled';
+    
+    // Use timezone-aware meeting time check
+    if (isMeetingNow(meeting.date, meeting.time, meeting.period)) {
+      return 'live';
+    }
     
     const now = new Date();
     
@@ -376,6 +384,9 @@ const AnnouncementsZoomTab = ({ currentUser, theme }) => {
 
   return (
     <div className="h-[700px] lg:h-[450px] flex flex-col">
+      {/* Timezone Indicator */}
+      <TimezoneIndicator className="mb-4" />
+
       {/* Fixed height container with scroll */}
       <div className="flex-1 overflow-y-auto space-y-6 pr-2">
 
@@ -533,6 +544,14 @@ const AnnouncementsZoomTab = ({ currentUser, theme }) => {
                           day: 'numeric' 
                         })}</p>
                         <p><strong>Time:</strong> {newMeeting.time} {newMeeting.period} (Duration: Until manually ended)</p>
+                        {timezoneInfo.isInitialized && (
+                          <div className="flex items-center gap-1 mt-2 text-blue-700">
+                            <Globe className="w-3 h-3" />
+                            <span className="text-xs">
+                              Your timezone: {timezoneInfo.displayName}
+                            </span>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -672,7 +691,15 @@ const AnnouncementsZoomTab = ({ currentUser, theme }) => {
                     {meeting.date && (
                       <div className="flex items-center gap-2 text-sm text-gray-600">
                         <Calendar className="w-4 h-4 flex-shrink-0 text-gray-400" />
-                        <span className="truncate">{meeting.date} {meeting.time} {meeting.period}</span>
+                        <div className="flex flex-col">
+                          <span className="truncate">{meeting.date} {meeting.time} {meeting.period}</span>
+                          {timezoneInfo.isInitialized && (
+                            <span className="text-xs text-gray-500 flex items-center gap-1">
+                              <Clock className="w-3 h-3" />
+                              {formatMeetingDateTime(meeting.date, meeting.time, meeting.period)}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     )}
                     <div className="flex items-center gap-2 text-sm text-gray-600">

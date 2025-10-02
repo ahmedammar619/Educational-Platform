@@ -8,6 +8,7 @@ import ResetPasswordPage from './pages/auth/ResetPasswordPage';
 import { AppRouter } from './routers';
 import { authService } from './services';
 import { NotificationProvider } from './contexts/NotificationContext';
+import { TimezoneProvider } from './contexts/TimezoneContext';
 import ToastContainer from './components/ui/ToastContainer';
 import { showInfoToast } from './utils/toast.js';
 import './App.css';
@@ -178,9 +179,10 @@ function App() {
   return (
     <HelmetProvider>
       <ErrorBoundary>
-        <NotificationProvider user={user}>
-          <div className="App">
-            <Routes>
+        <TimezoneProvider>
+          <NotificationProvider user={user}>
+            <div className="App">
+              <Routes>
               {/* Email verification route - always accessible */}
               <Route path="/verify-email" element={<EmailVerificationPage />} />
               
@@ -225,10 +227,11 @@ function App() {
                   />
                 )
               } />
-            </Routes>
-            <ToastContainer position="top-right" />
-          </div>
-        </NotificationProvider>
+              </Routes>
+              <ToastContainer position="top-right" />
+            </div>
+          </NotificationProvider>
+        </TimezoneProvider>
       </ErrorBoundary>
     </HelmetProvider>
   );
