@@ -4,9 +4,11 @@ import { materialsService, usersService } from '../../../services';
 import { showErrorToast, showSuccessToast } from '../../../utils/errorHandler';
 import { ConfirmationDialog } from '../../ui';
 import useConfirmation from '../../../hooks/useConfirmation';
+import { useTimezone } from '../../../hooks/useTimezone';
 
 const PostsTab = ({ currentUser, theme, courseId }) => {
   const { confirmationState, showConfirmation, hideConfirmation, handleConfirm } = useConfirmation();
+  const { timezoneInfo, toLocalTime, formatMeetingDateTime } = useTimezone();
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -740,7 +742,12 @@ const PostsTab = ({ currentUser, theme, courseId }) => {
                       )}
                     </span>
                     <span className="text-gray-500 text-sm ml-2">
-                      {new Date(post.createdAt).toLocaleString()}
+                      {toLocalTime ? toLocalTime(new Date(post.createdAt), 'dateTime') : new Date(post.createdAt).toLocaleString()}
+                      {timezoneInfo?.timezone && timezoneInfo.timezone !== 'UTC' && (
+                        <span className="text-xs text-gray-400 ml-1">
+                          ({timezoneInfo.displayName})
+                        </span>
+                      )}
                     </span>
                   </div>
                 </div>
@@ -929,6 +936,17 @@ const PostsTab = ({ currentUser, theme, courseId }) => {
                   rows="6"
                 />
               </div>
+
+              {timezoneInfo?.timezone && timezoneInfo.timezone !== 'UTC' && (
+                <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                  <div className="text-sm text-blue-700">
+                    <strong>Posting from your timezone:</strong> {timezoneInfo.displayName}
+                  </div>
+                  <div className="text-xs text-blue-600 mt-1">
+                    Students will see the post time converted to their local timezone
+                  </div>
+                </div>
+              )}
 
               {/* Attached Files Display */}
               {attachedFiles.length > 0 && (

@@ -19,9 +19,11 @@ import { materialsService } from '../../../services';
 import { showErrorToast, showSuccessToast } from '../../../utils/errorHandler';
 import { ConfirmationDialog } from '../../ui';
 import useConfirmation from '../../../hooks/useConfirmation';
+import { useTimezone } from '../../../hooks/useTimezone';
 
 const AssignmentsTab = ({ currentUser, theme, courseId }) => {
   const { confirmationState, showConfirmation, hideConfirmation, handleConfirm } = useConfirmation();
+  const { timezoneInfo, toLocalTime, formatMeetingDateTime } = useTimezone();
   const [assignments, setAssignments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [creatingAssignment, setCreatingAssignment] = useState(false);

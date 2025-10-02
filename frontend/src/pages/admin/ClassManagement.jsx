@@ -6,10 +6,12 @@ import { showWarningToast } from '../../utils/toast.js';
 import { ConfirmationDialog, AlertDialog } from '../../components/ui';
 import useConfirmation from '../../hooks/useConfirmation';
 import useAlert from '../../hooks/useAlert';
+import { useTimezone } from '../../hooks/useTimezone';
 
 const ClassManagement = ({ user, onOpenMaterials }) => {
   const { confirmationState, showConfirmation, hideConfirmation, handleConfirm } = useConfirmation();
   const { alertState, showAlert, hideAlert } = useAlert();
+  const { timezoneInfo, toLocalTime, formatMeetingDateTime } = useTimezone();
   const [classes, setClasses] = useState([]);
   const [filteredClasses, setFilteredClasses] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -1037,7 +1039,14 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
                                           course.sessionTime.map((session, index) => (
                                             <div key={index} className="flex items-center justify-between bg-white rounded-md px-3 py-2 border border-gray-200">
                                               <span className="text-sm font-medium text-gray-900">{session.day}</span>
-                                              <span className="text-sm text-gray-600">{session.startTime} - {session.endTime}</span>
+                                              <div className="text-right">
+                                                <span className="text-sm text-gray-600">{session.startTime} - {session.endTime}</span>
+                                                {timezoneInfo?.timezone && timezoneInfo.timezone !== 'UTC' && (
+                                                  <div className="text-xs text-gray-500 mt-1">
+                                                    Your timezone: {timezoneInfo.displayName}
+                                                  </div>
+                                                )}
+                                              </div>
                                             </div>
                                           ))
                                         ) : (
@@ -1436,6 +1445,7 @@ const ClassModal = ({ title, classData, onClose, onSubmit, isCreatingClass = fal
 
 // Course Modal Component (using the old class design)
 const CourseModal = ({ title, courseData, isUpdating = false, onClose, onSubmit }) => {
+  const { timezoneInfo, toLocalTime, formatMeetingDateTime } = useTimezone();
   const [formData, setFormData] = useState({
     name: courseData?.name || '',
     teacherId: courseData?.teacherId || '',
@@ -1742,6 +1752,16 @@ const CourseModal = ({ title, courseData, isUpdating = false, onClose, onSubmit 
               ) : (
                 /* Add Session Form */
                 <div className="p-3 sm:p-4 border border-gray-300 rounded-md bg-gray-50">
+                  {timezoneInfo?.timezone && timezoneInfo.timezone !== 'UTC' && (
+                    <div className="mb-3 p-2 bg-blue-50 border border-blue-200 rounded-md">
+                      <div className="text-xs text-blue-700">
+                        <strong>Creating sessions in your timezone:</strong> {timezoneInfo.displayName}
+                      </div>
+                      <div className="text-xs text-blue-600 mt-1">
+                        Students will see these times converted to their local timezone
+                      </div>
+                    </div>
+                  )}
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3 mb-3">
                     <div>
                       <label className="block text-xs font-medium text-gray-700 mb-1">Day</label>

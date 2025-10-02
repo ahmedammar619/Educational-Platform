@@ -10,10 +10,12 @@ import { showErrorToast } from '../../../utils/errorHandler';
 import { AlertDialog, ConfirmationDialog } from '../../ui';
 import useAlert from '../../../hooks/useAlert';
 import useConfirmation from '../../../hooks/useConfirmation';
+import { useTimezone } from '../../../hooks/useTimezone';
 
 const Schedule = ({ user, userRole }) => {
   const { alertState, showAlert, hideAlert } = useAlert();
   const { confirmationState, showConfirmation, hideConfirmation, handleConfirm } = useConfirmation();
+  const { timezoneInfo, toLocalTime, formatMeetingDateTime } = useTimezone();
   
   const [schedule, setSchedule] = useState([]);
   const [courses, setCourses] = useState([]);
@@ -46,8 +48,21 @@ const Schedule = ({ user, userRole }) => {
     let latestHour = 0;
 
     events.forEach(event => {
-      const startTime = new Date(event.start_time);
-      const endTime = new Date(event.end_time);
+      let startTime, endTime;
+      
+      // Use timezone-converted times if available
+      if (toLocalTime && timezoneInfo?.timezone) {
+        try {
+          startTime = new Date(event.start_time);
+          endTime = new Date(event.end_time);
+        } catch (error) {
+          startTime = new Date(event.start_time);
+          endTime = new Date(event.end_time);
+        }
+      } else {
+        startTime = new Date(event.start_time);
+        endTime = new Date(event.end_time);
+      }
       
       const startHour = startTime.getHours();
       const endHour = endTime.getHours();
@@ -547,20 +562,41 @@ const Schedule = ({ user, userRole }) => {
 
   // Convert events to FullCalendar format
   const getFullCalendarEvents = () => {
-    return schedule.map(event => ({
-      id: event.id,
-      title: event.title,
-      start: event.start_time,
-      end: event.end_time,
-      extendedProps: {
-        location: event.location,
-        instructor: event.instructor_name,
-        description: event.description,
-        isRecurring: event.isRecurring,
-        classId: event.classId,
-        childName: event.childName
+    return schedule.map(event => {
+      // Convert times to user's local timezone if available
+      let startTime = event.start_time;
+      let endTime = event.end_time;
+      
+      if (toLocalTime && timezoneInfo?.timezone) {
+        try {
+          // Parse the time and convert to local timezone
+          const startDate = new Date(event.start_time);
+          const endDate = new Date(event.end_time);
+          
+          // Format to ISO string for FullCalendar
+          startTime = toLocalTime(startDate, 'full');
+          endTime = toLocalTime(endDate, 'full');
+        } catch (error) {
+          console.warn('Error converting event times:', error);
+          // Fallback to original times
+        }
       }
-    }));
+      
+      return {
+        id: event.id,
+        title: event.title,
+        start: startTime,
+        end: endTime,
+        extendedProps: {
+          location: event.location,
+          instructor: event.instructor_name,
+          description: event.description,
+          isRecurring: event.isRecurring,
+          classId: event.classId,
+          childName: event.childName
+        }
+      };
+    });
   };
 
   // Filter events by selected child (for parent role)
@@ -587,6 +623,11 @@ const Schedule = ({ user, userRole }) => {
               </span>
             ) : (
               <span>(8 AM - 8 PM)</span>
+            )}
+            {timezoneInfo?.timezone && timezoneInfo.timezone !== 'UTC' && (
+              <span className="text-xs text-blue-600 ml-2">
+                • Times shown in {timezoneInfo.displayName}
+              </span>
             )}
           </p>
         </div>
@@ -762,6 +803,7 @@ const Schedule = ({ user, userRole }) => {
               select={handleDateSelect}
               eventClick={handleEventClick}
               height="auto"
+              timeZone={timezoneInfo?.timezone || 'local'}
               slotMinTime={calculateDynamicTimeRange(filteredSchedule).minTime}
               slotMaxTime={calculateDynamicTimeRange(filteredSchedule).maxTime}
               allDaySlot={false}

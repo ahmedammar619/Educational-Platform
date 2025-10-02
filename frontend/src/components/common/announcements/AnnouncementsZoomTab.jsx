@@ -526,6 +526,17 @@ const AnnouncementsZoomTab = ({ currentUser, theme }) => {
                 </div>
               </div>
 
+              {timezoneInfo?.timezone && timezoneInfo.timezone !== 'UTC' && (
+                <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                  <div className="text-sm text-blue-700">
+                    <strong>Scheduling meeting in your timezone:</strong> {timezoneInfo.displayName}
+                  </div>
+                  <div className="text-xs text-blue-600 mt-1">
+                    Students will see the meeting time converted to their local timezone
+                  </div>
+                </div>
+              )}
+
               {/* Meeting Preview */}
               {newMeeting.title && newMeeting.date && newMeeting.time && (
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
