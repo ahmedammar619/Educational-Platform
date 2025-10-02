@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { MessageSquare, Video, Megaphone } from 'lucide-react';
-import AnnouncementsPostsTab from '../../components/announcements/AnnouncementsPostsTab';
-import AnnouncementsZoomTab from '../../components/announcements/AnnouncementsZoomTab';
+import AnnouncementsPostsTab from '../../components/common/announcements/AnnouncementsPostsTab';
+import AnnouncementsZoomTab from '../../components/common/announcements/AnnouncementsZoomTab';
 
 const AnnouncementsPage = ({ currentUser, theme }) => {
   const [activeTab, setActiveTab] = useState('posts');

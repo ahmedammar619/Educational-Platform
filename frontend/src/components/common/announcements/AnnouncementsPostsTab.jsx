@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
 import { Edit, Trash2, Download, FileText, X, Paperclip, FileImage, FileVideo, File, Archive, FileType, Mail, Phone, User, MessageCircle } from 'lucide-react';
-import { announcementsService, usersService } from '../../services';
-import { showErrorToast, showSuccessToast } from '../../utils/errorHandler';
-import { ConfirmationDialog } from '../ui';
-import useConfirmation from '../../hooks/useConfirmation';
+import { announcementsService, usersService } from '../../../services';
+import { showErrorToast, showSuccessToast } from '../../../utils/errorHandler';
+import { ConfirmationDialog } from '../../ui';
+import useConfirmation from '../../../hooks/useConfirmation';
 
 const AnnouncementsPostsTab = ({ currentUser, theme }) => {
   const { confirmationState, showConfirmation, hideConfirmation, handleConfirm } = useConfirmation();

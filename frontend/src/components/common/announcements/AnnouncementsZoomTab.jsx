@@ -1,10 +1,9 @@
 import { useState, useEffect } from 'react';
-import zoomService from '../../services/zoomService';
-import { announcementsService } from '../../services';
+import { announcementsService, zoomService } from '../../../services';
 import { Edit, Trash2, Calendar, User, Users, Play, Square, X } from 'lucide-react';
-import { ConfirmationDialog, AlertDialog } from '../ui';
-import useConfirmation from '../../hooks/useConfirmation';
-import useAlert from '../../hooks/useAlert';
+import { ConfirmationDialog, AlertDialog } from '../../ui';
+import useConfirmation from '../../../hooks/useConfirmation';
+import useAlert from '../../../hooks/useAlert';
 
 const AnnouncementsZoomTab = ({ currentUser, theme }) => {
   const { confirmationState, showConfirmation, hideConfirmation, handleConfirm } = useConfirmation();

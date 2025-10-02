@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Bell, Check } from 'lucide-react';
-import { useNotifications } from '../../contexts/NotificationContext';
+import { useNotifications } from '../../../contexts/NotificationContext';
 import NotificationItem from './NotificationItem';
 import NotificationStatusIndicator from './NotificationStatusIndicator';
 

@@ -23,7 +23,7 @@ import baraemLogo from '../../assets/baraem.svg';
 import UserProfilePopup from '../ui/UserProfilePopup';
 import { AlertDialog } from '../ui';
 import useAlert from '../../hooks/useAlert';
-import NotificationDropdown from '../notifications/NotificationDropdown';
+import NotificationDropdown from '../common/notifications/NotificationDropdown';
 import { useNotifications } from '../../contexts/NotificationContext';
 
 // Role-based navigation configurations
