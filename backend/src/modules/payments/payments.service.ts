@@ -1029,14 +1029,36 @@ export class PaymentsService {
         }
       });
 
+      // Collect unique product IDs
+      const productIds = new Set<string>();
+      stripeSubscriptions.forEach(stripeSub => {
+        const productId = stripeSub.items.data[0]?.price?.product;
+        if (typeof productId === 'string') {
+          productIds.add(productId);
+        }
+      });
+
+      // Fetch all products in parallel
+      const productMap = new Map<string, string>();
+      await Promise.all(
+        Array.from(productIds).map(async (productId) => {
+          try {
+            const product = await this.stripeService['stripe'].products.retrieve(productId);
+            productMap.set(productId, product.name);
+          } catch (error) {
+            console.warn(`⚠️ Failed to fetch product ${productId}: ${error.message}`);
+          }
+        })
+      );
+
       // Process subscriptions and flag mismatches
       const processedSubscriptions = stripeSubscriptions.map(stripeSub => {
-        const customerId = typeof stripeSub.customer === 'string' 
-          ? stripeSub.customer 
+        const customerId = typeof stripeSub.customer === 'string'
+          ? stripeSub.customer
           : stripeSub.customer?.id;
-        
+
         const matchedUser = customerToUserMap.get(customerId);
-        
+
         // Get student name from metadata or matched user
         let studentName = stripeSub.metadata?.studentName;
         if (!studentName && matchedUser) {
@@ -1048,15 +1070,34 @@ export class PaymentsService {
         const stripeSubAny = stripeSub as any;
         const customerAny = stripeSub.customer as any;
 
+        // Get plan/product information from Stripe
+        const priceData = stripeSub.items.data[0]?.price;
+        const productId = priceData?.product;
+
+        let planName = stripeSub.metadata?.planName || 'Unknown Plan';
+        let planInterval = 'one_time';
+        let planType = 'one_time';
+
+        if (priceData) {
+          const priceAny = priceData as any;
+          planInterval = priceAny.recurring?.interval || 'one_time';
+          planType = priceAny.type || 'one_time';
+
+          // Get product name from our fetched map
+          if (typeof productId === 'string' && productMap.has(productId)) {
+            planName = productMap.get(productId) || planName;
+          }
+        }
+
         return {
           id: stripeSub.id,
           customerId,
           studentName: studentName || 'Unknown Student',
-          parentEmail: typeof stripeSub.customer === 'object' 
-            ? customerAny?.email 
+          parentEmail: typeof stripeSub.customer === 'object'
+            ? customerAny?.email
             : matchedUser?.email || 'Unknown Email',
-          parentName: matchedUser 
-            ? `${matchedUser.firstName} ${matchedUser.lastName}` 
+          parentName: matchedUser
+            ? `${matchedUser.firstName} ${matchedUser.lastName}`
             : 'Unknown Parent',
           status: stripeSub.status,
           amount: stripeSub.items.data[0]?.price?.unit_amount || 0,
@@ -1066,6 +1107,12 @@ export class PaymentsService {
           cancelAt: stripeSubAny.cancel_at ? new Date(stripeSubAny.cancel_at * 1000) : null,
           cancelAtPeriodEnd: stripeSubAny.cancel_at_period_end,
           createdAt: new Date(stripeSub.created * 1000),
+          // Plan information
+          planName,
+          planInterval,
+          planType,
+          priceId: priceData?.id || null,
+          productId: typeof productId === 'string' ? productId : null,
           // Flag for mismatch
           hasDbMismatch: !matchedUser,
           dbMatchedUser: matchedUser,
