@@ -289,6 +289,7 @@ const SubscriptionSelection = ({ user }) => {
                   <span className="text-gray-600">
                     {sub.status === 'canceled' ? 'Available until:' :
                      sub.cancelAtPeriodEnd ? 'Cancels on:' :
+                     sub.plan?.planType === 'one_time' ? 'Valid until:' :
                      'Renews:'}
                   </span>
                   <span className="font-semibold ml-2">
@@ -296,25 +297,51 @@ const SubscriptionSelection = ({ user }) => {
                   </span>
                 </div>
               )}
+              {/* Show duration for one-time plans with end dates */}
+              {sub.plan?.planType === 'one_time' && sub.plan?.endDate && (
+                <div className="col-span-2">
+                  <span className="text-gray-600">Course Duration:</span>
+                  <span className="font-semibold ml-2">
+                    {sub.plan.startDate ? new Date(sub.plan.startDate).toLocaleDateString() : 'TBD'} - {new Date(sub.plan.endDate).toLocaleDateString()}
+                  </span>
+                </div>
+              )}
             </div>
 
-            {/* Only show cancel/reactivate for recurring subscriptions (not one-time payments) */}
-            {sub.plan && sub.plan.planType !== 'one_time' && (
-              <div className="flex flex-col gap-2">
-                {sub.status === 'canceled' ? (
-                  <button
-                    onClick={() => handleReactivateSubscription(sub.id)}
-                    className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-                  >
-                    <RefreshCw className="w-4 h-4" />
-                    Resubscribe
-                  </button>
-                ) : sub.cancelAtPeriodEnd ? (
-                  <div className="px-4 py-2 bg-orange-50 border border-orange-200 rounded-lg text-orange-800 text-sm">
-                    {sub.currentPeriodEnd
-                      ? `⚠️ Subscription will cancel on ${new Date(sub.currentPeriodEnd).toLocaleDateString()}`
-                      : '⚠️ Subscription scheduled for cancellation'}
-                  </div>
+            {(() => {
+              // Check if subscription has ended
+              const hasEnded = sub.currentPeriodEnd && new Date(sub.currentPeriodEnd) < new Date();
+              const isOneTime = sub.plan?.planType === 'one_time';
+
+              // Don't show any actions if subscription has ended or is one-time
+              if (hasEnded || isOneTime) {
+                if (hasEnded) {
+                  return (
+                    <div className="px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-gray-700 text-sm">
+                      ✓ Subscription period completed
+                    </div>
+                  );
+                }
+                return null;
+              }
+
+              // Only show cancel/reactivate for active recurring subscriptions
+              return (
+                <div className="flex flex-col gap-2">
+                  {sub.status === 'canceled' ? (
+                    <button
+                      onClick={() => handleReactivateSubscription(sub.id)}
+                      className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                    >
+                      <RefreshCw className="w-4 h-4" />
+                      Resubscribe
+                    </button>
+                  ) : sub.cancelAtPeriodEnd ? (
+                    <div className="px-4 py-2 bg-orange-50 border border-orange-200 rounded-lg text-orange-800 text-sm">
+                      {sub.currentPeriodEnd
+                        ? `⚠️ Subscription will cancel on ${new Date(sub.currentPeriodEnd).toLocaleDateString()}`
+                        : '⚠️ Subscription scheduled for cancellation'}
+                    </div>
                 ) : (sub.status === 'active' || sub.status === 'trialing') ? (
                   <button
                     onClick={() => handleCancelSubscription(sub.id)}
@@ -325,7 +352,8 @@ const SubscriptionSelection = ({ user }) => {
                   </button>
                 ) : null}
               </div>
-            )}
+            );
+            })()}
           </div>
         ))
         )}
