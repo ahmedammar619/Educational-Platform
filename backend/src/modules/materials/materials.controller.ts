@@ -597,9 +597,10 @@ export class MaterialsController {
   async submitAssignment(
     @Param('assignmentId') assignmentId: string,
     @UploadedFile() file: Express.Multer.File,
+    @Body() body: { studentTimezone?: string },
     @Req() req,
   ): Promise<any> {
-    return await this.materialsService.submitAssignment(assignmentId, file, req.user.sub);
+    return await this.materialsService.submitAssignment(assignmentId, file, req.user.sub, body.studentTimezone);
   }
 
   @Patch('submissions/:submissionId/grade')

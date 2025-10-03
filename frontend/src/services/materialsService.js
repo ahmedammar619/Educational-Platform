@@ -222,6 +222,10 @@ class MaterialsService {
     try {
       const formData = new FormData();
       formData.append('file', file);
+      
+      // Add student's current timezone for deadline validation
+      const studentTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      formData.append('studentTimezone', studentTimezone);
 
       const response = await api.post(`/api/materials/assignments/${assignmentId}/submit`, formData, {
         headers: {
