@@ -11,6 +11,7 @@ const ClassManagement = lazy(() => import('../pages/admin/ClassManagement'));
 const AdminPayments = lazy(() => import('../pages/admin/AdminPayments'));
 const AdminForm = lazy(() => import('../pages/admin/AdminForm'));
 const SubscriptionPlans = lazy(() => import('../pages/admin/SubscriptionPlans'));
+const CourseEnrollment = lazy(() => import('../pages/admin/CourseEnrollment'));
 
 const StudentClasses = lazy(() => import('../pages/student/StudentClasses'));
 const StudentSchedule = lazy(() => import('../pages/student/StudentSchedule'));
@@ -112,6 +113,7 @@ const AppRouter = React.memo(({ user, onLogin, onLogout }) => {
                 { path: "/classes", element: <ClassManagement user={user} onOpenMaterials={handleOpenMaterials} /> },
                 { path: "/payments", element: <AdminPayments user={user} /> },
                 { path: "/subscriptions", element: <SubscriptionPlans user={user} /> },
+                { path: "/enrollment", element: <CourseEnrollment user={user} /> },
                 { path: "/form", element: <AdminForm user={user} /> },
                 { path: "/announcements", element: <AnnouncementsPage currentUser={user} theme={{ primary: 'green', primaryLight: 'green-50' }} /> },
                 { path: "/materials", element: showMaterialPage && materialPageData ? (

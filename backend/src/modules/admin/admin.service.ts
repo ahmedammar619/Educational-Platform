@@ -1,14 +1,19 @@
 import { Injectable, ConflictException, BadRequestException, NotFoundException, Inject, forwardRef } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, In } from 'typeorm';
 import { User } from '../users/entities/user.entity';
 import { AppConfig } from './entities/app-config.entity';
 import { Role } from '../../common/enums/role.enum';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UpdateConfigDto, UpdateGoogleFormUrlDto } from './dto/update-config.dto';
+import { EnrollStudentDto, BulkEnrollDto } from './dto/enroll-student.dto';
 import { ConfigService } from './config.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { StudentSubscription } from '../payments/entities/student-subscription.entity';
+import { SubscriptionPlan } from '../payments/entities/subscription-plan.entity';
+import { Course } from '../courses/entities/course.entity';
+import { Student } from '../students/entities/student.entity';
 import * as bcrypt from 'bcryptjs';
 
 @Injectable()
@@ -18,6 +23,14 @@ export class AdminService {
     private readonly userRepository: Repository<User>,
     @InjectRepository(AppConfig)
     private readonly configRepository: Repository<AppConfig>,
+    @InjectRepository(StudentSubscription)
+    private readonly studentSubscriptionRepository: Repository<StudentSubscription>,
+    @InjectRepository(SubscriptionPlan)
+    private readonly subscriptionPlanRepository: Repository<SubscriptionPlan>,
+    @InjectRepository(Course)
+    private readonly courseRepository: Repository<Course>,
+    @InjectRepository(Student)
+    private readonly studentRepository: Repository<Student>,
     private readonly configService: ConfigService,
     @Inject(forwardRef(() => NotificationsService))
     private readonly notificationsService: NotificationsService,
@@ -313,5 +326,284 @@ export class AdminService {
     return this.configRepository.find({
       order: { key: 'ASC' }
     });
+  }
+
+  // Course Enrollment Management Methods
+  async getPendingEnrollments(planId?: string) {
+    const queryBuilder = this.studentSubscriptionRepository
+      .createQueryBuilder('subscription')
+      .leftJoinAndSelect('subscription.student', 'student')
+      .leftJoinAndSelect('student.user', 'studentUser')
+      .leftJoinAndSelect('subscription.plan', 'plan')
+      .leftJoinAndSelect('subscription.user', 'user')
+      .where('subscription.isPaid = :isPaid', { isPaid: true })
+      .andWhere('subscription.isEnrolled = :isEnrolled', { isEnrolled: false });
+
+    if (planId) {
+      queryBuilder.andWhere('subscription.planId = :planId', { planId });
+    }
+
+    const subscriptions = await queryBuilder
+      .orderBy('subscription.paidAt', 'DESC')
+      .getMany();
+
+    return {
+      pendingEnrollments: subscriptions.map(sub => ({
+        subscriptionId: sub.id,
+        studentId: sub.studentId,
+        studentName: sub.studentName || (sub.student?.user ? `${sub.student.user.firstName} ${sub.student.user.lastName}` : 'N/A'),
+        planId: sub.planId,
+        planName: sub.planName,
+        amount: sub.amount,
+        paidAt: sub.paidAt,
+        enrollmentStatus: sub.enrollmentStatus,
+        parentEmail: sub.user?.email,
+        parentName: `${sub.user?.firstName} ${sub.user?.lastName}`,
+      })),
+      total: subscriptions.length
+    };
+  }
+
+  async getMissingPayments() {
+    // Get subscriptions that are enrolled but not fully paid or have payment issues
+    const subscriptions = await this.studentSubscriptionRepository
+      .createQueryBuilder('subscription')
+      .leftJoinAndSelect('subscription.student', 'student')
+      .leftJoinAndSelect('student.user', 'studentUser')
+      .leftJoinAndSelect('subscription.plan', 'plan')
+      .leftJoinAndSelect('subscription.user', 'user')
+      .where('subscription.isEnrolled = :isEnrolled', { isEnrolled: true })
+      .andWhere('(subscription.isPaid = :isPaid OR subscription.status IN (:...statuses))', {
+        isPaid: false,
+        statuses: ['past_due', 'incomplete', 'unpaid', 'incomplete_expired']
+      })
+      .orderBy('subscription.createdAt', 'DESC')
+      .getMany();
+
+    return {
+      missingPayments: subscriptions.map(sub => ({
+        subscriptionId: sub.id,
+        studentId: sub.studentId,
+        studentName: sub.studentName || (sub.student?.user ? `${sub.student.user.firstName} ${sub.student.user.lastName}` : 'N/A'),
+        planName: sub.planName,
+        amount: sub.amount,
+        status: sub.status,
+        enrolledAt: sub.enrolledAt,
+        parentEmail: sub.user?.email,
+        parentName: `${sub.user?.firstName} ${sub.user?.lastName}`,
+        severity: sub.status === 'past_due' ? 'critical' : sub.status === 'incomplete' ? 'warning' : 'info',
+      })),
+      total: subscriptions.length
+    };
+  }
+
+  async getCourseFinancialSummary(planId?: string, startDate?: string, endDate?: string) {
+    const queryBuilder = this.studentSubscriptionRepository
+      .createQueryBuilder('subscription')
+      .leftJoinAndSelect('subscription.plan', 'plan')
+      .where('subscription.isPaid = :isPaid', { isPaid: true });
+
+    if (planId) {
+      queryBuilder.andWhere('subscription.planId = :planId', { planId });
+    }
+
+    if (startDate) {
+      queryBuilder.andWhere('subscription.paidAt >= :startDate', { startDate: new Date(startDate) });
+    }
+
+    if (endDate) {
+      queryBuilder.andWhere('subscription.paidAt <= :endDate', { endDate: new Date(endDate) });
+    }
+
+    const subscriptions = await queryBuilder.getMany();
+
+    // Group by plan
+    const summaryByPlan = subscriptions.reduce((acc, sub) => {
+      const planId = sub.planId;
+      if (!acc[planId]) {
+        acc[planId] = {
+          planId: sub.planId,
+          planName: sub.planName,
+          totalRevenue: 0,
+          totalStudents: 0,
+          enrolledStudents: 0,
+          pendingEnrollments: 0,
+          fullyPaidStudents: 0,
+        };
+      }
+
+      acc[planId].totalRevenue += Number(sub.amount);
+      acc[planId].totalStudents += 1;
+
+      if (sub.isEnrolled) {
+        acc[planId].enrolledStudents += 1;
+      } else {
+        acc[planId].pendingEnrollments += 1;
+      }
+
+      if (sub.isPaid) {
+        acc[planId].fullyPaidStudents += 1;
+      }
+
+      return acc;
+    }, {} as Record<string, any>);
+
+    return {
+      summary: Object.values(summaryByPlan),
+      totalRevenue: subscriptions.reduce((sum, sub) => sum + Number(sub.amount), 0),
+      totalStudents: subscriptions.length,
+    };
+  }
+
+  async enrollStudent(enrollStudentDto: EnrollStudentDto) {
+    const { subscriptionId, courseId, notes } = enrollStudentDto;
+
+    // Find the subscription
+    const subscription = await this.studentSubscriptionRepository.findOne({
+      where: { id: subscriptionId },
+      relations: ['student', 'plan']
+    });
+
+    if (!subscription) {
+      throw new NotFoundException('Subscription not found');
+    }
+
+    if (!subscription.isPaid) {
+      throw new BadRequestException('Student has not paid for this subscription');
+    }
+
+    if (subscription.isEnrolled) {
+      throw new BadRequestException('Student is already enrolled');
+    }
+
+    // Find the course
+    const course = await this.courseRepository.findOne({
+      where: { id: courseId }
+    });
+
+    if (!course) {
+      throw new NotFoundException('Course not found');
+    }
+
+    // Add student to course students array
+    const studentId = subscription.studentId;
+    if (!course.students.includes(studentId)) {
+      course.students.push(studentId);
+      await this.courseRepository.save(course);
+    }
+
+    // Update subscription enrollment status
+    subscription.isEnrolled = true;
+    subscription.enrolledAt = new Date();
+    subscription.courseId = courseId;
+    subscription.enrollmentStatus = 'enrolled';
+    if (notes) {
+      subscription.notes = notes;
+    }
+
+    await this.studentSubscriptionRepository.save(subscription);
+
+    return {
+      message: 'Student enrolled successfully',
+      subscription: {
+        subscriptionId: subscription.id,
+        studentName: subscription.studentName,
+        planName: subscription.planName,
+        courseName: course.name,
+        enrolledAt: subscription.enrolledAt,
+      }
+    };
+  }
+
+  async bulkEnrollStudents(bulkEnrollDto: BulkEnrollDto) {
+    const { subscriptionIds, courseId, notes } = bulkEnrollDto;
+
+    // Find the course
+    const course = await this.courseRepository.findOne({
+      where: { id: courseId }
+    });
+
+    if (!course) {
+      throw new NotFoundException('Course not found');
+    }
+
+    // Find all subscriptions
+    const subscriptions = await this.studentSubscriptionRepository.find({
+      where: { id: In(subscriptionIds) },
+      relations: ['student', 'plan']
+    });
+
+    if (subscriptions.length !== subscriptionIds.length) {
+      throw new NotFoundException('Some subscriptions were not found');
+    }
+
+    const results = {
+      enrolled: [] as any[],
+      failed: [] as any[],
+    };
+
+    for (const subscription of subscriptions) {
+      try {
+        if (!subscription.isPaid) {
+          results.failed.push({
+            subscriptionId: subscription.id,
+            studentName: subscription.studentName,
+            reason: 'Not paid'
+          });
+          continue;
+        }
+
+        if (subscription.isEnrolled) {
+          results.failed.push({
+            subscriptionId: subscription.id,
+            studentName: subscription.studentName,
+            reason: 'Already enrolled'
+          });
+          continue;
+        }
+
+        // Add student to course
+        const studentId = subscription.studentId;
+        if (!course.students.includes(studentId)) {
+          course.students.push(studentId);
+        }
+
+        // Update subscription
+        subscription.isEnrolled = true;
+        subscription.enrolledAt = new Date();
+        subscription.courseId = courseId;
+        subscription.enrollmentStatus = 'enrolled';
+        if (notes) {
+          subscription.notes = notes;
+        }
+
+        await this.studentSubscriptionRepository.save(subscription);
+
+        results.enrolled.push({
+          subscriptionId: subscription.id,
+          studentName: subscription.studentName,
+          planName: subscription.planName,
+        });
+      } catch (error) {
+        results.failed.push({
+          subscriptionId: subscription.id,
+          studentName: subscription.studentName,
+          reason: error.message
+        });
+      }
+    }
+
+    // Save course with all new students
+    await this.courseRepository.save(course);
+
+    return {
+      message: `Enrolled ${results.enrolled.length} students successfully`,
+      courseName: course.name,
+      enrolled: results.enrolled,
+      failed: results.failed,
+      total: subscriptions.length,
+      successCount: results.enrolled.length,
+      failedCount: results.failed.length,
+    };
   }
 }

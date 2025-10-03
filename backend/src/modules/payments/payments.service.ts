@@ -1089,6 +1089,20 @@ export class PaymentsService {
           }
         }
 
+        // Debug logging for first subscription
+        if (stripeSub.id === stripeSubscriptions[0]?.id) {
+          console.log('🔍 DEBUG - Sample Stripe subscription data:', {
+            id: stripeSub.id,
+            status: stripeSub.status,
+            current_period_start: stripeSubAny.current_period_start,
+            current_period_end: stripeSubAny.current_period_end,
+            trial_end: stripeSubAny.trial_end,
+            cancel_at: stripeSubAny.cancel_at,
+            planInterval: planInterval,
+            planType: planType,
+          });
+        }
+
         return {
           id: stripeSub.id,
           customerId,
@@ -1104,6 +1118,7 @@ export class PaymentsService {
           currency: stripeSub.items.data[0]?.price?.currency || 'usd',
           currentPeriodStart: stripeSubAny.current_period_start ? new Date(stripeSubAny.current_period_start * 1000) : null,
           currentPeriodEnd: stripeSubAny.current_period_end ? new Date(stripeSubAny.current_period_end * 1000) : null,
+          trialEnd: stripeSubAny.trial_end ? new Date(stripeSubAny.trial_end * 1000) : null,
           cancelAt: stripeSubAny.cancel_at ? new Date(stripeSubAny.cancel_at * 1000) : null,
           cancelAtPeriodEnd: stripeSubAny.cancel_at_period_end,
           createdAt: new Date(stripeSub.created * 1000),

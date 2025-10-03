@@ -17,7 +17,8 @@ import {
   X,
   Newspaper,
   Megaphone,
-  Tag
+  Tag,
+  UserPlus
 } from 'lucide-react';
 import baraemLogo from '../../assets/baraem.svg';
 import UserProfilePopup from '../ui/UserProfilePopup';
@@ -35,6 +36,7 @@ const getNavigationConfig = (role) => {
       { id: 'classes', name: 'Class Management', icon: BookOpen, path: '/admin/classes' },
       { id: 'subscriptions', name: 'Subscription Plans', icon: Tag, path: '/admin/subscriptions' },
       { id: 'payments', name: 'Payments & Activity', icon: CreditCard, path: '/admin/payments' },
+      { id: 'enrollment', name: 'Course Enrollment', icon: UserPlus, path: '/admin/enrollment' },
       { id: 'form', name: 'Form', icon: Newspaper, path: '/admin/form' },
     ],
     teacher: [

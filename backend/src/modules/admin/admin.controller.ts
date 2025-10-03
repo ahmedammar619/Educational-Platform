@@ -25,6 +25,7 @@ import { AdminService } from './admin.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UpdateConfigDto, UpdateGoogleFormUrlDto } from './dto/update-config.dto';
+import { EnrollStudentDto, BulkEnrollDto } from './dto/enroll-student.dto';
 import { Role } from '../../common/enums/role.enum';
 
 @ApiTags('Admin')
@@ -156,5 +157,66 @@ export class AdminController {
   })
   async setConfig(@Body() updateConfigDto: UpdateConfigDto) {
     return this.adminService.setConfig(updateConfigDto);
+  }
+
+  // Course Enrollment Management Endpoints
+  @Get('course-enrollment/pending')
+  @ApiOperation({ summary: 'Get students who paid but are not enrolled' })
+  @ApiQuery({ name: 'planId', required: false, description: 'Filter by subscription plan ID' })
+  @ApiResponse({
+    status: 200,
+    description: 'Pending enrollments retrieved successfully',
+  })
+  async getPendingEnrollments(@Query('planId') planId?: string) {
+    return this.adminService.getPendingEnrollments(planId);
+  }
+
+  @Get('course-enrollment/missing-payments')
+  @ApiOperation({ summary: 'Get students with missing or overdue payments' })
+  @ApiResponse({
+    status: 200,
+    description: 'Missing payments retrieved successfully',
+  })
+  async getMissingPayments() {
+    return this.adminService.getMissingPayments();
+  }
+
+  @Get('course-enrollment/summary')
+  @ApiOperation({ summary: 'Get financial summary for courses' })
+  @ApiQuery({ name: 'planId', required: false, description: 'Filter by subscription plan ID' })
+  @ApiQuery({ name: 'startDate', required: false, description: 'Start date for filtering' })
+  @ApiQuery({ name: 'endDate', required: false, description: 'End date for filtering' })
+  @ApiResponse({
+    status: 200,
+    description: 'Course financial summary retrieved successfully',
+  })
+  async getCourseFinancialSummary(
+    @Query('planId') planId?: string,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+  ) {
+    return this.adminService.getCourseFinancialSummary(planId, startDate, endDate);
+  }
+
+  @Post('course-enrollment/enroll')
+  @ApiOperation({ summary: 'Enroll a student to a course' })
+  @ApiBody({ type: EnrollStudentDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Student enrolled successfully',
+  })
+  async enrollStudent(@Body() enrollStudentDto: EnrollStudentDto) {
+    return this.adminService.enrollStudent(enrollStudentDto);
+  }
+
+  @Post('course-enrollment/bulk-enroll')
+  @ApiOperation({ summary: 'Bulk enroll multiple students to a course' })
+  @ApiBody({ type: BulkEnrollDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Students enrolled successfully',
+  })
+  async bulkEnrollStudents(@Body() bulkEnrollDto: BulkEnrollDto) {
+    return this.adminService.bulkEnrollStudents(bulkEnrollDto);
   }
 }

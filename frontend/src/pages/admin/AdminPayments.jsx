@@ -479,6 +479,15 @@ Webhook Event Details:
                       Amount
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Next Payment Due
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Period End
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Payment Status
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Period
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -584,6 +593,68 @@ Webhook Event Details:
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                   {formatCurrency(subscription.amount, subscription.currency)}
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                  {subscription.currentPeriodEnd && subscription.status === 'active' ? (
+                                    <div className="flex items-center">
+                                      <Calendar className="h-4 w-4 text-blue-500 mr-2" />
+                                      <div className="flex flex-col">
+                                        <span className="font-medium">{new Date(subscription.currentPeriodEnd).toLocaleDateString()}</span>
+                                        <span className="text-xs text-gray-400">{new Date(subscription.currentPeriodEnd).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                      </div>
+                                    </div>
+                                  ) : subscription.trialEnd && subscription.status === 'trialing' ? (
+                                    <div className="flex items-center">
+                                      <Calendar className="h-4 w-4 text-orange-500 mr-2" />
+                                      <div className="flex flex-col">
+                                        <span className="font-medium">{new Date(subscription.trialEnd).toLocaleDateString()}</span>
+                                        <span className="text-xs text-gray-400">Trial ends</span>
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <span className="text-gray-400">N/A</span>
+                                  )}
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                  {subscription.currentPeriodEnd ? (
+                                    <div className="flex items-center">
+                                      <Clock className="h-4 w-4 text-gray-400 mr-2" />
+                                      <div className="flex flex-col">
+                                        <span className="font-medium">{new Date(subscription.currentPeriodEnd).toLocaleDateString()}</span>
+                                        <span className="text-xs text-gray-400">{new Date(subscription.currentPeriodEnd).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <span className="text-gray-400">N/A</span>
+                                  )}
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap">
+                                  {subscription.status === 'active' || subscription.status === 'trialing' ? (
+                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                      <CheckCircle className="w-3 h-3 mr-1" />
+                                      Fully Paid
+                                    </span>
+                                  ) : subscription.status === 'past_due' ? (
+                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
+                                      <AlertCircle className="w-3 h-3 mr-1" />
+                                      Payment Overdue
+                                    </span>
+                                  ) : subscription.status === 'incomplete' || subscription.status === 'incomplete_expired' ? (
+                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                                      <XCircle className="w-3 h-3 mr-1" />
+                                      Payment Incomplete
+                                    </span>
+                                  ) : subscription.status === 'canceled' ? (
+                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                                      <XCircle className="w-3 h-3 mr-1" />
+                                      Canceled
+                                    </span>
+                                  ) : (
+                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                                      <Clock className="w-3 h-3 mr-1" />
+                                      Pending
+                                    </span>
+                                  )}
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                   {subscription.currentPeriodStart && subscription.currentPeriodEnd ? (

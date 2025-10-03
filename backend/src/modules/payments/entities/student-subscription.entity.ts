@@ -3,6 +3,7 @@ import { User } from '../../users/entities/user.entity';
 import { Student } from '../../students/entities/student.entity';
 import { SubscriptionPlan } from './subscription-plan.entity';
 import { Payment } from './payment.entity';
+import { Course } from '../../courses/entities/course.entity';
 
 export enum SubscriptionStatus {
   ACTIVE = 'active',
@@ -81,6 +82,19 @@ export class StudentSubscription {
   @Column({ type: 'text', nullable: true })
   notes: string;
 
+  // Course enrollment tracking
+  @Column({ name: 'is_enrolled', type: 'boolean', default: false })
+  isEnrolled: boolean;
+
+  @Column({ name: 'enrolled_at', type: 'timestamp', nullable: true })
+  enrolledAt: Date;
+
+  @Column({ name: 'course_id', type: 'uuid', nullable: true })
+  courseId: string;
+
+  @Column({ name: 'enrollment_status', type: 'varchar', length: 50, default: 'pending' })
+  enrollmentStatus: string; // pending, enrolled, completed, dropped
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 
@@ -99,6 +113,10 @@ export class StudentSubscription {
   @ManyToOne(() => SubscriptionPlan)
   @JoinColumn({ name: 'plan_id' })
   plan: SubscriptionPlan;
+
+  @ManyToOne(() => Course, { nullable: true })
+  @JoinColumn({ name: 'course_id' })
+  course: Course;
 
   @OneToMany(() => Payment, payment => payment.studentSubscription)
   payments: Payment[];
