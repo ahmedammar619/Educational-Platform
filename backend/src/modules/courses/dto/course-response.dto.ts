@@ -1,6 +1,20 @@
 import { Expose, Type } from 'class-transformer';
 import { User } from '../../users/entities/user.entity';
 
+export class ClassInfoDto {
+  @Expose()
+  id: string;
+
+  @Expose()
+  name: string;
+
+  @Expose()
+  startDate: Date;
+
+  @Expose()
+  endDate: Date;
+}
+
 export class CourseResponseDto {
   @Expose()
   id: string;
@@ -32,4 +46,8 @@ export class CourseResponseDto {
 
   @Expose()
   creatorTimezone?: string;
+
+  @Expose()
+  @Type(() => ClassInfoDto)
+  classInfo?: ClassInfoDto;
 }

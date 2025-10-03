@@ -187,21 +187,28 @@ export class CoursesService {
   async findCourseById(id: string): Promise<Course> {
     const course = await this.courseRepository.findOne({
       where: { id },
-      relations: ['teacher']
+      relations: ['teacher', 'class']
     });
 
     console.log('Found course by ID:', course);
     console.log('Course sessions:', course?.sessions);
     console.log('Course sessions length:', course?.sessions?.length);
+    console.log('Course class info:', course?.class);
 
     if (!course) {
       throw new NotFoundException('Course not found. It may have been deleted or moved.');
     }
 
-    // Add teacherName to the course
+    // Add teacherName and classInfo to the course
     return {
       ...course,
-      teacherName: course.teacher ? `${course.teacher.firstName} ${course.teacher.lastName}` : null
+      teacherName: course.teacher ? `${course.teacher.firstName} ${course.teacher.lastName}` : null,
+      classInfo: course.class ? {
+        id: course.class.id,
+        name: course.class.name,
+        startDate: course.class.startDate,
+        endDate: course.class.endDate
+      } : null
     } as any;
   }
 

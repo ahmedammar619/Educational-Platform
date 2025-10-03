@@ -1764,14 +1764,6 @@ const CourseModal = ({ title, courseData, isUpdating = false, onClose, onSubmit 
             {/* Sessions Management */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Course Sessions</label>
-              
-              {/* Timezone Info */}
-              <TimezoneFormInfo 
-                action="Creating" 
-                item="sessions" 
-                sessionTimes={formData.sessions}
-                creatorTimezone={timezoneInfo?.timezone}
-              />
 
               {/* Existing Sessions */}
               {formData.sessions.length > 0 && (
@@ -1807,16 +1799,6 @@ const CourseModal = ({ title, courseData, isUpdating = false, onClose, onSubmit 
               ) : (
                 /* Add Session Form */
                 <div className="p-3 sm:p-4 border border-gray-300 rounded-md bg-gray-50">
-                  {timezoneInfo?.timezone && timezoneInfo.timezone !== 'UTC' && (
-                    <div className="mb-3 p-2 bg-blue-50 border border-blue-200 rounded-md">
-                      <div className="text-xs text-blue-700">
-                        <strong>Creating sessions in your timezone:</strong> {timezoneInfo.displayName}
-                      </div>
-                      <div className="text-xs text-blue-600 mt-1">
-                        Students will see these times converted to their local timezone
-                      </div>
-                    </div>
-                  )}
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3 mb-3">
                     <div>
                       <label className="block text-xs font-medium text-gray-700 mb-1">Day</label>

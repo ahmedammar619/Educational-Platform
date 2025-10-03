@@ -406,6 +406,16 @@ export class ParentsService {
             }
 
 
+            // Parse courseIds from comma-separated string to array
+            let courseIds = [];
+            if (student.courseIds) {
+              if (typeof student.courseIds === 'string') {
+                courseIds = (student.courseIds as string).split(',').map(id => id.trim()).filter(id => id.length > 0);
+              } else if (Array.isArray(student.courseIds)) {
+                courseIds = student.courseIds;
+              }
+            }
+
             return {
               id: student.id,
               firstName: student.user.firstName,
@@ -414,9 +424,10 @@ export class ParentsService {
               birthDate: student.birthDate,
               age: age,
               classId: student.classId,
-                             className: classInfo?.name || 'Not specified',
+              className: classInfo?.name || 'Not specified',
               parentId: student.parentId,
               accountType: student.parentId ? 'Linked to Parent Account' : 'Individual Student Account',
+              courseIds: courseIds,
               createdAt: student.user.createdAt,
             };
           } catch (error) {
@@ -427,6 +438,24 @@ export class ParentsService {
               select: ['id', 'firstName', 'lastName', 'email', 'role', 'createdAt']
             });
             
+            // Try to get courseIds from student record
+            let courseIds = [];
+            try {
+              const studentRecord = await this.studentRepository.findOne({
+                where: { id: studentId },
+                select: ['courseIds']
+              });
+              if (studentRecord?.courseIds) {
+                if (typeof studentRecord.courseIds === 'string') {
+                  courseIds = (studentRecord.courseIds as string).split(',').map(id => id.trim()).filter(id => id.length > 0);
+                } else if (Array.isArray(studentRecord.courseIds)) {
+                  courseIds = studentRecord.courseIds;
+                }
+              }
+            } catch (courseError) {
+              console.error(`Failed to fetch courseIds for student ${studentId}:`, courseError);
+            }
+            
             return {
               id: basicStudent?.id,
               firstName: basicStudent?.firstName,
@@ -435,6 +464,7 @@ export class ParentsService {
               age: null,
               className: 'Not specified',
               accountType: 'Unknown',
+              courseIds: courseIds,
               createdAt: basicStudent?.createdAt
             };
           }

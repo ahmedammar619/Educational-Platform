@@ -1,11 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
-import { Calendar, Clock, MapPin, User, Filter, ChevronLeft, ChevronRight, BookOpen, Users, GraduationCap, RefreshCw } from 'lucide-react';
+import { Calendar, Clock, MapPin, User, Filter, ChevronLeft, ChevronRight, BookOpen, Users, GraduationCap } from 'lucide-react';
 import { format, startOfWeek, endOfWeek, eachDayOfInterval, isSameDay, addWeeks, subWeeks, parseISO, addDays, isAfter, isBefore, startOfDay, endOfDay } from 'date-fns';
 import FullCalendar from '@fullcalendar/react';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import interactionPlugin from '@fullcalendar/interaction';
-import { studentsService, teachersService, parentsService } from '../../../services';
+import { studentsService, teachersService, parentsService, coursesService } from '../../../services';
 import { showErrorToast } from '../../../utils/errorHandler';
 import { AlertDialog, ConfirmationDialog } from '../../ui';
 import useAlert from '../../../hooks/useAlert';
@@ -38,6 +38,13 @@ const Schedule = ({ user, userRole }) => {
       config.loadData();
     }
   }, [user, userRole]);
+
+  // Auto-refresh parent schedule when child selection changes
+  useEffect(() => {
+    if (userRole === 'parent' && user) {
+      loadParentSchedule();
+    }
+  }, [selectedChildFilter, userRole, user]);
 
   // Calculate dynamic time range based on actual sessions in the current week
   const calculateDynamicTimeRange = (events) => {
@@ -200,16 +207,37 @@ const Schedule = ({ user, userRole }) => {
     
     try {
       if (!user || !user.id) {
+        console.log('❌ No user or user ID available for parent schedule');
         setSchedule([]);
         setCourses([]);
         setChildrenSummary([]);
         return;
       }
 
+      console.log('🔄 Loading parent schedule for user:', user.id);
       const response = await parentsService.getMyChildrenDetailed(user.id);
+      console.log('👶 Raw parent children response:', response);
+      
       const children = response?.children || response?.data || [];
+      console.log('👶 Processed children array:', children);
+      console.log('👶 Children count:', children.length);
+      
+      // Debug each child's structure
+      children.forEach((child, index) => {
+        console.log(`👶 Child ${index + 1} structure:`, {
+          id: child.id,
+          firstName: child.firstName,
+          lastName: child.lastName,
+          courseIds: child.courseIds,
+          courseIdsType: typeof child.courseIds,
+          courseIdsLength: child.courseIds?.length,
+          allKeys: Object.keys(child),
+          fullChildObject: child
+        });
+      });
 
       if (children.length === 0) {
+        console.log('❌ No children found for parent');
         setSchedule([]);
         setCourses([]);
         setChildrenSummary([]);
@@ -225,31 +253,62 @@ const Schedule = ({ user, userRole }) => {
       setChildrenSummary(childrenSummaryData);
 
       const allCourses = [];
-      children.forEach(child => {
-        if (child.classes && Array.isArray(child.classes)) {
-          child.classes.forEach(classItem => {
-            if (classItem.courses && Array.isArray(classItem.courses)) {
-              classItem.courses.forEach(course => {
+      
+      // Filter children based on selected child (if a specific child is selected)
+      const childrenToProcess = selectedChildFilter 
+        ? children.filter(child => child.id === selectedChildFilter)
+        : children;
+      
+      console.log('👶 Children to process:', childrenToProcess.length, selectedChildFilter ? '(filtered by selection)' : '(all children)');
+      
+      // Process each child and fetch their course data
+      for (const child of childrenToProcess) {
+        console.log('👶 Processing child:', child.firstName, child.lastName, 'with courseIds:', child.courseIds?.length || 0);
+        
+        if (child.courseIds && Array.isArray(child.courseIds) && child.courseIds.length > 0) {
+          // Fetch course data for each courseId
+          for (const courseId of child.courseIds) {
+            try {
+              console.log('📖 Fetching course data for courseId:', courseId);
+              const courseResponse = await coursesService.getCourseById(courseId);
+              console.log('📖 Course data received:', courseResponse);
+              
+              if (courseResponse) {
                 allCourses.push({
-                  ...course,
-                  classInfo: {
-                    id: classItem.id,
-                    name: classItem.name,
-                    startDate: classItem.startDate,
-                    endDate: classItem.endDate
-                  },
+                  ...courseResponse,
                   childInfo: {
                     id: child.id,
                     name: `${child.firstName} ${child.lastName}`
                   }
                 });
-              });
+              }
+            } catch (error) {
+              console.error('❌ Error fetching course data for courseId:', courseId, error);
             }
-          });
+          }
+        } else {
+          console.log('❌ No courseIds found for child:', child.firstName, child.lastName);
         }
-      });
+      }
+
+      console.log('📚 All courses found for parent:', allCourses.length);
+      console.log('📚 Course details:', allCourses.map(c => ({
+        name: c.name,
+        childName: c.childInfo?.name,
+        sessions: c.sessions?.length || 0,
+        classStartDate: c.classInfo?.startDate,
+        classEndDate: c.classInfo?.endDate
+      })));
 
       const courseEvents = convertCoursesToEvents(allCourses);
+      console.log('📅 Generated events for parent:', courseEvents.length);
+      console.log('📅 Event details:', courseEvents.map(e => ({
+        title: e.title,
+        childName: e.childName,
+        start_time: e.start_time,
+        end_time: e.end_time
+      })));
+
       const sortedEvents = courseEvents.sort((a, b) => new Date(a.start_time) - new Date(b.start_time));
 
       setSchedule(sortedEvents);
@@ -617,15 +676,8 @@ const Schedule = ({ user, userRole }) => {
     });
   };
 
-  // Filter events by selected child (for parent role)
-  const getFilteredEvents = () => {
-    if (userRole !== 'parent' || !selectedChildFilter) {
-      return schedule;
-    }
-    return schedule.filter(event => event.childId === selectedChildFilter);
-  };
-
-  const filteredSchedule = getFilteredEvents();
+  // No need for frontend filtering since we filter at data fetching level
+  const filteredSchedule = schedule;
 
   return (
     <div className="space-y-6 h-full">
@@ -655,17 +707,6 @@ const Schedule = ({ user, userRole }) => {
             </div>
           )}
 
-          {/* Refresh Button for Parent Role */}
-          {userRole === 'parent' && (
-            <button
-              onClick={() => loadParentSchedule(true)}
-              disabled={refreshing}
-              className="flex items-center space-x-2 px-3 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md disabled:opacity-50"
-            >
-              <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
-              <span className="text-sm">Refresh</span>
-            </button>
-          )}
 
           <div className="flex items-center space-x-2">
             <button

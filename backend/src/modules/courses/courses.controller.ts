@@ -74,7 +74,7 @@ export class CoursesController {
   }
 
   @Get(':id')
-  @Roles(Role.Admin, Role.Teacher, Role.Student)
+  @Roles(Role.Admin, Role.Teacher, Role.Student, Role.Parent)
   @ApiOperation({ summary: 'Get course by ID with enrolled students (Protected)' })
   @ApiResponse({ status: 200, description: 'Course with enrolled students retrieved successfully' })
   async findCourseById(@Param('id') id: string): Promise<CourseResponseDto> {
