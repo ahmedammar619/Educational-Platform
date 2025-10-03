@@ -247,21 +247,37 @@ export const formatDateTimeForTimezone = (dateTimeString, creatorTimezone, forma
   
   const viewerTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
   
-  if (!creatorTimezone || creatorTimezone === viewerTimezone) {
-    // No conversion needed, format normally
-    const date = new Date(dateTimeString);
-    return formatDateByType(date, format);
-  }
-  
   try {
-    // Convert to viewer's timezone
-    const convertedDateTime = convertDateTime(dateTimeString, creatorTimezone, viewerTimezone);
-    const date = new Date(convertedDateTime);
-    return formatDateByType(date, format);
+    const date = new Date(dateTimeString);
+    
+    // For original time, always use creator's timezone
+    if (format === 'original') {
+      return date.toLocaleString('en-US', {
+        timeZone: creatorTimezone,
+        year: 'numeric',
+        month: 'numeric',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: 'numeric',
+        second: 'numeric',
+        hour12: true
+      });
+    }
+    
+    // For converted time or if no conversion needed
+    return date.toLocaleString('en-US', {
+      timeZone: viewerTimezone,
+      year: 'numeric',
+      month: 'numeric',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: 'numeric',
+      second: 'numeric',
+      hour12: true
+    });
   } catch (error) {
     console.error('Error formatting datetime for timezone:', error);
-    const date = new Date(dateTimeString);
-    return formatDateByType(date, format);
+    return new Date(dateTimeString).toLocaleString();
   }
 };
 

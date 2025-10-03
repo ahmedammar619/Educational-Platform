@@ -66,13 +66,20 @@ export class MaterialsService {
     }
     console.log('Course found:', course.name);
 
+    // Create post with exact UTC time
+    const now = new Date();
     const post = this.postRepository.create({
       ...createPostDto,
       courseId,
       authorId: authorId,
-      creatorTimezone: createPostDto.creatorTimezone || Intl.DateTimeFormat().resolvedOptions().timeZone
+      creatorTimezone: createPostDto.creatorTimezone || Intl.DateTimeFormat().resolvedOptions().timeZone,
+      createdAt: now,
+      updatedAt: now
     });
-    console.log('Post created:', post);
+    console.log('Post created with UTC time:', {
+      createdAt: post.createdAt,
+      timezone: post.creatorTimezone
+    });
 
     try {
       const savedPost = await this.postRepository.save(post);
