@@ -227,20 +227,34 @@ Webhook Event Details:
     });
   };
 
-  // Group subscriptions by parent (using customerId from Stripe)
+  // Group subscriptions first by plan, then by parent
   const groupedSubscriptions = subscriptions.reduce((acc, subscription) => {
+    const planKey = `${subscription.planName || 'Unknown Plan'}_${subscription.planInterval || 'one_time'}`;
     const parentId = subscription.customerId || 'unknown';
-    if (!acc[parentId]) {
-      acc[parentId] = {
-        parent: { 
-          firstName: subscription.parentName?.split(' ')[0] || 'Unknown', 
-          lastName: subscription.parentName?.split(' ').slice(1).join(' ') || 'Parent', 
-          email: subscription.parentEmail || 'No email available' 
+
+    if (!acc[planKey]) {
+      acc[planKey] = {
+        plan: {
+          name: subscription.planName || 'Unknown Plan',
+          interval: subscription.planInterval || 'one_time',
+          type: subscription.planType || 'one_time'
+        },
+        parents: {}
+      };
+    }
+
+    if (!acc[planKey].parents[parentId]) {
+      acc[planKey].parents[parentId] = {
+        parent: {
+          firstName: subscription.parentName?.split(' ')[0] || 'Unknown',
+          lastName: subscription.parentName?.split(' ').slice(1).join(' ') || 'Parent',
+          email: subscription.parentEmail || 'No email available'
         },
         subscriptions: []
       };
     }
-    acc[parentId].subscriptions.push(subscription);
+
+    acc[planKey].parents[parentId].subscriptions.push(subscription);
     return acc;
   }, {});
 
@@ -447,6 +461,9 @@ Webhook Event Details:
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Subscription Plan
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Parent
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -476,111 +493,143 @@ Webhook Event Details:
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {Object.entries(groupedSubscriptions).map(([parentId, parentData]) => (
-                    <React.Fragment key={parentId}>
-                      {parentData.subscriptions.map((subscription, index) => (
-                        <tr key={subscription.id} className="hover:bg-gray-50">
-                          {index === 0 && (
-                            <td rowSpan={parentData.subscriptions.length} className="px-6 py-4 whitespace-nowrap border-r border-gray-200">
-                              <div className="flex items-center">
-                                <User className="h-5 w-5 text-gray-400 mr-3" />
-                                <div>
+                  {Object.entries(groupedSubscriptions).map(([planKey, planData]) => {
+                    const totalPlanRows = Object.values(planData.parents).reduce((sum, parentData) => sum + parentData.subscriptions.length, 0);
+                    let planRowIndex = 0;
+
+                    return (
+                      <React.Fragment key={planKey}>
+                        {Object.entries(planData.parents).map(([parentId, parentData]) => {
+                          const parentRowsStart = planRowIndex;
+
+                          return parentData.subscriptions.map((subscription, index) => {
+                            const isFirstPlanRow = planRowIndex === 0;
+                            const isFirstParentRow = index === 0;
+                            planRowIndex++;
+
+                            return (
+                              <tr key={subscription.id} className="hover:bg-gray-50">
+                                {isFirstPlanRow && (
+                                  <td rowSpan={totalPlanRows} className="px-6 py-4 whitespace-nowrap border-r border-gray-200 bg-purple-50">
+                                    <div className="flex items-center">
+                                      <CreditCard className="h-5 w-5 text-purple-600 mr-3" />
+                                      <div>
+                                        <div className="text-sm font-bold text-purple-900">
+                                          {planData.plan.name}
+                                        </div>
+                                        <div className="text-xs text-purple-600 capitalize">
+                                          {planData.plan.interval === 'month' ? 'Monthly' :
+                                           planData.plan.interval === 'year' ? 'Yearly' :
+                                           planData.plan.interval}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </td>
+                                )}
+                                {isFirstParentRow && (
+                                  <td rowSpan={parentData.subscriptions.length} className="px-6 py-4 whitespace-nowrap border-r border-gray-200">
+                                    <div className="flex items-center">
+                                      <User className="h-5 w-5 text-gray-400 mr-3" />
+                                      <div>
+                                        <div className="text-sm font-medium text-gray-900">
+                                          {parentData.parent.firstName} {parentData.parent.lastName}
+                                        </div>
+                                        <div className="text-sm text-gray-500">
+                                          {parentData.parent.email}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </td>
+                                )}
+                                <td className="px-6 py-4 whitespace-nowrap">
                                   <div className="text-sm font-medium text-gray-900">
-                                    {parentData.parent.firstName} {parentData.parent.lastName}
+                                    {subscription.studentName || 'Unknown Student'}
                                   </div>
                                   <div className="text-sm text-gray-500">
-                                    {parentData.parent.email}
+                                    {subscription.parentEmail || 'Unknown Email'}
                                   </div>
-                                </div>
-                              </div>
-                            </td>
-                          )}
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm font-medium text-gray-900">
-                              {subscription.studentName || 'Unknown Student'}
-                            </div>
-                            <div className="text-sm text-gray-500">
-                              {subscription.parentEmail || 'Unknown Email'}
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            {subscription.hasDbMismatch ? (
-                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
-                                <AlertCircle className="w-3 h-3 mr-1" />
-                                No DB Match
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                <CheckCircle className="w-3 h-3 mr-1" />
-                                Synced
-                              </span>
-                            )}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="flex flex-col space-y-1">
-                              <div className="flex items-center">
-                                {getStatusIcon(subscription.status)}
-                                <span className={`ml-2 inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(subscription.status)}`}>
-                                  {subscription.status}
-                                </span>
-                              </div>
-                              {subscription.cancelAtPeriodEnd && (
-                                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-orange-100 text-orange-800">
-                                  ⚠️ Scheduled for cancellation
-                                </span>
-                              )}
-                              {subscription.cancelAt && (
-                                <span className="text-xs text-gray-500">
-                                  Cancels: {new Date(subscription.cancelAt).toLocaleDateString()}
-                                </span>
-                              )}
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {formatCurrency(subscription.amount, subscription.currency)}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {subscription.currentPeriodStart && subscription.currentPeriodEnd ? (
-                              <div>
-                                <div>{formatDate(subscription.currentPeriodStart)}</div>
-                                <div className="text-xs text-gray-400">to {formatDate(subscription.currentPeriodEnd)}</div>
-                              </div>
-                            ) : (
-                              'N/A'
-                            )}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {formatDate(subscription.createdAt)}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                            <button 
-                              onClick={() => handleViewDetails('subscription', subscription)}
-                              className="flex items-center text-purple-600 hover:text-purple-900"
-                            >
-                              <Eye className="h-4 w-4 mr-1" />
-                              View Details
-                            </button>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                            {subscription.hasDbMismatch ? (
-                              <button 
-                                onClick={() => handleSyncCustomer(subscription.customerId)}
-                                disabled={syncing}
-                                className="flex items-center px-3 py-1 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50 text-xs"
-                              >
-                                <RefreshCw className={`h-3 w-3 mr-1 ${syncing ? 'animate-spin' : ''}`} />
-                                Sync
-                              </button>
-                            ) : (
-                              <span className="text-green-600 text-xs font-medium">
-                                ✓ Synced
-                              </span>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-                    </React.Fragment>
-                  ))}
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap">
+                                  {subscription.hasDbMismatch ? (
+                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                                      <AlertCircle className="w-3 h-3 mr-1" />
+                                      No DB Match
+                                    </span>
+                                  ) : (
+                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                      <CheckCircle className="w-3 h-3 mr-1" />
+                                      Synced
+                                    </span>
+                                  )}
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap">
+                                  <div className="flex flex-col space-y-1">
+                                    <div className="flex items-center">
+                                      {getStatusIcon(subscription.status)}
+                                      <span className={`ml-2 inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(subscription.status)}`}>
+                                        {subscription.status}
+                                      </span>
+                                    </div>
+                                    {subscription.cancelAtPeriodEnd && (
+                                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-orange-100 text-orange-800">
+                                        ⚠️ Scheduled for cancellation
+                                      </span>
+                                    )}
+                                    {subscription.cancelAt && (
+                                      <span className="text-xs text-gray-500">
+                                        Cancels: {new Date(subscription.cancelAt).toLocaleDateString()}
+                                      </span>
+                                    )}
+                                  </div>
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                  {formatCurrency(subscription.amount, subscription.currency)}
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                  {subscription.currentPeriodStart && subscription.currentPeriodEnd ? (
+                                    <div>
+                                      <div>{formatDate(subscription.currentPeriodStart)}</div>
+                                      <div className="text-xs text-gray-400">to {formatDate(subscription.currentPeriodEnd)}</div>
+                                    </div>
+                                  ) : (
+                                    'N/A'
+                                  )}
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                  {formatDate(subscription.createdAt)}
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                  <button
+                                    onClick={() => handleViewDetails('subscription', subscription)}
+                                    className="flex items-center text-purple-600 hover:text-purple-900"
+                                  >
+                                    <Eye className="h-4 w-4 mr-1" />
+                                    View Details
+                                  </button>
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                  {subscription.hasDbMismatch ? (
+                                    <button
+                                      onClick={() => handleSyncCustomer(subscription.customerId)}
+                                      disabled={syncing}
+                                      className="flex items-center px-3 py-1 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50 text-xs"
+                                    >
+                                      <RefreshCw className={`h-3 w-3 mr-1 ${syncing ? 'animate-spin' : ''}`} />
+                                      Sync
+                                    </button>
+                                  ) : (
+                                    <span className="text-green-600 text-xs font-medium">
+                                      ✓ Synced
+                                    </span>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          });
+                        })}
+                      </React.Fragment>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
