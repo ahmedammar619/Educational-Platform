@@ -138,6 +138,7 @@ const Schedule = ({ user, userRole }) => {
       }
 
       const response = await teachersService.getTeacherClasses();
+      
       let classesArray = [];
       
       if (Array.isArray(response)) {
@@ -176,6 +177,7 @@ const Schedule = ({ user, userRole }) => {
       });
 
       const courseEvents = convertCoursesToEvents(allCourses);
+
       const sortedEvents = courseEvents.sort((a, b) => new Date(a.start_time) - new Date(b.start_time));
 
       setSchedule(sortedEvents);
@@ -373,7 +375,11 @@ const Schedule = ({ user, userRole }) => {
     }
 
     scheduleInfo.sessions.forEach(session => {
+      // Start from the class start date, but if the class has already started,
+      // include the current week's session if it falls within the class period
       let firstOccurrence = new Date(classStartDate);
+      
+      // Find the first occurrence of the session day
       while (firstOccurrence.getDay() !== session.day && isBefore(firstOccurrence, classEndDate)) {
         firstOccurrence = addDays(firstOccurrence, 1);
       }
@@ -590,30 +596,13 @@ const Schedule = ({ user, userRole }) => {
   // Convert events to FullCalendar format
   const getFullCalendarEvents = () => {
     return schedule.map(event => {
-      // Convert times to user's local timezone if available
-      let startTime = event.start_time;
-      let endTime = event.end_time;
-      
-      if (toLocalTime && timezoneInfo?.timezone) {
-        try {
-          // Parse the time and convert to local timezone
-          const startDate = new Date(event.start_time);
-          const endDate = new Date(event.end_time);
-          
-          // Format to ISO string for FullCalendar
-          startTime = toLocalTime(startDate, 'full');
-          endTime = toLocalTime(endDate, 'full');
-        } catch (error) {
-          console.warn('Error converting event times:', error);
-          // Fallback to original times
-        }
-      }
-      
-      return {
+      // FullCalendar expects ISO date strings, so we use the original times
+      // The timezone conversion is handled by FullCalendar's timeZone property
+      const fullCalendarEvent = {
         id: event.id,
         title: event.title,
-        start: startTime,
-        end: endTime,
+        start: event.start_time,
+        end: event.end_time,
         extendedProps: {
           location: event.location,
           instructor: event.instructor_name,
@@ -623,6 +612,8 @@ const Schedule = ({ user, userRole }) => {
           childName: event.childName
         }
       };
+      
+      return fullCalendarEvent;
     });
   };
 
@@ -642,21 +633,6 @@ const Schedule = ({ user, userRole }) => {
       <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4">
         <div>
           <h1 className="text-xl md:text-2xl font-bold text-gray-900">{getRoleConfig().title}</h1>
-          <p className="text-sm md:text-base text-gray-600">
-            {getRoleConfig().description}
-            {filteredSchedule.length > 0 ? (
-              <span className="font-medium">
-                ({calculateDynamicTimeRange(filteredSchedule).minTime.slice(0, 5)} - {calculateDynamicTimeRange(filteredSchedule).maxTime.slice(0, 5)})
-              </span>
-            ) : (
-              <span>(8 AM - 8 PM)</span>
-            )}
-            {timezoneInfo?.timezone && timezoneInfo.timezone !== 'UTC' && (
-              <span className="text-xs text-blue-600 ml-2">
-                • Times shown in {timezoneInfo.displayName}
-              </span>
-            )}
-          </p>
         </div>
 
         <div className="flex items-center justify-between gap-3">
@@ -795,7 +771,7 @@ const Schedule = ({ user, userRole }) => {
               .fc-col-header-cell-cushion:hover { text-decoration: none; }
               .fc-timegrid-now-indicator-line { border-color: ${roleColors.primary}; border-width: 2px; }
               .fc-timegrid-now-indicator-arrow { border-color: ${roleColors.primary}; border-width: 5px; }
-              .fc-timegrid-event { margin: 0 !important; border-radius: 6px !important; width: 100% !important; height: 100% !important; box-sizing: border-box !important; background-color: ${roleColors.primaryBg} !important; border-left-color: ${roleColors.primary} !important; }
+              .fc-timegrid-event { margin: 0 !important; border-radius: 6px !important; width: 100% !important; height: 100% !important; box-sizing: border-box !important; background-color: ${roleColors.primaryBg} !important; border-left-color: ${roleColors.primary} !important; border-top-color: ${roleColors.primaryBorder} !important; border-right-color: ${roleColors.primaryBorder} !important; border-bottom-color: ${roleColors.primaryBorder} !important; }
               .fc-timegrid-event:hover { margin: 0 !important; }
               @media (min-width: 768px) {
                 .fc-timegrid-event { font-size: 0.9rem !important; padding: 2px !important; margin: 0 !important; border-radius: 6px !important; min-height: 30px !important; width: 100% !important; height: 100% !important; }
@@ -830,7 +806,6 @@ const Schedule = ({ user, userRole }) => {
               select={handleDateSelect}
               eventClick={handleEventClick}
               height="auto"
-              timeZone={timezoneInfo?.timezone || 'local'}
               slotMinTime={calculateDynamicTimeRange(filteredSchedule).minTime}
               slotMaxTime={calculateDynamicTimeRange(filteredSchedule).maxTime}
               allDaySlot={false}
