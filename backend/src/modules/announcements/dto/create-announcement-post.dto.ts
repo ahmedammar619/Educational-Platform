@@ -11,4 +11,9 @@ export class CreateAnnouncementPostDto {
   @IsString()
   @IsNotEmpty()
   description: string;
+
+  @ApiProperty({ description: 'Timezone where the post was created', example: 'America/Chicago', required: false })
+  @IsString()
+  @IsOptional()
+  creatorTimezone?: string;
 }
