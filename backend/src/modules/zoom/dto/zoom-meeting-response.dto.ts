@@ -105,4 +105,8 @@ export class ZoomMeetingResponseDto {
   @ApiProperty()
   @Expose()
   updatedAt: Date;
+
+  @ApiPropertyOptional()
+  @Expose()
+  creatorTimezone?: string;
 }
