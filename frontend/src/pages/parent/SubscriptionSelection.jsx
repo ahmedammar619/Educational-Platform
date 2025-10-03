@@ -347,8 +347,6 @@ const SubscriptionSelection = ({ user }) => {
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Student</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Plan</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Amount</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Receipt</th>
@@ -361,12 +359,6 @@ const SubscriptionSelection = ({ user }) => {
                     {payment.paidAt
                       ? new Date(payment.paidAt).toLocaleDateString()
                       : new Date(payment.createdAt).toLocaleDateString()}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {payment.studentName || 'N/A'}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {payment.planName || 'N/A'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
                     ${((payment.amountPaid || payment.amount || 0) / 100).toFixed(2)}

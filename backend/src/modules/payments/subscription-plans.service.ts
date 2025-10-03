@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, In } from 'typeorm';
+import { Repository, In, Not } from 'typeorm';
 import { SubscriptionPlan, PlanType, BillingInterval } from './entities/subscription-plan.entity';
 import { StudentSubscription, SubscriptionStatus } from './entities/student-subscription.entity';
 import { Payment, PaymentStatus, PaymentType } from './entities/payment.entity';
@@ -658,92 +658,70 @@ export class SubscriptionPlansService {
   }
 
   async getParentPayments(parentId: string): Promise<any[]> {
-    // Get parent's Stripe customer ID
-    const parent = await this.userRepository.findOne({ where: { id: parentId } });
-
-    if (!parent || !parent.stripe_customer_id) {
-      this.logger.warn(`No Stripe customer ID found for parent ${parentId}`);
-      return [];
-    }
-
-    if (!this.stripeService.isConfigured()) {
-      return [];
-    }
-
-    const stripeCustomerId = parent.stripe_customer_id;
-    this.logger.log(`Fetching Stripe payments for customer ${stripeCustomerId}`);
-
     try {
-      const payments: any[] = [];
+      // Get parent's Stripe customer ID
+      const parent = await this.userRepository.findOne({ where: { id: parentId } });
 
-      // Fetch all charges for this customer
-      const charges = await this.stripeService['stripe'].charges.list({
+      if (!parent?.stripe_customer_id || !this.stripeService.isConfigured()) {
+        this.logger.warn(`No Stripe customer ID for parent ${parentId}`);
+        return [];
+      }
+
+      const stripeCustomerId = parent.stripe_customer_id;
+      this.logger.log(`Fetching payments from Stripe for customer ${stripeCustomerId}`);
+
+      // Fetch ALL charges directly from Stripe (this is the source of truth)
+      const chargesResult = await this.stripeService['stripe'].charges.list({
         customer: stripeCustomerId,
         limit: 100
       });
 
-      this.logger.log(`Found ${charges.data.length} charges from Stripe`);
+      this.logger.log(`Found ${chargesResult.data.length} charges from Stripe`);
 
-      // Get all subscriptions to map student names
-      const subscriptions = await this.studentSubscriptionRepository.find({
-        where: { userId: parentId },
-        relations: ['student', 'student.user', 'plan']
-      });
+      const payments = [];
 
-      for (const chargeData of charges.data) {
-        const charge: any = chargeData;
-        // Find associated subscription from metadata or invoice
+      for (const chargeData of chargesResult.data) {
+        const charge: any = chargeData; // Cast to any for Stripe compatibility
+
+        // Only include successful charges
+        if (charge.status !== 'succeeded') continue;
+
         let studentName = 'Unknown';
         let planName = 'Unknown';
 
         // Try to get metadata from payment intent
-        if (charge.payment_intent) {
+        if (charge.payment_intent && typeof charge.payment_intent === 'string') {
           try {
-            const paymentIntent: any = await this.stripeService['stripe'].paymentIntents.retrieve(charge.payment_intent as string);
+            const paymentIntent = await this.stripeService['stripe'].paymentIntents.retrieve(charge.payment_intent);
             if (paymentIntent.metadata) {
               studentName = paymentIntent.metadata.studentName || studentName;
               planName = paymentIntent.metadata.planName || planName;
             }
-          } catch (error) {
-            this.logger.warn(`Failed to fetch payment intent metadata: ${error.message}`);
+          } catch (err) {
+            // Ignore errors, continue with defaults
           }
         }
 
-        // Try to get from invoice
-        if (charge.invoice) {
+        // If still unknown, try to get from invoice
+        if ((studentName === 'Unknown' || planName === 'Unknown') && charge.invoice) {
           try {
-            const invoice: any = await this.stripeService['stripe'].invoices.retrieve(charge.invoice as string);
+            const invoiceId = typeof charge.invoice === 'string' ? charge.invoice : charge.invoice.id;
+            const invoice = await this.stripeService['stripe'].invoices.retrieve(invoiceId);
 
-            if (invoice.subscription) {
-              const subscription = subscriptions.find(s => s.stripeSubscriptionId === invoice.subscription);
-              if (subscription) {
-                if (subscription.student?.user) {
-                  studentName = `${subscription.student.user.firstName} ${subscription.student.user.lastName}`.trim() || studentName;
-                }
-                planName = subscription.plan?.name || planName;
-              }
-            }
-
-            // Get plan name from invoice line items
-            if (planName === 'Unknown' && invoice.lines?.data?.length > 0) {
-              const lineItem = invoice.lines.data[0];
-              if (lineItem.price?.product && typeof lineItem.price.product === 'string') {
-                try {
-                  const productObj = await this.stripeService['stripe'].products.retrieve(lineItem.price.product);
-                  planName = productObj.name;
-                } catch (err) {
-                  this.logger.warn(`Failed to fetch product: ${err.message}`);
-                }
-              }
-            }
-
-            // Use invoice metadata if available
             if (invoice.metadata) {
               studentName = invoice.metadata.studentName || studentName;
               planName = invoice.metadata.planName || planName;
             }
-          } catch (error) {
-            this.logger.warn(`Failed to fetch invoice metadata: ${error.message}`);
+
+            // Get plan name from invoice line items if still unknown
+            if (planName === 'Unknown' && invoice.lines?.data?.length > 0) {
+              const lineItem = invoice.lines.data[0];
+              if (lineItem.description) {
+                planName = lineItem.description;
+              }
+            }
+          } catch (err) {
+            // Ignore errors
           }
         }
 
@@ -753,84 +731,21 @@ export class SubscriptionPlansService {
           planName,
           amountPaid: charge.amount,
           currency: charge.currency,
-          status: charge.status === 'succeeded' ? 'succeeded' : charge.status === 'failed' ? 'failed' : 'pending',
+          status: 'succeeded',
           paidAt: new Date(charge.created * 1000),
           createdAt: new Date(charge.created * 1000),
-          receiptUrl: charge.receipt_url,
-          stripeChargeId: charge.id
-        });
-      }
-
-      // Also fetch invoices (for subscription payments)
-      const invoices = await this.stripeService['stripe'].invoices.list({
-        customer: stripeCustomerId,
-        limit: 100
-      });
-
-      this.logger.log(`Found ${invoices.data.length} invoices from Stripe`);
-
-      for (const invoiceData of invoices.data) {
-        const invoice: any = invoiceData;
-        // Skip if we already have this charge
-        if (invoice.charge && payments.some(p => p.stripeChargeId === invoice.charge)) {
-          continue;
-        }
-
-        let studentName = 'Unknown';
-        let planName = 'Unknown';
-
-        // Try to find subscription
-        if (invoice.subscription) {
-          const subscription = subscriptions.find(s => s.stripeSubscriptionId === invoice.subscription);
-          if (subscription) {
-            if (subscription.student?.user) {
-              studentName = `${subscription.student.user.firstName} ${subscription.student.user.lastName}`.trim() || studentName;
-            }
-            planName = subscription.plan?.name || planName;
-          }
-        }
-
-        // Get plan name from invoice line items
-        if (planName === 'Unknown' && invoice.lines?.data?.length > 0) {
-          const lineItem = invoice.lines.data[0];
-          if (lineItem.price?.product && typeof lineItem.price.product === 'string') {
-            try {
-              const productObj = await this.stripeService['stripe'].products.retrieve(lineItem.price.product);
-              planName = productObj.name;
-            } catch (err) {
-              this.logger.warn(`Failed to fetch product: ${err.message}`);
-            }
-          }
-        }
-
-        // Use invoice metadata
-        if (invoice.metadata) {
-          studentName = invoice.metadata.studentName || studentName;
-          planName = invoice.metadata.planName || planName;
-        }
-
-        payments.push({
-          id: invoice.id,
-          studentName,
-          planName,
-          amountPaid: invoice.amount_paid,
-          currency: invoice.currency,
-          status: invoice.status === 'paid' ? 'succeeded' : invoice.status === 'open' ? 'pending' : 'failed',
-          paidAt: invoice.status_transitions?.paid_at ? new Date(invoice.status_transitions.paid_at * 1000) : new Date(invoice.created * 1000),
-          createdAt: new Date(invoice.created * 1000),
-          receiptUrl: invoice.hosted_invoice_url,
-          stripeInvoiceId: invoice.id
+          receiptUrl: charge.receipt_url
         });
       }
 
       // Sort by date descending
-      payments.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+      payments.sort((a, b) => b.paidAt.getTime() - a.paidAt.getTime());
 
-      this.logger.log(`Returning ${payments.length} total payments`);
+      this.logger.log(`Returning ${payments.length} payments from Stripe`);
 
       return payments;
     } catch (error) {
-      this.logger.error(`Failed to fetch Stripe payments: ${error.message}`);
+      this.logger.error(`Failed to fetch parent payments: ${error.message}`);
       return [];
     }
   }
