@@ -169,10 +169,9 @@ const SubscriptionPlans = () => {
   const getPlanTypeBadge = (type) => {
     const badges = {
       recurring: 'bg-blue-100 text-blue-800',
-      one_time: 'bg-green-100 text-green-800',
-      add_on: 'bg-purple-100 text-purple-800'
+      one_time: 'bg-green-100 text-green-800'
     };
-    return badges[type] || 'bg-gray-100 text-gray-800';
+    return badges[type] || 'bg-green-100 text-green-800'; // Default to one-time badge
   };
 
   if (loading) {
@@ -254,7 +253,6 @@ const SubscriptionPlans = () => {
             <option value="all">All Types</option>
             <option value="recurring">Recurring</option>
             <option value="one_time">One-Time</option>
-            <option value="add_on">Add-On</option>
           </select>
           <select
             value={filterCategory}
@@ -304,7 +302,7 @@ const SubscriptionPlans = () => {
                     ${(plan.price / 100).toFixed(2)}
                   </span>
                   <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getPlanTypeBadge(plan.planType)}`}>
-                    {plan.planType.replace('_', ' ')}
+                    {plan.planType === 'recurring' ? 'Recurring Payment' : 'One-Time Payment'}
                   </span>
                 </div>
 
@@ -409,7 +407,6 @@ const SubscriptionPlans = () => {
                     >
                       <option value="recurring">Recurring</option>
                       <option value="one_time">One-Time</option>
-                      <option value="add_on">Add-On</option>
                     </select>
                   </div>
 

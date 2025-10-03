@@ -3,7 +3,7 @@ import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateCol
 export enum PlanType {
   RECURRING = 'recurring', // Monthly/yearly subscriptions
   ONE_TIME = 'one_time',   // One-time payments for events/courses
-  ADD_ON = 'add_on'        // Add-on to existing subscriptions
+  ADD_ON = 'add_on'        // DEPRECATED - Will be migrated to ONE_TIME
 }
 
 export enum BillingInterval {

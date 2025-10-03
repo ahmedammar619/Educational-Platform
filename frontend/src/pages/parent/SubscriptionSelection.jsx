@@ -18,7 +18,7 @@ import parentsService from '../../services/parentsService';
 import { showErrorToast, showSuccessToast } from '../../utils/toast';
 
 const SubscriptionSelection = ({ user }) => {
-  const [plans, setPlans] = useState({ basePlans: [], addOns: [], events: [], byCategory: {} });
+  const [plans, setPlans] = useState({ basePlans: [], events: [], byCategory: {} });
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedStudent, setSelectedStudent] = useState('');
@@ -167,7 +167,7 @@ const SubscriptionSelection = ({ user }) => {
             <span className="text-3xl font-bold text-blue-600">
               ${(plan.price / 100).toFixed(2)}
             </span>
-            {plan.billingInterval !== 'one_time' && (
+            {plan.planType === 'recurring' && plan.billingInterval !== 'one_time' && (
               <span className="text-gray-600 ml-2">/{plan.billingInterval}</span>
             )}
           </div>
@@ -201,11 +201,9 @@ const SubscriptionSelection = ({ user }) => {
         <div className="pt-4 border-t">
           <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
             plan.planType === 'recurring' ? 'bg-blue-100 text-blue-800' :
-            plan.planType === 'one_time' ? 'bg-green-100 text-green-800' :
-            'bg-purple-100 text-purple-800'
+            'bg-green-100 text-green-800'
           }`}>
-            {plan.planType === 'recurring' ? 'Recurring' :
-             plan.planType === 'one_time' ? 'One-Time' : 'Add-On'}
+            {plan.planType === 'recurring' ? 'Recurring Payment' : 'One-Time Payment'}
           </span>
         </div>
       </div>
@@ -417,7 +415,7 @@ const SubscriptionSelection = ({ user }) => {
     );
   }
 
-  const allPlans = [...plans.basePlans, ...plans.addOns, ...plans.events];
+  const allPlans = [...plans.basePlans, ...plans.events];
   const totalSelected = selectedPlans.reduce((sum, planId) => {
     const plan = allPlans.find(p => p.id === planId);
     return sum + (plan ? Number(plan.price) : 0);
@@ -505,16 +503,6 @@ const SubscriptionSelection = ({ user }) => {
               <h2 className="text-2xl font-bold text-gray-900 mb-4">Base Plans</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {plans.basePlans.map(renderPlanCard)}
-              </div>
-            </div>
-          )}
-
-          {/* Add-Ons */}
-          {plans.addOns.length > 0 && (
-            <div className="mb-8">
-              <h2 className="text-2xl font-bold text-gray-900 mb-4">Add-Ons</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {plans.addOns.map(renderPlanCard)}
               </div>
             </div>
           )}
