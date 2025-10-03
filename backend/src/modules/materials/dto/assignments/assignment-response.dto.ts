@@ -29,6 +29,9 @@ export class AssignmentResponseDto {
   marks: number;
 
   @Expose()
+  creatorTimezone?: string;
+
+  @Expose()
   createdAt: Date;
 
   @Expose()

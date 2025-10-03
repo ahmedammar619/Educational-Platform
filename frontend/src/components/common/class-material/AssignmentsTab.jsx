@@ -61,7 +61,27 @@ const AssignmentsTab = ({ currentUser, theme, courseId }) => {
   const loadAssignments = async () => {
     try {
       setLoading(true);
+      
+      // Force timezone re-detection
+      const currentTimezone = getCurrentTimezone();
+      console.log('🌍 Current browser timezone:', currentTimezone);
+      
       const assignmentsData = await materialsService.getCourseAssignments(courseId);
+      console.log('📚 Loaded assignments data:', assignmentsData);
+      
+      if (Array.isArray(assignmentsData)) {
+        assignmentsData.forEach(assignment => {
+          console.log('📚 Assignment details:', {
+            id: assignment.id,
+            name: assignment.name,
+            dueDate: assignment.dueDate,
+            dueTime: assignment.dueTime,
+            creatorTimezone: assignment.creatorTimezone,
+            currentViewerTimezone: currentTimezone
+          });
+        });
+      }
+      
       setAssignments(Array.isArray(assignmentsData) ? assignmentsData : []);
     } catch (error) {
       console.error('Error loading assignments:', error);
@@ -106,7 +126,9 @@ const AssignmentsTab = ({ currentUser, theme, courseId }) => {
   // Get current timezone
   const getCurrentTimezone = () => {
     if (typeof window === 'undefined') return 'UTC';
-    return Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const detectedTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    console.log('🌍 Detected timezone:', detectedTimezone);
+    return detectedTimezone;
   };
 
   // Convert assignment due date/time for display (using SessionDisplay pattern)
@@ -118,12 +140,29 @@ const AssignmentsTab = ({ currentUser, theme, courseId }) => {
     const creatorTimezone = assignment.creatorTimezone;
     const viewerTimezone = getCurrentTimezone();
 
+    console.log('🕐 Assignment timezone conversion:', {
+      assignmentId: assignment.id,
+      assignmentName: assignment.name,
+      dueDate: assignment.dueDate,
+      dueTime: assignment.dueTime,
+      creatorTimezone,
+      viewerTimezone,
+      needsConversion: creatorTimezone && viewerTimezone && creatorTimezone !== viewerTimezone
+    });
+
     if (!creatorTimezone || !viewerTimezone || creatorTimezone === viewerTimezone) {
+      console.log('🕐 No conversion needed');
       return { date: assignment.dueDate, time: assignment.dueTime };
     }
 
     try {
       const converted = convertDateAndTime(assignment.dueDate, assignment.dueTime, creatorTimezone, viewerTimezone);
+      
+      console.log('🕐 Conversion completed:', {
+        original: `${assignment.dueDate} ${assignment.dueTime}`,
+        converted: `${converted.date} ${converted.time}`,
+        isConverted: converted.date !== assignment.dueDate || converted.time !== assignment.dueTime
+      });
       
       return {
         date: converted.date,
@@ -468,14 +507,6 @@ const AssignmentsTab = ({ currentUser, theme, courseId }) => {
                             </span>
                           );
                         })()}
-                        {(() => {
-                          const convertedDue = getConvertedDueDateTime(assignment);
-                          return convertedDue.isConverted && (
-                            <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">
-                              Converted
-                            </span>
-                          );
-                        })()}
                       </div>
                     </div>
 
@@ -490,16 +521,9 @@ const AssignmentsTab = ({ currentUser, theme, courseId }) => {
                           {(() => {
                             const convertedDue = getConvertedDueDateTime(assignment);
                             return (
-                              <div>
-                                <span className="font-medium">
-                                  Due: {formatDate(convertedDue.date)} at {convertedDue.time}
-                                </span>
-                                {convertedDue.isConverted && (
-                                  <div className="text-xs text-gray-400 line-through">
-                                    Original: {formatDate(convertedDue.originalDate)} at {convertedDue.originalTime}
-                                  </div>
-                                )}
-                              </div>
+                              <span className="font-medium">
+                                {formatDate(convertedDue.date)} at {convertedDue.time}
+                              </span>
                             );
                           })()}
                         </div>
@@ -904,16 +928,9 @@ const AssignmentsTab = ({ currentUser, theme, courseId }) => {
                   {(() => {
                     const convertedDue = getConvertedDueDateTime(selectedAssignment);
                     return (
-                      <div>
-                        <span className="font-medium">
-                          Due: {formatDate(convertedDue.date)} at {convertedDue.time}
-                        </span>
-                        {convertedDue.isConverted && (
-                          <div className="text-xs text-gray-400 line-through">
-                            Original: {formatDate(convertedDue.originalDate)} at {convertedDue.originalTime}
-                          </div>
-                        )}
-                      </div>
+                      <span className="font-medium">
+                        {formatDate(convertedDue.date)} at {convertedDue.time}
+                      </span>
                     );
                   })()}
                 </div>

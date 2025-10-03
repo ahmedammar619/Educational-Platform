@@ -1097,7 +1097,7 @@ export class MaterialsService {
 
     console.log('🗑️ Deleting assignment:', { assignmentId, assignmentName: assignment.name });
 
-    // Delete associated submission files first
+    // Delete associated submission files and records first
     if (assignment.submissions && assignment.submissions.length > 0) {
       for (const submission of assignment.submissions) {
         if (submission.filePath) {
@@ -1109,9 +1109,13 @@ export class MaterialsService {
           }
         }
       }
+      
+      // Delete all submission records from database
+      await this.assignmentSubmissionRepository.delete({ assignmentId });
+      console.log('✅ Deleted submission records');
     }
 
-    // Delete the assignment (this will cascade delete submissions due to foreign key constraints)
+    // Now delete the assignment (submissions are already deleted)
     await this.assignmentRepository.remove(assignment);
     
     console.log('✅ Assignment deleted successfully');
@@ -2012,6 +2016,24 @@ export class MaterialsService {
   }
 
   /**
+   * Get timezone offset in hours
+   * @param timezone - Timezone identifier
+   * @returns Offset in hours from UTC
+   */
+  private getTimezoneOffset(timezone: string): number {
+    try {
+      const now = new Date();
+      const utcTime = new Date(now.toLocaleString('en-US', { timeZone: 'UTC' }));
+      const localTime = new Date(now.toLocaleString('en-US', { timeZone: timezone }));
+      const offsetMs = localTime.getTime() - utcTime.getTime();
+      return offsetMs / (1000 * 60 * 60); // Convert to hours
+    } catch (error) {
+      console.error('Error getting timezone offset:', error);
+      return 0;
+    }
+  }
+
+  /**
    * Check if an assignment is overdue based on its due date, time, and student's timezone
    * @param assignment - The assignment to check
    * @param studentTimezone - The student's timezone (optional, defaults to UTC)
@@ -2025,43 +2047,52 @@ export class MaterialsService {
       // Get the assignment's due date and time
       const dueDate = assignment.dueDate;
       const dueTime = assignment.dueTime;
+      const creatorTimezone = assignment.creatorTimezone;
       
       if (!dueDate || !dueTime) {
         console.warn('Assignment missing due date or time:', assignment.id);
         return false; // If no deadline is set, allow submission
       }
       
+      // If no student timezone is specified, use creator's timezone or default to UTC
+      const timezone = studentTimezone || creatorTimezone || 'UTC';
+      
       // Create the due datetime string
       const dueDateTimeString = `${dueDate}T${dueTime}`;
       
-      // Use student's timezone or default to UTC
-      const timezone = studentTimezone || 'UTC';
-      
-      // If no student timezone is specified, assume UTC
-      if (!studentTimezone) {
-        console.warn('Student timezone not provided, assuming UTC for assignment:', assignment.id);
-        const dueDateTime = new Date(dueDateTimeString + 'Z'); // Add Z for UTC
-        return now > dueDateTime;
-      }
-      
-      // Create the due datetime in the student's timezone
       // Parse the due date and time, then create a proper datetime
       const [year, month, day] = dueDate.split('-').map(Number);
       const [hours, minutes] = dueTime.split(':').map(Number);
       
-      // Create a date object representing the due datetime in the student's timezone
-      const dueDateTimeInStudentTz = new Date();
-      dueDateTimeInStudentTz.setFullYear(year, month - 1, day);
-      dueDateTimeInStudentTz.setHours(hours, minutes, 0, 0);
+      // Create a date object representing the due datetime in the creator's timezone
+      const dueDateTimeInCreatorTz = new Date();
+      dueDateTimeInCreatorTz.setFullYear(year, month - 1, day);
+      dueDateTimeInCreatorTz.setHours(hours, minutes, 0, 0);
       
-      // Get current time in the student's timezone
-      const nowInStudentTimezone = new Date(now.toLocaleString("en-US", { timeZone: studentTimezone }));
-      const dueInStudentTimezone = new Date(dueDateTimeInStudentTz.toLocaleString("en-US", { timeZone: studentTimezone }));
+      // Convert the due datetime from creator's timezone to student's timezone for comparison
+      let dueInStudentTimezone: Date;
+      let nowInStudentTimezone: Date;
+      
+      if (creatorTimezone && studentTimezone && creatorTimezone !== studentTimezone) {
+        // Convert from creator's timezone to student's timezone
+        const creatorOffset = this.getTimezoneOffset(creatorTimezone);
+        const studentOffset = this.getTimezoneOffset(studentTimezone);
+        const offsetDiff = studentOffset - creatorOffset;
+        
+        // Apply offset difference to get due time in student's timezone
+        dueInStudentTimezone = new Date(dueDateTimeInCreatorTz.getTime() + (offsetDiff * 60 * 60 * 1000));
+        nowInStudentTimezone = new Date(now.toLocaleString("en-US", { timeZone: studentTimezone }));
+      } else {
+        // Same timezone or no conversion needed
+        dueInStudentTimezone = dueDateTimeInCreatorTz;
+        nowInStudentTimezone = new Date(now.toLocaleString("en-US", { timeZone: timezone }));
+      }
       
       console.log('Deadline check:', {
         assignmentId: assignment.id,
         now: now.toISOString(),
         dueDateTime: dueDateTimeString,
+        creatorTimezone,
         studentTimezone,
         nowInStudentTimezone: nowInStudentTimezone.toISOString(),
         dueInStudentTimezone: dueInStudentTimezone.toISOString(),

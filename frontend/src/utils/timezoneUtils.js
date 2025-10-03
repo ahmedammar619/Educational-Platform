@@ -220,14 +220,41 @@ export const convertDateAndTime = (dateString, timeString, fromTimezone, toTimez
   }
 
   try {
-    // Create a datetime string
+    console.log('🕐 Converting date/time:', { dateString, timeString, fromTimezone, toTimezone });
+    
+    // Create a datetime string and parse it as if it's in the creator's timezone
     const dateTimeString = `${dateString}T${timeString}:00`;
-    const convertedDateTime = convertDateTime(dateTimeString, fromTimezone, toTimezone);
-    const convertedDate = new Date(convertedDateTime);
+    
+    // Parse the date components
+    const [year, month, day] = dateString.split('-').map(Number);
+    const [hours, minutes] = timeString.split(':').map(Number);
+    
+    // Create a date object representing the time in the creator's timezone
+    const creatorDateTime = new Date();
+    creatorDateTime.setFullYear(year, month - 1, day);
+    creatorDateTime.setHours(hours, minutes, 0, 0);
+    
+    // Convert to UTC by getting the offset difference
+    const creatorOffset = getTimezoneOffset(fromTimezone);
+    const utcDateTime = new Date(creatorDateTime.getTime() - (creatorOffset * 60 * 60 * 1000));
+    
+    console.log('🕐 UTC equivalent:', utcDateTime.toISOString());
+    
+    // Convert from UTC to the viewer's timezone
+    const viewerOffset = getTimezoneOffset(toTimezone);
+    const viewerDateTime = new Date(utcDateTime.getTime() + (viewerOffset * 60 * 60 * 1000));
+    
+    const convertedDateString = viewerDateTime.toISOString().split('T')[0];
+    const convertedTimeString = viewerDateTime.toTimeString().slice(0, 5);
+    
+    console.log('🕐 Conversion result:', { 
+      original: `${dateString} ${timeString} (${fromTimezone})`,
+      converted: `${convertedDateString} ${convertedTimeString} (${toTimezone})`
+    });
     
     return {
-      date: convertedDate.toISOString().split('T')[0],
-      time: convertedDate.toTimeString().slice(0, 5)
+      date: convertedDateString,
+      time: convertedTimeString
     };
   } catch (error) {
     console.error('Error converting date and time:', error);
