@@ -14,4 +14,8 @@ export class CreatePostDto {
   @IsArray()
   @IsString({ each: true })
   attachmentFileNames?: string[];
+
+  @IsOptional()
+  @IsString()
+  creatorTimezone?: string;
 }

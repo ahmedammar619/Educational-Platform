@@ -2,10 +2,39 @@ import { useState, useEffect } from 'react';
 import { BookOpen, Clock, User, MapPin, Calendar, CheckCircle, Users, Search, Filter, ChevronDown, ChevronRight, ExternalLink } from 'lucide-react';
 import studentsService from '../../services/studentsService';
 import { showErrorToast, showSuccessToast } from '../../utils/toast.js';
+import { convertTimeByOffset } from '../../utils/timezoneUtils';
 
 
 
 const StudentClasses = ({ user, onOpenMaterials }) => {
+  // Get current timezone
+  const getCurrentTimezone = () => {
+    if (typeof window === 'undefined') return 'UTC';
+    return Intl.DateTimeFormat().resolvedOptions().timeZone;
+  };
+
+  // Convert session times for display (SessionDisplay logic)
+  const getConvertedSessions = (sessions, creatorTimezone) => {
+    if (!sessions || sessions.length === 0) return [];
+    
+    const viewerTimezone = getCurrentTimezone();
+    if (!creatorTimezone || !viewerTimezone || creatorTimezone === viewerTimezone) {
+      return sessions;
+    }
+
+    return sessions.map(session => {
+      const convertedStartTime = convertTimeByOffset(session.startTime, creatorTimezone, viewerTimezone);
+      const convertedEndTime = convertTimeByOffset(session.endTime, creatorTimezone, viewerTimezone);
+      
+      return {
+        ...session,
+        convertedStartTime,
+        convertedEndTime,
+        isConverted: convertedStartTime !== session.startTime || convertedEndTime !== session.endTime
+      };
+    });
+  };
+
   const [enrolledClasses, setEnrolledClasses] = useState([]);
   const [filteredClasses, setFilteredClasses] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -354,16 +383,34 @@ const StudentClasses = ({ user, onOpenMaterials }) => {
                                       <p className="text-sm font-medium text-gray-700">Schedule</p>
                                     </div>
                                     <div className="space-y-1">
-                                      {course.sessionTime && course.sessionTime.length > 0 ? (
-                                        course.sessionTime.map((session, index) => (
-                                          <div key={index} className="flex items-center justify-between bg-white rounded-md px-3 py-2 border border-gray-200">
-                                            <span className="text-sm font-medium text-gray-900">{session.day}</span>
-                                            <span className="text-sm text-gray-600">{session.startTime} - {session.endTime}</span>
-                                          </div>
-                                        ))
-                                      ) : (
-                                        <p className="text-sm text-gray-500 italic">No sessions scheduled</p>
-                                      )}
+                                      {(() => {
+                                        const convertedSessions = getConvertedSessions(course.sessionTime || [], course.creatorTimezone);
+                                        return convertedSessions.length > 0 ? (
+                                          convertedSessions.map((session, index) => (
+                                            <div key={index} className="flex items-center justify-between bg-white rounded-md px-3 py-2 border border-gray-200">
+                                              <span className="text-sm font-medium text-gray-900">{session.day}</span>
+                                              <div className="text-right">
+                                                <div className="text-sm text-gray-600">
+                                                  {session.isConverted ? (
+                                                    <div>
+                                                      <div className="font-medium text-blue-700">
+                                                        {session.convertedStartTime} - {session.convertedEndTime}
+                                                      </div>
+                                                      <div className="text-xs text-gray-500 line-through">
+                                                        {session.startTime} - {session.endTime}
+                                                      </div>
+                                                    </div>
+                                                  ) : (
+                                                    <span>{session.startTime} - {session.endTime}</span>
+                                                  )}
+                                                </div>
+                                              </div>
+                                            </div>
+                                          ))
+                                        ) : (
+                                          <p className="text-sm text-gray-500 italic">No sessions scheduled</p>
+                                        );
+                                      })()}
                                     </div>
                                   </div>
 

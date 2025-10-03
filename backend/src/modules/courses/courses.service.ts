@@ -57,7 +57,7 @@ export class CoursesService {
   ) {}
 
   async createCourse(createCourseDto: CreateCourseDto): Promise<Course> {
-    const { teacherId, classId, sessions } = createCourseDto;
+    const { teacherId, classId, sessions, creatorTimezone } = createCourseDto;
 
     // Check if course creation is already in progress for this class
     if (this.courseCreationLock.has(classId)) {
@@ -107,7 +107,8 @@ export class CoursesService {
       name: createCourseDto.name,
       teacherId,
       classId,
-      sessions: sessionData
+      sessions: sessionData,
+      creatorTimezone: creatorTimezone
     });
 
     const savedCourse = await this.courseRepository.save(course);
@@ -337,6 +338,9 @@ export class CoursesService {
     }
     if (updateCourseDto.classId) {
       course.classId = updateCourseDto.classId;
+    }
+    if (updateCourseDto.creatorTimezone) {
+      course.creatorTimezone = updateCourseDto.creatorTimezone;
     }
 
     const savedCourse = await this.courseRepository.save(course);

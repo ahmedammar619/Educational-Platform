@@ -11,6 +11,7 @@ import { AlertDialog, ConfirmationDialog } from '../../ui';
 import useAlert from '../../../hooks/useAlert';
 import useConfirmation from '../../../hooks/useConfirmation';
 import { useTimezone } from '../../../hooks/useTimezone';
+import { convertTimeByOffset } from '../../../utils/timezoneUtils';
 
 const Schedule = ({ user, userRole }) => {
   const { alertState, showAlert, hideAlert } = useAlert();
@@ -419,16 +420,39 @@ const Schedule = ({ user, userRole }) => {
     return events;
   };
 
-  // Parse schedule from course data
+  // Parse schedule from course data with timezone conversion
   const parseScheduleFromCourse = (course) => {
     if (course.sessions && Array.isArray(course.sessions) && course.sessions.length > 0) {
+      const creatorTimezone = course.creatorTimezone;
+      const viewerTimezone = timezoneInfo?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
+      
       const sessions = course.sessions.map(session => {
         if (!session.day || !session.startTime || !session.endTime) {
           return null;
         }
 
-        const startTimeMatch = session.startTime.match(/^(\d{1,2}):(\d{2})$/);
-        const endTimeMatch = session.endTime.match(/^(\d{1,2}):(\d{2})$/);
+        // Convert times if creator timezone is different
+        let startTime = session.startTime;
+        let endTime = session.endTime;
+        let isConverted = false;
+
+        if (creatorTimezone && creatorTimezone !== viewerTimezone) {
+          try {
+            const convertedStartTime = convertTimeByOffset(session.startTime, creatorTimezone, viewerTimezone);
+            const convertedEndTime = convertTimeByOffset(session.endTime, creatorTimezone, viewerTimezone);
+            
+            if (convertedStartTime !== session.startTime || convertedEndTime !== session.endTime) {
+              startTime = convertedStartTime;
+              endTime = convertedEndTime;
+              isConverted = true;
+            }
+          } catch (error) {
+            console.error('Error converting session times:', error);
+          }
+        }
+
+        const startTimeMatch = startTime.match(/^(\d{1,2}):(\d{2})$/);
+        const endTimeMatch = endTime.match(/^(\d{1,2}):(\d{2})$/);
 
         if (!startTimeMatch || !endTimeMatch) {
           return null;
@@ -457,8 +481,11 @@ const Schedule = ({ user, userRole }) => {
           startMinute,
           endHour,
           endMinute,
-          startTime: session.startTime,
-          endTime: session.endTime
+          startTime: startTime,
+          endTime: endTime,
+          originalStartTime: session.startTime,
+          originalEndTime: session.endTime,
+          isConverted: isConverted
         };
       }).filter(session => session !== null);
 

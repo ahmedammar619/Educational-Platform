@@ -29,6 +29,9 @@ export class Post {
   @Column('text')
   description: string;
 
+  @Column({ nullable: true })
+  creatorTimezone: string;
+
   @CreateDateColumn()
   createdAt: Date;
 

@@ -37,4 +37,9 @@ export class CreateZoomMeetingDto {
   @IsUUID()
   @IsOptional()
   courseId?: string;
+
+  @ApiPropertyOptional({ description: 'Timezone where the meeting was created', example: 'America/Chicago' })
+  @IsOptional()
+  @IsString()
+  creatorTimezone?: string;
 }

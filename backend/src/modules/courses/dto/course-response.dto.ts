@@ -29,4 +29,7 @@ export class CourseResponseDto {
   @Expose()
   @Type(() => User)
   enrolledStudents?: User[];
+
+  @Expose()
+  creatorTimezone?: string;
 }

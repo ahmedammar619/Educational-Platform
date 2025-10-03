@@ -20,6 +20,7 @@ import { showErrorToast, showSuccessToast } from '../../../utils/errorHandler';
 import { ConfirmationDialog } from '../../ui';
 import useConfirmation from '../../../hooks/useConfirmation';
 import { useTimezone } from '../../../hooks/useTimezone';
+import { convertDateAndTime, formatDateTimeForTimezone } from '../../../utils/timezoneUtils';
 
 const AssignmentsTab = ({ currentUser, theme, courseId }) => {
   const { confirmationState, showConfirmation, hideConfirmation, handleConfirm } = useConfirmation();
@@ -102,6 +103,41 @@ const AssignmentsTab = ({ currentUser, theme, courseId }) => {
     });
   };
 
+  // Get current timezone
+  const getCurrentTimezone = () => {
+    if (typeof window === 'undefined') return 'UTC';
+    return Intl.DateTimeFormat().resolvedOptions().timeZone;
+  };
+
+  // Convert assignment due date/time for display (using SessionDisplay pattern)
+  const getConvertedDueDateTime = (assignment) => {
+    if (!assignment.dueDate || !assignment.dueTime) {
+      return { date: assignment.dueDate, time: assignment.dueTime };
+    }
+
+    const creatorTimezone = assignment.creatorTimezone;
+    const viewerTimezone = getCurrentTimezone();
+
+    if (!creatorTimezone || !viewerTimezone || creatorTimezone === viewerTimezone) {
+      return { date: assignment.dueDate, time: assignment.dueTime };
+    }
+
+    try {
+      const converted = convertDateAndTime(assignment.dueDate, assignment.dueTime, creatorTimezone, viewerTimezone);
+      
+      return {
+        date: converted.date,
+        time: converted.time,
+        originalDate: assignment.dueDate,
+        originalTime: assignment.dueTime,
+        isConverted: converted.date !== assignment.dueDate || converted.time !== assignment.dueTime
+      };
+    } catch (error) {
+      console.error('Error converting assignment due date/time:', error);
+      return { date: assignment.dueDate, time: assignment.dueTime };
+    }
+  };
+
   const isOverdue = (dueDate, dueTime) => {
     const now = new Date();
     const due = new Date(`${dueDate}T${dueTime}`);
@@ -147,7 +183,8 @@ const AssignmentsTab = ({ currentUser, theme, courseId }) => {
           description: assignmentDescription.trim(),
           dueDate: assignmentDueDate,
           dueTime: assignmentDueTime,
-          maxPoints: parseInt(assignmentMaxPoints)
+          maxPoints: parseInt(assignmentMaxPoints),
+          creatorTimezone: timezoneInfo?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone
         };
 
         await materialsService.createAssignment(courseId, assignmentData);
@@ -194,7 +231,8 @@ const AssignmentsTab = ({ currentUser, theme, courseId }) => {
           description: assignmentDescription.trim(),
           dueDate: assignmentDueDate,
           dueTime: assignmentDueTime,
-          maxPoints: parseInt(assignmentMaxPoints)
+          maxPoints: parseInt(assignmentMaxPoints),
+          creatorTimezone: timezoneInfo?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone
         };
 
         await materialsService.updateAssignment(selectedAssignment.id, assignmentData);
@@ -420,12 +458,25 @@ const AssignmentsTab = ({ currentUser, theme, courseId }) => {
                     {/* Title and Status */}
                     <div className="flex items-center justify-between mb-2">
                       <h3 className="text-lg font-bold text-gray-900">{assignment.name}</h3>
-                      {isOverdue(assignment.dueDate, assignment.dueTime) && (
-                        <span className="px-2 py-1 bg-red-50 text-red-600 text-xs font-medium rounded-full flex items-center gap-1">
-                          <AlertCircle className="h-3 w-3" />
-                          Overdue
-                        </span>
-                      )}
+                      <div className="flex items-center gap-2">
+                        {(() => {
+                          const convertedDue = getConvertedDueDateTime(assignment);
+                          return isOverdue(convertedDue.date, convertedDue.time) && (
+                            <span className="px-2 py-1 bg-red-50 text-red-600 text-xs font-medium rounded-full flex items-center gap-1">
+                              <AlertCircle className="h-3 w-3" />
+                              Overdue
+                            </span>
+                          );
+                        })()}
+                        {(() => {
+                          const convertedDue = getConvertedDueDateTime(assignment);
+                          return convertedDue.isConverted && (
+                            <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">
+                              Converted
+                            </span>
+                          );
+                        })()}
+                      </div>
                     </div>
 
                     {/* Course/Subject */}
@@ -435,7 +486,23 @@ const AssignmentsTab = ({ currentUser, theme, courseId }) => {
                     <div className="space-y-2 text-sm text-gray-500">
                       <div className="flex items-center gap-2">
                         <Calendar className="h-4 w-4 text-gray-400" />
-                        <span>Due: {formatDate(assignment.dueDate)} at {assignment.dueTime}</span>
+                        <div>
+                          {(() => {
+                            const convertedDue = getConvertedDueDateTime(assignment);
+                            return (
+                              <div>
+                                <span className="font-medium">
+                                  Due: {formatDate(convertedDue.date)} at {convertedDue.time}
+                                </span>
+                                {convertedDue.isConverted && (
+                                  <div className="text-xs text-gray-400 line-through">
+                                    Original: {formatDate(convertedDue.originalDate)} at {convertedDue.originalTime}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })()}
+                        </div>
                       </div>
                       <div className="flex items-center gap-2">
                         <Star className="h-4 w-4 text-gray-400" />
@@ -498,8 +565,14 @@ const AssignmentsTab = ({ currentUser, theme, courseId }) => {
                           }
                           setShowSubmitAssignment(true);
                         }}
-                        disabled={isOverdue(assignment.dueDate, assignment.dueTime)}
-                        className={`px-3 py-1 text-sm rounded-lg transition-colors flex items-center gap-1 ${isOverdue(assignment.dueDate, assignment.dueTime)
+                        disabled={(() => {
+                          const convertedDue = getConvertedDueDateTime(assignment);
+                          return isOverdue(convertedDue.date, convertedDue.time);
+                        })()}
+                        className={`px-3 py-1 text-sm rounded-lg transition-colors flex items-center gap-1 ${(() => {
+                          const convertedDue = getConvertedDueDateTime(assignment);
+                          return isOverdue(convertedDue.date, convertedDue.time);
+                        })()
                           ? 'border border-gray-300 bg-gray-50 text-gray-400 cursor-not-allowed'
                           : `border border-${theme.primary}-600 text-${theme.primary}-600 hover:bg-${theme.primaryLight}`
                           }`}
@@ -828,7 +901,21 @@ const AssignmentsTab = ({ currentUser, theme, courseId }) => {
                 <h4 className="font-medium text-gray-900 mb-2">{selectedAssignment.name}</h4>
                 <p className="text-gray-600 text-sm mb-4">{selectedAssignment.description}</p>
                 <div className="text-sm text-gray-500 mb-3">
-                  Due: {formatDate(selectedAssignment.dueDate)} at {selectedAssignment.dueTime}
+                  {(() => {
+                    const convertedDue = getConvertedDueDateTime(selectedAssignment);
+                    return (
+                      <div>
+                        <span className="font-medium">
+                          Due: {formatDate(convertedDue.date)} at {convertedDue.time}
+                        </span>
+                        {convertedDue.isConverted && (
+                          <div className="text-xs text-gray-400 line-through">
+                            Original: {formatDate(convertedDue.originalDate)} at {convertedDue.originalTime}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
 
                 {/* Show current submission info if editing */}

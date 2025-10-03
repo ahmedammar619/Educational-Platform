@@ -5,10 +5,12 @@ import { Edit, Trash2, Calendar, User, Users, Play, Square, X } from 'lucide-rea
 import { ConfirmationDialog, AlertDialog } from '../../ui';
 import useConfirmation from '../../../hooks/useConfirmation';
 import useAlert from '../../../hooks/useAlert';
+import { useTimezone } from '../../../hooks/useTimezone';
 
 const ZoomTab = ({ currentUser, theme, courseId }) => {
   const { confirmationState, showConfirmation, hideConfirmation, handleConfirm } = useConfirmation();
   const { alertState, showAlert, hideAlert } = useAlert();
+  const { timezoneInfo } = useTimezone();
   const [meetings, setMeetings] = useState([]);
   const [loading, setLoading] = useState(false);
   const [showCreateForm, setShowCreateForm] = useState(false);
@@ -151,7 +153,8 @@ const ZoomTab = ({ currentUser, theme, courseId }) => {
         setLoading(true);
         const meetingData = {
           ...newMeeting,
-          courseId: courseId
+          courseId: courseId,
+          creatorTimezone: timezoneInfo?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone
         };
 
         if (editingMeeting) {

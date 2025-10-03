@@ -4,14 +4,44 @@ import { classesService, usersService, coursesService, studentsService } from '.
 import { showErrorToast, showSuccessToast, getErrorMessage } from '../../utils/errorHandler';
 import { showWarningToast } from '../../utils/toast.js';
 import { ConfirmationDialog, AlertDialog } from '../../components/ui';
+import TimezoneFormInfo from '../../components/ui/TimezoneFormInfo';
 import useConfirmation from '../../hooks/useConfirmation';
 import useAlert from '../../hooks/useAlert';
 import { useTimezone } from '../../hooks/useTimezone';
+import { convertTimeByOffset } from '../../utils/timezoneUtils';
 
 const ClassManagement = ({ user, onOpenMaterials }) => {
   const { confirmationState, showConfirmation, hideConfirmation, handleConfirm } = useConfirmation();
   const { alertState, showAlert, hideAlert } = useAlert();
   const { timezoneInfo, toLocalTime, formatMeetingDateTime } = useTimezone();
+
+  // Get current timezone
+  const getCurrentTimezone = () => {
+    if (typeof window === 'undefined') return 'UTC';
+    return Intl.DateTimeFormat().resolvedOptions().timeZone;
+  };
+
+  // Convert session times for display (SessionDisplay logic)
+  const getConvertedSessions = (sessions, creatorTimezone) => {
+    if (!sessions || sessions.length === 0) return [];
+    
+    const viewerTimezone = getCurrentTimezone();
+    if (!creatorTimezone || !viewerTimezone || creatorTimezone === viewerTimezone) {
+      return sessions;
+    }
+
+    return sessions.map(session => {
+      const convertedStartTime = convertTimeByOffset(session.startTime, creatorTimezone, viewerTimezone);
+      const convertedEndTime = convertTimeByOffset(session.endTime, creatorTimezone, viewerTimezone);
+      
+      return {
+        ...session,
+        convertedStartTime,
+        convertedEndTime,
+        isConverted: convertedStartTime !== session.startTime || convertedEndTime !== session.endTime
+      };
+    });
+  };
   const [classes, setClasses] = useState([]);
   const [filteredClasses, setFilteredClasses] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -116,12 +146,15 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
             courses = coursesArray.map(course => {
               console.log('Processing course:', course);
               console.log('Course sessions:', course.sessions);
+              console.log('Course creatorTimezone:', course.creatorTimezone);
               return {
                 ...course,
                 // Sessions are now stored directly in the course as JSON
                 sessionTime: course.sessions || [],
                 // Use teacherName from backend response
-                teacherName: course.teacherName || 'Unknown Teacher'
+                teacherName: course.teacherName || 'Unknown Teacher',
+                // Include creatorTimezone for timezone conversion
+                creatorTimezone: course.creatorTimezone
               };
             });
           } catch (error) {
@@ -275,7 +308,8 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
         name: courseData.name,
         classId: selectedClass.id,
         teacherId: courseData.teacherId,
-        sessions: courseData.sessions || []
+        sessions: courseData.sessions || [],
+        creatorTimezone: timezoneInfo?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone
       };
 
       const createPromise = coursesService.createCourse(coursePayload);
@@ -360,7 +394,8 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
       const updatePromise = coursesService.updateCourse(courseId, {
         name: courseData.name,
         teacherId: courseData.teacherId,
-        sessions: courseData.sessions || []
+        sessions: courseData.sessions || [],
+        creatorTimezone: timezoneInfo?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone
       });
 
       const updatedCourse = await Promise.race([
@@ -1034,24 +1069,36 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
                                         <Calendar className="h-4 w-4 text-gray-500" />
                                         <p className="text-sm font-medium text-gray-700">Schedule</p>
                                       </div>
+                                      
                                       <div className="space-y-1">
-                                        {course.sessionTime && course.sessionTime.length > 0 ? (
-                                          course.sessionTime.map((session, index) => (
-                                            <div key={index} className="flex items-center justify-between bg-white rounded-md px-3 py-2 border border-gray-200">
-                                              <span className="text-sm font-medium text-gray-900">{session.day}</span>
-                                              <div className="text-right">
-                                                <span className="text-sm text-gray-600">{session.startTime} - {session.endTime}</span>
-                                                {timezoneInfo?.timezone && timezoneInfo.timezone !== 'UTC' && (
-                                                  <div className="text-xs text-gray-500 mt-1">
-                                                    Your timezone: {timezoneInfo.displayName}
+                                        {(() => {
+                                          const convertedSessions = getConvertedSessions(course.sessionTime || [], course.creatorTimezone);
+                                          return convertedSessions.length > 0 ? (
+                                            convertedSessions.map((session, index) => (
+                                              <div key={index} className="flex items-center justify-between bg-white rounded-md px-3 py-2 border border-gray-200">
+                                                <span className="text-sm font-medium text-gray-900">{session.day}</span>
+                                                <div className="text-right">
+                                                  <div className="text-sm text-gray-600">
+                                                    {session.isConverted ? (
+                                                      <div>
+                                                        <div className="font-medium text-blue-700">
+                                                          {session.convertedStartTime} - {session.convertedEndTime}
+                                                        </div>
+                                                        <div className="text-xs text-gray-500 line-through">
+                                                          {session.startTime} - {session.endTime}
+                                                        </div>
+                                                      </div>
+                                                    ) : (
+                                                      <span>{session.startTime} - {session.endTime}</span>
+                                                    )}
                                                   </div>
-                                                )}
+                                                </div>
                                               </div>
-                                            </div>
-                                          ))
-                                        ) : (
-                                          <p className="text-sm text-gray-500 italic">No sessions scheduled</p>
-                                        )}
+                                            ))
+                                          ) : (
+                                            <p className="text-sm text-gray-500 italic">No sessions scheduled</p>
+                                          );
+                                        })()}
                                       </div>
                                     </div>
 
@@ -1717,6 +1764,14 @@ const CourseModal = ({ title, courseData, isUpdating = false, onClose, onSubmit 
             {/* Sessions Management */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Course Sessions</label>
+              
+              {/* Timezone Info */}
+              <TimezoneFormInfo 
+                action="Creating" 
+                item="sessions" 
+                sessionTimes={formData.sessions}
+                creatorTimezone={timezoneInfo?.timezone}
+              />
 
               {/* Existing Sessions */}
               {formData.sessions.length > 0 && (

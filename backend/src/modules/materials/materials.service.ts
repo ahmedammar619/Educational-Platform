@@ -69,7 +69,8 @@ export class MaterialsService {
     const post = this.postRepository.create({
       ...createPostDto,
       courseId,
-      authorId: authorId
+      authorId: authorId,
+      creatorTimezone: createPostDto.creatorTimezone || Intl.DateTimeFormat().resolvedOptions().timeZone
     });
     console.log('Post created:', post);
 
@@ -1028,7 +1029,8 @@ export class MaterialsService {
     const assignment = this.assignmentRepository.create({
       ...createAssignmentDto,
       courseId,
-      createdBy: userId
+      createdBy: userId,
+      creatorTimezone: createAssignmentDto.creatorTimezone || Intl.DateTimeFormat().resolvedOptions().timeZone
     });
 
     const savedAssignment = await this.assignmentRepository.save(assignment);

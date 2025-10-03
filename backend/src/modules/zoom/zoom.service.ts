@@ -76,6 +76,7 @@ export class ZoomService {
         zoomStartUrl: zoomMeeting.start_url,
         createdById: userId,
         status: this.calculateMeetingStatus(createZoomMeetingDto),
+        creatorTimezone: createZoomMeetingDto.creatorTimezone || Intl.DateTimeFormat().resolvedOptions().timeZone,
       });
 
       const savedMeeting = await this.zoomMeetingRepository.save(meeting);

@@ -428,7 +428,8 @@ export class StudentsService {
               day: session.day,
               startTime: session.startTime,
               endTime: session.endTime
-            })) || []
+            })) || [],
+            creatorTimezone: course.creatorTimezone
           }))
         };
 
@@ -477,7 +478,8 @@ export class StudentsService {
               day: session.day,
               startTime: session.startTime,
               endTime: session.endTime
-            })) || []
+            })) || [],
+            creatorTimezone: course.creatorTimezone
           }));
           
           // Merge courses, avoiding duplicates
@@ -525,7 +527,8 @@ export class StudentsService {
                 day: session.day,
                 startTime: session.startTime,
                 endTime: session.endTime
-              })) || []
+              })) || [],
+              creatorTimezone: course.creatorTimezone
             }))
           };
 

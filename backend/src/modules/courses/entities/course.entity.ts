@@ -37,6 +37,9 @@ export class Course {
   @Column({ type: 'simple-array', nullable: true, default: '' })
   students: string[];
 
+  @Column({ nullable: true })
+  creatorTimezone: string;
+
   @CreateDateColumn()
   createdAt: Date;
 

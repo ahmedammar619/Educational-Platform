@@ -3,6 +3,7 @@ import { Users, X, Clock, Edit, Video } from 'lucide-react';
 import { materialsService } from '../../../services';
 import zoomService from '../../../services/zoomService';
 import { showErrorToast, showSuccessToast } from '../../../utils/errorHandler';
+import { convertDateAndTime, formatDateTimeForTimezone } from '../../../utils/timezoneUtils';
 
 const AttendanceTab = ({ currentUser, theme, courseId }) => {
   // Attendance state for actual meetings
@@ -87,6 +88,40 @@ const AttendanceTab = ({ currentUser, theme, courseId }) => {
       await materialsService.markAttendance(courseId, attendanceData);
     } catch (error) {
       console.error('Error saving attendance record:', error);
+    }
+  };
+
+  // Get current timezone
+  const getCurrentTimezone = () => {
+    if (typeof window === 'undefined') return 'UTC';
+    return Intl.DateTimeFormat().resolvedOptions().timeZone;
+  };
+
+  // Convert meeting date/time for display (using SessionDisplay pattern)
+  const getConvertedMeetingDateTime = (meeting) => {
+    if (!meeting.date || !meeting.time) {
+      return { date: meeting.date, time: meeting.time };
+    }
+
+    const creatorTimezone = meeting.creatorTimezone;
+    const viewerTimezone = getCurrentTimezone();
+
+    if (!creatorTimezone || !viewerTimezone || creatorTimezone === viewerTimezone) {
+      return { date: meeting.date, time: meeting.time };
+    }
+
+    try {
+      const converted = convertDateAndTime(meeting.date, meeting.time, creatorTimezone, viewerTimezone);
+      return {
+        date: converted.date,
+        time: converted.time,
+        originalDate: meeting.date,
+        originalTime: meeting.time,
+        isConverted: converted.date !== meeting.date || converted.time !== meeting.time
+      };
+    } catch (error) {
+      console.error('Error converting meeting date/time:', error);
+      return { date: meeting.date, time: meeting.time };
     }
   };
 
@@ -374,10 +409,26 @@ const AttendanceTab = ({ currentUser, theme, courseId }) => {
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                             <div className="flex items-center justify-center gap-2">
                               <div>
-                                <div>{record.date ? new Date(record.date).toLocaleDateString() : 'N/A'}</div>
-                                {record.time && record.period && (
-                                  <div className="text-xs text-gray-500">{record.time} {record.period}</div>
-                                )}
+                                {(() => {
+                                  const convertedDateTime = getConvertedMeetingDateTime(record);
+                                  return (
+                                    <div>
+                                      <div className={convertedDateTime.isConverted ? 'font-medium text-blue-700' : ''}>
+                                        {convertedDateTime.date ? new Date(convertedDateTime.date).toLocaleDateString() : 'N/A'}
+                                      </div>
+                                      {convertedDateTime.time && record.period && (
+                                        <div className={`text-xs ${convertedDateTime.isConverted ? 'text-blue-600' : 'text-gray-500'}`}>
+                                          {convertedDateTime.time} {record.period}
+                                        </div>
+                                      )}
+                                      {convertedDateTime.isConverted && (
+                                        <div className="text-xs text-gray-400 line-through">
+                                          {convertedDateTime.originalDate ? new Date(convertedDateTime.originalDate).toLocaleDateString() : 'N/A'} {convertedDateTime.originalTime} {record.period}
+                                        </div>
+                                      )}
+                                    </div>
+                                  );
+                                })()}
                               </div>
                             </div>
                           </td>

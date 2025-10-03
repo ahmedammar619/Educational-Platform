@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, Length, IsDateString, IsNumber, Min, Matches } from 'class-validator';
+import { IsString, IsNotEmpty, Length, IsDateString, IsNumber, Min, Matches, IsOptional } from 'class-validator';
 
 export class CreateAssignmentDto {
   @IsString()
@@ -20,4 +20,8 @@ export class CreateAssignmentDto {
   @IsNumber()
   @Min(1)
   marks: number;
+
+  @IsOptional()
+  @IsString()
+  creatorTimezone?: string;
 }

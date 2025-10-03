@@ -146,7 +146,8 @@ export class TeachersService {
               teacherId: course.teacherId,
               teacherName: course.teacher ? `${course.teacher.firstName} ${course.teacher.lastName}` : 'Unknown Teacher',
               sessionTime: course.sessions || [],
-              sessions: course.sessions || []
+              sessions: course.sessions || [],
+              creatorTimezone: course.creatorTimezone
             });
           }
         } catch (courseError) {

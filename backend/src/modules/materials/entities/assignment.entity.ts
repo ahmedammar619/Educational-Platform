@@ -37,6 +37,9 @@ export class Assignment {
   @Column('int')
   marks: number;
 
+  @Column({ nullable: true })
+  creatorTimezone: string;
+
   @CreateDateColumn()
   createdAt: Date;
 

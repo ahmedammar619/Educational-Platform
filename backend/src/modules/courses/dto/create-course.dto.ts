@@ -43,4 +43,13 @@ export class CreateCourseDto {
   @IsArray()
   @IsOptional()
   sessions?: any[];
+
+  @ApiProperty({
+    description: 'Timezone where the course was created',
+    example: 'America/Chicago',
+    required: false
+  })
+  @IsString()
+  @IsOptional()
+  creatorTimezone?: string;
 }

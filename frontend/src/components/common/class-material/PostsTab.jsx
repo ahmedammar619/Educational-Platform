@@ -5,6 +5,7 @@ import { showErrorToast, showSuccessToast } from '../../../utils/errorHandler';
 import { ConfirmationDialog } from '../../ui';
 import useConfirmation from '../../../hooks/useConfirmation';
 import { useTimezone } from '../../../hooks/useTimezone';
+import { formatDateTimeForTimezone } from '../../../utils/timezoneUtils';
 
 const PostsTab = ({ currentUser, theme, courseId }) => {
   const { confirmationState, showConfirmation, hideConfirmation, handleConfirm } = useConfirmation();
@@ -176,6 +177,7 @@ const PostsTab = ({ currentUser, theme, courseId }) => {
         const postData = {
           subject: postSubject,
           description: postMessage,
+          creatorTimezone: timezoneInfo?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone
         };
 
         // If there are attached files, send the first one (for now, we'll support single file upload)
@@ -742,12 +744,50 @@ const PostsTab = ({ currentUser, theme, courseId }) => {
                       )}
                     </span>
                     <span className="text-gray-500 text-sm ml-2">
-                      {toLocalTime ? toLocalTime(new Date(post.createdAt), 'dateTime') : new Date(post.createdAt).toLocaleString()}
-                      {timezoneInfo?.timezone && timezoneInfo.timezone !== 'UTC' && (
-                        <span className="text-xs text-gray-400 ml-1">
-                          ({timezoneInfo.displayName})
-                        </span>
-                      )}
+                      {(() => {
+                        const creatorTimezone = post.creatorTimezone;
+                        const viewerTimezone = timezoneInfo?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
+                        const needsConversion = creatorTimezone && creatorTimezone !== viewerTimezone;
+                        
+                        let displayDateTime = '';
+                        let originalDateTime = '';
+                        
+                        if (needsConversion) {
+                          try {
+                            const convertedDateTime = formatDateTimeForTimezone(post.createdAt, creatorTimezone, 'dateTime');
+                            displayDateTime = convertedDateTime;
+                            originalDateTime = new Date(post.createdAt).toLocaleString();
+                          } catch (error) {
+                            console.error('Error converting post datetime:', error);
+                            displayDateTime = new Date(post.createdAt).toLocaleString();
+                          }
+                        } else {
+                          displayDateTime = new Date(post.createdAt).toLocaleString();
+                        }
+                        
+                        return (
+                          <div>
+                            <div className={needsConversion ? 'font-medium text-blue-700' : ''}>
+                              {displayDateTime}
+                              {needsConversion && (
+                                <span className="text-xs text-blue-600 ml-1">
+                                  (converted)
+                                </span>
+                              )}
+                            </div>
+                            {needsConversion && originalDateTime !== displayDateTime && (
+                              <div className="text-xs text-gray-400 line-through">
+                                Original: {originalDateTime}
+                              </div>
+                            )}
+                            {timezoneInfo?.timezone && timezoneInfo.timezone !== 'UTC' && (
+                              <div className="text-xs text-gray-500 mt-1">
+                                Your timezone: {timezoneInfo.displayName}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
                     </span>
                   </div>
                 </div>

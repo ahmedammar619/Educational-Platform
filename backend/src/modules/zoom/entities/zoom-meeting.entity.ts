@@ -67,6 +67,9 @@ export class ZoomMeeting {
   @Column({ type: 'uuid', nullable: true })
   courseId: string;
 
+  @Column({ nullable: true })
+  creatorTimezone: string;
+
   @ManyToOne(() => User, { eager: true, nullable: true })
   @JoinColumn({ name: 'createdById' })
   createdBy: User | null;
