@@ -4,9 +4,12 @@ import { announcementsService, usersService } from '../../../services';
 import { showErrorToast, showSuccessToast } from '../../../utils/errorHandler';
 import { ConfirmationDialog } from '../../ui';
 import useConfirmation from '../../../hooks/useConfirmation';
+import { useTimezone } from '../../../hooks/useTimezone';
+import { formatDateTimeForTimezone } from '../../../utils/timezoneUtils';
 
 const AnnouncementsPostsTab = ({ currentUser, theme }) => {
   const { confirmationState, showConfirmation, hideConfirmation, handleConfirm } = useConfirmation();
+  const { timezoneInfo, toLocalTime, formatMeetingDateTime } = useTimezone();
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showWritePost, setShowWritePost] = useState(false);
@@ -97,9 +100,14 @@ const AnnouncementsPostsTab = ({ currentUser, theme }) => {
     if (postSubject.trim() && postMessage.trim() && !loadingStates.creatingPost) {
       updateLoadingState('creatingPost', true);
       try {
+        // Always store creator's timezone
+        const creatorTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        console.log('Creating announcement post with timezone:', creatorTimezone);
+        
         const postData = {
           subject: postSubject,
           description: postMessage,
+          creatorTimezone
         };
 
         // If there are attached files, send the first one (for now, we'll support single file upload)
@@ -678,7 +686,73 @@ const AnnouncementsPostsTab = ({ currentUser, theme }) => {
                         )}
                       </span>
                       <span className="text-gray-500 text-sm ml-2">
-                        {new Date(post.createdAt).toLocaleString()}
+                        {(() => {
+                          const viewerTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+                          const creatorTimezone = post.creatorTimezone || viewerTimezone;
+                          
+                          console.log('Announcement Post timestamp:', {
+                            createdAt: post.createdAt,
+                            creatorTimezone,
+                            viewerTimezone
+                          });
+
+                          if (!post.createdAt) {
+                            return <div>Time not available</div>;
+                          }
+
+                          // First convert the UTC timestamp to a Date object
+                          const utcDate = new Date(post.createdAt);
+
+                          try {
+                            // Format for creator's timezone (original time)
+                            const originalTime = new Intl.DateTimeFormat('en-US', {
+                              timeZone: creatorTimezone,
+                              year: 'numeric',
+                              month: 'numeric',
+                              day: 'numeric',
+                              hour: 'numeric',
+                              minute: 'numeric',
+                              hour12: true
+                            }).format(utcDate);
+
+                            // Format for viewer's timezone (converted time)
+                            const convertedTime = new Intl.DateTimeFormat('en-US', {
+                              timeZone: viewerTimezone,
+                              year: 'numeric',
+                              month: 'numeric',
+                              day: 'numeric',
+                              hour: 'numeric',
+                              minute: 'numeric',
+                              hour12: true
+                            }).format(utcDate);
+
+                            const needsConversion = creatorTimezone !== viewerTimezone;
+                            const creatorTimezoneName = creatorTimezone ? creatorTimezone.replace(/_/g, ' ') : 'UTC';
+                            const viewerTimezoneName = viewerTimezone ? viewerTimezone.replace(/_/g, ' ') : 'UTC';
+                            
+                            return (
+                              <div>
+                                {/* Show the viewer's time as main display */}
+                                {/* Creator's original time */}
+                                <div className="text-gray-500 text-start flex items-center gap-2">
+                                  {originalTime}                          
+                                </div>
+                                {/* Viewer's local time if different */}
+                                {needsConversion && convertedTime !== originalTime && (
+                                  <div className="text-xs text-gray-500 mt-1 text-start flex items-center gap-2">
+                                    <span>{convertedTime}</span>
+                                    <span className="bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded">
+                                      {viewerTimezoneName}
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          } catch (error) {
+                            console.error('Error formatting time:', error);
+                            return <div>Error displaying time</div>;
+                          }
+                        })()}
                       </span>
                     </div>
                   </div>
@@ -867,6 +941,17 @@ const AnnouncementsPostsTab = ({ currentUser, theme }) => {
                   rows="6"
                 />
               </div>
+
+              {timezoneInfo?.timezone && timezoneInfo.timezone !== 'UTC' && (
+                <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                  <div className="text-sm text-blue-700">
+                    <strong>Posting from your timezone:</strong> {timezoneInfo.displayName}
+                  </div>
+                  <div className="text-xs text-blue-600 mt-1">
+                    Students will see the post time converted to their local timezone
+                  </div>
+                </div>
+              )}
 
               {/* Attached Files Display */}
               {attachedFiles.length > 0 && (
