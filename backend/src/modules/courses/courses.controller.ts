@@ -73,6 +73,27 @@ export class CoursesController {
     return mappedCourses;
   }
 
+  @Get('teacher/:teacherId')
+  @Roles(Role.Admin, Role.Teacher)
+  @ApiOperation({ summary: 'Get all courses for a specific teacher (Admin/Teacher only)' })
+  @ApiResponse({ status: 200, description: 'Teacher courses retrieved successfully' })
+  async findCoursesByTeacher(@Param('teacherId') teacherId: string): Promise<CourseResponseDto[]> {
+    console.log('🎯 Controller: findCoursesByTeacher called for teacherId:', teacherId);
+    
+    const courses = await this.coursesService.findCoursesByTeacher(teacherId);
+    console.log('📋 Controller: Teacher courses from service:', courses.map((c: any) => ({
+      name: c.name,
+      className: c.className,
+      sessions: c.sessions
+    })));
+    
+    const mappedCourses = courses.map(course => 
+      plainToClass(CourseResponseDto, course, { excludeExtraneousValues: true })
+    );
+    
+    return mappedCourses;
+  }
+
   @Get(':id')
   @Roles(Role.Admin, Role.Teacher, Role.Student, Role.Parent)
   @ApiOperation({ summary: 'Get course by ID with enrolled students (Protected)' })

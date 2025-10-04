@@ -162,9 +162,9 @@ const MainLayout = ({ user, onLogout, children, routes }) => {
       }
     }
 
-    // Special case: materials routes should keep users active for admin, classes for others
+    // Special case: materials routes should keep classes active for all roles
     if (path.includes('/materials')) {
-      return userRole === 'admin' ? 'users' : 'classes';
+      return 'classes';
     }
 
     return navigation[0]?.id || 'announcements';

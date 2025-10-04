@@ -1243,6 +1243,7 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
             setSelectedClass(null);
           }}
           onSubmit={handleCreateCourse}
+          showAlert={showAlert}
         />
       )}
 
@@ -1263,6 +1264,7 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
             setSelectedCourse(null);
           }}
           onSubmit={(courseData) => handleUpdateCourse(selectedClass.id, selectedCourse.id, courseData)}
+          showAlert={showAlert}
         />
       )}
 
@@ -1491,7 +1493,7 @@ const ClassModal = ({ title, classData, onClose, onSubmit, isCreatingClass = fal
 };
 
 // Course Modal Component (using the old class design)
-const CourseModal = ({ title, courseData, isUpdating = false, onClose, onSubmit }) => {
+const CourseModal = ({ title, courseData, isUpdating = false, onClose, onSubmit, showAlert }) => {
   const { timezoneInfo, toLocalTime, formatMeetingDateTime } = useTimezone();
   const [formData, setFormData] = useState({
     name: courseData?.name || '',
@@ -1544,14 +1546,50 @@ const CourseModal = ({ title, courseData, isUpdating = false, onClose, onSubmit 
     }
   };
 
-  const handleTeacherChange = (teacherId) => {
+  const handleTeacherChange = async (teacherId) => {
     const selectedTeacher = Array.isArray(availableTeachers) ?
       availableTeachers.find(teacher => teacher.id === teacherId) : null;
+    
     setFormData({
       ...formData,
       teacherId: teacherId,
       teacherName: selectedTeacher ? `${selectedTeacher.firstName || ''} ${selectedTeacher.lastName || ''}`.trim() || selectedTeacher.fullName : ''
     });
+
+    // Check for conflicts with the new teacher's existing sessions
+    if (teacherId && formData.sessions && formData.sessions.length > 0) {
+      try {
+        const teacherCourses = await coursesService.getCoursesByTeacher(teacherId);
+        
+        // Check each existing session in the form for conflicts
+        for (const session of formData.sessions) {
+          for (const course of teacherCourses) {
+            if (course.sessions && course.sessions.length > 0) {
+              for (const existingSession of course.sessions) {
+                if (existingSession.day === session.day) {
+                  // Check if times overlap
+                  const sessionStart = parseTime(session.startTime);
+                  const sessionEnd = parseTime(session.endTime);
+                  const existingStart = parseTime(existingSession.startTime);
+                  const existingEnd = parseTime(existingSession.endTime);
+                  
+                  if (sessionsOverlap(sessionStart, sessionEnd, existingStart, existingEnd)) {
+                    showWarningToast(
+                      'Session Conflict Detected',
+                      `This professor has a session at the same time in course "${course.name}" (${existingSession.startTime} - ${existingSession.endTime})`
+                    );
+                    return;
+                  }
+                }
+              }
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error checking teacher session conflicts:', error);
+        // Continue if we can't check conflicts
+      }
+    }
   };
 
   const [showAddSession, setShowAddSession] = useState(false);
@@ -1572,7 +1610,7 @@ const CourseModal = ({ title, courseData, isUpdating = false, onClose, onSubmit 
     return times;
   };
 
-  const addSession = () => {
+  const addSession = async () => {
     if (newSession.startTime >= newSession.endTime) {
       showAlert({
         title: 'Invalid Time',
@@ -1582,6 +1620,7 @@ const CourseModal = ({ title, courseData, isUpdating = false, onClose, onSubmit 
       return;
     }
 
+    // Check for conflicts within the same course
     const sessionExists = formData.sessions.some(session =>
       session.day === newSession.day &&
       ((newSession.startTime >= session.startTime && newSession.startTime < session.endTime) ||
@@ -1596,6 +1635,39 @@ const CourseModal = ({ title, courseData, isUpdating = false, onClose, onSubmit 
         type: 'warning'
       });
       return;
+    }
+
+    // Check for conflicts with teacher's existing courses
+    if (formData.teacherId) {
+      try {
+        const teacherCourses = await coursesService.getCoursesByTeacher(formData.teacherId);
+        
+        // Check for conflicts with existing teacher sessions
+        for (const course of teacherCourses) {
+          if (course.sessions && course.sessions.length > 0) {
+            for (const existingSession of course.sessions) {
+              if (existingSession.day === newSession.day) {
+                // Check if times overlap
+                const newStart = parseTime(newSession.startTime);
+                const newEnd = parseTime(newSession.endTime);
+                const existingStart = parseTime(existingSession.startTime);
+                const existingEnd = parseTime(existingSession.endTime);
+                
+                if (sessionsOverlap(newStart, newEnd, existingStart, existingEnd)) {
+                  showWarningToast(
+                    'Session Conflict Detected',
+                    `This professor has a session at the same time in course "${course.name}" (${existingSession.startTime} - ${existingSession.endTime})`
+                  );
+                  return;
+                }
+              }
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error checking teacher session conflicts:', error);
+        // Continue with session addition if we can't check conflicts
+      }
     }
 
     setFormData({
@@ -1669,7 +1741,7 @@ const CourseModal = ({ title, courseData, isUpdating = false, onClose, onSubmit 
     return null; // No conflicts found
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
     // Prevent form submission if already updating
@@ -1698,7 +1770,7 @@ const CourseModal = ({ title, courseData, isUpdating = false, onClose, onSubmit 
       return;
     }
 
-    // Validate session conflicts
+    // Validate session conflicts within the course
     const conflictError = validateSessionConflicts(validSessions);
     if (conflictError) {
       showAlert({
@@ -1707,6 +1779,41 @@ const CourseModal = ({ title, courseData, isUpdating = false, onClose, onSubmit 
         type: 'warning'
       });
       return;
+    }
+
+    // Check for conflicts with teacher's existing courses before submission
+    if (formData.teacherId) {
+      try {
+        const teacherCourses = await coursesService.getCoursesByTeacher(formData.teacherId);
+        
+        // Check each session for conflicts with teacher's existing courses
+        for (const session of validSessions) {
+          for (const course of teacherCourses) {
+            if (course.sessions && course.sessions.length > 0) {
+              for (const existingSession of course.sessions) {
+                if (existingSession.day === session.day) {
+                  // Check if times overlap
+                  const sessionStart = parseTime(session.startTime);
+                  const sessionEnd = parseTime(session.endTime);
+                  const existingStart = parseTime(existingSession.startTime);
+                  const existingEnd = parseTime(existingSession.endTime);
+                  
+                  if (sessionsOverlap(sessionStart, sessionEnd, existingStart, existingEnd)) {
+                    showWarningToast(
+                      'Session Conflict Detected',
+                      `This professor has a session at the same time in course "${course.name}" (${existingSession.startTime} - ${existingSession.endTime})`
+                    );
+                    return;
+                  }
+                }
+              }
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error checking teacher session conflicts before submission:', error);
+        // Continue with submission if we can't check conflicts
+      }
     }
 
     // Submit with only valid sessions

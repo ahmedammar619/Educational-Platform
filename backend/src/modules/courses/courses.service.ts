@@ -244,6 +244,20 @@ export class CoursesService {
     return coursesWithEnrollments;
   }
 
+  async findCoursesByTeacher(teacherId: string): Promise<Course[]> {
+    const courses = await this.courseRepository.find({
+      where: { teacherId },
+      relations: ['teacher', 'class'],
+      order: { createdAt: 'DESC' }
+    });
+    
+    return courses.map(course => ({
+      ...course,
+      teacherName: course.teacher ? `${course.teacher.firstName} ${course.teacher.lastName}` : null,
+      className: course.class ? course.class.name : null
+    })) as any;
+  }
+
   async enrollStudentInCourse(courseId: string, studentId: string): Promise<Course> {
     const course = await this.courseRepository.findOne({ 
       where: { id: courseId },
