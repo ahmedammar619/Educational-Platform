@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, In } from 'typeorm';
+import { Repository, In, Not } from 'typeorm';
 import { SubscriptionPlan, PlanType, BillingInterval } from './entities/subscription-plan.entity';
 import { StudentSubscription, SubscriptionStatus } from './entities/student-subscription.entity';
 import { Payment, PaymentStatus, PaymentType } from './entities/payment.entity';
@@ -60,7 +60,7 @@ export class SubscriptionPlansService {
         };
 
         // Set recurring or one-time based on plan type
-        if (dto.planType === PlanType.RECURRING || dto.planType === PlanType.ADD_ON) {
+        if (dto.planType === PlanType.RECURRING) {
           if (dto.billingInterval !== BillingInterval.ONE_TIME) {
             priceData.recurring = {
               interval: dto.billingInterval,
@@ -199,30 +199,27 @@ export class SubscriptionPlansService {
       order: { displayOrder: 'ASC', category: 'ASC' }
     });
 
-    // Group by category and type
+    // Group by isBasePlan flag
     const grouped = {
       basePlans: [] as SubscriptionPlan[],
-      addOns: [] as SubscriptionPlan[],
       events: [] as SubscriptionPlan[],
       byCategory: {} as Record<string, SubscriptionPlan[]>
     };
 
     for (const plan of allPlans) {
-      // Check if event is still available
-      if (plan.endDate && new Date(plan.endDate) < new Date()) {
-        continue; // Skip expired events
-      }
+      // Note: Removed date filtering to show all active plans
+      // Admin can manage plan visibility via isActive flag
 
+      // Only skip if enrollment is full
       if (plan.maxEnrollments && plan.currentEnrollments >= plan.maxEnrollments) {
         continue; // Skip full events
       }
 
+      // Group by isBasePlan flag
       if (plan.isBasePlan) {
         grouped.basePlans.push(plan);
-      } else if (plan.planType === PlanType.ONE_TIME) {
+      } else {
         grouped.events.push(plan);
-      } else if (plan.planType === PlanType.ADD_ON) {
-        grouped.addOns.push(plan);
       }
 
       // Group by category
@@ -661,75 +658,70 @@ export class SubscriptionPlansService {
   }
 
   async getParentPayments(parentId: string): Promise<any[]> {
-    // Get parent's Stripe customer ID
-    const parent = await this.userRepository.findOne({ where: { id: parentId } });
-
-    if (!parent || !parent.stripe_customer_id) {
-      this.logger.warn(`No Stripe customer ID found for parent ${parentId}`);
-      return [];
-    }
-
-    if (!this.stripeService.isConfigured()) {
-      return [];
-    }
-
-    const stripeCustomerId = parent.stripe_customer_id;
-    this.logger.log(`Fetching Stripe payments for customer ${stripeCustomerId}`);
-
     try {
-      const payments: any[] = [];
+      // Get parent's Stripe customer ID
+      const parent = await this.userRepository.findOne({ where: { id: parentId } });
 
-      // Fetch all charges for this customer
-      const charges = await this.stripeService['stripe'].charges.list({
+      if (!parent?.stripe_customer_id || !this.stripeService.isConfigured()) {
+        this.logger.warn(`No Stripe customer ID for parent ${parentId}`);
+        return [];
+      }
+
+      const stripeCustomerId = parent.stripe_customer_id;
+      this.logger.log(`Fetching payments from Stripe for customer ${stripeCustomerId}`);
+
+      // Fetch ALL charges directly from Stripe (this is the source of truth)
+      const chargesResult = await this.stripeService['stripe'].charges.list({
         customer: stripeCustomerId,
         limit: 100
       });
 
-      this.logger.log(`Found ${charges.data.length} charges from Stripe`);
+      this.logger.log(`Found ${chargesResult.data.length} charges from Stripe`);
 
-      // Get all subscriptions to map student names
-      const subscriptions = await this.studentSubscriptionRepository.find({
-        where: { userId: parentId },
-        relations: ['student', 'plan']
-      });
+      const payments = [];
 
-      for (const chargeData of charges.data) {
-        const charge: any = chargeData;
-        // Find associated subscription from metadata or invoice
+      for (const chargeData of chargesResult.data) {
+        const charge: any = chargeData; // Cast to any for Stripe compatibility
+
+        // Only include successful charges
+        if (charge.status !== 'succeeded') continue;
+
         let studentName = 'Unknown';
         let planName = 'Unknown';
 
         // Try to get metadata from payment intent
-        if (charge.payment_intent) {
+        if (charge.payment_intent && typeof charge.payment_intent === 'string') {
           try {
-            const paymentIntent: any = await this.stripeService['stripe'].paymentIntents.retrieve(charge.payment_intent as string);
+            const paymentIntent = await this.stripeService['stripe'].paymentIntents.retrieve(charge.payment_intent);
             if (paymentIntent.metadata) {
               studentName = paymentIntent.metadata.studentName || studentName;
               planName = paymentIntent.metadata.planName || planName;
             }
-          } catch (error) {
-            this.logger.warn(`Failed to fetch payment intent metadata: ${error.message}`);
+          } catch (err) {
+            // Ignore errors, continue with defaults
           }
         }
 
-        // Try to get from invoice
-        if (charge.invoice) {
+        // If still unknown, try to get from invoice
+        if ((studentName === 'Unknown' || planName === 'Unknown') && charge.invoice) {
           try {
-            const invoice: any = await this.stripeService['stripe'].invoices.retrieve(charge.invoice as string);
-            if (invoice.subscription) {
-              const subscription = subscriptions.find(s => s.stripeSubscriptionId === invoice.subscription);
-              if (subscription) {
-                studentName = subscription.studentName || studentName;
-                planName = subscription.planName || planName;
-              }
-            }
-            // Use invoice metadata if available
+            const invoiceId = typeof charge.invoice === 'string' ? charge.invoice : charge.invoice.id;
+            const invoice = await this.stripeService['stripe'].invoices.retrieve(invoiceId);
+
             if (invoice.metadata) {
               studentName = invoice.metadata.studentName || studentName;
               planName = invoice.metadata.planName || planName;
             }
-          } catch (error) {
-            this.logger.warn(`Failed to fetch invoice metadata: ${error.message}`);
+
+            // Get plan name from invoice line items if still unknown
+            if (planName === 'Unknown' && invoice.lines?.data?.length > 0) {
+              const lineItem = invoice.lines.data[0];
+              if (lineItem.description) {
+                planName = lineItem.description;
+              }
+            }
+          } catch (err) {
+            // Ignore errors
           }
         }
 
@@ -739,69 +731,21 @@ export class SubscriptionPlansService {
           planName,
           amountPaid: charge.amount,
           currency: charge.currency,
-          status: charge.status === 'succeeded' ? 'succeeded' : charge.status === 'failed' ? 'failed' : 'pending',
+          status: 'succeeded',
           paidAt: new Date(charge.created * 1000),
           createdAt: new Date(charge.created * 1000),
-          receiptUrl: charge.receipt_url,
-          stripeChargeId: charge.id
-        });
-      }
-
-      // Also fetch invoices (for subscription payments)
-      const invoices = await this.stripeService['stripe'].invoices.list({
-        customer: stripeCustomerId,
-        limit: 100
-      });
-
-      this.logger.log(`Found ${invoices.data.length} invoices from Stripe`);
-
-      for (const invoiceData of invoices.data) {
-        const invoice: any = invoiceData;
-        // Skip if we already have this charge
-        if (invoice.charge && payments.some(p => p.stripeChargeId === invoice.charge)) {
-          continue;
-        }
-
-        let studentName = 'Unknown';
-        let planName = 'Unknown';
-
-        // Try to find subscription
-        if (invoice.subscription) {
-          const subscription = subscriptions.find(s => s.stripeSubscriptionId === invoice.subscription);
-          if (subscription) {
-            studentName = subscription.studentName || studentName;
-            planName = subscription.planName || planName;
-          }
-        }
-
-        // Use invoice metadata
-        if (invoice.metadata) {
-          studentName = invoice.metadata.studentName || studentName;
-          planName = invoice.metadata.planName || planName;
-        }
-
-        payments.push({
-          id: invoice.id,
-          studentName,
-          planName,
-          amountPaid: invoice.amount_paid,
-          currency: invoice.currency,
-          status: invoice.status === 'paid' ? 'succeeded' : invoice.status === 'open' ? 'pending' : 'failed',
-          paidAt: invoice.status_transitions?.paid_at ? new Date(invoice.status_transitions.paid_at * 1000) : new Date(invoice.created * 1000),
-          createdAt: new Date(invoice.created * 1000),
-          receiptUrl: invoice.hosted_invoice_url,
-          stripeInvoiceId: invoice.id
+          receiptUrl: charge.receipt_url
         });
       }
 
       // Sort by date descending
-      payments.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+      payments.sort((a, b) => b.paidAt.getTime() - a.paidAt.getTime());
 
-      this.logger.log(`Returning ${payments.length} total payments`);
+      this.logger.log(`Returning ${payments.length} payments from Stripe`);
 
       return payments;
     } catch (error) {
-      this.logger.error(`Failed to fetch Stripe payments: ${error.message}`);
+      this.logger.error(`Failed to fetch parent payments: ${error.message}`);
       return [];
     }
   }
@@ -999,5 +943,262 @@ export class SubscriptionPlansService {
     }
 
     return { checkoutUrl, subscription };
+  }
+
+  async diagnosePlanPrices(): Promise<any> {
+    const results = [];
+
+    // Get all one_time plans
+    const plans = await this.subscriptionPlanRepository.find({
+      where: { planType: PlanType.ONE_TIME }
+    });
+
+    this.logger.log(`📋 Diagnosing ${plans.length} one-time plans`);
+
+    for (const plan of plans) {
+      const result: any = {
+        planId: plan.id,
+        planName: plan.name,
+        dbPlanType: plan.planType,
+        dbBillingInterval: plan.billingInterval,
+        stripePriceId: plan.stripePriceId,
+        category: plan.category,
+        isBasePlan: plan.isBasePlan
+      };
+
+      if (!plan.stripePriceId) {
+        result.status = 'no_price';
+        result.problem = 'No Stripe price ID set';
+        results.push(result);
+        continue;
+      }
+
+      try {
+        const price = await this.stripeService['stripe'].prices.retrieve(plan.stripePriceId);
+        result.stripePriceType = price.type;
+
+        if (price.type === 'recurring') {
+          const priceAny = price as any;
+          result.stripeRecurringInterval = priceAny.recurring?.interval;
+          result.status = 'WRONG';
+          result.problem = `❌ Stripe price is RECURRING (${priceAny.recurring?.interval}) but plan is one-time!`;
+        } else {
+          result.status = 'OK';
+          result.problem = null;
+
+          // Check if billing interval needs fixing
+          if (plan.billingInterval !== BillingInterval.ONE_TIME) {
+            result.status = 'NEEDS_FIX';
+            result.problem = `Stripe price is correct, but billingInterval in DB is "${plan.billingInterval}" instead of "one_time"`;
+          }
+        }
+      } catch (error) {
+        result.status = 'ERROR';
+        result.problem = `Error fetching price: ${error.message}`;
+      }
+
+      results.push(result);
+    }
+
+    const wrong = results.filter(r => r.status === 'WRONG');
+    const needsFix = results.filter(r => r.status === 'NEEDS_FIX');
+    const ok = results.filter(r => r.status === 'OK');
+    const errors = results.filter(r => r.status === 'ERROR');
+    const noPrice = results.filter(r => r.status === 'no_price');
+
+    return {
+      totalPlans: plans.length,
+      summary: {
+        wrong: wrong.length,
+        needsFix: needsFix.length,
+        ok: ok.length,
+        errors: errors.length,
+        noPrice: noPrice.length
+      },
+      wrongPlans: wrong,
+      needsFixPlans: needsFix,
+      allDetails: results
+    };
+  }
+
+  async migrateAddOnPlans(): Promise<any> {
+    const results = [];
+
+    // First, get all add_on plans if they exist
+    let addOnPlans = [];
+    try {
+      addOnPlans = await this.subscriptionPlanRepository
+        .createQueryBuilder('plan')
+        .where("plan.planType = 'add_on'")
+        .getMany();
+    } catch (error) {
+      // If add_on doesn't exist in enum anymore, this will fail, which is fine
+      this.logger.log('No add_on plans found (type may not exist in enum anymore)');
+      return { message: 'No add_on plans found', results: [] };
+    }
+
+    this.logger.log(`📋 Found ${addOnPlans.length} add_on plans to migrate`);
+
+    for (const plan of addOnPlans) {
+      const result: any = {
+        planId: plan.id,
+        planName: plan.name,
+        oldPlanType: 'add_on',
+        newPlanType: 'one_time',
+        oldBillingInterval: plan.billingInterval,
+        stripePriceId: plan.stripePriceId
+      };
+
+      try {
+        const updates: any = {
+          planType: PlanType.ONE_TIME
+        };
+
+        // Fix billing interval if needed
+        if (plan.billingInterval !== BillingInterval.ONE_TIME) {
+          updates.billingInterval = BillingInterval.ONE_TIME;
+        }
+
+        // Check and fix Stripe price if needed
+        if (plan.stripePriceId) {
+          const currentPrice = await this.stripeService['stripe'].prices.retrieve(plan.stripePriceId);
+
+          if (currentPrice.type === 'recurring') {
+            this.logger.log(`Creating new one-time price for "${plan.name}"`);
+
+            const productId = typeof currentPrice.product === 'string'
+              ? currentPrice.product
+              : currentPrice.product.id;
+
+            const newPrice = await this.stripeService['stripe'].prices.create({
+              product: productId,
+              unit_amount: plan.price,
+              currency: plan.currency || 'usd',
+              metadata: {
+                planId: plan.id,
+                planName: plan.name,
+                type: 'one_time'
+              }
+            });
+
+            updates.stripePriceId = newPrice.id;
+            result.newStripePriceId = newPrice.id;
+            result.message = 'Migrated plan type and created new one-time Stripe price';
+          } else {
+            result.message = 'Migrated plan type, Stripe price was already one-time';
+          }
+        } else {
+          result.message = 'Migrated plan type, no Stripe price to update';
+        }
+
+        // Update the plan
+        await this.subscriptionPlanRepository.update(plan.id, updates);
+        result.status = 'success';
+        this.logger.log(`✅ Migrated "${plan.name}" from add_on to one_time`);
+      } catch (error) {
+        result.status = 'error';
+        result.message = `Error: ${error.message}`;
+        this.logger.error(`Error migrating plan ${plan.id}: ${error.message}`);
+      }
+
+      results.push(result);
+    }
+
+    return {
+      message: `Migrated ${addOnPlans.length} add_on plans to one_time`,
+      results
+    };
+  }
+
+  async fixOneTimePrices(): Promise<any> {
+    const results = [];
+
+    // Get all one_time plans
+    const oneTimePlans = await this.subscriptionPlanRepository.find({
+      where: { planType: PlanType.ONE_TIME }
+    });
+
+    this.logger.log(`📋 Found ${oneTimePlans.length} one-time plans`);
+
+    for (const plan of oneTimePlans) {
+      const result = {
+        planId: plan.id,
+        planName: plan.name,
+        oldPriceId: plan.stripePriceId,
+        newPriceId: null,
+        status: 'skipped',
+        message: ''
+      };
+
+      if (!plan.stripePriceId) {
+        result.message = 'No Stripe price ID set';
+        results.push(result);
+        continue;
+      }
+
+      try {
+        // Check if current price is recurring
+        const currentPrice = await this.stripeService['stripe'].prices.retrieve(plan.stripePriceId);
+
+        if (currentPrice.type === 'recurring') {
+          this.logger.log(`❌ Plan "${plan.name}" has RECURRING price - fixing...`);
+
+          // Get the product
+          const productId = typeof currentPrice.product === 'string'
+            ? currentPrice.product
+            : currentPrice.product.id;
+
+          // Create a new ONE-TIME price
+          const newPrice = await this.stripeService['stripe'].prices.create({
+            product: productId,
+            unit_amount: plan.price,
+            currency: plan.currency || 'usd',
+            metadata: {
+              planId: plan.id,
+              planName: plan.name,
+              type: 'one_time'
+            }
+          });
+
+          this.logger.log(`✅ Created new one-time price: ${newPrice.id}`);
+
+          // Update the plan in database with correct price ID and billing interval
+          await this.subscriptionPlanRepository.update(plan.id, {
+            stripePriceId: newPrice.id,
+            billingInterval: BillingInterval.ONE_TIME
+          });
+
+          result.newPriceId = newPrice.id;
+          result.status = 'fixed';
+          result.message = `Created new one-time price and updated database (also fixed billingInterval)`;
+        } else {
+          // Price is already one-time, but check if billingInterval needs fixing
+          if (plan.billingInterval !== BillingInterval.ONE_TIME) {
+            await this.subscriptionPlanRepository.update(plan.id, {
+              billingInterval: BillingInterval.ONE_TIME
+            });
+            result.status = 'fixed';
+            result.message = 'Stripe price was correct, but fixed billingInterval in database';
+          } else {
+            result.status = 'ok';
+            result.message = 'Already a one-time price with correct billingInterval';
+          }
+        }
+      } catch (error) {
+        result.status = 'error';
+        result.message = error.message;
+        this.logger.error(`Error processing plan ${plan.id}: ${error.message}`);
+      }
+
+      results.push(result);
+    }
+
+    return {
+      totalPlans: oneTimePlans.length,
+      fixed: results.filter(r => r.status === 'fixed').length,
+      ok: results.filter(r => r.status === 'ok').length,
+      errors: results.filter(r => r.status === 'error').length,
+      details: results
+    };
   }
 }

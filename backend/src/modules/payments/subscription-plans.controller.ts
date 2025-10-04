@@ -216,4 +216,25 @@ export class SubscriptionPlansController {
   ) {
     return this.subscriptionPlansService.reactivateParentSubscription(req.user.sub, id);
   }
+
+  @Get('admin/diagnose-prices')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.Admin)
+  async diagnosePrices() {
+    return this.subscriptionPlansService.diagnosePlanPrices();
+  }
+
+  @Post('admin/fix-one-time-prices')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.Admin)
+  async fixOneTimePrices() {
+    return this.subscriptionPlansService.fixOneTimePrices();
+  }
+
+  @Post('admin/migrate-add-on-plans')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.Admin)
+  async migrateAddOnPlans() {
+    return this.subscriptionPlansService.migrateAddOnPlans();
+  }
 }

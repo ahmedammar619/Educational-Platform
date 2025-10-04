@@ -18,7 +18,7 @@ import parentsService from '../../services/parentsService';
 import { showErrorToast, showSuccessToast } from '../../utils/toast';
 
 const SubscriptionSelection = ({ user }) => {
-  const [plans, setPlans] = useState({ basePlans: [], addOns: [], events: [], byCategory: {} });
+  const [plans, setPlans] = useState({ basePlans: [], events: [], byCategory: {} });
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedStudent, setSelectedStudent] = useState('');
@@ -167,7 +167,7 @@ const SubscriptionSelection = ({ user }) => {
             <span className="text-3xl font-bold text-blue-600">
               ${(plan.price / 100).toFixed(2)}
             </span>
-            {plan.billingInterval !== 'one_time' && (
+            {plan.planType === 'recurring' && plan.billingInterval !== 'one_time' && (
               <span className="text-gray-600 ml-2">/{plan.billingInterval}</span>
             )}
           </div>
@@ -201,11 +201,9 @@ const SubscriptionSelection = ({ user }) => {
         <div className="pt-4 border-t">
           <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
             plan.planType === 'recurring' ? 'bg-blue-100 text-blue-800' :
-            plan.planType === 'one_time' ? 'bg-green-100 text-green-800' :
-            'bg-purple-100 text-purple-800'
+            'bg-green-100 text-green-800'
           }`}>
-            {plan.planType === 'recurring' ? 'Recurring' :
-             plan.planType === 'one_time' ? 'One-Time' : 'Add-On'}
+            {plan.planType === 'recurring' ? 'Recurring Payment' : 'One-Time Payment'}
           </span>
         </div>
       </div>
@@ -291,6 +289,7 @@ const SubscriptionSelection = ({ user }) => {
                   <span className="text-gray-600">
                     {sub.status === 'canceled' ? 'Available until:' :
                      sub.cancelAtPeriodEnd ? 'Cancels on:' :
+                     sub.plan?.planType === 'one_time' ? 'Valid until:' :
                      'Renews:'}
                   </span>
                   <span className="font-semibold ml-2">
@@ -298,25 +297,51 @@ const SubscriptionSelection = ({ user }) => {
                   </span>
                 </div>
               )}
+              {/* Show duration for one-time plans with end dates */}
+              {sub.plan?.planType === 'one_time' && sub.plan?.endDate && (
+                <div className="col-span-2">
+                  <span className="text-gray-600">Course Duration:</span>
+                  <span className="font-semibold ml-2">
+                    {sub.plan.startDate ? new Date(sub.plan.startDate).toLocaleDateString() : 'TBD'} - {new Date(sub.plan.endDate).toLocaleDateString()}
+                  </span>
+                </div>
+              )}
             </div>
 
-            {/* Only show cancel/reactivate for recurring subscriptions (not one-time payments) */}
-            {sub.plan && sub.plan.planType !== 'one_time' && (
-              <div className="flex flex-col gap-2">
-                {sub.status === 'canceled' ? (
-                  <button
-                    onClick={() => handleReactivateSubscription(sub.id)}
-                    className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-                  >
-                    <RefreshCw className="w-4 h-4" />
-                    Resubscribe
-                  </button>
-                ) : sub.cancelAtPeriodEnd ? (
-                  <div className="px-4 py-2 bg-orange-50 border border-orange-200 rounded-lg text-orange-800 text-sm">
-                    {sub.currentPeriodEnd
-                      ? `⚠️ Subscription will cancel on ${new Date(sub.currentPeriodEnd).toLocaleDateString()}`
-                      : '⚠️ Subscription scheduled for cancellation'}
-                  </div>
+            {(() => {
+              // Check if subscription has ended
+              const hasEnded = sub.currentPeriodEnd && new Date(sub.currentPeriodEnd) < new Date();
+              const isOneTime = sub.plan?.planType === 'one_time';
+
+              // Don't show any actions if subscription has ended or is one-time
+              if (hasEnded || isOneTime) {
+                if (hasEnded) {
+                  return (
+                    <div className="px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-gray-700 text-sm">
+                      ✓ Subscription period completed
+                    </div>
+                  );
+                }
+                return null;
+              }
+
+              // Only show cancel/reactivate for active recurring subscriptions
+              return (
+                <div className="flex flex-col gap-2">
+                  {sub.status === 'canceled' ? (
+                    <button
+                      onClick={() => handleReactivateSubscription(sub.id)}
+                      className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                    >
+                      <RefreshCw className="w-4 h-4" />
+                      Resubscribe
+                    </button>
+                  ) : sub.cancelAtPeriodEnd ? (
+                    <div className="px-4 py-2 bg-orange-50 border border-orange-200 rounded-lg text-orange-800 text-sm">
+                      {sub.currentPeriodEnd
+                        ? `⚠️ Subscription will cancel on ${new Date(sub.currentPeriodEnd).toLocaleDateString()}`
+                        : '⚠️ Subscription scheduled for cancellation'}
+                    </div>
                 ) : (sub.status === 'active' || sub.status === 'trialing') ? (
                   <button
                     onClick={() => handleCancelSubscription(sub.id)}
@@ -327,7 +352,8 @@ const SubscriptionSelection = ({ user }) => {
                   </button>
                 ) : null}
               </div>
-            )}
+            );
+            })()}
           </div>
         ))
         )}
@@ -349,8 +375,6 @@ const SubscriptionSelection = ({ user }) => {
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Student</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Plan</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Amount</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Receipt</th>
@@ -363,12 +387,6 @@ const SubscriptionSelection = ({ user }) => {
                     {payment.paidAt
                       ? new Date(payment.paidAt).toLocaleDateString()
                       : new Date(payment.createdAt).toLocaleDateString()}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {payment.studentName || 'N/A'}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {payment.planName || 'N/A'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
                     ${((payment.amountPaid || payment.amount || 0) / 100).toFixed(2)}
@@ -417,7 +435,7 @@ const SubscriptionSelection = ({ user }) => {
     );
   }
 
-  const allPlans = [...plans.basePlans, ...plans.addOns, ...plans.events];
+  const allPlans = [...plans.basePlans, ...plans.events];
   const totalSelected = selectedPlans.reduce((sum, planId) => {
     const plan = allPlans.find(p => p.id === planId);
     return sum + (plan ? Number(plan.price) : 0);
@@ -505,16 +523,6 @@ const SubscriptionSelection = ({ user }) => {
               <h2 className="text-2xl font-bold text-gray-900 mb-4">Base Plans</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {plans.basePlans.map(renderPlanCard)}
-              </div>
-            </div>
-          )}
-
-          {/* Add-Ons */}
-          {plans.addOns.length > 0 && (
-            <div className="mb-8">
-              <h2 className="text-2xl font-bold text-gray-900 mb-4">Add-Ons</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {plans.addOns.map(renderPlanCard)}
               </div>
             </div>
           )}

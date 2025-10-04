@@ -15,7 +15,7 @@ export enum PaymentStatus {
 export enum PaymentType {
   SUBSCRIPTION = 'subscription',      // Recurring subscription payment
   ONE_TIME = 'one_time',              // One-time event/course payment
-  ADD_ON = 'add_on'                   // Add-on payment
+  ADD_ON = 'add_on'                   // DEPRECATED - Will be migrated to ONE_TIME
 }
 
 @Entity('payments')

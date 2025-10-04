@@ -55,19 +55,19 @@ async function seedSubscriptionPlans() {
         displayOrder: 2
       },
 
-      // 1-on-1 Quran Sessions (Add-on)
+      // 1-on-1 Quran Sessions Package
       {
         name: '1-on-1 Quran Sessions (10 lessons)',
         description: 'Private Quran tutoring with certified teachers. Personalized attention and flexible scheduling.',
-        planType: PlanType.ADD_ON,
-        billingInterval: BillingInterval.MONTH,
+        planType: PlanType.ONE_TIME,
+        billingInterval: BillingInterval.ONE_TIME,
         price: 15000, // $150.00
         currency: 'usd',
         isBasePlan: false,
         isActive: true,
         maxStudents: 1,
         features: [
-          '10 private sessions per month',
+          '10 private sessions',
           'Certified Quran teacher',
           'Flexible scheduling',
           'Progress reports',
@@ -77,19 +77,19 @@ async function seedSubscriptionPlans() {
         displayOrder: 10
       },
 
-      // 1-on-1 Arabic Sessions
+      // 1-on-1 Arabic Sessions Package
       {
         name: '1-on-1 Arabic Language (8 lessons)',
         description: 'Private Arabic language instruction tailored to your child\'s level and goals.',
-        planType: PlanType.ADD_ON,
-        billingInterval: BillingInterval.MONTH,
+        planType: PlanType.ONE_TIME,
+        billingInterval: BillingInterval.ONE_TIME,
         price: 12000, // $120.00
         currency: 'usd',
         isBasePlan: false,
         isActive: true,
         maxStudents: 1,
         features: [
-          '8 private sessions per month',
+          '8 private sessions',
           'Native Arabic speaker',
           'Customized curriculum',
           'Speaking practice',
