@@ -150,7 +150,7 @@ const CourseEnrollment = ({ user }) => {
 
   const loadSubscriptionPlans = async () => {
     try {
-      const response = await fetch(`${API_CONFIG.BASE_URL}/api/payments/subscription-plans`, {
+      const response = await fetch(`${API_CONFIG.BASE_URL}/api/subscription-plans/admin/plans`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`,
         },
@@ -158,7 +158,10 @@ const CourseEnrollment = ({ user }) => {
 
       if (response.ok) {
         const data = await response.json();
+        console.log('Loaded subscription plans:', data);
         setSubscriptionPlans(data || []);
+      } else {
+        console.error('Failed to load subscription plans:', response.status);
       }
     } catch (error) {
       console.error('Error loading subscription plans:', error);

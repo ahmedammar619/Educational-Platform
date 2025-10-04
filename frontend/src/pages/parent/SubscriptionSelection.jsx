@@ -495,53 +495,81 @@ const SubscriptionSelection = ({ user }) => {
       {activeTab === 'browse' ? (
         <>
           {/* Student Selector */}
-          <div id="student-selector" className="bg-gradient-to-r from-purple-50 to-indigo-50 rounded-xl shadow-md p-6 mb-6 border-2 border-purple-200">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-3">
-                <div className="bg-purple-600 rounded-full p-2">
-                  <Users className="w-5 h-5 text-white" />
+          <div id="student-selector" className="relative mb-8">
+            <div className="bg-gradient-to-br from-purple-500 via-purple-600 to-indigo-600 rounded-2xl shadow-2xl p-8 border border-purple-400">
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-4">
+                  <div className="bg-white/20 backdrop-blur-sm rounded-xl p-3 shadow-lg">
+                    <Users className="w-7 h-7 text-white" />
+                  </div>
+                  <div>
+                    <label className="text-2xl font-bold text-white block">
+                      Select Your Student
+                    </label>
+                    <p className="text-purple-100 text-sm mt-1">
+                      Choose which student to enroll in a plan
+                    </p>
+                  </div>
                 </div>
-                <label className="text-lg font-semibold text-gray-900">
-                  Select Student
-                </label>
+                {!selectedStudent && (
+                  <div className="flex items-center gap-2 px-4 py-2 bg-yellow-400 text-yellow-900 rounded-xl font-bold animate-bounce shadow-lg">
+                    <AlertCircle className="w-5 h-5" />
+                    <span>Required</span>
+                  </div>
+                )}
               </div>
-              {!selectedStudent && (
-                <span className="inline-flex items-center gap-1 px-3 py-1 bg-yellow-100 text-yellow-800 rounded-full text-xs font-bold animate-pulse">
-                  <AlertCircle className="w-3 h-3" />
-                  Required
-                </span>
+
+              <div className="relative">
+                <select
+                  value={selectedStudent}
+                  onChange={(e) => setSelectedStudent(e.target.value)}
+                  className={`w-full px-6 py-4 border-3 rounded-xl focus:ring-4 focus:ring-white/50 bg-white text-gray-900 font-semibold text-lg shadow-xl transition-all appearance-none cursor-pointer ${
+                    !selectedStudent
+                      ? 'border-yellow-300 ring-2 ring-yellow-300/50'
+                      : 'border-green-400 ring-2 ring-green-400/50'
+                  }`}
+                  style={{
+                    backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`,
+                    backgroundPosition: 'right 1rem center',
+                    backgroundRepeat: 'no-repeat',
+                    backgroundSize: '1.5em 1.5em',
+                    paddingRight: '3rem'
+                  }}
+                >
+                  <option value="" className="text-gray-500">👤 Choose a student...</option>
+                  {students.map(student => (
+                    <option key={student.id} value={student.id} className="text-gray-900 py-2">
+                      {student.firstName} {student.lastName}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {selectedStudent ? (
+                <div className="mt-4 flex items-center gap-3 px-4 py-3 bg-white/90 backdrop-blur-sm rounded-xl shadow-lg">
+                  <div className="p-2 bg-green-100 rounded-lg">
+                    <Check className="w-5 h-5 text-green-600" />
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-600 font-medium">Currently Selected:</p>
+                    <p className="text-lg font-bold text-gray-900">
+                      {students.find(s => s.id === selectedStudent)?.firstName} {students.find(s => s.id === selectedStudent)?.lastName}
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="mt-4 flex items-start gap-3 px-4 py-3 bg-yellow-50/90 backdrop-blur-sm rounded-xl border-2 border-yellow-200">
+                  <ArrowRight className="w-5 h-5 text-yellow-600 mt-0.5 flex-shrink-0" />
+                  <p className="text-sm text-yellow-900 font-medium">
+                    Please select a student from the dropdown above to continue with your subscription
+                  </p>
+                </div>
               )}
             </div>
-            {!selectedStudent && (
-              <p className="mb-3 text-sm text-purple-700 font-medium flex items-center gap-2">
-                <ArrowRight className="w-4 h-4" />
-                Please select a student before choosing a plan
-              </p>
-            )}
-            <select
-              value={selectedStudent}
-              onChange={(e) => setSelectedStudent(e.target.value)}
-              className={`w-full px-4 py-3 border-2 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 bg-white text-gray-900 font-medium shadow-sm transition-all ${
-                !selectedStudent
-                  ? 'border-yellow-300 hover:border-yellow-400'
-                  : 'border-purple-200 hover:border-purple-300'
-              }`}
-            >
-              <option value="" className="text-gray-500">👤 Choose a student...</option>
-              {students.map(student => (
-                <option key={student.id} value={student.id} className="text-gray-900">
-                  {student.firstName} {student.lastName}
-                </option>
-              ))}
-            </select>
-            {selectedStudent && (
-              <div className="mt-3 flex items-center gap-2">
-                <Check className="w-4 h-4 text-green-600" />
-                <p className="text-sm text-green-700 font-semibold">
-                  Selected: {students.find(s => s.id === selectedStudent)?.firstName} {students.find(s => s.id === selectedStudent)?.lastName}
-                </p>
-              </div>
-            )}
+
+            {/* Decorative elements */}
+            <div className="absolute -top-2 -right-2 w-24 h-24 bg-yellow-400 rounded-full blur-3xl opacity-20 pointer-events-none"></div>
+            <div className="absolute -bottom-2 -left-2 w-32 h-32 bg-indigo-400 rounded-full blur-3xl opacity-20 pointer-events-none"></div>
           </div>
 
           {/* Base Plans */}

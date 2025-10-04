@@ -1,4 +1,4 @@
-import { Injectable, ConflictException, BadRequestException, NotFoundException, Inject, forwardRef } from '@nestjs/common';
+import { Injectable, ConflictException, BadRequestException, NotFoundException, Inject, forwardRef, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
 import { User } from '../users/entities/user.entity';
@@ -18,6 +18,8 @@ import * as bcrypt from 'bcryptjs';
 
 @Injectable()
 export class AdminService {
+  private readonly logger = new Logger(AdminService.name);
+
   constructor(
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
@@ -336,8 +338,10 @@ export class AdminService {
       .leftJoinAndSelect('student.user', 'studentUser')
       .leftJoinAndSelect('subscription.plan', 'plan')
       .leftJoinAndSelect('subscription.user', 'user')
-      .where('subscription.isPaid = :isPaid', { isPaid: true })
-      .andWhere('subscription.isEnrolled = :isEnrolled', { isEnrolled: false });
+      .where('subscription.isEnrolled = :isEnrolled', { isEnrolled: false })
+      .andWhere('subscription.status IN (:...statuses)', {
+        statuses: ['active', 'trialing', 'past_due', 'canceled']
+      });
 
     if (planId) {
       queryBuilder.andWhere('subscription.planId = :planId', { planId });
@@ -347,6 +351,13 @@ export class AdminService {
       .orderBy('subscription.paidAt', 'DESC')
       .getMany();
 
+    this.logger.log(`📋 Found ${subscriptions.length} pending enrollments (not enrolled, with active/trialing/past_due/canceled status)`);
+
+    // Log any that are being filtered
+    const allSubs = await this.studentSubscriptionRepository.count();
+    const enrolledCount = await this.studentSubscriptionRepository.count({ where: { isEnrolled: true } });
+    this.logger.log(`📊 Total subscriptions: ${allSubs}, Enrolled: ${enrolledCount}, Pending: ${subscriptions.length}`);
+
     return {
       pendingEnrollments: subscriptions.map(sub => ({
         subscriptionId: sub.id,
@@ -354,7 +365,10 @@ export class AdminService {
         studentName: sub.studentName || (sub.student?.user ? `${sub.student.user.firstName} ${sub.student.user.lastName}` : 'N/A'),
         planId: sub.planId,
         planName: sub.planName,
+        planType: sub.plan?.planType || 'one_time',
         amount: sub.amount,
+        status: sub.status,
+        isPaid: sub.isPaid,
         paidAt: sub.paidAt,
         enrollmentStatus: sub.enrollmentStatus,
         parentEmail: sub.user?.email,
@@ -508,8 +522,9 @@ export class AdminService {
       throw new NotFoundException('Subscription not found');
     }
 
+    // Log payment status but allow enrollment regardless
     if (!subscription.isPaid) {
-      throw new BadRequestException('Student has not paid for this subscription');
+      this.logger.warn(`⚠️ Enrolling student without payment confirmation - Subscription: ${subscriptionId}, Student: ${subscription.studentName}`);
     }
 
     if (subscription.isEnrolled) {
@@ -584,13 +599,9 @@ export class AdminService {
 
     for (const subscription of subscriptions) {
       try {
+        // Log payment status but allow enrollment regardless
         if (!subscription.isPaid) {
-          results.failed.push({
-            subscriptionId: subscription.id,
-            studentName: subscription.studentName,
-            reason: 'Not paid'
-          });
-          continue;
+          this.logger.warn(`⚠️ Bulk enrolling student without payment confirmation - Subscription: ${subscription.id}, Student: ${subscription.studentName}`);
         }
 
         if (subscription.isEnrolled) {
