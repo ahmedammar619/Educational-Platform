@@ -329,8 +329,21 @@ export class StripeService {
     try {
       const subscriptions = await this.stripe.subscriptions.list({
         limit,
-        expand: ['data.customer', 'data.latest_invoice'],
+        expand: ['data.customer', 'data.latest_invoice', 'data.default_payment_method'],
+        status: 'all', // Get all statuses
       });
+
+      // Log to verify we're getting the period fields
+      if (subscriptions.data.length > 0) {
+        const firstSub = subscriptions.data[0] as any;
+        this.logger.log(`🔍 Stripe subscription sample: ${JSON.stringify({
+          id: firstSub.id,
+          current_period_start: firstSub.current_period_start,
+          current_period_end: firstSub.current_period_end,
+          billing_cycle_anchor: firstSub.billing_cycle_anchor
+        })}`);
+      }
+
       return subscriptions.data;
     } catch (error) {
       this.logger.error(`❌ Failed to get all subscriptions: ${error.message}`);

@@ -25,7 +25,7 @@ import { AdminService } from './admin.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UpdateConfigDto, UpdateGoogleFormUrlDto } from './dto/update-config.dto';
-import { EnrollStudentDto, BulkEnrollDto } from './dto/enroll-student.dto';
+import { EnrollStudentDto, BulkEnrollDto, ChangeCourseDto } from './dto/enroll-student.dto';
 import { Role } from '../../common/enums/role.enum';
 
 @ApiTags('Admin')
@@ -171,6 +171,17 @@ export class AdminController {
     return this.adminService.getPendingEnrollments(planId);
   }
 
+  @Get('course-enrollment/enrolled')
+  @ApiOperation({ summary: 'Get all enrolled students with their courses' })
+  @ApiQuery({ name: 'planId', required: false, description: 'Filter by subscription plan ID' })
+  @ApiResponse({
+    status: 200,
+    description: 'Enrolled students retrieved successfully',
+  })
+  async getEnrolledStudents(@Query('planId') planId?: string) {
+    return this.adminService.getEnrolledStudents(planId);
+  }
+
   @Get('course-enrollment/missing-payments')
   @ApiOperation({ summary: 'Get students with missing or overdue payments' })
   @ApiResponse({
@@ -218,5 +229,16 @@ export class AdminController {
   })
   async bulkEnrollStudents(@Body() bulkEnrollDto: BulkEnrollDto) {
     return this.adminService.bulkEnrollStudents(bulkEnrollDto);
+  }
+
+  @Put('course-enrollment/change-course')
+  @ApiOperation({ summary: 'Change the course for an enrolled student' })
+  @ApiBody({ type: ChangeCourseDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Course changed successfully',
+  })
+  async changeCourse(@Body() changeCourseDto: ChangeCourseDto) {
+    return this.adminService.changeCourse(changeCourseDto);
   }
 }

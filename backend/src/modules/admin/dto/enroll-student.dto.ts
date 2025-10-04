@@ -23,3 +23,15 @@ export class BulkEnrollDto {
   @IsString()
   notes?: string;
 }
+
+export class ChangeCourseDto {
+  @IsUUID()
+  subscriptionId: string;
+
+  @IsUUID()
+  courseId: string;
+
+  @IsOptional()
+  @IsString()
+  notes?: string;
+}

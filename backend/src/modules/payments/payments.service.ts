@@ -1011,23 +1011,60 @@ export class PaymentsService {
   async getStripeSubscriptions(filters: any = {}) {
     try {
       console.log('🔍 Fetching all subscriptions from Stripe API...');
-      
+
       // Get all subscriptions from Stripe
       const stripeSubscriptions = await this.stripeService.getAllSubscriptions(100);
       console.log(`📊 Found ${stripeSubscriptions.length} subscriptions in Stripe`);
+
+      // Log first subscription raw data to see what Stripe returns
+      if (stripeSubscriptions.length > 0) {
+        const firstSub = stripeSubscriptions[0] as any;
+        console.log('🔍 RAW STRIPE SUBSCRIPTION DATA:', JSON.stringify({
+          id: firstSub.id,
+          status: firstSub.status,
+          current_period_start: firstSub.current_period_start,
+          current_period_end: firstSub.current_period_end,
+          trial_end: firstSub.trial_end,
+          cancel_at: firstSub.cancel_at,
+          cancel_at_period_end: firstSub.cancel_at_period_end,
+          created: firstSub.created,
+          items: firstSub.items?.data?.map(item => ({
+            price: {
+              id: item.price?.id,
+              type: item.price?.type,
+              recurring: item.price?.recurring,
+              unit_amount: item.price?.unit_amount
+            }
+          }))
+        }, null, 2));
+      }
 
       // Get all users from database for cross-reference
       const users = await this.userRepository.find({
         select: ['id', 'email', 'firstName', 'lastName', 'stripe_customer_id']
       });
 
-      // Create a map of Stripe customer IDs to users
+      // Get all student subscriptions from database to get billing periods
+      const dbSubscriptions = await this.studentSubscriptionRepository.find({
+        select: ['id', 'stripeSubscriptionId', 'currentPeriodStart', 'currentPeriodEnd', 'isPaid', 'paidAt', 'status']
+      });
+
+      // Create maps for quick lookup
       const customerToUserMap = new Map();
       users.forEach(user => {
         if (user.stripe_customer_id) {
           customerToUserMap.set(user.stripe_customer_id, user);
         }
       });
+
+      const stripeSubToDbMap = new Map();
+      dbSubscriptions.forEach(dbSub => {
+        if (dbSub.stripeSubscriptionId) {
+          stripeSubToDbMap.set(dbSub.stripeSubscriptionId, dbSub);
+        }
+      });
+
+      console.log(`📊 Found ${dbSubscriptions.length} subscriptions in database for period mapping`);
 
       // Collect unique product IDs
       const productIds = new Set<string>();
@@ -1103,6 +1140,20 @@ export class PaymentsService {
           });
         }
 
+        // Get database subscription data for this Stripe subscription
+        const dbSub = stripeSubToDbMap.get(stripeSub.id);
+
+        // Use database data for periods if available, fallback to Stripe
+        const currentPeriodStart = dbSub?.currentPeriodStart
+          ? dbSub.currentPeriodStart
+          : (stripeSubAny.current_period_start ? new Date(stripeSubAny.current_period_start * 1000) : null);
+
+        const currentPeriodEnd = dbSub?.currentPeriodEnd
+          ? dbSub.currentPeriodEnd
+          : (stripeSubAny.current_period_end ? new Date(stripeSubAny.current_period_end * 1000) : null);
+
+        const isPaid = dbSub?.isPaid ?? true; // Default to true if not in DB
+
         return {
           id: stripeSub.id,
           customerId,
@@ -1116,8 +1167,9 @@ export class PaymentsService {
           status: stripeSub.status,
           amount: stripeSub.items.data[0]?.price?.unit_amount || 0,
           currency: stripeSub.items.data[0]?.price?.currency || 'usd',
-          currentPeriodStart: stripeSubAny.current_period_start ? new Date(stripeSubAny.current_period_start * 1000) : null,
-          currentPeriodEnd: stripeSubAny.current_period_end ? new Date(stripeSubAny.current_period_end * 1000) : null,
+          currentPeriodStart,
+          currentPeriodEnd,
+          isPaid,
           trialEnd: stripeSubAny.trial_end ? new Date(stripeSubAny.trial_end * 1000) : null,
           cancelAt: stripeSubAny.cancel_at ? new Date(stripeSubAny.cancel_at * 1000) : null,
           cancelAtPeriodEnd: stripeSubAny.cancel_at_period_end,
@@ -1136,7 +1188,20 @@ export class PaymentsService {
       });
 
       console.log(`✅ Processed ${processedSubscriptions.length} subscriptions with database cross-reference`);
-      
+
+      // Log what we're actually sending to frontend
+      if (processedSubscriptions.length > 0) {
+        console.log('📤 SENDING TO FRONTEND - First subscription:', JSON.stringify({
+          id: processedSubscriptions[0].id,
+          status: processedSubscriptions[0].status,
+          currentPeriodStart: processedSubscriptions[0].currentPeriodStart,
+          currentPeriodEnd: processedSubscriptions[0].currentPeriodEnd,
+          trialEnd: processedSubscriptions[0].trialEnd,
+          planInterval: processedSubscriptions[0].planInterval,
+          planType: processedSubscriptions[0].planType,
+        }, null, 2));
+      }
+
       return {
         total: processedSubscriptions.length,
         mismatches: processedSubscriptions.filter(sub => sub.hasDbMismatch).length,

@@ -11,7 +11,8 @@ import {
   ArrowRight,
   ShoppingCart,
   X,
-  RefreshCw
+  RefreshCw,
+  AlertCircle
 } from 'lucide-react';
 import paymentService from '../../services/paymentService';
 import parentsService from '../../services/parentsService';
@@ -21,6 +22,7 @@ const SubscriptionSelection = ({ user }) => {
   const [plans, setPlans] = useState({ basePlans: [], events: [], byCategory: {} });
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [subscribing, setSubscribing] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState('');
   const [selectedPlans, setSelectedPlans] = useState([]);
   const [mySubscriptions, setMySubscriptions] = useState([]);
@@ -93,7 +95,9 @@ const SubscriptionSelection = ({ user }) => {
 
   const handleSubscribe = async () => {
     if (!selectedStudent) {
-      showErrorToast('Please select a student');
+      showErrorToast('⚠️ Please select a student first');
+      // Scroll to student selector
+      document.getElementById('student-selector')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       return;
     }
 
@@ -115,12 +119,14 @@ const SubscriptionSelection = ({ user }) => {
     }
 
     try {
+      setSubscribing(true);
       // Single plan subscription - redirects automatically in service
       await paymentService.subscribeStudentToPlan(selectedStudent, selectedPlanId);
     } catch (error) {
       console.error('Subscribe error:', error);
       const errorMsg = error.response?.data?.message || error.message || 'Failed to subscribe';
       showErrorToast(errorMsg);
+      setSubscribing(false);
     }
   };
 
@@ -489,19 +495,37 @@ const SubscriptionSelection = ({ user }) => {
       {activeTab === 'browse' ? (
         <>
           {/* Student Selector */}
-          <div className="bg-gradient-to-r from-purple-50 to-indigo-50 rounded-xl shadow-md p-6 mb-6 border border-purple-100">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="bg-purple-600 rounded-full p-2">
-                <Users className="w-5 h-5 text-white" />
+          <div id="student-selector" className="bg-gradient-to-r from-purple-50 to-indigo-50 rounded-xl shadow-md p-6 mb-6 border-2 border-purple-200">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-3">
+                <div className="bg-purple-600 rounded-full p-2">
+                  <Users className="w-5 h-5 text-white" />
+                </div>
+                <label className="text-lg font-semibold text-gray-900">
+                  Select Student
+                </label>
               </div>
-              <label className="text-lg font-semibold text-gray-900">
-                Select Student
-              </label>
+              {!selectedStudent && (
+                <span className="inline-flex items-center gap-1 px-3 py-1 bg-yellow-100 text-yellow-800 rounded-full text-xs font-bold animate-pulse">
+                  <AlertCircle className="w-3 h-3" />
+                  Required
+                </span>
+              )}
             </div>
+            {!selectedStudent && (
+              <p className="mb-3 text-sm text-purple-700 font-medium flex items-center gap-2">
+                <ArrowRight className="w-4 h-4" />
+                Please select a student before choosing a plan
+              </p>
+            )}
             <select
               value={selectedStudent}
               onChange={(e) => setSelectedStudent(e.target.value)}
-              className="w-full px-4 py-3 border-2 border-purple-200 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 bg-white text-gray-900 font-medium shadow-sm transition-all hover:border-purple-300"
+              className={`w-full px-4 py-3 border-2 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 bg-white text-gray-900 font-medium shadow-sm transition-all ${
+                !selectedStudent
+                  ? 'border-yellow-300 hover:border-yellow-400'
+                  : 'border-purple-200 hover:border-purple-300'
+              }`}
             >
               <option value="" className="text-gray-500">👤 Choose a student...</option>
               {students.map(student => (
@@ -511,9 +535,12 @@ const SubscriptionSelection = ({ user }) => {
               ))}
             </select>
             {selectedStudent && (
-              <p className="mt-3 text-sm text-purple-700 font-medium">
-                ✓ Selected: {students.find(s => s.id === selectedStudent)?.firstName} {students.find(s => s.id === selectedStudent)?.lastName}
-              </p>
+              <div className="mt-3 flex items-center gap-2">
+                <Check className="w-4 h-4 text-green-600" />
+                <p className="text-sm text-green-700 font-semibold">
+                  Selected: {students.find(s => s.id === selectedStudent)?.firstName} {students.find(s => s.id === selectedStudent)?.lastName}
+                </p>
+              </div>
             )}
           </div>
 
@@ -539,7 +566,7 @@ const SubscriptionSelection = ({ user }) => {
 
           {/* Checkout Bar */}
           {selectedPlans.length > 0 && (
-            <div className="fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg p-4">
+            <div className="fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg p-4 z-50">
               <div className="max-w-7xl mx-auto flex items-center justify-between">
                 <div>
                   <p className="text-sm text-gray-600">1 plan selected</p>
@@ -547,15 +574,34 @@ const SubscriptionSelection = ({ user }) => {
                     ${(totalSelected / 100).toFixed(2)}
                   </p>
                 </div>
-                <button
-                  onClick={handleSubscribe}
-                  disabled={!selectedStudent}
-                  className="px-8 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center gap-2"
-                >
-                  <ShoppingCart className="w-5 h-5" />
-                  Subscribe Now
-                  <ArrowRight className="w-5 h-5" />
-                </button>
+                <div className="flex items-center gap-4">
+                  {!selectedStudent && (
+                    <div className="flex items-center gap-2 px-4 py-2 bg-yellow-50 border border-yellow-200 rounded-lg">
+                      <AlertCircle className="w-4 h-4 text-yellow-600" />
+                      <span className="text-sm font-medium text-yellow-800">
+                        Please select a student above
+                      </span>
+                    </div>
+                  )}
+                  <button
+                    onClick={handleSubscribe}
+                    disabled={!selectedStudent || subscribing}
+                    className="px-8 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center gap-2 font-semibold shadow-lg transition-all min-w-[200px] justify-center"
+                  >
+                    {subscribing ? (
+                      <>
+                        <RefreshCw className="w-5 h-5 animate-spin" />
+                        Processing...
+                      </>
+                    ) : (
+                      <>
+                        <ShoppingCart className="w-5 h-5" />
+                        Subscribe Now
+                        <ArrowRight className="w-5 h-5" />
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
             </div>
           )}

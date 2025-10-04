@@ -7,7 +7,7 @@ import { Role } from '../../common/enums/role.enum';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UpdateConfigDto, UpdateGoogleFormUrlDto } from './dto/update-config.dto';
-import { EnrollStudentDto, BulkEnrollDto } from './dto/enroll-student.dto';
+import { EnrollStudentDto, BulkEnrollDto, ChangeCourseDto } from './dto/enroll-student.dto';
 import { ConfigService } from './config.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { StudentSubscription } from '../payments/entities/student-subscription.entity';
@@ -364,6 +364,46 @@ export class AdminService {
     };
   }
 
+  async getEnrolledStudents(planId?: string) {
+    const queryBuilder = this.studentSubscriptionRepository
+      .createQueryBuilder('subscription')
+      .leftJoinAndSelect('subscription.student', 'student')
+      .leftJoinAndSelect('student.user', 'studentUser')
+      .leftJoinAndSelect('subscription.plan', 'plan')
+      .leftJoinAndSelect('subscription.course', 'course')
+      .leftJoinAndSelect('subscription.user', 'user')
+      .where('subscription.isEnrolled = :isEnrolled', { isEnrolled: true });
+
+    if (planId) {
+      queryBuilder.andWhere('subscription.planId = :planId', { planId });
+    }
+
+    const subscriptions = await queryBuilder
+      .orderBy('subscription.enrolledAt', 'DESC')
+      .getMany();
+
+    return {
+      enrolledStudents: subscriptions.map(sub => ({
+        subscriptionId: sub.id,
+        studentId: sub.studentId,
+        studentName: sub.studentName || (sub.student?.user ? `${sub.student.user.firstName} ${sub.student.user.lastName}` : 'N/A'),
+        planId: sub.planId,
+        planName: sub.planName,
+        planType: sub.plan?.planType || 'one_time',
+        courseId: sub.courseId,
+        courseName: sub.course?.name || 'N/A',
+        amount: sub.amount,
+        isPaid: sub.isPaid,
+        status: sub.status,
+        enrolledAt: sub.enrolledAt,
+        enrollmentStatus: sub.enrollmentStatus,
+        parentEmail: sub.user?.email,
+        parentName: `${sub.user?.firstName} ${sub.user?.lastName}`,
+      })),
+      total: subscriptions.length
+    };
+  }
+
   async getMissingPayments() {
     // Get subscriptions that are enrolled but not fully paid or have payment issues
     const subscriptions = await this.studentSubscriptionRepository
@@ -604,6 +644,70 @@ export class AdminService {
       total: subscriptions.length,
       successCount: results.enrolled.length,
       failedCount: results.failed.length,
+    };
+  }
+
+  async changeCourse(changeCourseDto: ChangeCourseDto) {
+    const { subscriptionId, courseId, notes } = changeCourseDto;
+
+    // Find the subscription
+    const subscription = await this.studentSubscriptionRepository.findOne({
+      where: { id: subscriptionId },
+      relations: ['student', 'course', 'plan']
+    });
+
+    if (!subscription) {
+      throw new NotFoundException('Subscription not found');
+    }
+
+    if (!subscription.isEnrolled) {
+      throw new BadRequestException('Student is not enrolled yet');
+    }
+
+    // Find the old and new courses
+    const oldCourse = subscription.course;
+    const newCourse = await this.courseRepository.findOne({
+      where: { id: courseId }
+    });
+
+    if (!newCourse) {
+      throw new NotFoundException('New course not found');
+    }
+
+    // Remove student from old course if it exists
+    if (oldCourse && oldCourse.students) {
+      const studentIndex = oldCourse.students.indexOf(subscription.studentId);
+      if (studentIndex > -1) {
+        oldCourse.students.splice(studentIndex, 1);
+        await this.courseRepository.save(oldCourse);
+      }
+    }
+
+    // Add student to new course
+    if (!newCourse.students) {
+      newCourse.students = [];
+    }
+    if (!newCourse.students.includes(subscription.studentId)) {
+      newCourse.students.push(subscription.studentId);
+      await this.courseRepository.save(newCourse);
+    }
+
+    // Update subscription
+    subscription.courseId = courseId;
+    if (notes) {
+      subscription.notes = notes;
+    }
+
+    await this.studentSubscriptionRepository.save(subscription);
+
+    return {
+      message: 'Course changed successfully',
+      subscription: {
+        id: subscription.id,
+        studentName: subscription.studentName,
+        oldCourse: oldCourse?.name || 'N/A',
+        newCourse: newCourse.name,
+      }
     };
   }
 }
