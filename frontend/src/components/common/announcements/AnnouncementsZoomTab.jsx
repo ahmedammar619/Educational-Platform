@@ -6,6 +6,7 @@ import { TimezoneIndicator } from '../../ui/TimezoneDisplay';
 import useConfirmation from '../../../hooks/useConfirmation';
 import useAlert from '../../../hooks/useAlert';
 import useTimezone from '../../../hooks/useTimezone';
+import { convertDateAndTime } from '../../../utils/timezoneUtils';
 
 const AnnouncementsZoomTab = ({ currentUser, theme }) => {
   const { confirmationState, showConfirmation, hideConfirmation, handleConfirm } = useConfirmation();
@@ -30,6 +31,60 @@ const AnnouncementsZoomTab = ({ currentUser, theme }) => {
   // Role-based access control functions - Only admin can manage
   const canManageZoom = () => {
     return currentUser?.role === 'admin';
+  };
+
+  // Get current timezone
+  const getCurrentTimezone = () => {
+    if (typeof window === 'undefined') return 'UTC';
+    const detectedTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    console.log('🌍 Detected timezone:', detectedTimezone);
+    return detectedTimezone;
+  };
+
+  // Convert meeting date/time for display (using same pattern as assignments and ZoomTab)
+  const getConvertedMeetingDateTime = (meeting) => {
+    if (!meeting.date || !meeting.time) {
+      return { date: meeting.date, time: meeting.time };
+    }
+
+    const creatorTimezone = meeting.creatorTimezone;
+    const viewerTimezone = getCurrentTimezone();
+
+    console.log('🕐 Announcement Meeting timezone conversion:', {
+      meetingId: meeting.id,
+      meetingTitle: meeting.title,
+      date: meeting.date,
+      time: meeting.time,
+      creatorTimezone,
+      viewerTimezone,
+      needsConversion: creatorTimezone && viewerTimezone && creatorTimezone !== viewerTimezone
+    });
+
+    if (!creatorTimezone || !viewerTimezone || creatorTimezone === viewerTimezone) {
+      console.log('🕐 No conversion needed');
+      return { date: meeting.date, time: meeting.time };
+    }
+
+    try {
+      const converted = convertDateAndTime(meeting.date, meeting.time, creatorTimezone, viewerTimezone);
+      
+      console.log('🕐 Conversion completed:', {
+        original: `${meeting.date} ${meeting.time}`,
+        converted: `${converted.date} ${converted.time}`,
+        isConverted: converted.date !== meeting.date || converted.time !== meeting.time
+      });
+      
+      return {
+        date: converted.date,
+        time: converted.time,
+        originalDate: meeting.date,
+        originalTime: meeting.time,
+        isConverted: converted.date !== meeting.date || converted.time !== meeting.time
+      };
+    } catch (error) {
+      console.error('Error converting meeting date/time:', error);
+      return { date: meeting.date, time: meeting.time };
+    }
   };
 
   // Generate time options dynamically
@@ -115,7 +170,8 @@ const AnnouncementsZoomTab = ({ currentUser, theme }) => {
       try {
         setLoading(true);
         const meetingData = {
-          ...newMeeting
+          ...newMeeting,
+          creatorTimezone: timezoneInfo?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone
         };
 
         if (editingMeeting) {
@@ -341,6 +397,11 @@ const AnnouncementsZoomTab = ({ currentUser, theme }) => {
   const loadMeetings = async () => {
     try {
       setLoading(true);
+      
+      // Force timezone re-detection
+      const currentTimezone = getCurrentTimezone();
+      console.log('🌍 Current browser timezone:', currentTimezone);
+      
       const filters = {};
       if (filter !== 'all') filters.status = filter;
       if (searchTerm) filters.search = searchTerm;
@@ -348,6 +409,21 @@ const AnnouncementsZoomTab = ({ currentUser, theme }) => {
       
       const meetingsData = await announcementsService.getAnnouncementMeetings(filters);
       console.log('🔍 Announcement meetings from backend:', meetingsData);
+      
+      if (Array.isArray(meetingsData)) {
+        meetingsData.forEach(meeting => {
+          console.log('📚 Announcement Meeting details:', {
+            id: meeting.id,
+            title: meeting.title,
+            date: meeting.date,
+            time: meeting.time,
+            period: meeting.period,
+            creatorTimezone: meeting.creatorTimezone,
+            currentViewerTimezone: currentTimezone
+          });
+        });
+      }
+      
       setMeetings(meetingsData);
     } catch (error) {
       console.error('Error loading meetings:', error);
@@ -555,14 +631,7 @@ const AnnouncementsZoomTab = ({ currentUser, theme }) => {
                           day: 'numeric' 
                         })}</p>
                         <p><strong>Time:</strong> {newMeeting.time} {newMeeting.period} (Duration: Until manually ended)</p>
-                        {timezoneInfo.isInitialized && (
-                          <div className="flex items-center gap-1 mt-2 text-blue-700">
-                            <Globe className="w-3 h-3" />
-                            <span className="text-xs">
-                              Your timezone: {timezoneInfo.displayName}
-                            </span>
-                          </div>
-                        )}
+                        <p><strong>Your timezone:</strong> {getCurrentTimezone()}</p>
                       </div>
                     </div>
                   </div>
@@ -703,11 +772,16 @@ const AnnouncementsZoomTab = ({ currentUser, theme }) => {
                       <div className="flex items-center gap-2 text-sm text-gray-600">
                         <Calendar className="w-4 h-4 flex-shrink-0 text-gray-400" />
                         <div className="flex flex-col">
-                          <span className="truncate">{meeting.date} {meeting.time} {meeting.period}</span>
+                          <span className="truncate">
+                            {(() => {
+                              const convertedDateTime = getConvertedMeetingDateTime(meeting);
+                              return `${convertedDateTime.date} ${convertedDateTime.time} ${meeting.period}`;
+                            })()}
+                          </span>
                           {timezoneInfo.isInitialized && (
                             <span className="text-xs text-gray-500 flex items-center gap-1">
                               <Clock className="w-3 h-3" />
-                              {formatMeetingDateTime(meeting.date, meeting.time, meeting.period)}
+                              {timezoneInfo.displayName}
                             </span>
                           )}
                         </div>

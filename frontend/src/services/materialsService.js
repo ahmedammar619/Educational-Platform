@@ -168,7 +168,8 @@ class MaterialsService {
         description: assignmentData.description,
         dueDate: assignmentData.dueDate,
         dueTime: assignmentData.dueTime,
-        marks: assignmentData.maxPoints // Frontend uses 'maxPoints', backend expects 'marks'
+        marks: assignmentData.maxPoints, // Frontend uses 'maxPoints', backend expects 'marks'
+        creatorTimezone: assignmentData.creatorTimezone || Intl.DateTimeFormat().resolvedOptions().timeZone
       };
       
       const response = await api.post(`/api/materials/courses/${courseId}/assignments`, backendData);
@@ -187,7 +188,8 @@ class MaterialsService {
         description: assignmentData.description,
         dueDate: assignmentData.dueDate,
         dueTime: assignmentData.dueTime,
-        marks: assignmentData.maxPoints // Frontend uses 'maxPoints', backend expects 'marks'
+        marks: assignmentData.maxPoints, // Frontend uses 'maxPoints', backend expects 'marks'
+        creatorTimezone: assignmentData.creatorTimezone || Intl.DateTimeFormat().resolvedOptions().timeZone
       };
       
       const response = await api.patch(`/api/materials/courses/assignments/${assignmentId}`, backendData);
@@ -222,6 +224,10 @@ class MaterialsService {
     try {
       const formData = new FormData();
       formData.append('file', file);
+      
+      // Add student's current timezone for deadline validation
+      const studentTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      formData.append('studentTimezone', studentTimezone);
 
       const response = await api.post(`/api/materials/assignments/${assignmentId}/submit`, formData, {
         headers: {

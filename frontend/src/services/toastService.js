@@ -2,6 +2,7 @@
 class ToastService {
   constructor() {
     this.toastManager = null;
+    this.pendingToasts = [];
   }
 
   // Initialize the toast manager
@@ -11,6 +12,9 @@ class ToastService {
       if (window.toastManager) {
         this.toastManager = window.toastManager;
         console.log('✅ Toast manager initialized successfully');
+        
+        // Process any pending toasts
+        this.processPendingToasts();
         return true;
       }
       return false;
@@ -26,15 +30,20 @@ class ToastService {
     }
   }
 
-  // Generic toast method
-  showToast(options) {
+  // Process pending toasts
+  processPendingToasts() {
+    while (this.pendingToasts.length > 0) {
+      const toastOptions = this.pendingToasts.shift();
+      this.showToastDirect(toastOptions);
+    }
+  }
+
+  // Direct toast method that doesn't retry
+  showToastDirect(options) {
     if (!this.toastManager) {
-      this.init();
-      if (!this.toastManager) {
-        console.warn('❌ Toast manager not available, falling back to alert');
-        alert(`${options.title}: ${options.description || ''}`);
-        return null;
-      }
+      console.warn('❌ Toast manager not available, falling back to alert');
+      alert(`${options.title}: ${options.description || ''}`);
+      return null;
     }
 
     const defaultOptions = {
@@ -49,6 +58,24 @@ class ToastService {
 
     console.log('📢 Showing toast:', { ...defaultOptions, ...options });
     return this.toastManager.addToast({ ...defaultOptions, ...options });
+  }
+
+  // Generic toast method
+  showToast(options) {
+    // Try to get the toast manager
+    if (!this.toastManager) {
+      this.toastManager = window.toastManager;
+    }
+
+    // If still not available, add to pending queue
+    if (!this.toastManager) {
+      console.log('📝 Toast manager not ready, queuing toast');
+      this.pendingToasts.push(options);
+      this.init();
+      return null;
+    }
+
+    return this.showToastDirect(options);
   }
 
   // Success toast

@@ -117,6 +117,41 @@ export const getTimezoneOffset = (timezone) => {
 };
 
 /**
+ * Get timezone offset in minutes (more precise)
+ * @param {string} timezone - Timezone identifier
+ * @returns {number} - Offset in minutes from UTC
+ */
+export const getTimezoneOffsetInMinutes = (timezone) => {
+  try {
+    // Create a date and get the timezone offset using Intl.DateTimeFormat
+    const now = new Date();
+    
+    // Get the time in UTC
+    const utcTime = new Date(now.toLocaleString('en-US', { timeZone: 'UTC' }));
+    
+    // Get the time in the specified timezone
+    const timezoneTime = new Date(now.toLocaleString('en-US', { timeZone: timezone }));
+    
+    // Calculate offset in milliseconds, then convert to minutes
+    const offsetMs = timezoneTime.getTime() - utcTime.getTime();
+    const offsetMinutes = offsetMs / (1000 * 60);
+    
+    console.log(`🕐 Timezone offset for ${timezone}:`, {
+      utcTime: utcTime.toISOString(),
+      timezoneTime: timezoneTime.toISOString(),
+      offsetMs,
+      offsetMinutes,
+      offsetHours: offsetMinutes / 60
+    });
+    
+    return offsetMinutes;
+  } catch (error) {
+    console.error('Error getting timezone offset in minutes:', error);
+    return 0;
+  }
+};
+
+/**
  * Format timezone display name with offset
  * @param {string} timezone - Timezone identifier
  * @returns {string} - Formatted timezone name with offset
@@ -220,14 +255,60 @@ export const convertDateAndTime = (dateString, timeString, fromTimezone, toTimez
   }
 
   try {
-    // Create a datetime string
-    const dateTimeString = `${dateString}T${timeString}:00`;
-    const convertedDateTime = convertDateTime(dateTimeString, fromTimezone, toTimezone);
-    const convertedDate = new Date(convertedDateTime);
+    console.log('🕐 Converting date/time:', { dateString, timeString, fromTimezone, toTimezone });
+    
+    // Parse the date components
+    const [year, month, day] = dateString.split('-').map(Number);
+    const [hours, minutes] = timeString.split(':').map(Number);
+    
+    // Create a date object representing the time in the source timezone
+    const sourceDate = new Date();
+    sourceDate.setFullYear(year, month - 1, day);
+    sourceDate.setHours(hours, minutes, 0, 0);
+    
+    // Use a more reliable method: create dates in both timezones and compare
+    const now = new Date();
+    
+    // Get current time in both timezones
+    const utcNow = new Date(now.toLocaleString('en-US', { timeZone: 'UTC' }));
+    const fromTimezoneNow = new Date(now.toLocaleString('en-US', { timeZone: fromTimezone }));
+    const toTimezoneNow = new Date(now.toLocaleString('en-US', { timeZone: toTimezone }));
+    
+    // Calculate offsets from UTC
+    const fromOffsetMs = fromTimezoneNow.getTime() - utcNow.getTime();
+    const toOffsetMs = toTimezoneNow.getTime() - utcNow.getTime();
+    
+    console.log('🕐 Timezone offsets calculation:', {
+      utcNow: utcNow.toISOString(),
+      fromTimezoneNow: fromTimezoneNow.toISOString(),
+      toTimezoneNow: toTimezoneNow.toISOString(),
+      fromOffsetMs,
+      toOffsetMs,
+      fromOffsetHours: fromOffsetMs / (1000 * 60 * 60),
+      toOffsetHours: toOffsetMs / (1000 * 60 * 60)
+    });
+    
+    // Calculate the offset difference
+    const offsetDifferenceMs = toOffsetMs - fromOffsetMs;
+    
+    // Apply the offset difference to get the converted time
+    const convertedDate = new Date(sourceDate.getTime() + offsetDifferenceMs);
+    
+    const convertedDateString = convertedDate.toISOString().split('T')[0];
+    const convertedTimeString = convertedDate.toTimeString().slice(0, 5);
+    
+    console.log('🕐 Conversion result:', { 
+      original: `${dateString} ${timeString} (${fromTimezone})`,
+      converted: `${convertedDateString} ${convertedTimeString} (${toTimezone})`,
+      dayChanged: convertedDateString !== dateString,
+      originalDateTime: sourceDate.toISOString(),
+      convertedDateTime: convertedDate.toISOString(),
+      offsetDifferenceHours: offsetDifferenceMs / (1000 * 60 * 60)
+    });
     
     return {
-      date: convertedDate.toISOString().split('T')[0],
-      time: convertedDate.toTimeString().slice(0, 5)
+      date: convertedDateString,
+      time: convertedTimeString
     };
   } catch (error) {
     console.error('Error converting date and time:', error);
@@ -247,21 +328,37 @@ export const formatDateTimeForTimezone = (dateTimeString, creatorTimezone, forma
   
   const viewerTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
   
-  if (!creatorTimezone || creatorTimezone === viewerTimezone) {
-    // No conversion needed, format normally
-    const date = new Date(dateTimeString);
-    return formatDateByType(date, format);
-  }
-  
   try {
-    // Convert to viewer's timezone
-    const convertedDateTime = convertDateTime(dateTimeString, creatorTimezone, viewerTimezone);
-    const date = new Date(convertedDateTime);
-    return formatDateByType(date, format);
+    const date = new Date(dateTimeString);
+    
+    // For original time, always use creator's timezone
+    if (format === 'original') {
+      return date.toLocaleString('en-US', {
+        timeZone: creatorTimezone,
+        year: 'numeric',
+        month: 'numeric',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: 'numeric',
+        second: 'numeric',
+        hour12: true
+      });
+    }
+    
+    // For converted time or if no conversion needed
+    return date.toLocaleString('en-US', {
+      timeZone: viewerTimezone,
+      year: 'numeric',
+      month: 'numeric',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: 'numeric',
+      second: 'numeric',
+      hour12: true
+    });
   } catch (error) {
     console.error('Error formatting datetime for timezone:', error);
-    const date = new Date(dateTimeString);
-    return formatDateByType(date, format);
+    return new Date(dateTimeString).toLocaleString();
   }
 };
 

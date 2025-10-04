@@ -32,4 +32,9 @@ export class CreateAnnouncementMeetingDto {
   @IsOptional()
   @IsIn(['AM', 'PM'])
   period?: string;
+
+  @ApiPropertyOptional({ description: 'Timezone where the meeting was created', example: 'America/Chicago' })
+  @IsOptional()
+  @IsString()
+  creatorTimezone?: string;
 }

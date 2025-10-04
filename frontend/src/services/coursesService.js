@@ -35,6 +35,17 @@ class CoursesService {
     }
   }
 
+  // Get courses by teacher
+  async getCoursesByTeacher(teacherId) {
+    try {
+      const response = await api.get(`/api/courses/teacher/${teacherId}`);
+      return response.data;
+    } catch (error) {
+      console.error('Error getting courses by teacher:', error);
+      throw error;
+    }
+  }
+
   // Update course
   async updateCourse(courseId, courseData) {
     try {

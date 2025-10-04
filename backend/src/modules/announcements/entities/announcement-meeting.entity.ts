@@ -33,6 +33,9 @@ export class AnnouncementMeeting {
   @Column({ type: 'varchar', length: 2, default: 'AM' })
   period: string;
 
+  @Column({ type: 'varchar', nullable: true })
+  creatorTimezone: string;
+
   @Column({ type: 'int', default: 0 })
   joinCount: number;
 

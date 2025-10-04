@@ -845,7 +845,7 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
                   <div key={classItem.id} className="bg-white rounded-xl shadow-sm border hover:shadow-md transition-all">
                     {/* Class Header */}
                     <div className="p-4 sm:p-6 border-b border-gray-100">
-                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                      <div className="flex flex-col gap-2">
                         <div className="flex items-center gap-3">
                           <button
                             onClick={() => toggleClassExpansion(classItem.id)}
@@ -865,8 +865,8 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
                           </div>
                         </div>
 
-                        {/* Class Actions */}
-                        <div className="flex items-center gap-1 sm:gap-2 flex-wrap">
+                        {/* Class Actions - Visible on all screens */}
+                        <div className="flex items-center justify-end sm:justify-start gap-1 sm:gap-2 flex-wrap">
                           <button
                             onClick={() => {
                               setSelectedClass(classItem);
@@ -947,6 +947,7 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
                         </div>
                       </div>
 
+
                       {/* Class Info */}
                       <div className="mt-4 grid grid-cols-2 sm:grid-cols-2 gap-3 sm:gap-4">
                         <div className="text-center bg-gray-50 rounded-lg p-3">
@@ -980,7 +981,7 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
                               return (
                                 <div key={course.id} className="bg-white rounded-lg border border-gray-200 p-3 md:p-4">
                                   <div className="mb-3 md:mb-4">
-                                    <div className="flex items-center justify-between gap-2">
+                                    <div className="flex flex-col gap-2">
                                       <div className="flex items-center gap-2">
                                         <h5 className="text-sm md:text-base font-semibold text-gray-900 leading-tight text-start">{course.name}</h5>
                                         <span className="text-gray-400 hidden md:inline">|</span>
@@ -996,7 +997,9 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
                                           </span>
                                         </div>
                                       </div>
-                                      <div className="flex items-center gap-2">
+                                      
+                                      {/* Course Actions - Visible on all screens */}
+                                      <div className="flex items-center justify-end sm:justify-start gap-1 sm:gap-2 flex-wrap">
                                         <button
                                           onClick={() => {
                                             setSelectedClass(classItem);
@@ -1004,7 +1007,7 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
                                             setShowCourseEnrollModal(true);
                                           }}
                                           disabled={courseEnrollingStudents.has(course.id)}
-                                          className="text-green-600 hover:text-green-800 p-1 rounded hover:bg-green-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                          className="text-green-600 hover:text-green-800 p-2 rounded-lg hover:bg-green-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                           title={courseEnrollingStudents.has(course.id) ? "Enrolling..." : "Enroll Students in Course"}
                                         >
                                           {courseEnrollingStudents.has(course.id) ? (
@@ -1019,7 +1022,7 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
                                             setSelectedCourse(course);
                                             setShowCourseUnenrollModal(true);
                                           }}
-                                          className="text-red-600 hover:text-red-800 p-1 rounded hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                          className="text-red-600 hover:text-red-800 p-2 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                           title={courseUnenrollingStudents.has(course.id) ? "Unenrolling..." : "Unenroll Students from Course"}
                                           disabled={!course.enrolledStudents || course.enrolledStudents.length === 0 || courseUnenrollingStudents.has(course.id)}
                                         >
@@ -1036,7 +1039,7 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
                                             setShowEditCourseModal(true);
                                           }}
                                           disabled={updatingCourses.has(course.id)}
-                                          className="text-blue-600 hover:text-blue-800 p-1 rounded hover:bg-blue-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:text-gray-400"
+                                          className="text-blue-600 hover:text-blue-800 p-2 rounded-lg hover:bg-blue-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:text-gray-400"
                                           title={updatingCourses.has(course.id) ? "Course is being updated..." : "Edit Course"}
                                         >
                                           {updatingCourses.has(course.id) ? (
@@ -1048,7 +1051,7 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
                                         <button
                                           onClick={() => handleDeleteCourse(classItem.id, course.id)}
                                           disabled={deletingCourses.has(course.id)}
-                                          className="text-red-600 hover:text-red-800 p-1 rounded hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                          className="text-red-600 hover:text-red-800 p-2 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                           title="Delete Course"
                                         >
                                           {deletingCourses.has(course.id) ? (
@@ -1060,6 +1063,7 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
                                       </div>
                                     </div>
                                   </div>
+                                  
 
                                   {/* Course Content */}
                                   <div className="space-y-4">
@@ -1243,6 +1247,7 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
             setSelectedClass(null);
           }}
           onSubmit={handleCreateCourse}
+          showAlert={showAlert}
         />
       )}
 
@@ -1263,6 +1268,7 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
             setSelectedCourse(null);
           }}
           onSubmit={(courseData) => handleUpdateCourse(selectedClass.id, selectedCourse.id, courseData)}
+          showAlert={showAlert}
         />
       )}
 
@@ -1491,7 +1497,7 @@ const ClassModal = ({ title, classData, onClose, onSubmit, isCreatingClass = fal
 };
 
 // Course Modal Component (using the old class design)
-const CourseModal = ({ title, courseData, isUpdating = false, onClose, onSubmit }) => {
+const CourseModal = ({ title, courseData, isUpdating = false, onClose, onSubmit, showAlert }) => {
   const { timezoneInfo, toLocalTime, formatMeetingDateTime } = useTimezone();
   const [formData, setFormData] = useState({
     name: courseData?.name || '',
@@ -1544,14 +1550,50 @@ const CourseModal = ({ title, courseData, isUpdating = false, onClose, onSubmit 
     }
   };
 
-  const handleTeacherChange = (teacherId) => {
+  const handleTeacherChange = async (teacherId) => {
     const selectedTeacher = Array.isArray(availableTeachers) ?
       availableTeachers.find(teacher => teacher.id === teacherId) : null;
+    
     setFormData({
       ...formData,
       teacherId: teacherId,
       teacherName: selectedTeacher ? `${selectedTeacher.firstName || ''} ${selectedTeacher.lastName || ''}`.trim() || selectedTeacher.fullName : ''
     });
+
+    // Check for conflicts with the new teacher's existing sessions
+    if (teacherId && formData.sessions && formData.sessions.length > 0) {
+      try {
+        const teacherCourses = await coursesService.getCoursesByTeacher(teacherId);
+        
+        // Check each existing session in the form for conflicts
+        for (const session of formData.sessions) {
+          for (const course of teacherCourses) {
+            if (course.sessions && course.sessions.length > 0) {
+              for (const existingSession of course.sessions) {
+                if (existingSession.day === session.day) {
+                  // Check if times overlap
+                  const sessionStart = parseTime(session.startTime);
+                  const sessionEnd = parseTime(session.endTime);
+                  const existingStart = parseTime(existingSession.startTime);
+                  const existingEnd = parseTime(existingSession.endTime);
+                  
+                  if (sessionsOverlap(sessionStart, sessionEnd, existingStart, existingEnd)) {
+                    showWarningToast(
+                      'Session Conflict Detected',
+                      `This professor has a session at the same time in course "${course.name}" (${existingSession.startTime} - ${existingSession.endTime})`
+                    );
+                    return;
+                  }
+                }
+              }
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error checking teacher session conflicts:', error);
+        // Continue if we can't check conflicts
+      }
+    }
   };
 
   const [showAddSession, setShowAddSession] = useState(false);
@@ -1572,7 +1614,7 @@ const CourseModal = ({ title, courseData, isUpdating = false, onClose, onSubmit 
     return times;
   };
 
-  const addSession = () => {
+  const addSession = async () => {
     if (newSession.startTime >= newSession.endTime) {
       showAlert({
         title: 'Invalid Time',
@@ -1582,6 +1624,7 @@ const CourseModal = ({ title, courseData, isUpdating = false, onClose, onSubmit 
       return;
     }
 
+    // Check for conflicts within the same course
     const sessionExists = formData.sessions.some(session =>
       session.day === newSession.day &&
       ((newSession.startTime >= session.startTime && newSession.startTime < session.endTime) ||
@@ -1596,6 +1639,39 @@ const CourseModal = ({ title, courseData, isUpdating = false, onClose, onSubmit 
         type: 'warning'
       });
       return;
+    }
+
+    // Check for conflicts with teacher's existing courses
+    if (formData.teacherId) {
+      try {
+        const teacherCourses = await coursesService.getCoursesByTeacher(formData.teacherId);
+        
+        // Check for conflicts with existing teacher sessions
+        for (const course of teacherCourses) {
+          if (course.sessions && course.sessions.length > 0) {
+            for (const existingSession of course.sessions) {
+              if (existingSession.day === newSession.day) {
+                // Check if times overlap
+                const newStart = parseTime(newSession.startTime);
+                const newEnd = parseTime(newSession.endTime);
+                const existingStart = parseTime(existingSession.startTime);
+                const existingEnd = parseTime(existingSession.endTime);
+                
+                if (sessionsOverlap(newStart, newEnd, existingStart, existingEnd)) {
+                  showWarningToast(
+                    'Session Conflict Detected',
+                    `This professor has a session at the same time in course "${course.name}" (${existingSession.startTime} - ${existingSession.endTime})`
+                  );
+                  return;
+                }
+              }
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error checking teacher session conflicts:', error);
+        // Continue with session addition if we can't check conflicts
+      }
     }
 
     setFormData({
@@ -1669,7 +1745,7 @@ const CourseModal = ({ title, courseData, isUpdating = false, onClose, onSubmit 
     return null; // No conflicts found
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
     // Prevent form submission if already updating
@@ -1698,7 +1774,7 @@ const CourseModal = ({ title, courseData, isUpdating = false, onClose, onSubmit 
       return;
     }
 
-    // Validate session conflicts
+    // Validate session conflicts within the course
     const conflictError = validateSessionConflicts(validSessions);
     if (conflictError) {
       showAlert({
@@ -1707,6 +1783,41 @@ const CourseModal = ({ title, courseData, isUpdating = false, onClose, onSubmit 
         type: 'warning'
       });
       return;
+    }
+
+    // Check for conflicts with teacher's existing courses before submission
+    if (formData.teacherId) {
+      try {
+        const teacherCourses = await coursesService.getCoursesByTeacher(formData.teacherId);
+        
+        // Check each session for conflicts with teacher's existing courses
+        for (const session of validSessions) {
+          for (const course of teacherCourses) {
+            if (course.sessions && course.sessions.length > 0) {
+              for (const existingSession of course.sessions) {
+                if (existingSession.day === session.day) {
+                  // Check if times overlap
+                  const sessionStart = parseTime(session.startTime);
+                  const sessionEnd = parseTime(session.endTime);
+                  const existingStart = parseTime(existingSession.startTime);
+                  const existingEnd = parseTime(existingSession.endTime);
+                  
+                  if (sessionsOverlap(sessionStart, sessionEnd, existingStart, existingEnd)) {
+                    showWarningToast(
+                      'Session Conflict Detected',
+                      `This professor has a session at the same time in course "${course.name}" (${existingSession.startTime} - ${existingSession.endTime})`
+                    );
+                    return;
+                  }
+                }
+              }
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error checking teacher session conflicts before submission:', error);
+        // Continue with submission if we can't check conflicts
+      }
     }
 
     // Submit with only valid sessions

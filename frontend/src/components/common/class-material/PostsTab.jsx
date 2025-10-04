@@ -174,10 +174,14 @@ const PostsTab = ({ currentUser, theme, courseId }) => {
     if (postSubject.trim() && postMessage.trim() && courseId && !loadingStates.creatingPost) {
       updateLoadingState('creatingPost', true);
       try {
+        // Always store creator's timezone
+        const creatorTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        console.log('Creating post with timezone:', creatorTimezone);
+        
         const postData = {
           subject: postSubject,
           description: postMessage,
-          creatorTimezone: timezoneInfo?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone
+          creatorTimezone
         };
 
         // If there are attached files, send the first one (for now, we'll support single file upload)
@@ -727,66 +731,91 @@ const PostsTab = ({ currentUser, theme, courseId }) => {
                       </span>
                       </div>
                   </div>
-                  <div>
-                    <span 
-                      className="text-gray-900 font-medium cursor-pointer hover:text-blue-600 transition-colors"
-                      onClick={() => handleOpenContactModal(post)}
-                      title="Click to view contact info"
-                    >
-                      {post.authorId === currentUser?.id ? (
-                        currentUser?.firstName && currentUser?.lastName
-                          ? `${currentUser.firstName} ${currentUser.lastName}`
-                          : currentUser?.name || 'Current User'
-                      ) : (
-                        post.author?.firstName && post.author?.lastName
-                          ? `${post.author.firstName} ${post.author.lastName}`
-                          : post.author?.email || 'Unknown User'
-                      )}
-                    </span>
-                    <span className="text-gray-500 text-sm ml-2">
+                  <div className="flex flex-col text-start">
+                    <div>
+                      <span 
+                        className="text-gray-900 font-medium cursor-pointer hover:text-blue-600 transition-colors"
+                        onClick={() => handleOpenContactModal(post)}
+                        title="Click to view contact info"
+                      >
+                        {post.authorId === currentUser?.id ? (
+                          currentUser?.firstName && currentUser?.lastName
+                            ? `${currentUser.firstName} ${currentUser.lastName}`
+                            : currentUser?.name || 'Current User'
+                        ) : (
+                          post.author?.firstName && post.author?.lastName
+                            ? `${post.author.firstName} ${post.author.lastName}`
+                            : post.author?.email || 'Unknown User'
+                        )}
+                      </span>
+                    </div>
+                    <span className="text-gray-500 text-sm">
                       {(() => {
-                        const creatorTimezone = post.creatorTimezone;
-                        const viewerTimezone = timezoneInfo?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
-                        const needsConversion = creatorTimezone && creatorTimezone !== viewerTimezone;
+                        const viewerTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+                        const creatorTimezone = post.creatorTimezone || viewerTimezone;
                         
-                        let displayDateTime = '';
-                        let originalDateTime = '';
-                        
-                        if (needsConversion) {
-                          try {
-                            const convertedDateTime = formatDateTimeForTimezone(post.createdAt, creatorTimezone, 'dateTime');
-                            displayDateTime = convertedDateTime;
-                            originalDateTime = new Date(post.createdAt).toLocaleString();
-                          } catch (error) {
-                            console.error('Error converting post datetime:', error);
-                            displayDateTime = new Date(post.createdAt).toLocaleString();
-                          }
-                        } else {
-                          displayDateTime = new Date(post.createdAt).toLocaleString();
+                        console.log('Post timestamp:', {
+                          createdAt: post.createdAt,
+                          creatorTimezone,
+                          viewerTimezone
+                        });
+
+                        if (!post.createdAt) {
+                          return <div>Time not available</div>;
                         }
-                        
-                        return (
-                          <div>
-                            <div className={needsConversion ? 'font-medium text-blue-700' : ''}>
-                              {displayDateTime}
-                              {needsConversion && (
-                                <span className="text-xs text-blue-600 ml-1">
-                                  (converted)
-                                </span>
+
+                        // First convert the UTC timestamp to a Date object
+                        const utcDate = new Date(post.createdAt);
+
+                        try {
+                          // Format for creator's timezone (original time)
+                          const originalTime = new Intl.DateTimeFormat('en-US', {
+                            timeZone: creatorTimezone,
+                            year: 'numeric',
+                            month: 'numeric',
+                            day: 'numeric',
+                            hour: 'numeric',
+                            minute: 'numeric',
+                            hour12: true
+                          }).format(utcDate);
+
+                          // Format for viewer's timezone (converted time)
+                          const convertedTime = new Intl.DateTimeFormat('en-US', {
+                            timeZone: viewerTimezone,
+                            year: 'numeric',
+                            month: 'numeric',
+                            day: 'numeric',
+                            hour: 'numeric',
+                            minute: 'numeric',
+                            hour12: true
+                          }).format(utcDate);
+
+                          const needsConversion = creatorTimezone !== viewerTimezone;
+                          const creatorTimezoneName = creatorTimezone ? creatorTimezone.replace(/_/g, ' ') : 'UTC';
+                          const viewerTimezoneName = viewerTimezone ? viewerTimezone.replace(/_/g, ' ') : 'UTC';
+                          
+                          return (
+                            <div>
+                              {/* Show the viewer's time as main display */}
+                              {/* Creator's original time */}
+                              <div className="text-gray-500 text-start flex items-center gap-2">
+                                {originalTime}                          
+                              </div>
+                              {/* Viewer's local time if different */}
+                              {needsConversion && convertedTime !== originalTime && (
+                                <div className="text-xs text-gray-500 mt-1 text-start flex items-center gap-2">
+                                  <span>{convertedTime}</span>
+                                  <span className="bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded">
+                                    {viewerTimezoneName}
+                                  </span>
+                                </div>
                               )}
                             </div>
-                            {needsConversion && originalDateTime !== displayDateTime && (
-                              <div className="text-xs text-gray-400 line-through">
-                                Original: {originalDateTime}
-                              </div>
-                            )}
-                            {timezoneInfo?.timezone && timezoneInfo.timezone !== 'UTC' && (
-                              <div className="text-xs text-gray-500 mt-1">
-                                Your timezone: {timezoneInfo.displayName}
-                              </div>
-                            )}
-                          </div>
-                        );
+                          );
+                        } catch (error) {
+                          console.error('Error formatting time:', error);
+                          return <div>Error displaying time</div>;
+                        }
                       })()}
                     </span>
                   </div>

@@ -66,13 +66,20 @@ export class MaterialsService {
     }
     console.log('Course found:', course.name);
 
+    // Create post with exact UTC time
+    const now = new Date();
     const post = this.postRepository.create({
       ...createPostDto,
       courseId,
       authorId: authorId,
-      creatorTimezone: createPostDto.creatorTimezone || Intl.DateTimeFormat().resolvedOptions().timeZone
+      creatorTimezone: createPostDto.creatorTimezone || Intl.DateTimeFormat().resolvedOptions().timeZone,
+      createdAt: now,
+      updatedAt: now
     });
-    console.log('Post created:', post);
+    console.log('Post created with UTC time:', {
+      createdAt: post.createdAt,
+      timezone: post.creatorTimezone
+    });
 
     try {
       const savedPost = await this.postRepository.save(post);
@@ -1001,27 +1008,16 @@ export class MaterialsService {
       throw new NotFoundException(`Course with ID ${courseId} not found`);
     }
 
-    // Get student list from the classes.students field (comma-separated string)
-    const classData = await this.courseRepository.manager.query(`
-      SELECT c.id, c.name, c.students 
-      FROM classes c
-      WHERE c.id = $1
-    `, [course.classId]);
-
-    // Enhanced debugging for class data
-    console.log('Raw class data:', classData);
-
-    // Get student IDs from the classes.students field
+    // Get student IDs directly from the course.students field
     let studentIds: string[] = [];
-    if (classData.length > 0 && classData[0].students) {
-      const studentsString = classData[0].students;
-      studentIds = studentsString.split(',').map(id => id.trim()).filter(id => id.length > 0);
+    if (course.students && course.students.length > 0) {
+      studentIds = course.students.filter(id => id && id.length > 0);
       
       // Remove duplicates to prevent duplicate notifications
       studentIds = [...new Set(studentIds)];
     }
 
-    console.log('Found student IDs from classes.students field:', studentIds);
+    console.log('Found student IDs from course.students field:', studentIds);
 
     console.log('Course found:', { courseId, courseName: course.name, classId: course.class?.id });
     console.log('Parsed student IDs:', studentIds);
@@ -1101,7 +1097,7 @@ export class MaterialsService {
 
     console.log('🗑️ Deleting assignment:', { assignmentId, assignmentName: assignment.name });
 
-    // Delete associated submission files first
+    // Delete associated submission files and records first
     if (assignment.submissions && assignment.submissions.length > 0) {
       for (const submission of assignment.submissions) {
         if (submission.filePath) {
@@ -1113,21 +1109,31 @@ export class MaterialsService {
           }
         }
       }
+      
+      // Delete all submission records from database
+      await this.assignmentSubmissionRepository.delete({ assignmentId });
+      console.log('✅ Deleted submission records');
     }
 
-    // Delete the assignment (this will cascade delete submissions due to foreign key constraints)
+    // Now delete the assignment (submissions are already deleted)
     await this.assignmentRepository.remove(assignment);
     
     console.log('✅ Assignment deleted successfully');
   }
 
-  async submitAssignment(assignmentId: string, file: Express.Multer.File, studentId: string): Promise<AssignmentSubmission> {
+  async submitAssignment(assignmentId: string, file: Express.Multer.File, studentId: string, studentTimezone?: string): Promise<AssignmentSubmission> {
     const assignment = await this.assignmentRepository.findOne({ 
       where: { id: assignmentId },
       relations: ['course', 'course.class', 'course.teacher', 'creator']
     });
     if (!assignment) {
       throw new NotFoundException(`Assignment with ID ${assignmentId} not found`);
+    }
+
+    // Check if assignment is overdue based on student's timezone
+    const isOverdue = this.checkAssignmentDeadline(assignment, studentTimezone);
+    if (isOverdue) {
+      throw new BadRequestException('Assignment submission deadline has passed. Cannot submit after due date.');
     }
 
     // Check if student has already submitted
@@ -1730,38 +1736,20 @@ export class MaterialsService {
       console.log('✅ Course found:', course.name, 'Class ID:', course.classId);
       console.log('📚 Class relation:', course.class?.name);
       
-      // First, let's check what's actually in the class table
-      console.log('🔍 Checking class data directly...');
-      const classData = await this.courseRepository.manager.query(`
-        SELECT id, name, students FROM classes WHERE id = $1
-      `, [course.classId]);
-      
-      console.log('📋 Class data from database:', classData);
-      
-      if (classData.length === 0) {
-        console.log('❌ Class not found in database');
-        return [];
-      }
-      
-      const classStudents = classData[0].students;
-      console.log('👥 Students in class (raw):', classStudents);
-      console.log('👥 Students type:', typeof classStudents);
+      // Get students directly from course
+      console.log('🔍 Getting students from course directly...');
+      console.log('👥 Students in course (raw):', course.students);
+      console.log('👥 Students type:', typeof course.students);
       
       let students: any[] = [];
       
       // Check if students field has data
-      if (classStudents && classStudents !== '') {
+      if (course.students && course.students.length > 0) {
         let studentIds: string[] = [];
         
-        // Handle both array and comma-separated string formats
-        if (Array.isArray(classStudents)) {
-          studentIds = classStudents;
-          console.log('✅ Found students array in class:', studentIds);
-        } else if (typeof classStudents === 'string') {
-          // Parse comma-separated string
-          studentIds = classStudents.split(',').map(id => id.trim()).filter(id => id.length > 0);
-          console.log('✅ Found students string in class, parsed to array:', studentIds);
-        }
+        // course.students is already an array of strings
+        studentIds = course.students.filter(id => id && id.length > 0);
+        console.log('✅ Found students array in course:', studentIds);
         
         if (studentIds.length > 0) {
           // Get students by their IDs
@@ -1777,10 +1765,10 @@ export class MaterialsService {
             console.log(`  - Student: ${student.fullName || `${student.firstName} ${student.lastName}`} (ID: ${student.id})`);
           });
         } else {
-          console.log('❌ No valid student IDs found in class database field');
+          console.log('❌ No valid student IDs found in course database field');
         }
       } else {
-        console.log('❌ No students found in class database field');
+        console.log('❌ No students found in course database field');
         
         // For the specific class "level 1", use the hardcoded student IDs as fallback
         if (course.classId === 'c2e8935d-1a07-481d-834d-7581ce96ca74') {
@@ -1920,19 +1908,13 @@ export class MaterialsService {
 
     const studentIds = new Set<string>();
 
-    // Get students from class enrollment (if course belongs to a class)
-    if (course.classId) {
-      const classData = await this.courseRepository.manager.query(`
-        SELECT c.students 
-        FROM classes c
-        WHERE c.id = $1
-      `, [course.classId]);
-
-      if (classData.length > 0 && classData[0].students) {
-        const studentsString = classData[0].students;
-        const classStudentIds = studentsString.split(',').map(id => id.trim()).filter(id => id.length > 0);
-        classStudentIds.forEach(id => studentIds.add(id));
-      }
+    // Get students directly from course enrollment
+    if (course.students && course.students.length > 0) {
+      course.students.forEach(id => {
+        if (id && id.length > 0) {
+          studentIds.add(id);
+        }
+      });
     }
 
     // Get students from individual course enrollment
@@ -2030,6 +2012,99 @@ export class MaterialsService {
     } catch (error) {
       console.error('Error getting parents of student:', error);
       return [];
+    }
+  }
+
+  /**
+   * Get timezone offset in hours
+   * @param timezone - Timezone identifier
+   * @returns Offset in hours from UTC
+   */
+  private getTimezoneOffset(timezone: string): number {
+    try {
+      const now = new Date();
+      const utcTime = new Date(now.toLocaleString('en-US', { timeZone: 'UTC' }));
+      const localTime = new Date(now.toLocaleString('en-US', { timeZone: timezone }));
+      const offsetMs = localTime.getTime() - utcTime.getTime();
+      return offsetMs / (1000 * 60 * 60); // Convert to hours
+    } catch (error) {
+      console.error('Error getting timezone offset:', error);
+      return 0;
+    }
+  }
+
+  /**
+   * Check if an assignment is overdue based on its due date, time, and student's timezone
+   * @param assignment - The assignment to check
+   * @param studentTimezone - The student's timezone (optional, defaults to UTC)
+   * @returns true if the assignment is overdue, false otherwise
+   */
+  private checkAssignmentDeadline(assignment: any, studentTimezone?: string): boolean {
+    try {
+      // Get current time in UTC
+      const now = new Date();
+      
+      // Get the assignment's due date and time
+      const dueDate = assignment.dueDate;
+      const dueTime = assignment.dueTime;
+      const creatorTimezone = assignment.creatorTimezone;
+      
+      if (!dueDate || !dueTime) {
+        console.warn('Assignment missing due date or time:', assignment.id);
+        return false; // If no deadline is set, allow submission
+      }
+      
+      // If no student timezone is specified, use creator's timezone or default to UTC
+      const timezone = studentTimezone || creatorTimezone || 'UTC';
+      
+      // Create the due datetime string
+      const dueDateTimeString = `${dueDate}T${dueTime}`;
+      
+      // Parse the due date and time, then create a proper datetime
+      const [year, month, day] = dueDate.split('-').map(Number);
+      const [hours, minutes] = dueTime.split(':').map(Number);
+      
+      // Create a date object representing the due datetime in the creator's timezone
+      const dueDateTimeInCreatorTz = new Date();
+      dueDateTimeInCreatorTz.setFullYear(year, month - 1, day);
+      dueDateTimeInCreatorTz.setHours(hours, minutes, 0, 0);
+      
+      // Convert the due datetime from creator's timezone to student's timezone for comparison
+      let dueInStudentTimezone: Date;
+      let nowInStudentTimezone: Date;
+      
+      if (creatorTimezone && studentTimezone && creatorTimezone !== studentTimezone) {
+        // Convert from creator's timezone to student's timezone
+        const creatorOffset = this.getTimezoneOffset(creatorTimezone);
+        const studentOffset = this.getTimezoneOffset(studentTimezone);
+        const offsetDiff = studentOffset - creatorOffset;
+        
+        // Apply offset difference to get due time in student's timezone
+        dueInStudentTimezone = new Date(dueDateTimeInCreatorTz.getTime() + (offsetDiff * 60 * 60 * 1000));
+        nowInStudentTimezone = new Date(now.toLocaleString("en-US", { timeZone: studentTimezone }));
+      } else {
+        // Same timezone or no conversion needed
+        dueInStudentTimezone = dueDateTimeInCreatorTz;
+        nowInStudentTimezone = new Date(now.toLocaleString("en-US", { timeZone: timezone }));
+      }
+      
+      console.log('Deadline check:', {
+        assignmentId: assignment.id,
+        now: now.toISOString(),
+        dueDateTime: dueDateTimeString,
+        creatorTimezone,
+        studentTimezone,
+        nowInStudentTimezone: nowInStudentTimezone.toISOString(),
+        dueInStudentTimezone: dueInStudentTimezone.toISOString(),
+        isOverdue: nowInStudentTimezone > dueInStudentTimezone
+      });
+      
+      return nowInStudentTimezone > dueInStudentTimezone;
+      
+    } catch (error) {
+      console.error('Error checking assignment deadline:', error);
+      // If there's an error in deadline checking, be permissive and allow submission
+      return false;
     }
   }
 }

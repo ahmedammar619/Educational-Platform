@@ -24,7 +24,12 @@ const ToastContainer = ({ position = 'top-right' }) => {
       createdAt: Date.now()
     };
 
-    setToasts(prev => [...prev, newToast]);
+    console.log('🎯 ToastContainer: Adding toast', newToast);
+    setToasts(prev => {
+      const updated = [...prev, newToast];
+      console.log('🎯 ToastContainer: Total toasts now:', updated.length);
+      return updated;
+    });
 
     // Auto remove toast after duration
     if (toastData.duration !== 0) {
@@ -53,10 +58,16 @@ const ToastContainer = ({ position = 'top-right' }) => {
       removeToast,
       clearAllToasts
     };
+    console.log('🎯 ToastContainer: Toast manager exposed globally');
   }, [addToast, removeToast, clearAllToasts]);
 
+  // Debug: Log when toasts change
+  useEffect(() => {
+    console.log('🎯 ToastContainer: Toasts updated:', toasts.length, toasts);
+  }, [toasts]);
+
   return (
-    <div className={`fixed z-50 ${positionClasses[position]} space-y-2 pointer-events-none`}>
+    <div className={`fixed z-[9999] ${positionClasses[position]} space-y-2 pointer-events-none`}>
       {toasts.map((toast) => (
         <div key={toast.id} className="pointer-events-auto">
           <Toast

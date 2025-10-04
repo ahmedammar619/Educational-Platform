@@ -64,10 +64,10 @@ const AppRouter = React.memo(({ user, onLogin, onLogout }) => {
     setShowMaterialPage(false);
     setMaterialPageData(null);
     
-    // Navigate back to classes
+    // Navigate back to classes (Class Management for admin)
     if (user?.role) {
       const basePath = user.role === 'admin' ? '/admin' : '/student';
-      navigate(`${basePath}/classes`);
+      navigate(`${basePath}/classes`, { replace: true });
     }
   }, [navigate, user?.role]);
 
@@ -122,7 +122,7 @@ const AppRouter = React.memo(({ user, onLogin, onLogout }) => {
                     onBack={handleCloseMaterials}
                     currentUser={user}
                   />
-                ) : <Navigate to="/admin/users" replace /> },
+                ) : <Navigate to="/admin/classes" replace /> },
               ]} />
             ) : (
               <Navigate to={roleRoute} replace />
