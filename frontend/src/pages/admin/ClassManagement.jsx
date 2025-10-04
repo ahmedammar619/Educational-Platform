@@ -845,7 +845,7 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
                   <div key={classItem.id} className="bg-white rounded-xl shadow-sm border hover:shadow-md transition-all">
                     {/* Class Header */}
                     <div className="p-4 sm:p-6 border-b border-gray-100">
-                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                      <div className="flex flex-col gap-2">
                         <div className="flex items-center gap-3">
                           <button
                             onClick={() => toggleClassExpansion(classItem.id)}
@@ -865,8 +865,8 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
                           </div>
                         </div>
 
-                        {/* Class Actions */}
-                        <div className="flex items-center gap-1 sm:gap-2 flex-wrap">
+                        {/* Class Actions - Visible on all screens */}
+                        <div className="flex items-center justify-end sm:justify-start gap-1 sm:gap-2 flex-wrap">
                           <button
                             onClick={() => {
                               setSelectedClass(classItem);
@@ -947,6 +947,7 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
                         </div>
                       </div>
 
+
                       {/* Class Info */}
                       <div className="mt-4 grid grid-cols-2 sm:grid-cols-2 gap-3 sm:gap-4">
                         <div className="text-center bg-gray-50 rounded-lg p-3">
@@ -980,7 +981,7 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
                               return (
                                 <div key={course.id} className="bg-white rounded-lg border border-gray-200 p-3 md:p-4">
                                   <div className="mb-3 md:mb-4">
-                                    <div className="flex items-center justify-between gap-2">
+                                    <div className="flex flex-col gap-2">
                                       <div className="flex items-center gap-2">
                                         <h5 className="text-sm md:text-base font-semibold text-gray-900 leading-tight text-start">{course.name}</h5>
                                         <span className="text-gray-400 hidden md:inline">|</span>
@@ -996,7 +997,9 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
                                           </span>
                                         </div>
                                       </div>
-                                      <div className="flex items-center gap-2">
+                                      
+                                      {/* Course Actions - Visible on all screens */}
+                                      <div className="flex items-center justify-end sm:justify-start gap-1 sm:gap-2 flex-wrap">
                                         <button
                                           onClick={() => {
                                             setSelectedClass(classItem);
@@ -1004,7 +1007,7 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
                                             setShowCourseEnrollModal(true);
                                           }}
                                           disabled={courseEnrollingStudents.has(course.id)}
-                                          className="text-green-600 hover:text-green-800 p-1 rounded hover:bg-green-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                          className="text-green-600 hover:text-green-800 p-2 rounded-lg hover:bg-green-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                           title={courseEnrollingStudents.has(course.id) ? "Enrolling..." : "Enroll Students in Course"}
                                         >
                                           {courseEnrollingStudents.has(course.id) ? (
@@ -1019,7 +1022,7 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
                                             setSelectedCourse(course);
                                             setShowCourseUnenrollModal(true);
                                           }}
-                                          className="text-red-600 hover:text-red-800 p-1 rounded hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                          className="text-red-600 hover:text-red-800 p-2 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                           title={courseUnenrollingStudents.has(course.id) ? "Unenrolling..." : "Unenroll Students from Course"}
                                           disabled={!course.enrolledStudents || course.enrolledStudents.length === 0 || courseUnenrollingStudents.has(course.id)}
                                         >
@@ -1036,7 +1039,7 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
                                             setShowEditCourseModal(true);
                                           }}
                                           disabled={updatingCourses.has(course.id)}
-                                          className="text-blue-600 hover:text-blue-800 p-1 rounded hover:bg-blue-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:text-gray-400"
+                                          className="text-blue-600 hover:text-blue-800 p-2 rounded-lg hover:bg-blue-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:text-gray-400"
                                           title={updatingCourses.has(course.id) ? "Course is being updated..." : "Edit Course"}
                                         >
                                           {updatingCourses.has(course.id) ? (
@@ -1048,7 +1051,7 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
                                         <button
                                           onClick={() => handleDeleteCourse(classItem.id, course.id)}
                                           disabled={deletingCourses.has(course.id)}
-                                          className="text-red-600 hover:text-red-800 p-1 rounded hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                          className="text-red-600 hover:text-red-800 p-2 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                           title="Delete Course"
                                         >
                                           {deletingCourses.has(course.id) ? (
@@ -1060,6 +1063,7 @@ const ClassManagement = ({ user, onOpenMaterials }) => {
                                       </div>
                                     </div>
                                   </div>
+                                  
 
                                   {/* Course Content */}
                                   <div className="space-y-4">
