@@ -272,7 +272,7 @@ const StudentClasses = ({ user, onOpenMaterials }) => {
                         className="inline-flex items-center gap-2 px-8 py-4 text-white bg-red-600 border-2 border-red-600 rounded-lg hover:bg-red-700 hover:border-red-700 transition-colors duration-200 font-bold text-lg shadow-lg"
                       >
                         <ExternalLink className="h-5 w-5" />
-                        🚨 OPEN REGISTRATION FORM (ONE TIME ONLY) 🚨
+                        🚨 OPEN TEST FORM (ONE TIME ONLY) 🚨
                       </a>
                       
                       <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3">
