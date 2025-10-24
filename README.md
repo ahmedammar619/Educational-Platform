@@ -1,5 +1,7 @@
 # Educational Platform - Comprehensive EdTech Solution
 
+> **⚠️ PUBLIC REPOSITORY NOTICE**: This is a public portfolio/demonstration project. All credentials in this repository are placeholders. Never commit real API keys, passwords, or secrets to version control. See [Security Best Practices](#security-best-practices) for details.
+
 A full-stack educational technology platform that enables seamless online learning with integrated payment processing, live streaming, and content management. Led as **Project Manager** with personal implementation of the complete **payment system** and core integrations.
 
 ## Overview
@@ -194,63 +196,68 @@ Educational-Platform/
 
 ### Environment Variables
 
+> **⚠️ SECURITY WARNING**: Never commit your `.env` files to version control. All credentials below are **examples only**. Replace them with your own API keys and secrets. Add `.env` to your `.gitignore` file.
+
 Create `.env` files in both `backend/` and `frontend/` directories:
 
 #### Backend `.env`
 ```env
-# Database
+# Database Configuration
 DB_HOST=localhost
 DB_PORT=5432
 DB_USERNAME=postgres
-DB_PASSWORD=your_password
+DB_PASSWORD=YOUR_DATABASE_PASSWORD_HERE
 DB_DATABASE=education_db
 
-# Application
+# Application Configuration
 PORT=3000
 NODE_ENV=development
 FRONTEND_URL=http://localhost:3001
 
-# JWT
-JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
+# JWT Configuration (⚠️ Use a strong random string in production)
+JWT_SECRET=REPLACE_WITH_YOUR_SECRET_KEY_MINIMUM_32_CHARACTERS
 JWT_EXPIRES_IN=24h
 
-# Stripe (Required for Payments)
-STRIPE_SECRET_KEY=sk_test_...
-STRIPE_PUBLISHABLE_KEY=pk_test_...
-STRIPE_WEBHOOK_SECRET=whsec_...
-STRIPE_MONTHLY_PRODUCT_ID=prod_...
-STRIPE_MONTHLY_PRICE_ID=price_...
+# Stripe Payment Configuration (⚠️ Get from https://dashboard.stripe.com/apikeys)
+STRIPE_SECRET_KEY=sk_test_YOUR_SECRET_KEY_HERE
+STRIPE_PUBLISHABLE_KEY=pk_test_YOUR_PUBLISHABLE_KEY_HERE
+STRIPE_WEBHOOK_SECRET=whsec_YOUR_WEBHOOK_SECRET_HERE
+STRIPE_MONTHLY_PRODUCT_ID=prod_YOUR_PRODUCT_ID_HERE
+STRIPE_MONTHLY_PRICE_ID=price_YOUR_PRICE_ID_HERE
 
-# Cloudflare R2 (Optional)
-R2_ACCOUNT_ID=your_account_id
-R2_ACCESS_KEY_ID=your_access_key
-R2_SECRET_ACCESS_KEY=your_secret_key
-R2_BUCKET_NAME=your_bucket_name
-R2_PUBLIC_URL=https://your-bucket.r2.dev
+# Cloudflare R2 Configuration (Optional - Get from Cloudflare dashboard)
+R2_ACCOUNT_ID=YOUR_R2_ACCOUNT_ID
+R2_ACCESS_KEY_ID=YOUR_R2_ACCESS_KEY
+R2_SECRET_ACCESS_KEY=YOUR_R2_SECRET_ACCESS_KEY
+R2_BUCKET_NAME=YOUR_BUCKET_NAME
+R2_PUBLIC_URL=https://YOUR-BUCKET-URL.r2.dev
 
-# Zoom API (Optional)
-ZOOM_ACCOUNT_ID=your_zoom_account_id
-ZOOM_CLIENT_ID=your_zoom_client_id
-ZOOM_CLIENT_SECRET=your_zoom_client_secret
+# Zoom API Configuration (Optional - Get from Zoom Marketplace)
+ZOOM_ACCOUNT_ID=YOUR_ZOOM_ACCOUNT_ID
+ZOOM_CLIENT_ID=YOUR_ZOOM_CLIENT_ID
+ZOOM_CLIENT_SECRET=YOUR_ZOOM_CLIENT_SECRET
 
-# YouTube API (Optional)
-YOUTUBE_API_KEY=your_youtube_api_key
-GOOGLE_CLIENT_ID=your_google_client_id
-GOOGLE_CLIENT_SECRET=your_google_client_secret
+# YouTube/Google API Configuration (Optional - Get from Google Cloud Console)
+YOUTUBE_API_KEY=YOUR_YOUTUBE_API_KEY
+GOOGLE_CLIENT_ID=YOUR_GOOGLE_CLIENT_ID
+GOOGLE_CLIENT_SECRET=YOUR_GOOGLE_CLIENT_SECRET
 GOOGLE_REDIRECT_URI=http://localhost:3000/auth/google/callback
 
-# Email (Optional)
-EMAIL_HOST=smtp.gmail.com
+# Email Configuration (Optional - Use your SMTP provider)
+EMAIL_HOST=smtp.example.com
 EMAIL_PORT=587
-EMAIL_USER=your_email@gmail.com
-EMAIL_PASSWORD=your_app_password
-EMAIL_FROM=noreply@yourplatform.com
+EMAIL_USER=YOUR_EMAIL_USERNAME
+EMAIL_PASSWORD=YOUR_EMAIL_PASSWORD
+EMAIL_FROM=noreply@example.com
 ```
 
 #### Frontend `.env`
 ```env
+# API Configuration
 VITE_API_URL=http://localhost:3000
-VITE_STRIPE_PUBLISHABLE_KEY=pk_test_...
+
+# Stripe Configuration (⚠️ Use only publishable key - safe for public)
+VITE_STRIPE_PUBLISHABLE_KEY=pk_test_YOUR_PUBLISHABLE_KEY_HERE
 ```
 
 ### Installation Steps
@@ -317,6 +324,54 @@ cp .env.example .env
 
 # Start development server
 npm run dev
+```
+
+---
+
+## Security Best Practices
+
+> **🔒 IMPORTANT**: This section is crucial for protecting your application and user data.
+
+### Credential Management
+- **Never commit credentials**: Ensure `.env` files are in `.gitignore`
+- **Use strong secrets**: Generate random strings (32+ characters) for JWT_SECRET
+- **Rotate API keys**: Regularly update and rotate all API credentials
+- **Separate environments**: Use different credentials for development, staging, and production
+
+### API Key Security
+- **Stripe**: Use test keys (`sk_test_*`) for development, live keys (`sk_live_*`) only in production
+- **Environment variables**: Store all secrets in environment variables, never hardcode
+- **Public vs Private**: Only use publishable keys in frontend (safe), keep secret keys server-side only
+- **Webhook signatures**: Always verify Stripe webhook signatures to prevent spoofing
+
+### Database Security
+- **Strong passwords**: Use complex passwords for database access
+- **SSL connections**: Enable SSL for database connections in production
+- **Limited access**: Use database users with minimal required privileges
+- **Regular backups**: Implement automated backup strategy
+
+### Application Security
+- **HTTPS only**: Always use SSL/TLS in production
+- **CORS configuration**: Whitelist only your frontend domain
+- **Rate limiting**: Implement rate limiting on all API endpoints
+- **Input validation**: Validate and sanitize all user inputs
+- **JWT expiration**: Set appropriate token expiration times
+
+### Before Committing to GitHub
+```bash
+# Verify .env files are not tracked
+git status
+
+# Check .gitignore includes .env files
+cat .gitignore | grep .env
+
+# Remove accidentally committed .env files (if any)
+git rm --cached .env backend/.env frontend/.env
+git commit -m "Remove sensitive files"
+
+# Scan for accidentally committed secrets (optional)
+# Install git-secrets: https://github.com/awslabs/git-secrets
+git secrets --scan
 ```
 
 ---
@@ -477,18 +532,24 @@ npm run test
 
 ### Production Checklist
 
+**Security & Configuration**:
 - [ ] Set `NODE_ENV=production`
-- [ ] Update `JWT_SECRET` with strong random value
-- [ ] Use production Stripe API keys
-- [ ] Configure production webhook endpoints
-- [ ] Set up SSL/TLS certificates
-- [ ] Configure CORS for production domain
-- [ ] Set up database backups
+- [ ] Generate new `JWT_SECRET` with strong random value (min 32 characters)
+- [ ] Use production Stripe API keys (never use test keys in production)
+- [ ] Verify `.env` files are in `.gitignore` and never committed
+- [ ] Configure production webhook endpoints with HTTPS
+- [ ] Set up SSL/TLS certificates (Let's Encrypt recommended)
+- [ ] Configure CORS for production domain only
+
+**Infrastructure**:
+- [ ] Set up database backups (automated daily backups recommended)
 - [ ] Enable database SSL connections
-- [ ] Configure email service (SMTP)
-- [ ] Set up monitoring and logging
-- [ ] Configure Cloudflare R2 with CDN
+- [ ] Configure email service with proper SMTP credentials
+- [ ] Set up monitoring and logging (Sentry, LogRocket, etc.)
+- [ ] Configure Cloudflare R2 with CDN for optimal performance
 - [ ] Set up environment-specific configurations
+- [ ] Enable rate limiting and DDoS protection
+- [ ] Review and rotate all API keys regularly
 
 ### Docker Production Deployment
 
@@ -558,9 +619,66 @@ psql -U postgres education_db < backup.sql
 
 ---
 
+## Getting Started Securely
+
+### Quick Setup for Development
+
+1. **Clone the repository**:
+   ```bash
+   git clone <your-repo-url>
+   cd Educational-Platform
+   ```
+
+2. **Set up environment variables**:
+   ```bash
+   # Backend
+   cp backend/.env.example backend/.env
+   # Edit backend/.env and replace ALL placeholder values
+
+   # Frontend
+   cp frontend/.env.example frontend/.env
+   # Edit frontend/.env and replace placeholder values
+   ```
+
+3. **Verify .gitignore**:
+   ```bash
+   # Make sure .env files are not tracked
+   git status
+   # You should NOT see .env files in the output
+   ```
+
+4. **Get your API credentials**:
+   - **Stripe**: [https://dashboard.stripe.com/apikeys](https://dashboard.stripe.com/apikeys)
+   - **Zoom**: [https://marketplace.zoom.us/](https://marketplace.zoom.us/)
+   - **Google/YouTube**: [https://console.cloud.google.com/](https://console.cloud.google.com/)
+   - **Cloudflare R2**: [https://dash.cloudflare.com/](https://dash.cloudflare.com/)
+
+5. **Start development**:
+   ```bash
+   # Using Docker (recommended)
+   docker-compose up -d
+
+   # Or manually
+   cd backend && npm install && npm run start:dev
+   cd frontend && npm install && npm run dev
+   ```
+
+### ⚠️ Before Deploying to Production
+
+- [ ] Replace ALL placeholder credentials with production values
+- [ ] Use production API keys (not test keys)
+- [ ] Generate strong, unique JWT_SECRET
+- [ ] Enable HTTPS with valid SSL certificates
+- [ ] Set up monitoring and error tracking
+- [ ] Configure automated database backups
+- [ ] Review all [Security Best Practices](#security-best-practices)
+- [ ] Complete the [Production Checklist](#production-checklist)
+
+---
+
 ## Contributing
 
-This project was developed as a comprehensive EdTech solution. For questions or collaboration opportunities, please reach out.
+This project is open for educational purposes and portfolio demonstration. Feel free to fork and modify for your own learning.
 
 ---
 
@@ -581,13 +699,13 @@ MIT License - See LICENSE file for details
 
 ---
 
-## Contact & Support
-
-For technical support or business inquiries, please contact the development team.
+## Project Information
 
 **Project Status**: Production-Ready ✅
 
-**Current Branch**: stripe (Payment System Implementation)
+**License**: MIT - Free to use and modify
+
+**Note**: This is a demonstration project showcasing full-stack development with payment integration, live streaming, and cloud services
 
 ---
 
