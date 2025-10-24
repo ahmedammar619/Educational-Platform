@@ -1,1 +1,0 @@
-Test materials file content for CORS testing

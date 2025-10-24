@@ -40,3 +40,5 @@ logs/
 *.sqlite
 
 Dockerfile.dev
+.claude
+backup
