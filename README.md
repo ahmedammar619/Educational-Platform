@@ -4,7 +4,7 @@ A full-stack educational technology platform that enables seamless online learni
 
 ## Overview
 
-This platform serves as a comprehensive solution for educational institutions, featuring role-based access for parents, students, teachers, and administrators. The system handles enrollment management, live streaming sessions, automated payment processing, and real-time analytics—all without requiring direct Stripe dashboard interaction.
+This platform serves as a comprehensive solution for educational institutions, featuring role-based access for parents, students, teachers, and administrators. The system handles enrollment management, live streaming sessions, automated payment processing, and real-time analytics—all without requiring direct Stripe dashboard interaction. 
 
 ### Key Highlights
 
